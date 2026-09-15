@@ -180,51 +180,63 @@ INSTRUCTIONS:
     def _intelligent_fallback_response(cls, message, app_type='customer', user=None):
         msg = message.strip().lower()
 
-        # Handle Out-of-Scope / General questions
+        # Greetings & identity
+        if msg in ['hi', 'hello', 'hey', 'namaste', 'halo', 'hola', 'good morning', 'good evening']:
+            if app_type == 'franchise':
+                return "Namaste Franchise Partner! 👋\nI am your Pure Water AI Operations Assistant. How can I assist you with orders, dispatch, margins, or franchise operations today?"
+            return "Namaste! 🙏\nWelcome to Shivnath Pure Water. I can help you with product pricing, placing orders, delivery status, franchise applications, and quality details. How can I help you today?"
+
+        if 'who are you' in msg or 'what can you do' in msg or 'your name' in msg:
+            return "I am the Shivnath Pure Water AI Assistant 💧.\nI can answer questions about:\n• Our packaged drinking water and natural mineral water products\n• Current bottle sizes (250ml, 500ml, 1L, 2L, 5L, 20L)\n• Pricing, discounts, and checkout methods (COD, UPI)\n• Home & office doorstep delivery in Raipur\n• Franchise partnership terms, 12% margins & 5 KM territory protection\n• General technical, science, and educational queries."
+
+        # Technical / General Knowledge
         if 'what is python' in msg or 'python' == msg:
-            return "Python is a popular, high-level, general-purpose programming language known for its clear syntax, versatility, and readability. It is widely used in web development (like our Django backend!), automation, artificial intelligence, and data science."
+            return "Python is a popular, high-level, interpreted programming language known for its simplicity and readability. It is used extensively in backend development (powering our Django server!), data analysis, machine learning, and automation."
 
         if 'what is java' in msg:
-            return "Java is a class-based, object-oriented programming language designed to have as few implementation dependencies as possible, following the 'Write Once, Run Anywhere' (WORA) philosophy."
+            return "Java is a class-based, object-oriented programming language designed for platform independence with the 'Write Once, Run Anywhere' (WORA) capability."
 
-        if 'what is flutter' in msg or 'flutter' in msg:
-            return "Flutter is Google's open-source UI software development kit used to build natively compiled applications for mobile (Android & iOS), web, and desktop from a single codebase using the Dart language."
+        if 'what is flutter' in msg or 'what is dart' in msg or 'flutter' in msg:
+            return "Flutter is Google's open-source UI software toolkit for building natively compiled applications for mobile, web, and desktop from a single Dart codebase."
 
-        if 'what is mineral water' in msg or 'drinking water' in msg and ('benefit' in msg or 'why' in msg):
-            return "Natural mineral water contains essential dissolved minerals such as calcium, magnesium, potassium, and bicarbonates that aid hydration, improve digestion, and support overall health."
+        # Payment Methods & COD
+        if any(w in msg for w in ['payment', 'cod', 'cash on delivery', 'upi', 'gpay', 'phonepe', 'paytm', 'pay online', 'credit card', 'debit card']):
+            return "💳 *Accepted Payment Methods*:\n• **Cash on Delivery (COD)**: Pay cash when your water is delivered at your doorstep.\n• **UPI / QR Code**: Pay via Google Pay, PhonePe, or Paytm upon delivery.\n• **Franchise Billing**: Direct bank transfer & credit terms as per agreement."
 
-        # Franchise-specific questions
-        if 'how' in msg and 'manage' in msg and ('franchise' in msg or 'profile' in msg):
-            return "To manage your franchise profile:\n1. Open the Franchise Portal sidebar or top profile icon.\n2. You can view your Franchise ID, City, Territory, GST & PAN records.\n3. Keep your documents and contact information updated for smooth plant deliveries."
-
-        if 'order' in msg and ('place' in msg or 'how' in msg or 'new' in msg):
-            if app_type == 'franchise':
-                return "📦 *Placing Franchise Orders*:\n1. Go to the **Orders** tab in your Franchise portal.\n2. Tap **+ New Order**.\n3. Select product (e.g. 20L Jar, 500ml pack), quantity, and delivery notes.\n4. Submit order — it immediately moves to **Plant Approval** for dispatch preparation."
-            else:
-                return "🛒 *How to Place an Order*:\n1. Browse products on the Customer Home or Products screen.\n2. Tap **Add to Cart** on your desired water cans or bottle packs.\n3. Open your Cart, review the delivery address, and proceed to Checkout."
-
-        if 'franchise' in msg and ('workflow' in msg or 'process' in msg or 'approval' in msg or 'work' in msg):
-            return "🏢 *Shivnath Franchise Workflow*:\n1. **Registration**: Submit your owner & business details.\n2. **Admin Verification**: Admin reviews GST, PAN & assigned territory.\n3. **Approval**: Upon admin approval, your portal unlocks completely.\n4. **Ordering**: Order stock directly from the central plant with 12% commission margins."
-
-        if 'price' in msg or 'cost' in msg or 'product' in msg or 'rate' in msg:
+        # Pricing, Rates & Cost
+        if any(w in msg for w in ['price', 'cost', 'rate', 'how much', 'mrp', 'rupees', 'charges', 'pricing']):
             try:
                 products = Product.objects.filter(status__iexact='Active')
                 if products.exists():
-                    lines = [f"• {p.name} ({p.size}): ₹{p.price}" for p in products]
-                    return "💧 *Current Product Pricing*:\n" + "\n".join(lines) + "\n\nAll products undergo multi-stage RO, UV, and ozonization treatment."
+                    lines = [f"• **{p.name}** ({p.size}): ₹{p.price}" for p in products]
+                    return "💧 *Live Product Pricing*:\n" + "\n".join(lines) + "\n\n*Free delivery on regular and subscription orders in Raipur!*"
             except Exception:
                 pass
-            return "💧 *Product Catalog*:\n• Packaged Drinking Water 20L Jar: ₹40.00\n• Natural Mineral Water 500ml (Pack of 24): ₹240.00\n• Pure Water 1 Litre Bottle: ₹20.00"
+            return "💧 *Current Pricing*:\n• **Packaged Drinking Water 20L Jar**: ₹40.00\n• **Natural Mineral Water 500ml (Pack of 24)**: ₹240.00\n• **Pure Drinking Water 1L Bottle**: ₹20.00"
 
-        if 'contact' in msg or 'support' in msg or 'help' in msg or 'phone' in msg or 'email' in msg:
-            return "📞 *Shivnath Support & Headquarters*:\n• **Phone / WhatsApp**: +91 98062 47194\n• **Email**: info@pathideainfotech.com\n• **Office**: Farishta Complex, Raipur, Chhattisgarh – 492001\n\nOur team is available 9:00 AM – 7:00 PM (Mon-Sat)."
+        # Water Purity, Quality, RO & TDS
+        if any(w in msg for w in ['quality', 'tds', 'purif', 'ro', 'uv', 'clean', 'safe', 'mineral', 'is it pure', 'ph', 'certification', 'fssai']):
+            return "✨ *Shivnath Purity Standards*:\n• **Multi-Stage Filtration**: Sand Filtration -> Activated Carbon -> Reverse Osmosis (RO) -> Ultra Violet (UV) Treatment -> Ozonization.\n• **Optimal TDS**: Balanced between 100 - 150 ppm with essential calcium and magnesium electrolytes.\n• **Certifications**: BIS & FSSAI certified bottling plant ensuring 100% microbiological safety."
 
-        if 'status' in msg and ('order' in msg or 'request' in msg):
+        # Product Sizes & Catalog
+        if any(w in msg for w in ['size', 'bottle', 'jar', 'can size', 'catalog', 'volume', '20l', '500ml', '1l', '2l', '5l', 'litres', 'water bottle', 'products available']):
+            return "💧 *Shivnath Water Product Catalog & Sizes*:\n• **20 Litre Jar**: ₹40 (Standard home/office dispenser jar)\n• **500ml Pack of 24**: ₹240 (Natural mineral water bottles)\n• **1 Litre Bottle**: ₹20 (Individual travel bottle)\n• **250ml Cup / Bottle**: Available for events and bulk catering\n• **5 Litre Can**: Family pack with ergonomic handle\n\nAll bottles are manufactured using food-grade BPA-free recyclable PET."
+
+        # Franchise Information, Margins & Territory
+        if 'franchise' in msg or 'dealer' in msg or 'distributor' in msg or 'partner' in msg or 'margin' in msg or 'investment' in msg or 'commission' in msg:
+            return "🏢 *Shivnath Franchise Opportunity*:\n• **Exclusive Territory**: Guaranteed 5 KM radius exclusive sales zone.\n• **Profit Margins**: Attractive 12% operational commission on all plant deliveries.\n• **Investment Range**: ₹3 Lakh – ₹10 Lakh (includes refundable security deposit & initial stock).\n• **Company Support**: Branding, CRM software, marketing collateral, and guaranteed supply.\n• **How to Apply**: Tap 'Apply for Franchise (Qualify Now)' in chat or fill the registration form on login."
+
+        # Order Tracking & Status
+        if 'track' in msg or 'status' in msg or 'where is my order' in msg:
             if user and user.is_authenticated:
                 recent_order = Order.objects.filter(created_by=user).order_by('-created_at').first()
                 if recent_order:
-                    return f"📦 *Your Latest Order*: #{recent_order.order_code}\n• Product: {recent_order.product_name} (Qty: {recent_order.quantity})\n• Status: *{recent_order.status}*\n• Total: ₹{recent_order.total_amount}"
-            return "You can check the live tracking status of all your orders directly under the **Orders** tab."
+                    return f"📦 *Your Latest Order*: #{recent_order.order_code}\n• Product: {recent_order.product_name} (Qty: {recent_order.quantity})\n• Status: *{recent_order.status}*\n• Total Amount: ₹{recent_order.total_amount}"
+            return "📍 You can track live dispatch and delivery stages of any order anytime under the **My Orders** screen."
 
-        # Generic polite fallback
-        return f"Namaste! I am your Pure Water AI Assistant. I can help you with product details, pricing, order tracking, franchise registration, and business inquiries. Feel free to ask any question!"
+        # Contact & Office Support
+        if 'contact' in msg or 'support' in msg or 'phone' in msg or 'email' in msg or 'office' in msg or 'call' in msg or 'owner' in msg or 'address' in msg:
+            return "📞 *Shivnath Agency Contact & Support*:\n• **Customer Care / WhatsApp**: +91 98062 47194\n• **Email**: info@pathideainfotech.com / support@shivnathagency.com\n• **Head Office**: H Block, 2nd Floor, Farishta Complex, Raipur, Chhattisgarh – 492001\n• **Hours**: 9:00 AM – 7:00 PM (Mon-Sat)"
+
+        # General / Catch-all response
+        return "I am here to assist you with Shivnath Pure Water! 💧\nYou can ask about our 20L jars, 500ml packs, current prices, delivery in Raipur, order placement, franchise applications, or any technical question."

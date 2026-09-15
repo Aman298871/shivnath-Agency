@@ -1,0 +1,80 @@
+from django.db import models
+from django.contrib.auth.models import User
+
+
+class Order(models.Model):
+
+    STATUS_CHOICES = [
+        ('order_placement', 'Order Placement'),
+        ('plant_approval', 'Plant Approval'),
+        ('invoice_generated', 'Invoice Generated'),
+        ('dispatch', 'Dispatch'),
+        ('delivered', 'Delivered'),
+        ('payment_collection', 'Payment Collection'),
+    ]
+
+    PAYMENT_CHOICES = [
+        ('pending', 'Pending'),
+        ('partial', 'Partial'),
+        ('paid', 'Paid'),
+    ]
+
+    franchise_name = models.CharField(
+        max_length=255,
+    )
+
+    city = models.CharField(
+        max_length=100,
+    )
+
+    order_date = models.DateField(
+        auto_now_add=True,
+    )
+
+    items_count = models.PositiveIntegerField(
+        default=0,
+    )
+
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default='order_placement',
+    )
+
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_CHOICES,
+        default='pending',
+    )
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_orders',
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'ORD-{self.id:04d} - {self.franchise_name}'
+
+    @property
+    def order_code(self):
+        return f'ORD-{1000 + self.id}'

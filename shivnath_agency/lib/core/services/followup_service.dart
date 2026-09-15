@@ -1,0 +1,224 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+import '../constants/app_constants.dart';
+import 'session_service.dart';
+
+class FollowupService {
+  static String get baseUrl => AppConstants.apiBaseUrl;
+
+  final SessionService _sessionService =
+      SessionService();
+
+
+  Future<Map<String, String>> _headers() async {
+    final token =
+        await _sessionService.getAccessToken();
+
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty)
+        'Authorization': 'Bearer $token',
+    };
+  }
+
+  // ===========================================
+  // GET FOLLOWUPS
+  // ===========================================
+
+  Future<Map<String, dynamic>> getFollowups() async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          '$baseUrl/api/followups/',
+        ),
+        headers: await _headers(),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message":
+            "Unable to connect : $e",
+      };
+    }
+  }
+
+  // ===========================================
+  // GET STATS
+  // ===========================================
+
+  Future<Map<String, dynamic>> getStats() async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          '$baseUrl/api/followups/stats/',
+        ),
+        headers: await _headers(),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message":
+            "Unable to connect : $e",
+      };
+    }
+  }
+
+  // ===========================================
+  // CREATE
+  // ===========================================
+
+  Future<Map<String, dynamic>> createFollowup({
+    required int leadId,
+    required DateTime dateTime,
+    required String type,
+    required String note,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+          '$baseUrl/api/followups/',
+        ),
+        headers: await _headers(),
+        body: jsonEncode({
+          "lead_id": leadId,
+          "followup_datetime":
+              dateTime.toIso8601String(),
+          "followup_type": type,
+          "note": note,
+        }),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message":
+            "Unable to connect : $e",
+      };
+    }
+  }
+
+  // ===========================================
+  // UPDATE / RESCHEDULE
+  // ===========================================
+
+  Future<Map<String, dynamic>> updateFollowup({
+    required int id,
+    required DateTime dateTime,
+    required String type,
+    required String note,
+  }) async {
+    try {
+      final response = await http.patch(
+        Uri.parse(
+          '$baseUrl/api/followups/$id/',
+        ),
+        headers: await _headers(),
+        body: jsonEncode({
+          "followup_datetime":
+              dateTime.toIso8601String(),
+          "followup_type": type,
+          "note": note,
+        }),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message":
+            "Unable to connect : $e",
+      };
+    }
+  }
+
+  // ===========================================
+  // COMPLETE
+  // ===========================================
+
+  Future<Map<String, dynamic>>
+      completeFollowup(int id) async {
+    try {
+      final response = await http.patch(
+        Uri.parse(
+          '$baseUrl/api/followups/$id/complete/',
+        ),
+        headers: await _headers(),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message":
+            "Unable to connect : $e",
+      };
+    }
+  }
+
+  // ===========================================
+  // DELETE
+  // ===========================================
+
+  Future<Map<String, dynamic>>
+      deleteFollowup(int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse(
+          '$baseUrl/api/followups/$id/',
+        ),
+        headers: await _headers(),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message":
+            "Unable to connect : $e",
+      };
+    }
+  }
+
+  // ===========================================
+  // RESPONSE
+  // ===========================================
+
+  Map<String, dynamic> _decodeResponse(
+    http.Response response,
+  ) {
+    dynamic decoded;
+
+    try {
+      decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : {};
+    } catch (_) {
+      decoded = {};
+    }
+
+    if (response.statusCode >= 200 &&
+        response.statusCode < 300) {
+      return {
+        "success": true,
+        "data": decoded,
+      };
+    }
+
+    return {
+      "success": false,
+      "statusCode": response.statusCode,
+      "message":
+          decoded["message"] ??
+              decoded["detail"] ??
+              "Something went wrong.",
+      "data": decoded,
+    };
+  }
+}

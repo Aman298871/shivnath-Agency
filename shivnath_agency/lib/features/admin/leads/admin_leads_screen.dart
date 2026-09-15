@@ -1,0 +1,3927 @@
+import 'package:flutter/material.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/services/lead_service.dart';
+import '../../../core/services/whatsapp_service.dart';
+class AdminLeadsScreen extends StatefulWidget {
+  const AdminLeadsScreen({super.key});
+
+  @override
+  State<AdminLeadsScreen> createState() =>
+      _AdminLeadsScreenState();
+}
+
+class _AdminLeadsScreenState
+    extends State<AdminLeadsScreen> {
+  final List<Map<String, dynamic>> leads = [];
+
+final LeadService _leadService =
+    LeadService();
+
+bool _isLoading = true;
+@override
+void initState() {
+  super.initState();
+
+  _loadLeads();
+}
+
+  String searchText = '';
+  String selectedStatus = 'All';
+  String selectedScore = 'All';
+
+  List<Map<String, dynamic>> get filteredLeads {
+    final search =
+        searchText.trim().toLowerCase();
+
+    return leads.where((lead) {
+      final name =
+          (lead['name'] ?? '')
+              .toString()
+              .toLowerCase();
+
+      final phone =
+          (lead['phone'] ?? '')
+              .toString()
+              .toLowerCase();
+
+      final city =
+          (lead['city'] ?? '')
+              .toString()
+              .toLowerCase();
+
+      final status =
+          (lead['status'] ?? '')
+              .toString();
+
+      final score =
+          (lead['score'] ?? '')
+              .toString();
+
+      final matchesSearch =
+          search.isEmpty ||
+          name.contains(search) ||
+          phone.contains(search) ||
+          city.contains(search);
+
+      final matchesStatus =
+          selectedStatus == 'All' ||
+          status == selectedStatus;
+
+      final matchesScore =
+          selectedScore == 'All' ||
+          score == selectedScore;
+
+      return matchesSearch &&
+          matchesStatus &&
+          matchesScore;
+    }).toList();
+  }
+
+  int get hotLeads {
+    return leads
+        .where(
+          (lead) =>
+              lead['score'] == 'Hot',
+        )
+        .length;
+  }
+
+  int get interestedLeads {
+    return leads
+        .where(
+          (lead) =>
+              lead['status'] ==
+              'Interested',
+        )
+        .length;
+  }
+
+  int get siteVisits {
+    return leads
+        .where(
+          (lead) =>
+              lead['status'] ==
+              'Site Visit Scheduled',
+        )
+        .length;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (
+        context,
+        constraints,
+      ) {
+        final desktop =
+            constraints.maxWidth >= 900;
+
+        return Container(
+          color:
+              const Color(0xFFF5F7FB),
+          child:
+              SingleChildScrollView(
+            padding: EdgeInsets.all(
+              desktop ? 28 : 16,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(
+                  maxWidth: 1350,
+                ),
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+                  children: [
+                    _header(desktop),
+
+                    const SizedBox(
+                      height: 22,
+                    ),
+
+                    _stats(desktop),
+
+                    const SizedBox(
+                      height: 20,
+                    ),
+
+                    _filters(desktop),
+
+                    const SizedBox(
+                      height: 16,
+                    ),
+
+                    if (_isLoading)
+  const Padding(
+    padding: EdgeInsets.symmetric(
+      vertical: 60,
+    ),
+    child: Center(
+      child: CircularProgressIndicator(),
+    ),
+  )
+else if (desktop)
+  _desktopTable()
+else
+  _mobileList(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+Future<void> _loadLeads() async {
+  if (mounted) {
+    setState(() {
+      _isLoading = true;
+    });
+  }
+
+  final result =
+      await _leadService.getLeads();
+
+  if (!mounted) {
+    return;
+  }
+
+  if (result['success'] == true) {
+    final response =
+        result['data'];
+
+    final List<dynamic> items =
+        response['leads'] ?? [];
+
+    setState(() {
+      leads.clear();
+
+      leads.addAll(
+        items.map(
+          (item) =>
+              _leadService.mapLead(
+            Map<String, dynamic>.from(
+              item,
+            ),
+          ),
+        ),
+      );
+
+      _isLoading = false;
+    });
+  } else {
+    setState(() {
+      _isLoading = false;
+    });
+
+    AppToast.error(
+      context,
+      result['message'] ??
+          'Failed to load leads.',
+      title: 'Unable to Load',
+    );
+  }
+}
+  // =========================================================
+  // HEADER
+  // =========================================================
+
+  Widget _header(
+    bool desktop,
+  ) {
+    return Row(
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Leads',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight:
+                      FontWeight.w800,
+                  color:
+                      Color(0xFF111827),
+                ),
+              ),
+              SizedBox(
+                height: 5,
+              ),
+              Text(
+                'Manage franchise enquiries and sales pipeline',
+                style: TextStyle(
+                  color:
+                      Color(0xFF64748B),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        if (desktop)
+          SizedBox(
+            width: 135,
+            height: 44,
+            child:
+                ElevatedButton.icon(
+              onPressed: ()  {
+                _openLeadForm();
+              },
+              icon: const Icon(
+                Icons.add_rounded,
+                size: 18,
+              ),
+              label:
+                  const Text(
+                'Add Lead',
+              ),
+              style:
+                  ElevatedButton
+                      .styleFrom(
+                minimumSize:
+                    const Size(
+                  0,
+                  44,
+                ),
+                maximumSize:
+                    const Size(
+                  135,
+                  44,
+                ),
+                backgroundColor:
+                    const Color(
+                  0xFF0284C7,
+                ),
+                foregroundColor:
+                    Colors.white,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // =========================================================
+  // STATS
+  // =========================================================
+
+  Widget _stats(
+    bool desktop,
+  ) {
+    final items = [
+      {
+        'title': 'Total Leads',
+        'value': '${leads.length}',
+      },
+      {
+        'title': 'Hot Leads',
+        'value': '$hotLeads',
+      },
+      {
+        'title': 'Interested',
+        'value': '$interestedLeads',
+      },
+      {
+        'title': 'Site Visits',
+        'value': '$siteVisits',
+      },
+    ];
+
+    if (desktop) {
+      return Row(
+        children:
+            List.generate(
+          items.length,
+          (index) {
+            return Expanded(
+              child: Padding(
+                padding:
+                    EdgeInsets.only(
+                  right:
+                      index ==
+                              items.length -
+                                  1
+                          ? 0
+                          : 14,
+                ),
+                child:
+                    _LeadStatCard(
+                  title:
+                      items[index]
+                          ['title']!,
+                  value:
+                      items[index]
+                          ['value']!,
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics:
+          const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      gridDelegate:
+          const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 1.25,
+      ),
+      itemBuilder: (
+        context,
+        index,
+      ) {
+        return _LeadStatCard(
+          title:
+              items[index]['title']!,
+          value:
+              items[index]['value']!,
+        );
+      },
+    );
+  }
+
+  // =========================================================
+  // FILTERS
+  // =========================================================
+
+  Widget _filters(
+    bool desktop,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color:
+              const Color(
+            0xFFE5E7EB,
+          ),
+        ),
+      ),
+      child: desktop
+          ? Row(
+              children: [
+                Expanded(
+                  child:
+                      _searchField(),
+                ),
+
+                const SizedBox(
+                  width: 14,
+                ),
+
+                const Icon(
+                  Icons
+                      .filter_alt_outlined,
+                  color:
+                      Color(
+                    0xFF64748B,
+                  ),
+                ),
+
+                const SizedBox(
+                  width: 10,
+                ),
+
+                SizedBox(
+                  width: 210,
+                  child:
+                      _statusDropdown(),
+                ),
+
+                const SizedBox(
+                  width: 10,
+                ),
+
+                SizedBox(
+                  width: 140,
+                  child:
+                      _scoreDropdown(),
+                ),
+              ],
+            )
+          : Column(
+              children: [
+                _searchField(),
+
+                const SizedBox(
+                  height: 12,
+                ),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child:
+                          _statusDropdown(),
+                    ),
+                    const SizedBox(
+                      width: 10,
+                    ),
+                    Expanded(
+                      child:
+                          _scoreDropdown(),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(
+                  height: 12,
+                ),
+
+                SizedBox(
+                  width:
+                      double.infinity,
+                  height: 44,
+                  child:
+                      ElevatedButton.icon(
+                    onPressed: () {
+                      _openLeadForm();
+                    },
+                    icon:
+                        const Icon(
+                      Icons.add_rounded,
+                    ),
+                    label:
+                        const Text(
+                      'Add Lead',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _searchField() {
+    return SizedBox(
+      height: 44,
+      child: TextField(
+        onChanged: (value) {
+          setState(() {
+            searchText = value;
+          });
+        },
+        decoration:
+            InputDecoration(
+          hintText:
+              'Search name, phone or city...',
+          prefixIcon:
+              const Icon(
+            Icons.search_rounded,
+          ),
+          filled: true,
+          fillColor:
+              const Color(
+            0xFFF8FAFC,
+          ),
+          contentPadding:
+              EdgeInsets.zero,
+          enabledBorder:
+              OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(
+              10,
+            ),
+            borderSide:
+                const BorderSide(
+              color:
+                  Color(
+                0xFFE2E8F0,
+              ),
+            ),
+          ),
+          focusedBorder:
+              OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(
+              10,
+            ),
+            borderSide:
+                const BorderSide(
+              color:
+                  Color(
+                0xFF0284C7,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusDropdown() {
+    return DropdownButtonFormField<
+        String>(
+      value: selectedStatus,
+      isExpanded: true,
+      decoration:
+          const InputDecoration(
+        contentPadding:
+            EdgeInsets.symmetric(
+          horizontal: 12,
+        ),
+      ),
+      items: const [
+        DropdownMenuItem(
+          value: 'All',
+          child:
+              Text('All Status'),
+        ),
+        DropdownMenuItem(
+          value: 'New Lead',
+          child: Text('New Lead'),
+        ),
+        DropdownMenuItem(
+          value: 'Contacted',
+          child: Text('Contacted'),
+        ),
+        DropdownMenuItem(
+          value: 'Follow-up 1',
+          child:
+              Text('Follow-up 1'),
+        ),
+        DropdownMenuItem(
+          value: 'Follow-up 2',
+          child:
+              Text('Follow-up 2'),
+        ),
+        DropdownMenuItem(
+          value: 'Interested',
+          child:
+              Text('Interested'),
+        ),
+        DropdownMenuItem(
+          value:
+              'Site Visit Scheduled',
+          child: Text(
+            'Site Visit Scheduled',
+          ),
+        ),
+        DropdownMenuItem(
+          value:
+              'Agreement Pending',
+          child: Text(
+            'Agreement Pending',
+          ),
+        ),
+        DropdownMenuItem(
+          value:
+              'Franchise Confirmed',
+          child: Text(
+            'Franchise Confirmed',
+          ),
+        ),
+        DropdownMenuItem(
+          value: 'Lost',
+          child: Text('Lost'),
+        ),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+
+        setState(() {
+          selectedStatus =
+              value;
+        });
+      },
+    );
+  }
+
+  Widget _scoreDropdown() {
+    return DropdownButtonFormField<
+        String>(
+      value: selectedScore,
+      isExpanded: true,
+      decoration:
+          const InputDecoration(
+        contentPadding:
+            EdgeInsets.symmetric(
+          horizontal: 12,
+        ),
+      ),
+      items: const [
+        DropdownMenuItem(
+          value: 'All',
+          child:
+              Text('All Score'),
+        ),
+        DropdownMenuItem(
+          value: 'Hot',
+          child: Text('Hot'),
+        ),
+        DropdownMenuItem(
+          value: 'Warm',
+          child: Text('Warm'),
+        ),
+        DropdownMenuItem(
+          value: 'Cold',
+          child: Text('Cold'),
+        ),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+
+        setState(() {
+          selectedScore =
+              value;
+        });
+      },
+    );
+  }
+
+  // =========================================================
+  // DESKTOP TABLE
+  // =========================================================
+
+  Widget _desktopTable() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color:
+              const Color(
+            0xFFE5E7EB,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          _tableHeader(),
+
+          if (filteredLeads.isEmpty)
+            const Padding(
+              padding:
+                  EdgeInsets.symmetric(
+                vertical: 55,
+              ),
+              child: Text(
+                'No leads found.',
+                style: TextStyle(
+                  color:
+                      Color(
+                    0xFF64748B,
+                  ),
+                  fontWeight:
+                      FontWeight.w600,
+                ),
+              ),
+            )
+          else
+            ...filteredLeads.map(
+              _tableRow,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableHeader() {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
+      decoration:
+          const BoxDecoration(
+        color:
+            Color(
+          0xFFF8FAFC,
+        ),
+        borderRadius:
+            BorderRadius.only(
+          topLeft:
+              Radius.circular(14),
+          topRight:
+              Radius.circular(14),
+        ),
+        border: Border(
+          bottom: BorderSide(
+            color:
+                Color(
+              0xFFE5E7EB,
+            ),
+          ),
+        ),
+      ),
+      child: const Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              'LEAD',
+              style:
+                  _leadHeaderStyle,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'LOCATION',
+              style:
+                  _leadHeaderStyle,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'BUDGET',
+              style:
+                  _leadHeaderStyle,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'SCORE',
+              style:
+                  _leadHeaderStyle,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'STATUS',
+              style:
+                  _leadHeaderStyle,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'EXECUTIVE',
+              style:
+                  _leadHeaderStyle,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'NEXT FOLLOW-UP',
+              style:
+                  _leadHeaderStyle,
+            ),
+          ),
+          SizedBox(
+            width: 170,
+            child: Text(
+              'ACTIONS',
+              style:
+                  _leadHeaderStyle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableRow(
+    Map<String, dynamic> lead,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
+      decoration:
+          const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color:
+                Color(
+              0xFFF1F5F9,
+            ),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Row(
+              children: [
+                _avatar(
+                  '${lead['name']}',
+                ),
+                const SizedBox(
+                  width: 10,
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment
+                            .start,
+                    children: [
+                      Text(
+                        '${lead['name']}',
+                        overflow:
+                            TextOverflow
+                                .ellipsis,
+                        style:
+                            const TextStyle(
+                          fontSize: 11,
+                          fontWeight:
+                              FontWeight
+                                  .w700,
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 3,
+                      ),
+                      Text(
+                        '${lead['phone']}',
+                        style:
+                            const TextStyle(
+                          fontSize: 9,
+                          color:
+                              Color(
+                            0xFF94A3B8,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${lead['city']}',
+                  style:
+                      const TextStyle(
+                    fontSize: 10,
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '${lead['district']}',
+                  style:
+                      const TextStyle(
+                    fontSize: 9,
+                    color:
+                        Color(
+                      0xFF94A3B8,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: Text(
+              '₹${lead['budget']}',
+              style:
+                  const TextStyle(
+                fontSize: 10,
+              ),
+            ),
+          ),
+
+          Expanded(
+            child: Align(
+              alignment:
+                  Alignment.centerLeft,
+              child: _scoreBadge(
+                '${lead['score']}',
+              ),
+            ),
+          ),
+
+          Expanded(
+            flex: 2,
+            child: Align(
+              alignment:
+                  Alignment.centerLeft,
+              child: _statusBadge(
+                '${lead['status']}',
+              ),
+            ),
+          ),
+
+          Expanded(
+            flex: 2,
+            child: Text(
+              '${lead['executive'] ?? '-'}',
+              style:
+                  const TextStyle(
+                fontSize: 10,
+              ),
+            ),
+          ),
+
+          Expanded(
+            flex: 2,
+            child: Text(
+              '${lead['followup'] ?? '-'}',
+              style:
+                  const TextStyle(
+                fontSize: 10,
+              ),
+            ),
+          ),
+
+          SizedBox(
+            width: 170,
+            child: Row(
+              children: [
+                _actionButton(
+                  icon:
+                      Icons.call_outlined,
+                  tooltip: 'Call',
+                  onTap: () {
+                    AppToast.info(
+                      context,
+                      'Calling ${lead['phone']}...',
+                      title: 'Call',
+                    );
+                  },
+                ),
+                _actionButton(
+                  icon:
+                      Icons.chat_outlined,
+                  tooltip: 'WhatsApp',
+                  onTap: () {
+                    AppToast.info(
+                      context,
+                      'Opening WhatsApp for ${lead['phone']}.',
+                      title: 'WhatsApp',
+                    );
+                  },
+                ),
+                _actionButton(
+                  icon:
+                      Icons.visibility_outlined,
+                  tooltip: 'View',
+                  onTap: () {
+                    _viewLead(lead);
+                  },
+                ),
+                _actionButton(
+                  icon:
+                      Icons.edit_outlined,
+                  tooltip: 'Edit',
+                  onTap: () {
+                    _openLeadForm(
+                      lead: lead,
+                    );
+                  },
+                ),
+                _actionButton(
+                  icon:
+                      Icons.delete_outline,
+                  tooltip: 'Delete',
+                  danger: true,
+                  onTap: () {
+                    _deleteLead(lead);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =========================================================
+  // MOBILE
+  // =========================================================
+
+  Widget _mobileList() {
+    if (filteredLeads.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding:
+            const EdgeInsets.all(35),
+        alignment:
+            Alignment.center,
+        child: const Text(
+          'No leads found.',
+        ),
+      );
+    }
+
+    return Column(
+      children:
+          filteredLeads.map(
+        (lead) {
+          return Container(
+            width: double.infinity,
+            margin:
+                const EdgeInsets.only(
+              bottom: 12,
+            ),
+            padding:
+                const EdgeInsets.all(
+              15,
+            ),
+            decoration:
+                BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  BorderRadius.circular(
+                14,
+              ),
+              border: Border.all(
+                color:
+                    const Color(
+                  0xFFE5E7EB,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment
+                      .start,
+              children: [
+                Row(
+                  children: [
+                    _avatar(
+                      '${lead['name']}',
+                    ),
+                    const SizedBox(
+                      width: 10,
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment
+                                .start,
+                        children: [
+                          Text(
+                            '${lead['name']}',
+                            style:
+                                const TextStyle(
+                              fontWeight:
+                                  FontWeight
+                                      .w700,
+                            ),
+                          ),
+                          Text(
+                            '${lead['phone']}',
+                            style:
+                                const TextStyle(
+                              fontSize: 11,
+                              color:
+                                  Color(
+                                0xFF64748B,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _scoreBadge(
+                      '${lead['score']}',
+                    ),
+                  ],
+                ),
+
+                const SizedBox(
+                  height: 13,
+                ),
+
+                Text(
+                  '${lead['city']}, ${lead['district']}',
+                  style:
+                      const TextStyle(
+                    fontSize: 12,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 5,
+                ),
+
+                Text(
+                  'Budget: ₹${lead['budget']}',
+                  style:
+                      const TextStyle(
+                    fontSize: 12,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 10,
+                ),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _statusBadge(
+                      '${lead['status']}',
+                    ),
+                    Text(
+                      'Executive: ${lead['executive']}',
+                      style:
+                          const TextStyle(
+                        fontSize: 11,
+                        color:
+                            Color(
+                          0xFF64748B,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(
+                  height: 12,
+                ),
+
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        _viewLead(lead);
+                      },
+                      icon:
+                          const Icon(
+                        Icons
+                            .visibility_outlined,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        _openLeadForm(
+                          lead: lead,
+                        );
+                      },
+                      icon:
+                          const Icon(
+                        Icons.edit_outlined,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        _deleteLead(lead);
+                      },
+                      icon:
+                          const Icon(
+                        Icons.delete_outline,
+                        color:
+                            Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ).toList(),
+    );
+  }
+
+  // =========================================================
+  // ADD / EDIT PROFESSIONAL FORM
+  // =========================================================
+
+  Future<void> _openLeadForm({
+    Map<String, dynamic>? lead,
+  }) async {
+    final editing =
+        lead != null;
+
+    final nameController =
+        TextEditingController(
+      text: lead?['name'] ?? '',
+    );
+
+    final phoneController =
+        TextEditingController(
+      text: lead?['phone'] ?? '',
+    );
+
+    final cityController =
+        TextEditingController(
+      text: lead?['city'] ?? '',
+    );
+
+    final districtController =
+        TextEditingController(
+      text:
+          lead?['district'] ?? '',
+    );
+
+    final experienceController =
+        TextEditingController(
+      text:
+          lead?['experience'] ?? '',
+    );
+
+    final locationController =
+        TextEditingController(
+      text:
+          lead?['location'] ?? '',
+    );
+
+    final followupController =
+        TextEditingController(
+      text:
+          lead?['followup'] ?? '',
+    );
+
+    String budget =
+        lead?['budget'] ?? '';
+
+    String existingBusiness =
+        lead?['existingBusiness'] ??
+            'No';
+
+    String commercialSpace =
+        lead?['commercialSpace'] ??
+            'No';
+
+    String score =
+        lead?['score'] ?? 'Warm';
+
+    String status =
+        lead?['status'] ??
+            'New Lead';
+
+    String executive =
+        lead?['executive'] ?? '';
+
+    bool saved = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (
+        dialogContext,
+      ) {
+        return StatefulBuilder(
+          builder: (
+            context,
+            setDialogState,
+          ) {
+            final screenWidth =
+                MediaQuery.of(context)
+                    .size
+                    .width;
+
+            final desktop =
+                screenWidth >= 900;
+
+            return Dialog(
+              backgroundColor:
+                  Colors.transparent,
+              insetPadding:
+                  EdgeInsets.symmetric(
+                horizontal:
+                    desktop ? 70 : 14,
+                vertical:
+                    desktop ? 28 : 16,
+              ),
+              child:
+                  ConstrainedBox(
+                constraints:
+                    BoxConstraints(
+                  maxWidth:
+                      desktop ? 920 : 600,
+                  maxHeight:
+                      MediaQuery.of(
+                            context,
+                          ).size.height *
+                          0.90,
+                ),
+                child: Container(
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        const Color(
+                      0xFFF8FAFC,
+                    ),
+                    borderRadius:
+                        BorderRadius
+                            .circular(
+                      18,
+                    ),
+                    boxShadow:
+                        const [
+                      BoxShadow(
+                        color:
+                            Color(
+                          0x22000000,
+                        ),
+                        blurRadius:
+                            28,
+                        offset:
+                            Offset(
+                          0,
+                          12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // HEADER
+                      Container(
+                        padding:
+                            const EdgeInsets
+                                .symmetric(
+                          horizontal:
+                              24,
+                          vertical:
+                              18,
+                        ),
+                        decoration:
+                            const BoxDecoration(
+                          color:
+                              Colors.white,
+                          borderRadius:
+                              BorderRadius
+                                  .vertical(
+                            top:
+                                Radius
+                                    .circular(
+                              18,
+                            ),
+                          ),
+                          border:
+                              Border(
+                            bottom:
+                                BorderSide(
+                              color:
+                                  Color(
+                                0xFFE5E7EB,
+                              ),
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration:
+                                  BoxDecoration(
+                                color:
+                                    const Color(
+                                  0xFFE0F2FE,
+                                ),
+                                borderRadius:
+                                    BorderRadius
+                                        .circular(
+                                  12,
+                                ),
+                              ),
+                              child:
+                                  const Icon(
+                                Icons
+                                    .person_add_alt_1_outlined,
+                                color:
+                                    Color(
+                                  0xFF0284C7,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(
+                              width: 14,
+                            ),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment
+                                        .start,
+                                children: [
+                                  Text(
+                                    editing
+                                        ? 'Edit Lead'
+                                        : 'Add New Lead',
+                                    style:
+                                        const TextStyle(
+                                      fontSize:
+                                          21,
+                                      fontWeight:
+                                          FontWeight
+                                              .w800,
+                                      color:
+                                          Color(
+                                        0xFF111827,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                    height: 3,
+                                  ),
+                                  Text(
+                                    editing
+                                        ? 'Update franchise enquiry and lead details'
+                                        : 'Create and qualify a new franchise enquiry',
+                                    style:
+                                        const TextStyle(
+                                      fontSize:
+                                          12,
+                                      color:
+                                          Color(
+                                        0xFF64748B,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            IconButton(
+                              tooltip:
+                                  'Close',
+                              onPressed: () {
+                                Navigator.pop(
+                                  dialogContext,
+                                );
+                              },
+                              icon:
+                                  const Icon(
+                                Icons
+                                    .close_rounded,
+                                color:
+                                    Color(
+                                  0xFF64748B,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // BODY
+                      Expanded(
+                        child:
+                            SingleChildScrollView(
+                          padding:
+                              EdgeInsets.all(
+                            desktop
+                                ? 22
+                                : 16,
+                          ),
+                          child:
+                              LayoutBuilder(
+                            builder: (
+                              context,
+                              constraints,
+                            ) {
+                              final twoColumns =
+                                  constraints
+                                          .maxWidth >=
+                                      700;
+
+                              return Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment
+                                        .start,
+                                children: [
+                                  _leadFormSection(
+                                    title:
+                                        'Contact Information',
+                                    subtitle:
+                                        'Basic contact and location details',
+                                    icon:
+                                        Icons
+                                            .person_outline,
+                                    child:
+                                        twoColumns
+                                            ? Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      children: [
+                                                        _professionalField(
+                                                          controller: nameController,
+                                                          label: 'Full Name',
+                                                          hint: 'Enter full name',
+                                                          icon: Icons.person_outline,
+                                                          requiredField: true,
+                                                        ),
+                                                        const SizedBox(height: 14),
+                                                        _professionalField(
+                                                          controller: cityController,
+                                                          label: 'City',
+                                                          hint: 'Enter city',
+                                                          icon: Icons.location_city_outlined,
+                                                          requiredField: true,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 16),
+                                                  Expanded(
+                                                    child: Column(
+                                                      children: [
+                                                        _professionalField(
+                                                          controller: phoneController,
+                                                          label: 'Mobile Number',
+                                                          hint: 'Enter mobile number',
+                                                          icon: Icons.phone_outlined,
+                                                          keyboardType: TextInputType.phone,
+                                                          requiredField: true,
+                                                        ),
+                                                        const SizedBox(height: 14),
+                                                        _professionalField(
+                                                          controller: districtController,
+                                                          label: 'District',
+                                                          hint: 'Enter district',
+                                                          icon: Icons.map_outlined,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : Column(
+                                                children: [
+                                                  _professionalField(
+                                                    controller: nameController,
+                                                    label: 'Full Name',
+                                                    hint: 'Enter full name',
+                                                    icon: Icons.person_outline,
+                                                    requiredField: true,
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalField(
+                                                    controller: phoneController,
+                                                    label: 'Mobile Number',
+                                                    hint: 'Enter mobile number',
+                                                    icon: Icons.phone_outlined,
+                                                    keyboardType: TextInputType.phone,
+                                                    requiredField: true,
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalField(
+                                                    controller: cityController,
+                                                    label: 'City',
+                                                    hint: 'Enter city',
+                                                    icon: Icons.location_city_outlined,
+                                                    requiredField: true,
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalField(
+                                                    controller: districtController,
+                                                    label: 'District',
+                                                    hint: 'Enter district',
+                                                    icon: Icons.map_outlined,
+                                                  ),
+                                                ],
+                                              ),
+                                  ),
+
+                                  const SizedBox(
+                                    height: 18,
+                                  ),
+
+                                  _leadFormSection(
+                                    title:
+                                        'Business & Franchise Details',
+                                    subtitle:
+                                        'Investment, business background and location preference',
+                                    icon:
+                                        Icons
+                                            .business_center_outlined,
+                                    child:
+                                        twoColumns
+                                            ? Column(
+                                                children: [
+                                                  Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                    children: [
+                                                      Expanded(
+                                                        child: _professionalDropdown(
+                                                          label: 'Investment Budget',
+                                                          value: budget,
+                                                          items: const [
+                                                            '',
+                                                            '2-5 Lakh',
+                                                            '5-8 Lakh',
+                                                            '8-10 Lakh',
+                                                            '10-15 Lakh',
+                                                            '15-20 Lakh',
+                                                            '20-25 Lakh',
+                                                            '25+ Lakh',
+                                                          ],
+                                                          onChanged: (value) {
+                                                            setDialogState(() {
+                                                              budget = value ?? '';
+                                                            });
+                                                          },
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 16),
+                                                      Expanded(
+                                                        child: _professionalDropdown(
+                                                          label: 'Existing Business',
+                                                          value: existingBusiness,
+                                                          items: const [
+                                                            'No',
+                                                            'Yes',
+                                                          ],
+                                                          onChanged: (value) {
+                                                            setDialogState(() {
+                                                              existingBusiness = value ?? 'No';
+                                                            });
+                                                          },
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                    children: [
+                                                      Expanded(
+                                                        child: _professionalDropdown(
+                                                          label: 'Commercial Space',
+                                                          value: commercialSpace,
+                                                          items: const [
+                                                            'No',
+                                                            'Available',
+                                                            'Searching',
+                                                          ],
+                                                          onChanged: (value) {
+                                                            setDialogState(() {
+                                                              commercialSpace = value ?? 'No';
+                                                            });
+                                                          },
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 16),
+                                                      Expanded(
+                                                        child: _professionalField(
+                                                          controller: experienceController,
+                                                          label: 'Previous Experience',
+                                                          hint: 'Example: 3 Years',
+                                                          icon: Icons.work_outline,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalField(
+                                                    controller: locationController,
+                                                    label: 'Preferred Franchise Location',
+                                                    hint: 'Enter preferred location',
+                                                    icon: Icons.place_outlined,
+                                                  ),
+                                                ],
+                                              )
+                                            : Column(
+                                                children: [
+                                                  _professionalDropdown(
+                                                    label: 'Investment Budget',
+                                                    value: budget,
+                                                    items: const [
+                                                      '',
+                                                      '2-5 Lakh',
+                                                      '5-8 Lakh',
+                                                      '8-10 Lakh',
+                                                      '10-15 Lakh',
+                                                      '15-20 Lakh',
+                                                      '20-25 Lakh',
+                                                      '25+ Lakh',
+                                                    ],
+                                                    onChanged: (value) {
+                                                      setDialogState(() {
+                                                        budget = value ?? '';
+                                                      });
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalDropdown(
+                                                    label: 'Existing Business',
+                                                    value: existingBusiness,
+                                                    items: const [
+                                                      'No',
+                                                      'Yes',
+                                                    ],
+                                                    onChanged: (value) {
+                                                      setDialogState(() {
+                                                        existingBusiness = value ?? 'No';
+                                                      });
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalDropdown(
+                                                    label: 'Commercial Space',
+                                                    value: commercialSpace,
+                                                    items: const [
+                                                      'No',
+                                                      'Available',
+                                                      'Searching',
+                                                    ],
+                                                    onChanged: (value) {
+                                                      setDialogState(() {
+                                                        commercialSpace = value ?? 'No';
+                                                      });
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalField(
+                                                    controller: experienceController,
+                                                    label: 'Previous Experience',
+                                                    hint: 'Example: 3 Years',
+                                                    icon: Icons.work_outline,
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalField(
+                                                    controller: locationController,
+                                                    label: 'Preferred Franchise Location',
+                                                    hint: 'Enter preferred location',
+                                                    icon: Icons.place_outlined,
+                                                  ),
+                                                ],
+                                              ),
+                                  ),
+
+                                  const SizedBox(
+                                    height: 18,
+                                  ),
+
+                                  _leadFormSection(
+                                    title:
+                                        'Lead Management',
+                                    subtitle:
+                                        'Lead qualification, status and follow-up assignment',
+                                    icon:
+                                        Icons
+                                            .track_changes_outlined,
+                                    child:
+                                        twoColumns
+                                            ? Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      children: [
+                                                        _professionalDropdown(
+                                                          label: 'Lead Score',
+                                                          value: score,
+                                                          items: const [
+                                                            'Hot',
+                                                            'Warm',
+                                                            'Cold',
+                                                          ],
+                                                          onChanged: (value) {
+                                                            setDialogState(() {
+                                                              score = value ?? 'Warm';
+                                                            });
+                                                          },
+                                                        ),
+                                                        const SizedBox(height: 14),
+                                                        _professionalDropdown(
+                                                          label: 'Lead Status',
+                                                          value: status,
+                                                          items: const [
+                                                            'New Lead',
+                                                            'Contacted',
+                                                            'Follow-up 1',
+                                                            'Follow-up 2',
+                                                            'Interested',
+                                                            'Site Visit Scheduled',
+                                                            'Agreement Pending',
+                                                            'Franchise Confirmed',
+                                                            'Lost',
+                                                          ],
+                                                          onChanged: (value) {
+                                                            setDialogState(() {
+                                                              status = value ?? 'New Lead';
+                                                            });
+                                                          },
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 16),
+                                                  Expanded(
+                                                    child: Column(
+                                                      children: [
+                                                        _professionalDropdown(
+                                                          label: 'Assigned Executive',
+                                                          value: executive,
+                                                          items: const [
+                                                            '',
+                                                            'Aman Verma',
+                                                            'Riya Sharma',
+                                                            'Neha Patel',
+                                                          ],
+                                                          onChanged: (value) {
+                                                            setDialogState(() {
+                                                              executive = value ?? '';
+                                                            });
+                                                          },
+                                                        ),
+                                                        const SizedBox(height: 14),
+                                                        _professionalField(
+  controller: followupController,
+  label: 'Next Follow-up',
+  hint: 'Select Follow-up Date',
+  icon: Icons.calendar_today_outlined,
+  readOnly: true,
+  onTap: () {
+    _pickFollowupDate(followupController);
+  },
+),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : Column(
+                                                children: [
+                                                  _professionalDropdown(
+                                                    label: 'Lead Score',
+                                                    value: score,
+                                                    items: const [
+                                                      'Hot',
+                                                      'Warm',
+                                                      'Cold',
+                                                    ],
+                                                    onChanged: (value) {
+                                                      setDialogState(() {
+                                                        score = value ?? 'Warm';
+                                                      });
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalDropdown(
+                                                    label: 'Lead Status',
+                                                    value: status,
+                                                    items: const [
+                                                      'New Lead',
+                                                      'Contacted',
+                                                      'Follow-up 1',
+                                                      'Follow-up 2',
+                                                      'Interested',
+                                                      'Site Visit Scheduled',
+                                                      'Agreement Pending',
+                                                      'Franchise Confirmed',
+                                                      'Lost',
+                                                    ],
+                                                    onChanged: (value) {
+                                                      setDialogState(() {
+                                                        status = value ?? 'New Lead';
+                                                      });
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalDropdown(
+                                                    label: 'Assigned Executive',
+                                                    value: executive,
+                                                    items: const [
+                                                      '',
+                                                      'Aman Verma',
+                                                      'Riya Sharma',
+                                                      'Neha Patel',
+                                                    ],
+                                                    onChanged: (value) {
+                                                      setDialogState(() {
+                                                        executive = value ?? '';
+                                                      });
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 14),
+                                                  _professionalField(
+  controller: followupController,
+  label: 'Next Follow-up',
+  hint: 'Select Follow-up Date',
+  icon: Icons.calendar_today_outlined,
+  readOnly: true,
+  onTap: () => _pickFollowupDate(followupController),
+)
+                                                ],
+                                              ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                      // FOOTER
+                      Container(
+                        padding:
+                            const EdgeInsets
+                                .symmetric(
+                          horizontal: 24,
+                          vertical: 15,
+                        ),
+                        decoration:
+                            const BoxDecoration(
+                          color:
+                              Colors.white,
+                          borderRadius:
+                              BorderRadius
+                                  .vertical(
+                            bottom:
+                                Radius
+                                    .circular(
+                              18,
+                            ),
+                          ),
+                          border:
+                              Border(
+                            top:
+                                BorderSide(
+                              color:
+                                  Color(
+                                0xFFE5E7EB,
+                              ),
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment
+                                  .end,
+                          children: [
+                            SizedBox(
+                              width: 95,
+                              height: 44,
+                              child:
+                                  TextButton(
+                                style:
+                                    TextButton
+                                        .styleFrom(
+                                  minimumSize:
+                                      const Size(
+                                    0,
+                                    44,
+                                  ),
+                                  maximumSize:
+                                      const Size(
+                                    95,
+                                    44,
+                                  ),
+                                ),
+                                onPressed:
+                                    () {
+                                  Navigator
+                                      .pop(
+                                    dialogContext,
+                                  );
+                                },
+                                child:
+                                    const Text(
+                                  'Cancel',
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(
+                              width: 10,
+                            ),
+
+                            SizedBox(
+                              width: 145,
+                              height: 44,
+                              child:
+                            ElevatedButton
+                              .icon(
+                                style:
+                                    ElevatedButton
+                                        .styleFrom(
+                                  minimumSize:
+                                      const Size(
+                                    0,
+                                    44,
+                                  ),
+                                  maximumSize:
+                                      const Size(
+                                    145,
+                                    44,
+                                  ),
+                                ),
+                                onPressed:
+                                    () async {
+                                  final name =
+                                      nameController
+                                          .text
+                                          .trim();
+
+                                  final phone =
+                                      phoneController
+                                          .text
+                                          .trim();
+
+                                  final city =
+                                      cityController
+                                          .text
+                                          .trim();
+
+                                  if (name
+                                      .isEmpty) {
+                                    AppToast
+                                        .error(
+                                      context,
+                                      'Full name is required.',
+                                      title:
+                                          'Validation Error',
+                                    );
+                                    return;
+                                  }
+
+                                  if (phone
+                                          .length <
+                                      10) {
+                                    AppToast
+                                        .error(
+                                      context,
+                                      'Please enter a valid mobile number.',
+                                      title:
+                                          'Invalid Mobile',
+                                    );
+                                    return;
+                                  }
+
+                                  if (city
+                                      .isEmpty) {
+                                    AppToast
+                                        .error(
+                                      context,
+                                      'City is required.',
+                                      title:
+                                          'Validation Error',
+                                    );
+                                    return;
+                                  }
+                                    
+                              
+                              
+print("FOLLOWUP CONTROLLER = ${followupController.text}");
+final data =
+    <String, dynamic>{
+  'name': name,
+  'phone': phone,
+
+  'city': city,
+
+  'district':
+      districtController
+          .text
+          .trim(),
+
+  'budget': budget,
+
+  'existingBusiness':
+      existingBusiness,
+
+  'commercialSpace':
+      commercialSpace,
+
+  'experience':
+      experienceController
+          .text
+          .trim(),
+
+  'location':
+      locationController
+          .text
+          .trim(),
+
+  'score': score,
+
+  'status': status,
+
+  'executive':
+      executive,
+
+  'followup':
+      followupController
+          .text
+          .trim(),
+
+  'source':
+      lead?['source'] ?? '',
+
+  'notes':
+      lead?['notes'] ?? '',
+};
+
+Map<String, dynamic> result;
+
+if (editing) {
+  result = await _leadService.updateLead(
+    lead!['id'],
+    data,
+  );
+} else {
+  result = await _leadService.createLead(
+    data,
+  );
+}
+
+if (result['success'] == true) {
+  saved = true;
+
+  if (context.mounted) {
+    Navigator.pop(dialogContext);
+  }
+
+  await _loadLeads();
+} else {
+  AppToast.error(
+    context,
+    result['message'] ??
+        'Unable to save lead.',
+    title: editing
+        ? 'Update Failed'
+        : 'Create Failed',
+  );
+}
+                                    },
+
+
+                                icon:
+                                    const Icon(
+                                  Icons
+                                      .save_outlined,
+                                  size: 18,
+                                ),
+                                label: Text(
+                                  editing
+                                      ? 'Update Lead'
+                                      : 'Save Lead',
+                                  maxLines:
+                                      1,
+                                  softWrap:
+                                      false,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (saved && mounted) {
+      AppToast.success(
+        context,
+        editing
+            ? '${nameController.text.trim()} updated successfully.'
+            : '${nameController.text.trim()} added successfully.',
+        title: editing
+            ? 'Lead Updated'
+            : 'Lead Added',
+      );
+    }
+
+    nameController.dispose();
+    phoneController.dispose();
+    cityController.dispose();
+    districtController.dispose();
+    experienceController.dispose();
+    locationController.dispose();
+    followupController.dispose();
+  }
+Widget _professionalField({
+  required TextEditingController controller,
+  required String label,
+  required String hint,
+  required IconData icon,
+  TextInputType? keyboardType,
+  bool requiredField = false,
+  bool readOnly = false,
+  VoidCallback? onTap,
+}) {
+  return TextField(
+    controller: controller,
+    keyboardType: keyboardType,
+    readOnly: readOnly,
+    onTap: onTap,
+    decoration: InputDecoration(
+      labelText: requiredField
+          ? "$label *"
+          : label,
+
+      hintText: hint,
+
+      prefixIcon: Icon(icon),
+
+      floatingLabelBehavior:
+          FloatingLabelBehavior.always,
+
+      filled: true,
+      fillColor: const Color(0xFFF8FAFC),
+
+      contentPadding:
+          const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 14,
+      ),
+
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(
+          color: Color(0xFFE2E8F0),
+        ),
+      ),
+
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(
+          color: Color(0xFF0284C7),
+          width: 1.2,
+        ),
+      ),
+    ),
+  );
+}
+Future<void> _pickFollowupDate(
+  TextEditingController controller,
+) async {
+  final picked = await showDatePicker(
+    context: context,
+    initialDate: DateTime.now(),
+    firstDate: DateTime(2024),
+    lastDate: DateTime(2100),
+  );
+
+  if (picked != null) {
+    controller.text =
+        "${picked.day.toString().padLeft(2, '0')}/"
+        "${picked.month.toString().padLeft(2, '0')}/"
+        "${picked.year}";
+
+    print("DATE PICKED = ${controller.text}");
+  }
+}
+  // =========================================================
+  // PROFESSIONAL FORM HELPERS
+  // =========================================================
+
+  Widget _leadFormSection({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding:
+          const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color:
+              const Color(
+            0xFFE5E7EB,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration:
+                    BoxDecoration(
+                  color:
+                      const Color(
+                    0xFFE0F2FE,
+                  ),
+                  borderRadius:
+                      BorderRadius
+                          .circular(
+                    10,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color:
+                      const Color(
+                    0xFF0284C7,
+                  ),
+                ),
+              ),
+              const SizedBox(
+                width: 10,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+                  children: [
+                    Text(
+                      title,
+                      style:
+                          const TextStyle(
+                        fontSize: 15,
+                        fontWeight:
+                            FontWeight
+                                .w700,
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 2,
+                    ),
+                    Text(
+                      subtitle,
+                      style:
+                          const TextStyle(
+                        fontSize: 11,
+                        color:
+                            Color(
+                          0xFF64748B,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(
+            height: 18,
+          ),
+
+          child,
+        ],
+      ),
+    );
+  }
+
+  
+  Widget _professionalDropdown({
+    required String label,
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?>
+        onChanged,
+  }) {
+    return DropdownButtonFormField<
+        String>(
+      value: value,
+      isExpanded: true,
+      decoration:
+          InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor:
+            const Color(
+          0xFFF8FAFC,
+        ),
+        contentPadding:
+            const EdgeInsets
+                .symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+        enabledBorder:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(
+            10,
+          ),
+          borderSide:
+              const BorderSide(
+            color:
+                Color(
+              0xFFE2E8F0,
+            ),
+          ),
+        ),
+        focusedBorder:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(
+            10,
+          ),
+          borderSide:
+              const BorderSide(
+            color:
+                Color(
+              0xFF0284C7,
+            ),
+            width: 1.2,
+          ),
+        ),
+      ),
+      items: items.map(
+        (item) {
+          return DropdownMenuItem(
+            value: item,
+            child: Text(
+              item.isEmpty
+                  ? 'Select'
+                  : item,
+              overflow:
+                  TextOverflow
+                      .ellipsis,
+            ),
+          );
+        },
+      ).toList(),
+      onChanged: onChanged,
+    );
+  }
+
+  // =========================================================
+  // VIEW
+  // =========================================================
+
+Future<void> _viewLead(
+  Map<String, dynamic> lead,
+) async {
+  final leadId = lead['id'];
+
+  if (leadId == null) {
+    return;
+  }
+
+  final activities =
+      await _loadLeadActivities(
+    leadId as int,
+  );
+
+  if (!mounted) {
+    return;
+  }
+
+  showDialog(
+    context: context,
+    builder: (
+      dialogContext,
+    ) {
+      final screenWidth =
+          MediaQuery.of(context).size.width;
+
+      final mobile =
+          screenWidth < 700;
+
+      return Dialog(
+        backgroundColor:
+            Colors.transparent,
+        insetPadding:
+            EdgeInsets.symmetric(
+          horizontal:
+              mobile ? 14 : 40,
+          vertical:
+              mobile ? 18 : 30,
+        ),
+        child: ConstrainedBox(
+          constraints:
+              const BoxConstraints(
+            maxWidth: 760,
+            maxHeight: 780,
+          ),
+          child: Container(
+            decoration:
+                BoxDecoration(
+              color:
+                  const Color(
+                0xFFF8FAFC,
+              ),
+              borderRadius:
+                  BorderRadius
+                      .circular(
+                18,
+              ),
+              boxShadow:
+                  const [
+                BoxShadow(
+                  color:
+                      Color(
+                    0x22000000,
+                  ),
+                  blurRadius: 30,
+                  offset:
+                      Offset(
+                    0,
+                    14,
+                  ),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // ===============================
+                // HEADER
+                // ===============================
+
+                Container(
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
+                    horizontal: 22,
+                    vertical: 18,
+                  ),
+                  decoration:
+                      const BoxDecoration(
+                    color:
+                        Colors.white,
+                    borderRadius:
+                        BorderRadius
+                            .vertical(
+                      top:
+                          Radius
+                              .circular(
+                        18,
+                      ),
+                    ),
+                    border:
+                        Border(
+                      bottom:
+                          BorderSide(
+                        color:
+                            Color(
+                          0xFFE5E7EB,
+                        ),
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child:
+                            Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .start,
+                          children: [
+                            Text(
+                              'Lead Details',
+                              style:
+                                  TextStyle(
+                                fontSize:
+                                    21,
+                                fontWeight:
+                                    FontWeight
+                                        .w800,
+                                color:
+                                    Color(
+                                  0xFF111827,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              height: 3,
+                            ),
+                            Text(
+                              'Lead information and complete activity history',
+                              style:
+                                  TextStyle(
+                                fontSize:
+                                    11,
+                                color:
+                                    Color(
+                                  0xFF64748B,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      IconButton(
+                        tooltip:
+                            'Close',
+                        onPressed:
+                            () {
+                          Navigator.pop(
+                            dialogContext,
+                          );
+                        },
+                        icon:
+                            const Icon(
+                          Icons
+                              .close_rounded,
+                          color:
+                              Color(
+                            0xFF64748B,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ===============================
+                // BODY
+                // ===============================
+
+                Expanded(
+                  child:
+                      SingleChildScrollView(
+                    padding:
+                        EdgeInsets.all(
+                      mobile
+                          ? 16
+                          : 22,
+                    ),
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+                      children: [
+                        // PROFILE
+
+                        Container(
+                          width:
+                              double.infinity,
+                          padding:
+                              const EdgeInsets
+                                  .all(
+                            16,
+                          ),
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                Colors.white,
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              14,
+                            ),
+                            border:
+                                Border.all(
+                              color:
+                                  const Color(
+                                0xFFE5E7EB,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              _avatar(
+                                '${lead['name']}',
+                                large:
+                                    true,
+                              ),
+
+                              const SizedBox(
+                                width: 14,
+                              ),
+
+                              Expanded(
+                                child:
+                                    Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment
+                                          .start,
+                                  children: [
+                                    Text(
+                                      '${lead['name']}',
+                                      style:
+                                          const TextStyle(
+                                        fontSize:
+                                            18,
+                                        fontWeight:
+                                            FontWeight
+                                                .w800,
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: 4,
+                                    ),
+                                    Text(
+                                      '${lead['phone']}',
+                                      style:
+                                          const TextStyle(
+                                        fontSize:
+                                            12,
+                                        color:
+                                            Color(
+                                          0xFF64748B,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              _scoreBadge(
+                                '${lead['score']}',
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height: 16,
+                        ),
+
+                        // DETAILS
+
+                        Container(
+                          width:
+                              double.infinity,
+                          padding:
+                              const EdgeInsets
+                                  .all(
+                            16,
+                          ),
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                Colors.white,
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              14,
+                            ),
+                            border:
+                                Border.all(
+                              color:
+                                  const Color(
+                                0xFFE5E7EB,
+                              ),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment
+                                    .start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(
+                                    Icons
+                                        .info_outline_rounded,
+                                    size:
+                                        18,
+                                    color:
+                                        Color(
+                                      0xFF0284C7,
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width:
+                                        8,
+                                  ),
+                                  Text(
+                                    'Lead Information',
+                                    style:
+                                        TextStyle(
+                                      fontSize:
+                                          14,
+                                      fontWeight:
+                                          FontWeight
+                                              .w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(
+                                height:
+                                    14,
+                              ),
+
+                              _detailGrid(
+                                lead,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height: 18,
+                        ),
+
+                        // ACTIVITY TIMELINE
+
+                        Container(
+                          width:
+                              double.infinity,
+                          padding:
+                              const EdgeInsets
+                                  .all(
+                            16,
+                          ),
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                Colors.white,
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              14,
+                            ),
+                            border:
+                                Border.all(
+                              color:
+                                  const Color(
+                                0xFFE5E7EB,
+                              ),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment
+                                    .start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width:
+                                        36,
+                                    height:
+                                        36,
+                                    decoration:
+                                        BoxDecoration(
+                                      color:
+                                          const Color(
+                                        0xFFE0F2FE,
+                                      ),
+                                      borderRadius:
+                                          BorderRadius
+                                              .circular(
+                                        10,
+                                      ),
+                                    ),
+                                    child:
+                                        const Icon(
+                                      Icons
+                                          .history_rounded,
+                                      size:
+                                          18,
+                                      color:
+                                          Color(
+                                        0xFF0284C7,
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(
+                                    width:
+                                        10,
+                                  ),
+
+                                  const Expanded(
+                                    child:
+                                        Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment
+                                              .start,
+                                      children: [
+                                        Text(
+                                          'Activity Timeline',
+                                          style:
+                                              TextStyle(
+                                            fontSize:
+                                                15,
+                                            fontWeight:
+                                                FontWeight
+                                                    .w800,
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          height:
+                                              2,
+                                        ),
+                                        Text(
+                                          'Calls, WhatsApp, notes, meetings and documents',
+                                          style:
+                                              TextStyle(
+                                            fontSize:
+                                                10,
+                                            color:
+                                                Color(
+                                              0xFF64748B,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(
+                                height:
+                                    18,
+                              ),
+
+                              if (activities
+                                  .isEmpty)
+                                Container(
+                                  width:
+                                      double.infinity,
+                                  padding:
+                                      const EdgeInsets
+                                          .symmetric(
+                                    vertical:
+                                        25,
+                                  ),
+                                  alignment:
+                                      Alignment.center,
+                                  child:
+                                      const Text(
+                                    'No activity found.',
+                                    style:
+                                        TextStyle(
+                                      fontSize:
+                                          11,
+                                      color:
+                                          Color(
+                                        0xFF94A3B8,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                ...List.generate(
+                                  activities
+                                      .length,
+                                  (
+                                    index,
+                                  ) {
+                                    return _activityTimelineItem(
+                                      activities[
+                                          index],
+                                      isLast:
+                                          index ==
+                                              activities.length -
+                                                  1,
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ===============================
+                // FOOTER
+                // ===============================
+
+                Container(
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
+                    horizontal: 22,
+                    vertical: 14,
+                  ),
+                  decoration:
+                      const BoxDecoration(
+                    color:
+                        Colors.white,
+                    border:
+                        Border(
+                      top:
+                          BorderSide(
+                        color:
+                            Color(
+                          0xFFE5E7EB,
+                        ),
+                      ),
+                    ),
+                    borderRadius:
+                        BorderRadius
+                            .vertical(
+                      bottom:
+                          Radius
+                              .circular(
+                        18,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment:
+                        MainAxisAlignment
+                            .end,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () {
+                          final phone = '${lead['phone']}';
+                          final name = '${lead['name']}';
+                          WhatsAppService.openWhatsApp(
+                            phone: phone,
+                            message: WhatsAppService.getWelcomeMessage(leadName: name),
+                          );
+                        },
+                        icon: const Icon(Icons.chat_outlined, size: 18),
+                        label: const Text('Send WhatsApp Welcome'),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width:
+                            90,
+                        height:
+                            42,
+                        child:
+                            TextButton(
+                          style:
+                              TextButton
+                                  .styleFrom(
+                            minimumSize:
+                                const Size(
+                              0,
+                              42,
+                            ),
+                            maximumSize:
+                                const Size(
+                              90,
+                              42,
+                            ),
+                          ),
+                          onPressed:
+                              () {
+                            Navigator.pop(
+                              dialogContext,
+                            );
+                          },
+                          child:
+                              const Text(
+                            'Close',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+
+Widget _activityTimelineItem(
+  Map<String, dynamic> activity, {
+  required bool isLast,
+}) {
+  final type =
+      activity['type']
+          .toString();
+
+  IconData icon;
+  Color color;
+  Color background;
+
+  switch (type) {
+    case 'call':
+      icon =
+          Icons.call_outlined;
+      color =
+          const Color(
+        0xFF2563EB,
+      );
+      background =
+          const Color(
+        0xFFEFF6FF,
+      );
+      break;
+
+    case 'whatsapp':
+      icon =
+          Icons.chat_outlined;
+      color =
+          const Color(
+        0xFF16A34A,
+      );
+      background =
+          const Color(
+        0xFFF0FDF4,
+      );
+      break;
+
+    case 'meeting':
+      icon =
+          Icons.calendar_month_outlined;
+      color =
+          const Color(
+        0xFF7C3AED,
+      );
+      background =
+          const Color(
+        0xFFF5F3FF,
+      );
+      break;
+
+    case 'document':
+      icon =
+          Icons.description_outlined;
+      color =
+          const Color(
+        0xFFEA580C,
+      );
+      background =
+          const Color(
+        0xFFFFF7ED,
+      );
+      break;
+
+    default:
+      icon =
+          Icons.note_alt_outlined;
+      color =
+          const Color(
+        0xFF475569,
+      );
+      background =
+          const Color(
+        0xFFF1F5F9,
+      );
+  }
+
+  return Row(
+    crossAxisAlignment:
+        CrossAxisAlignment
+            .start,
+    children: [
+      SizedBox(
+        width: 42,
+        child: Column(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration:
+                  BoxDecoration(
+                color:
+                    background,
+                shape:
+                    BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 17,
+                color:
+                    color,
+              ),
+            ),
+
+            if (!isLast)
+              Container(
+                width: 1.5,
+                height: 58,
+                color:
+                    const Color(
+                  0xFFE2E8F0,
+                ),
+              ),
+          ],
+        ),
+      ),
+
+      const SizedBox(
+        width: 10,
+      ),
+
+      Expanded(
+        child: Padding(
+          padding:
+              EdgeInsets.only(
+            bottom:
+                isLast
+                    ? 0
+                    : 16,
+          ),
+          child: Container(
+            width:
+                double.infinity,
+            padding:
+                const EdgeInsets
+                    .all(
+              12,
+            ),
+            decoration:
+                BoxDecoration(
+              color:
+                  const Color(
+                0xFFF8FAFC,
+              ),
+              borderRadius:
+                  BorderRadius
+                      .circular(
+                10,
+              ),
+              border:
+                  Border.all(
+                color:
+                    const Color(
+                  0xFFE2E8F0,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment
+                      .start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child:
+                          Text(
+                        activity[
+                                'title']
+                            .toString(),
+                        style:
+                            const TextStyle(
+                          fontSize:
+                              11,
+                          fontWeight:
+                              FontWeight
+                                  .w700,
+                          color:
+                              Color(
+                            0xFF111827,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(
+                      width:
+                          8,
+                    ),
+
+                    Text(
+                      activity[
+                              'date']
+                          .toString(),
+                      style:
+                          const TextStyle(
+                        fontSize:
+                            8.5,
+                        color:
+                            Color(
+                          0xFF94A3B8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(
+                  height: 5,
+                ),
+
+                Text(
+                  activity[
+                          'description']
+                      .toString(),
+                  style:
+                      const TextStyle(
+                    fontSize:
+                        9.5,
+                    height:
+                        1.45,
+                    color:
+                        Color(
+                      0xFF64748B,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+  Widget _detailGrid(
+    Map<String, dynamic> lead,
+  ) {
+    final details = [
+      [
+        'City',
+        '${lead['city'] ?? '-'}',
+      ],
+      [
+        'District',
+        '${lead['district'] ?? '-'}',
+      ],
+      [
+        'Investment',
+        '₹${lead['budget'] ?? '-'}',
+      ],
+      [
+        'Existing Business',
+        '${lead['existingBusiness'] ?? '-'}',
+      ],
+      [
+        'Commercial Space',
+        '${lead['commercialSpace'] ?? '-'}',
+      ],
+      [
+        'Experience',
+        '${lead['experience'] ?? '-'}',
+      ],
+      [
+        'Preferred Location',
+        '${lead['location'] ?? '-'}',
+      ],
+      [
+        'Executive',
+        '${lead['executive'] ?? '-'}',
+      ],
+      [
+        'Status',
+        '${lead['status'] ?? '-'}',
+      ],
+      [
+        'Next Follow-up',
+        '${lead['followup'] ?? '-'}',
+      ],
+    ];
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: details.map(
+        (item) {
+          return Container(
+            width: 245,
+            padding:
+                const EdgeInsets.all(
+              12,
+            ),
+            decoration:
+                BoxDecoration(
+              color:
+                  const Color(
+                0xFFF8FAFC,
+              ),
+              borderRadius:
+                  BorderRadius.circular(
+                10,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment
+                      .start,
+              children: [
+                Text(
+                  item[0],
+                  style:
+                      const TextStyle(
+                    fontSize: 10,
+                    color:
+                        Color(
+                      0xFF94A3B8,
+                    ),
+                  ),
+                ),
+                const SizedBox(
+                  height: 4,
+                ),
+                Text(
+                  item[1],
+                  style:
+                      const TextStyle(
+                    fontSize: 12,
+                    fontWeight:
+                        FontWeight
+                            .w700,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ).toList(),
+    );
+  }
+
+  // =========================================================
+  // DELETE
+  // =========================================================
+
+Future<void> _deleteLead(
+  Map<String, dynamic> lead,
+) async {
+  final confirmed =
+      await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text(
+          'Delete Lead?',
+        ),
+        content: Text(
+          'Are you sure you want to delete '
+          '${lead['name']}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(
+                dialogContext,
+                false,
+              );
+            },
+            child: const Text(
+              'Cancel',
+            ),
+          ),
+          ElevatedButton(
+            style:
+                ElevatedButton.styleFrom(
+              backgroundColor:
+                  Colors.red,
+              foregroundColor:
+                  Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(
+                dialogContext,
+                true,
+              );
+            },
+            child: const Text(
+              'Delete',
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmed != true) {
+    return;
+  }
+
+  final id = lead['id'];
+
+  if (id == null) {
+    return;
+  }
+
+  final result =
+      await _leadService.deleteLead(
+    id as int,
+  );
+
+  if (!mounted) {
+    return;
+  }
+
+  if (result['success'] == true) {
+    AppToast.success(
+      context,
+      '${lead['name']} deleted successfully.',
+      title: 'Lead Deleted',
+    );
+
+    await _loadLeads();
+  } else {
+    AppToast.error(
+      context,
+      result['message'] ??
+          'Unable to delete lead.',
+      title: 'Delete Failed',
+    );
+  }
+}
+Future<List<Map<String, dynamic>>>
+    _loadLeadActivities(
+  int leadId,
+) async {
+  final result =
+      await _leadService.getActivities(
+    leadId,
+  );
+
+  if (result['success'] != true) {
+    return [];
+  }
+
+  final response =
+      result['data'];
+
+  final List<dynamic> raw =
+      response['activities'] ?? [];
+
+  return raw.map(
+    (item) {
+      final map =
+          Map<String, dynamic>.from(
+        item,
+      );
+
+      return {
+        'id': map['id'],
+
+        'type':
+            map['activity_type']
+                    ?.toString() ??
+                'note',
+
+        'title':
+            map['title']
+                    ?.toString() ??
+                '',
+
+        'description':
+            map['description']
+                    ?.toString() ??
+                '',
+
+        'date':
+            _formatActivityDate(
+          map['created_at'],
+        ),
+      };
+    },
+  ).toList();
+}
+String _formatActivityDate(
+  dynamic value,
+) {
+  if (value == null) {
+    return '';
+  }
+
+  try {
+    final date =
+        DateTime.parse(
+      value.toString(),
+    ).toLocal();
+
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    final hour =
+        date.hour > 12
+            ? date.hour - 12
+            : date.hour == 0
+                ? 12
+                : date.hour;
+
+    final minute =
+        date.minute
+            .toString()
+            .padLeft(2, '0');
+
+    final amPm =
+        date.hour >= 12
+            ? 'PM'
+            : 'AM';
+
+    return '${date.day.toString().padLeft(2, '0')} '
+        '${months[date.month]} '
+        '${date.year} • '
+        '$hour:$minute $amPm';
+  } catch (_) {
+    return value.toString();
+  }
+}
+
+  // =========================================================
+  // HELPERS
+  // =========================================================
+
+  Widget _avatar(
+    String name, {
+    bool large = false,
+  }) {
+    final words = name
+        .trim()
+        .split(' ')
+        .where(
+          (word) =>
+              word.isNotEmpty,
+        )
+        .toList();
+
+    String initials = '';
+
+    for (final word
+        in words.take(2)) {
+      initials +=
+          word[0].toUpperCase();
+    }
+
+    return CircleAvatar(
+      radius: large ? 28 : 19,
+      backgroundColor:
+          const Color(
+        0xFFE0F2FE,
+      ),
+      child: Text(
+        initials,
+        style: TextStyle(
+          color:
+              const Color(
+            0xFF0284C7,
+          ),
+          fontSize:
+              large ? 16 : 10,
+          fontWeight:
+              FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _scoreBadge(
+    String score,
+  ) {
+    Color bg;
+    Color fg;
+
+    if (score == 'Hot') {
+      bg =
+          const Color(
+        0xFFFEF2F2,
+      );
+      fg =
+          const Color(
+        0xFFDC2626,
+      );
+    } else if (score ==
+        'Warm') {
+      bg =
+          const Color(
+        0xFFFFF7ED,
+      );
+      fg =
+          const Color(
+        0xFFEA580C,
+      );
+    } else {
+      bg =
+          const Color(
+        0xFFF1F5F9,
+      );
+      fg =
+          const Color(
+        0xFF64748B,
+      );
+    }
+
+    return Container(
+      padding:
+          const EdgeInsets
+              .symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
+      decoration:
+          BoxDecoration(
+        color: bg,
+        borderRadius:
+            BorderRadius.circular(
+          20,
+        ),
+      ),
+      child: Text(
+        score,
+        style:
+            TextStyle(
+          color: fg,
+          fontSize: 9,
+          fontWeight:
+              FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBadge(
+    String status,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets
+              .symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
+      decoration:
+          BoxDecoration(
+        color:
+            const Color(
+          0xFFE0F2FE,
+        ),
+        borderRadius:
+            BorderRadius.circular(
+          20,
+        ),
+      ),
+      child: Text(
+        status,
+        style:
+            const TextStyle(
+          color:
+              Color(
+            0xFF0284C7,
+          ),
+          fontSize: 9,
+          fontWeight:
+              FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    bool danger = false,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        constraints:
+            const BoxConstraints(
+          minWidth: 32,
+          minHeight: 32,
+        ),
+        padding:
+            EdgeInsets.zero,
+        onPressed: onTap,
+        icon: Icon(
+          icon,
+          size: 16,
+          color: danger
+              ? Colors.red
+              : const Color(
+                  0xFF64748B,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LeadStatCard
+    extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _LeadStatCard({
+    required this.title,
+    required this.value,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const TextStyle
+    _leadHeaderStyle =
+    TextStyle(
+  fontSize: 9,
+  fontWeight:
+      FontWeight.w700,
+  color:
+      Color(0xFF64748B),
+  letterSpacing: 0.3,
+);

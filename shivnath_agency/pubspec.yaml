@@ -1,0 +1,43 @@
+name: shivnath_agency
+description: "Shivnath Agency - Customer, Franchise & Admin Business Management App"
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  file_saver: ^0.2.14
+  # iOS style icons
+  cupertino_icons: ^1.0.8
+  http: ^1.5.0
+  # State Management
+  provider: ^6.1.5
+
+  # Local Storage / Login Session
+  shared_preferences: ^2.5.3
+
+  # Date, Time & Currency Formatting
+  intl: ^0.20.2
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Assets hum baad me add karenge.
+  # Jab logo/product images add karenge tab uncomment karna:
+  #
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/
+  #   - assets/logos/

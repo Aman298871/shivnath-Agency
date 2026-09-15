@@ -1,0 +1,26 @@
+# Flutter ignores
+shivnath_agency/.dart_tool/
+shivnath_agency/.flutter-plugins-dependencies
+shivnath_agency/.pub-cache/
+shivnath_agency/.pub/
+shivnath_agency/build/
+shivnath_agency/android/app/debug/
+shivnath_agency/android/app/profile/
+shivnath_agency/android/app/release/
+
+# Python / Django ignores
+**/venv/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.log
+local_settings.py
+
+# IDE / Editor ignores
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store

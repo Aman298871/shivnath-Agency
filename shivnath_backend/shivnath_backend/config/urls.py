@@ -22,7 +22,20 @@ from rest_framework_simplejwt.views import (
 )
 
 
+from django.http import JsonResponse
+
+def root_health_view(request):
+    return JsonResponse({
+        'status': 'online',
+        'service': 'Shivnath Agency Pure Water Platform API',
+        'admin_panel': '/admin/',
+        'version': '1.0.0'
+    })
+
 urlpatterns = [
+
+    # Root Health Check
+    path('', root_health_view, name='root_health'),
 
     # Jazzmin / Django Admin
     path(

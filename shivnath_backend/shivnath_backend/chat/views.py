@@ -108,7 +108,6 @@ class AdminChatConversationsView(APIView):
     """
     Admin-only endpoint to list all customer and franchise chatbot conversations.
     """
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAdminRole]
 
     def get(self, request):
@@ -154,7 +153,6 @@ class AdminChatConversationDetailView(APIView):
     """
     Admin-only endpoint to view the complete chronological conversation history of a specific session.
     """
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAdminRole]
 
     def get(self, request, session_id):

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: shivnath-backend
+    runtime: python
+    buildCommand: "cd shivnath_backend/shivnath_backend && pip install -r ../requirements.txt && python manage.py migrate"
+    startCommand: "cd shivnath_backend/shivnath_backend && gunicorn config.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shivnath-db
+          property: connectionString
+
+databases:
+  - name: shivnath-db
+    databaseName: shivnath_db
+    user: shivnath_user

@@ -17,14 +17,7 @@ from .serializers import OrderSerializer
 # =========================================================
 
 class OrderListCreateView(APIView):
-
-    def get_permissions(self):
-        if not self.request.user or not self.request.user.is_authenticated:
-            return [AllowAny()]
-        profile = getattr(self.request.user, 'profile', None)
-        if profile and profile.role == 'franchise':
-            return [IsApprovedFranchise()]
-        return [AllowAny()]
+    permission_classes = [AllowAny]
 
     def get(self, request):
 

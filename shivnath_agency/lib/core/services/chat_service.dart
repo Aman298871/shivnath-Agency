@@ -93,6 +93,8 @@ class ChatService {
         final decoded = jsonDecode(response.body);
         if (decoded is List) {
           return List<Map<String, dynamic>>.from(decoded);
+        } else if (decoded is Map<String, dynamic> && decoded['conversations'] is List) {
+          return List<Map<String, dynamic>>.from(decoded['conversations']);
         }
       }
     } catch (_) {}

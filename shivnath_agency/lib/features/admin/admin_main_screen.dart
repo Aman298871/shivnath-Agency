@@ -474,7 +474,7 @@ Widget _currentScreen() {
                     radius: 21,
                     backgroundColor: Color(0xFF0284C7),
                     child: Text(
-                      'F',
+                      'S',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 19,
@@ -487,15 +487,15 @@ Widget _currentScreen() {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Franchise',
+                        'Shivnath Agency',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 17,
+                          fontSize: 16,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       Text(
-                        'Management',
+                        'Admin Control Panel',
                         style: TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: 11,

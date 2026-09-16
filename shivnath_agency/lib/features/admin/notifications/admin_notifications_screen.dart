@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../core/widgets/app_toast.dart';
+
 class AdminNotificationsScreen extends StatefulWidget {
   const AdminNotificationsScreen({super.key});
 
@@ -10,57 +11,44 @@ class AdminNotificationsScreen extends StatefulWidget {
 }
 
 class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
+  final AuthService _authService = AuthService();
   String tab = 'All';
+  bool _isLoading = true;
 
-  final List<Map<String, dynamic>> notifications = [
-    {
-      'id': 1,
-      'title': 'New Franchise Order',
-      'message': 'Rahul Sharma placed order ORD-1001 worth ₹48,500.',
-      'time': '5 min ago',
-      'type': 'order',
-      'read': false,
-    },
-    {
-      'id': 2,
-      'title': 'Low Stock Alert',
-      'message': '20 Litre Water Jar stock has reached minimum level.',
-      'time': '18 min ago',
-      'type': 'inventory',
-      'read': false,
-    },
-    {
-      'id': 3,
-      'title': 'Payment Received',
-      'message': '₹20,000 payment received for invoice INV-2026-102.',
-      'time': '35 min ago',
-      'type': 'payment',
-      'read': false,
-    },
-    {
-      'id': 4,
-      'title': 'Follow-up Reminder',
-      'message': 'Follow-up with Amit Verma is scheduled today at 12:00 PM.',
-      'time': '1 hour ago',
-      'type': 'followup',
-      'read': true,
-    },
-    {
-      'id': 5,
-      'title': 'Franchise Agreement',
-      'message': 'Priya Singh franchise agreement document was uploaded.',
-      'time': '2 hours ago',
-      'type': 'franchise',
-      'read': true,
-    },
-  ];
+  List<Map<String, dynamic>> notifications = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    setState(() => _isLoading = true);
+    final res = await _authService.getAdminNotifications();
+    if (mounted) {
+      List<Map<String, dynamic>> list = [];
+      if (res['success'] == true && res['data'] != null) {
+        final data = res['data'];
+        if (data is Map<String, dynamic> && data['notifications'] is List) {
+          list = List<Map<String, dynamic>>.from(data['notifications']);
+        }
+      }
+      setState(() {
+        notifications = list;
+        _isLoading = false;
+      });
+    }
+  }
 
   int get unreadCount =>
-      notifications.where((e) => e['read'] == false).length;
+      notifications.where((e) => e['is_read'] == false || e['read'] == false).length;
 
   List<Map<String, dynamic>> get filtered {
     if (tab == 'Unread') {
-      return notifications.where((e) => e['read'] == false).toList();
+      return notifications
+          .where((e) => e['is_read'] == false || e['read'] == false)
+          .toList();
     }
 
     return notifications;
@@ -264,7 +252,9 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   }
 
   Widget _notificationItem(Map<String, dynamic> item) {
-    final unread = item['read'] == false;
+    final unread = item['is_read'] == false || item['read'] == false;
+    final type = (item['notification_type'] ?? item['type'] ?? 'general').toString();
+    final time = (item['created_at'] ?? item['time'] ?? '').toString();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -276,13 +266,13 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: _typeColor(item['type']).withValues(alpha: 0.12),
+              color: _typeColor(type).withAlpha(30),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              _typeIcon(item['type']),
-              size: 19,
-              color: _typeColor(item['type']),
+              _typeIcon(type),
+              size: 20,
+              color: _typeColor(type),
             ),
           ),
           const SizedBox(width: 12),
@@ -294,7 +284,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                   children: [
                     Flexible(
                       child: Text(
-                        item['title'],
+                        item['title'] ?? 'Notification',
                         style: TextStyle(
                           fontWeight:
                               unread ? FontWeight.w800 : FontWeight.w600,
@@ -316,20 +306,22 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  item['message'],
+                  item['message'] ?? '',
                   style: const TextStyle(
                     color: Color(0xFF64748B),
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  item['time'],
-                  style: const TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontSize: 10,
+                if (time.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    time,
+                    style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 10,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -338,17 +330,23 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
             children: [
               if (unread)
                 TextButton(
-                  onPressed: () {
-  setState(() {
-    item['read'] = true;
-  });
-
-  AppToast.success(
-    context,
-    'Notification marked as read.',
-    title: 'Notification Read',
-  );
-},
+                  onPressed: () async {
+                    final notifId = item['id'] is int ? item['id'] as int : null;
+                    setState(() {
+                      item['is_read'] = true;
+                      item['read'] = true;
+                    });
+                    if (notifId != null) {
+                      await _authService.markNotificationsAsRead(id: notifId);
+                    }
+                    if (mounted) {
+                      AppToast.success(
+                        context,
+                        'Notification marked as read.',
+                        title: 'Notification Read',
+                      );
+                    }
+                  },
                   child: const Text(
                     'Mark Read',
                     style: TextStyle(fontSize: 10),
@@ -357,21 +355,18 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
               IconButton(
                 tooltip: 'Delete',
                 onPressed: () {
-  final title =
-      item['title'].toString();
-
-  setState(() {
-    notifications.removeWhere(
-      (e) => e['id'] == item['id'],
-    );
-  });
-
-  AppToast.success(
-    context,
-    '$title deleted.',
-    title: 'Notification Deleted',
-  );
-},
+                  final title = (item['title'] ?? 'Notification').toString();
+                  setState(() {
+                    notifications.removeWhere(
+                      (e) => e['id'] == item['id'],
+                    );
+                  });
+                  AppToast.success(
+                    context,
+                    '$title dismissed.',
+                    title: 'Notification Dismissed',
+                  );
+                },
                 icon: const Icon(
                   Icons.delete_outline,
                   color: Colors.red,
@@ -385,31 +380,42 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     );
   }
 
-  void _markAllRead() {
-  if (unreadCount == 0) {
-    AppToast.info(
-      context,
-      'There are no unread notifications.',
-      title: 'All Caught Up',
-    );
-    return;
+  void _markAllRead() async {
+    if (unreadCount == 0) {
+      AppToast.info(
+        context,
+        'There are no unread notifications.',
+        title: 'All Caught Up',
+      );
+      return;
+    }
+
+    setState(() {
+      for (final item in notifications) {
+        item['is_read'] = true;
+        item['read'] = true;
+      }
+    });
+
+    await _authService.markNotificationsAsRead();
+
+    if (mounted) {
+      AppToast.success(
+        context,
+        'All notifications marked as read.',
+        title: 'Notifications Updated',
+      );
+    }
   }
 
-  setState(() {
-    for (final item in notifications) {
-      item['read'] = true;
-    }
-  });
-
-  AppToast.success(
-    context,
-    'All notifications marked as read.',
-    title: 'Notifications Updated',
-  );
-}
-
   IconData _typeIcon(String type) {
-    switch (type) {
+    switch (type.toLowerCase()) {
+      case 'customer_registration':
+      case 'customer':
+        return Icons.person_add_alt_1_outlined;
+      case 'franchise_registration':
+      case 'franchise':
+        return Icons.store_outlined;
       case 'order':
         return Icons.shopping_bag_outlined;
       case 'inventory':
@@ -418,23 +424,27 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
         return Icons.currency_rupee;
       case 'followup':
         return Icons.schedule;
-      case 'franchise':
-        return Icons.store_outlined;
       default:
         return Icons.notifications_none;
     }
   }
 
   Color _typeColor(String type) {
-    switch (type) {
+    switch (type.toLowerCase()) {
+      case 'customer_registration':
+      case 'customer':
+        return const Color(0xFF0284C7);
+      case 'franchise_registration':
+      case 'franchise':
+        return Colors.purple;
+      case 'order':
+        return Colors.amber.shade800;
       case 'inventory':
         return Colors.orange;
       case 'payment':
         return Colors.green;
       case 'followup':
         return Colors.blue;
-      case 'franchise':
-        return Colors.purple;
       default:
         return const Color(0xFF0284C7);
     }

@@ -7,7 +7,14 @@ class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('customer', 'Customer'),
         ('franchise', 'Franchise'),
+        ('staff', 'Staff'),
         ('admin', 'Admin'),
+    ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('pending', 'Pending'),
     ]
 
     user = models.OneToOneField(
@@ -16,9 +23,38 @@ class UserProfile(models.Model):
         related_name='profile'
     )
 
+    name = models.CharField(
+        max_length=150,
+        blank=True,
+        default=''
+    )
+
     phone = models.CharField(
         max_length=15,
         blank=True
+    )
+
+    city = models.CharField(
+        max_length=100,
+        blank=True,
+        default=''
+    )
+
+    district = models.CharField(
+        max_length=100,
+        blank=True,
+        default=''
+    )
+
+    address = models.TextField(
+        blank=True,
+        default=''
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active'
     )
 
     role = models.CharField(
@@ -32,6 +68,32 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f'{self.user.email} - {self.role}'
+
+
+class AdminNotification(models.Model):
+    NOTIFICATION_TYPES = [
+        ('customer_registration', 'Customer Registration'),
+        ('franchise_registration', 'Franchise Registration'),
+        ('order_placed', 'Order Placed'),
+        ('general', 'General'),
+    ]
+
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    notification_type = models.CharField(
+        max_length=40,
+        choices=NOTIFICATION_TYPES,
+        default='customer_registration'
+    )
+    reference_id = models.PositiveIntegerField(null=True, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.title} - {self.created_at.strftime("%d/%m/%Y %H:%M")}'
 
 
 class FranchiseProfile(models.Model):

@@ -28,6 +28,15 @@ class _CustomerRegisterScreenState
   final emailController =
       TextEditingController();
 
+  final cityController =
+      TextEditingController();
+
+  final districtController =
+      TextEditingController();
+
+  final addressController =
+      TextEditingController();
+
   final passwordController =
       TextEditingController();
 
@@ -61,6 +70,12 @@ class _CustomerRegisterScreenState
           phoneController.text.trim(),
       email:
           emailController.text.trim(),
+      city:
+          cityController.text.trim(),
+      district:
+          districtController.text.trim(),
+      address:
+          addressController.text.trim(),
       password:
           passwordController.text,
       confirmPassword:
@@ -116,6 +131,9 @@ class _CustomerRegisterScreenState
     nameController.dispose();
     phoneController.dispose();
     emailController.dispose();
+    cityController.dispose();
+    districtController.dispose();
+    addressController.dispose();
     passwordController.dispose();
     confirmPasswordController
         .dispose();
@@ -282,6 +300,57 @@ class _CustomerRegisterScreenState
 
                     return null;
                   },
+                ),
+
+                const SizedBox(
+                  height: 15,
+                ),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _field(
+                        controller:
+                            cityController,
+                        label: 'City',
+                        icon:
+                            Icons.location_city_outlined,
+                        validator: (value) {
+                          if (value == null ||
+                              value
+                                  .trim()
+                                  .isEmpty) {
+                            return 'Enter city';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(
+                      width: 12,
+                    ),
+                    Expanded(
+                      child: _field(
+                        controller:
+                            districtController,
+                        label: 'District',
+                        icon:
+                            Icons.map_outlined,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(
+                  height: 15,
+                ),
+
+                _field(
+                  controller:
+                      addressController,
+                  label: 'Address / Landmark (Optional)',
+                  icon:
+                      Icons.home_outlined,
                 ),
 
                 const SizedBox(

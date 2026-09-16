@@ -1154,20 +1154,28 @@ class AdminUserListView(APIView):
             )
 
         results = []
+        from orders.models import Order
         for u in users.distinct():
             prof = getattr(u, 'profile', None)
             fp = getattr(u, 'franchise_profile', None)
             role = prof.role if prof else ('admin' if u.is_superuser else 'customer')
 
+            order_count = Order.objects.filter(created_by=u).count()
+
             item = {
                 'id': u.id,
-                'name': u.get_full_name() or u.username,
+                'customer_code': f'CUST-{1000 + u.id}' if role == 'customer' else f'FRAN-{1000 + u.id}',
+                'name': (prof.name if prof and prof.name else (u.get_full_name() or u.username)),
                 'username': u.username,
                 'email': u.email,
                 'phone': prof.phone if prof else '',
+                'city': (prof.city if prof and prof.city else (fp.city if fp else '')),
+                'district': prof.district if prof else '',
+                'address': (prof.address if prof and prof.address else (fp.address if fp else '')),
                 'role': role,
-                'city': fp.city if fp else '',
+                'status': prof.status if prof else ('active' if u.is_active else 'inactive'),
                 'is_active': u.is_active,
+                'order_count': order_count,
                 'date_joined': u.date_joined.strftime('%Y-%m-%d %H:%M'),
             }
 
@@ -1188,3 +1196,41 @@ class AdminUserListView(APIView):
             'count': len(results),
             'users': results,
         }, status=status.HTTP_200_OK)
+
+
+class AdminNotificationListView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        from .models import AdminNotification
+        notifications = AdminNotification.objects.all()[:50]
+        unread_count = AdminNotification.objects.filter(is_read=False).count()
+
+        results = [
+            {
+                'id': n.id,
+                'title': n.title,
+                'message': n.message,
+                'notification_type': n.notification_type,
+                'reference_id': n.reference_id,
+                'is_read': n.is_read,
+                'created_at': n.created_at.strftime('%Y-%m-%d %H:%M'),
+            }
+            for n in notifications
+        ]
+
+        return Response({
+            'success': True,
+            'unread_count': unread_count,
+            'count': len(results),
+            'notifications': results,
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        from .models import AdminNotification
+        notification_id = request.data.get('id')
+        if notification_id:
+            AdminNotification.objects.filter(id=notification_id).update(is_read=True)
+        else:
+            AdminNotification.objects.filter(is_read=False).update(is_read=True)
+        return Response({'success': True, 'message': 'Notifications marked as read.'})

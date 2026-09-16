@@ -13,6 +13,7 @@ from .views import (
     DeleteFranchiseView,
     AdminCreateFranchiseView,
     AdminUserListView,
+    AdminNotificationListView,
 )
 
 
@@ -87,5 +88,10 @@ path(
     'users/',
     AdminUserListView.as_view(),
     name='admin-users'
+),
+path(
+    'notifications/',
+    AdminNotificationListView.as_view(),
+    name='admin-notifications'
 ),
 ]

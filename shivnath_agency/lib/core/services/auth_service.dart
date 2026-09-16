@@ -51,13 +51,15 @@ class AuthService {
     );
   }
 
-  Future<Map<String, dynamic>>
-      registerCustomer({
+  Future<Map<String, dynamic>> registerCustomer({
     required String name,
     required String phone,
     required String email,
     required String password,
     required String confirmPassword,
+    String city = '',
+    String district = '',
+    String address = '',
   }) async {
     return _post(
       '/api/auth/register/customer/',
@@ -66,8 +68,10 @@ class AuthService {
         'phone': phone,
         'email': email,
         'password': password,
-        'confirm_password':
-            confirmPassword,
+        'confirm_password': confirmPassword,
+        'city': city,
+        'district': district,
+        'address': address,
       },
     );
   }
@@ -262,6 +266,63 @@ class AuthService {
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': 'Failed to fetch users', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAdminNotifications() async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/accounts/notifications/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to fetch notifications', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> markNotificationsAsRead({int? id}) async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/accounts/notifications/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(id != null ? {'id': id} : {}),
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to update notifications', 'data': decoded};
     } catch (_) {
       return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
     }

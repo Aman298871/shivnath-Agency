@@ -32,6 +32,26 @@ class CustomerRegisterSerializer(serializers.Serializer):
         write_only=True
     )
 
+    city = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default=''
+    )
+
+    district = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default=''
+    )
+
+    address = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default=''
+    )
+
     def validate_email(self, value):
 
         value = value.strip().lower()
@@ -66,8 +86,10 @@ class CustomerRegisterSerializer(serializers.Serializer):
         phone = validated_data.pop('phone').strip()
         email = validated_data.pop('email').lower()
         password = validated_data.pop('password')
+        city = validated_data.pop('city', '').strip()
+        district = validated_data.pop('district', '').strip()
+        address = validated_data.pop('address', '').strip()
 
-        # Username internal purpose ke liye email rakhenge.
         user = User.objects.create_user(
             username=email,
             email=email,
@@ -80,9 +102,27 @@ class CustomerRegisterSerializer(serializers.Serializer):
             user=user
         )
 
+        profile.name = name
         profile.phone = phone
+        profile.city = city
+        profile.district = district
+        profile.address = address
         profile.role = 'customer'
+        profile.status = 'active'
         profile.save()
+
+        # Create Admin Notification
+        try:
+            from .models import AdminNotification
+            location_str = f" from {city}" if city else ""
+            AdminNotification.objects.create(
+                title='New Customer Registered',
+                message=f'{name} ({phone}){location_str} has registered on the Pure Water platform.',
+                notification_type='customer_registration',
+                reference_id=user.id,
+            )
+        except Exception:
+            pass
 
         return user
 
@@ -218,8 +258,12 @@ class FranchiseRegisterSerializer(serializers.Serializer):
             user=user
         )
 
+        profile.name = owner_name
         profile.phone = phone
+        profile.city = city
+        profile.address = address
         profile.role = 'franchise'
+        profile.status = 'pending'
         profile.save()
 
         FranchiseProfile.objects.create(
@@ -239,6 +283,20 @@ class FranchiseRegisterSerializer(serializers.Serializer):
 
             status='pending',
         )
+
+        # Create Admin Notification
+        try:
+            from .models import AdminNotification
+            AdminNotification.objects.create(
+                title='New Franchise Application',
+                message=f'{owner_name} has applied for a new franchise partner account for "{business_name}" in {city}.',
+                notification_type='franchise_registration',
+                reference_id=user.id,
+            )
+        except Exception:
+            pass
+
+        return user
 
         return user
 

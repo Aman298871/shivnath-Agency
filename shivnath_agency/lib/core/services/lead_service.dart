@@ -85,7 +85,7 @@ class LeadService {
       return {
         'success': false,
         'message':
-            'Unable to connect to server: $e',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -111,7 +111,7 @@ class LeadService {
       return {
         'success': false,
         'message':
-            'Unable to connect to server: $e',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -146,7 +146,7 @@ class LeadService {
       return {
         'success': false,
         'message':
-            'Unable to connect to server: $e',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
     
@@ -177,7 +177,7 @@ class LeadService {
       return {
         'success': false,
         'message':
-            'Unable to connect to server: $e',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -203,7 +203,7 @@ class LeadService {
       return {
         'success': false,
         'message':
-            'Unable to connect to server: $e',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -228,7 +228,7 @@ class LeadService {
       return {
         'success': false,
         'message':
-            'Unable to connect to server: $e',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -256,7 +256,7 @@ class LeadService {
       return {
         'success': false,
         'message':
-            'Unable to connect to server: $e',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -292,7 +292,7 @@ class LeadService {
       return {
         'success': false,
         'message':
-            'Unable to connect to server: $e',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }

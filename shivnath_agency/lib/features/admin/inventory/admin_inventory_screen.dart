@@ -1889,8 +1889,10 @@ class _AdminInventoryScreenState
           title: const Text(
             'Reject Stock Entry',
           ),
-          content: SizedBox(
-            width: 420,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child: TextField(
               controller:
                   reasonController,
@@ -2011,8 +2013,10 @@ class _AdminInventoryScreenState
           title: const Text(
             'Stock Request Details',
           ),
-          content: SizedBox(
-            width: 450,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child: Column(
               mainAxisSize:
                   MainAxisSize.min,
@@ -2940,8 +2944,10 @@ class _AdminInventoryScreenState
       children: fields
           .map(
             (field) =>
-                SizedBox(
-              width: 370,
+                ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width > 420 ? 370 : double.infinity,
+              ),
               child: field,
             ),
           )

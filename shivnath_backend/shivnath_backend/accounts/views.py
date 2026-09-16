@@ -1121,3 +1121,70 @@ class CurrentUserView(APIView):
             serializer.data,
             status=status.HTTP_200_OK
         )
+
+
+class AdminUserListView(APIView):
+    """
+    Admin endpoint to view registered users (Customers, Franchises, Staff)
+    safely without exposing credentials or JWT tokens.
+    """
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        role_filter = request.query_params.get('role', '').strip().lower()
+        search = request.query_params.get('search', '').strip().lower()
+
+        users = User.objects.select_related('profile', 'franchise_profile').all().order_by('-date_joined')
+
+        if role_filter and role_filter != 'all':
+            if role_filter == 'admin':
+                users = users.filter(profile__role='admin') | users.filter(is_superuser=True)
+            else:
+                users = users.filter(profile__role=role_filter)
+
+        if search:
+            from django.db.models import Q
+            users = users.filter(
+                Q(username__icontains=search) |
+                Q(email__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(profile__phone__icontains=search) |
+                Q(franchise_profile__business_name__icontains=search)
+            )
+
+        results = []
+        for u in users.distinct():
+            prof = getattr(u, 'profile', None)
+            fp = getattr(u, 'franchise_profile', None)
+            role = prof.role if prof else ('admin' if u.is_superuser else 'customer')
+
+            item = {
+                'id': u.id,
+                'name': u.get_full_name() or u.username,
+                'username': u.username,
+                'email': u.email,
+                'phone': prof.phone if prof else '',
+                'role': role,
+                'city': fp.city if fp else '',
+                'is_active': u.is_active,
+                'date_joined': u.date_joined.strftime('%Y-%m-%d %H:%M'),
+            }
+
+            if fp:
+                item['franchise_details'] = {
+                    'business_name': fp.business_name,
+                    'status': fp.status,
+                    'territory': fp.territory or 'Pending',
+                    'gst_number': fp.gst_number or '',
+                    'security_deposit': str(fp.security_deposit),
+                    'commission_rate': str(fp.commission),
+                }
+
+            results.append(item)
+
+        return Response({
+            'success': True,
+            'count': len(results),
+            'users': results,
+        }, status=status.HTTP_200_OK)

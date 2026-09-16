@@ -820,8 +820,10 @@ else {
           title: const Text(
             'Reschedule Follow-up',
           ),
-          content: SizedBox(
-            width: 380,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+            ),
             child: TextField(
               controller: controller,
               decoration: const InputDecoration(

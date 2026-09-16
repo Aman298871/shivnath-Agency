@@ -1949,8 +1949,10 @@ confirmPassword.dispose();
       children: fields
           .map(
             (field) =>
-                SizedBox(
-              width: 405,
+                ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width > 440 ? 405 : double.infinity,
+              ),
               child: field,
             ),
           )
@@ -2173,8 +2175,10 @@ confirmPassword.dispose();
         return AlertDialog(
           title:
               Text(item['owner']),
-          content: SizedBox(
-            width: 500,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child: Column(
               mainAxisSize:
                   MainAxisSize.min,
@@ -2442,8 +2446,10 @@ Future<void> _rejectFranchise(
             Text('Reject Franchise'),
           ],
         ),
-        content: SizedBox(
-          width: 450,
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment:

@@ -30,8 +30,8 @@ class AuthService {
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': 'Failed to fetch user data', 'data': decoded};
-    } catch (e) {
-      return {'success': false, 'message': e.toString()};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
     }
   }
 
@@ -161,7 +161,7 @@ class AuthService {
       return {
         'success': false,
         'message':
-            'Unable to connect to server.',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -218,11 +218,52 @@ class AuthService {
 
     if (value is Map &&
         value.isNotEmpty) {
-      return _valueToString(
-        value.values.first,
-      );
+      return value.toString();
     }
 
-    return value.toString();
+    return value?.toString() ?? '';
+  }
+
+  Future<Map<String, dynamic>> getUsers({
+    String? role,
+    String? search,
+  }) async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final queryParams = <String, String>{};
+      if (role != null && role.isNotEmpty && role != 'all') {
+        queryParams['role'] = role;
+      }
+      if (search != null && search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
+
+      final uri = Uri.parse('$baseUrl/api/accounts/users/').replace(
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to fetch users', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
   }
 }

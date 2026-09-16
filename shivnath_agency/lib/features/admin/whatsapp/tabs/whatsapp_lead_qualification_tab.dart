@@ -1006,8 +1006,10 @@ class _WhatsAppLeadQualificationTabState
               ),
             ],
           ),
-          content: SizedBox(
-            width: 650,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child:
                 SingleChildScrollView(
               child: Column(

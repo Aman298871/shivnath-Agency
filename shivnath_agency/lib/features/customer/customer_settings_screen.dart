@@ -408,8 +408,10 @@ class _CustomerSettingsScreenState
               ),
             ],
           ),
-          content: SizedBox(
-            width: 420,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

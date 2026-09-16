@@ -65,7 +65,7 @@ class SupplierService {
     } catch (e) {
       return {
         "success": false,
-        "message": "Unable to connect : $e",
+        "message": "Server unavailable. Please start the backend and try again.",
       };
     }
   }
@@ -88,7 +88,7 @@ class SupplierService {
     } catch (e) {
       return {
         "success": false,
-        "message": "Unable to connect : $e",
+        "message": "Server unavailable. Please start the backend and try again.",
       };
     }
   }
@@ -112,7 +112,7 @@ class SupplierService {
     } catch (e) {
       return {
         "success": false,
-        "message": "Unable to connect : $e",
+        "message": "Server unavailable. Please start the backend and try again.",
       };
     }
   }
@@ -138,7 +138,7 @@ class SupplierService {
     } catch (e) {
       return {
         "success": false,
-        "message": "Unable to connect : $e",
+        "message": "Server unavailable. Please start the backend and try again.",
       };
     }
   }
@@ -161,7 +161,7 @@ class SupplierService {
     } catch (e) {
       return {
         "success": false,
-        "message": "Unable to connect : $e",
+        "message": "Server unavailable. Please start the backend and try again.",
       };
     }
   }
@@ -184,7 +184,7 @@ class SupplierService {
     } catch (e) {
       return {
         "success": false,
-        "message": "Unable to connect : $e",
+        "message": "Server unavailable. Please start the backend and try again.",
       };
     }
   }

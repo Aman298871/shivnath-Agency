@@ -33,16 +33,30 @@ class OrderListCreateView(APIView):
         if not user:
             phone = request.query_params.get('phone', '').strip()
             if phone:
-                orders = Order.objects.filter(Q(created_by__phone=phone) | Q(created_by__username=phone))
+                orders = Order.objects.filter(
+                    Q(created_by__profile__phone=phone)
+                    | Q(created_by__username=phone)
+                    | Q(franchise_name__icontains=phone)
+                )
             else:
-                orders = Order.objects.none()
+                orders = Order.objects.all()
         else:
             profile = getattr(user, 'profile', None)
             role = profile.role if profile else 'customer'
-            if user.is_superuser or role == 'admin':
+            if user.is_superuser or role == 'admin' or user.is_staff:
                 orders = Order.objects.select_related('created_by').all()
+            elif role == 'franchise':
+                business_name = getattr(getattr(user, 'franchise_profile', None), 'business_name', '')
+                orders = Order.objects.filter(
+                    Q(created_by=user)
+                    | (Q(franchise_name__iexact=business_name) if business_name else Q())
+                    | Q(franchise_name__icontains=user.email)
+                ).distinct()
             else:
-                orders = Order.objects.filter(created_by=user)
+                orders = Order.objects.filter(
+                    Q(created_by=user)
+                    | Q(created_by__isnull=True)
+                )
 
         search = request.query_params.get(
             'search', ''
@@ -74,6 +88,7 @@ class OrderListCreateView(APIView):
         )
 
     def post(self, request):
+        creator = request.user if (request.user and request.user.is_authenticated) else None
 
         serializer = OrderSerializer(data=request.data)
 
@@ -87,7 +102,7 @@ class OrderListCreateView(APIView):
             )
 
         order = serializer.save(
-            created_by=request.user
+            created_by=creator
         )
 
         return Response(

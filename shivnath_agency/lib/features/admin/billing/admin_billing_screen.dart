@@ -1883,8 +1883,10 @@ Widget _invoiceFieldGrid(
         return AlertDialog(
           title:
               const Text('Record Payment'),
-          content: SizedBox(
-            width: 430,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child: Column(
               mainAxisSize:
                   MainAxisSize.min,
@@ -2117,8 +2119,10 @@ Widget _invoiceFieldGrid(
         return AlertDialog(
           title:
               const Text('Credit Management'),
-          content: SizedBox(
-            width: 430,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child: Column(
               mainAxisSize:
                   MainAxisSize.min,
@@ -2258,8 +2262,10 @@ Widget _invoiceFieldGrid(
         return AlertDialog(
           title:
               Text(invoice['invoice']),
-          content: SizedBox(
-            width: 520,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child:
                 SingleChildScrollView(
               child: Column(
@@ -2364,8 +2370,10 @@ Widget _invoiceFieldGrid(
               const Text(
             'Collection Report',
           ),
-          content: SizedBox(
-            width: 500,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child: Column(
               mainAxisSize:
                   MainAxisSize.min,
@@ -2420,8 +2428,10 @@ Widget _invoiceFieldGrid(
         return AlertDialog(
           title:
               const Text('Sales Register'),
-          content: SizedBox(
-            width: 650,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child:
                 SingleChildScrollView(
               child: Column(
@@ -2526,8 +2536,10 @@ Widget _invoiceFieldGrid(
         return AlertDialog(
           title:
               const Text('GST / Tax Report'),
-          content: SizedBox(
-            width: 500,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child: Column(
               mainAxisSize:
                   MainAxisSize.min,

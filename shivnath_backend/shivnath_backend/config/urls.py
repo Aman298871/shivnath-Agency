@@ -30,9 +30,13 @@ urlpatterns = [
         admin.site.urls
     ),
 
-    # Authentication
+    # Authentication & Accounts
     path(
         'api/auth/',
+        include('accounts.urls')
+    ),
+    path(
+        'api/accounts/',
         include('accounts.urls')
     ),
 

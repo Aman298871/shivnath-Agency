@@ -1143,6 +1143,17 @@ class _ProductCard extends StatelessWidget {
                     context
                         .read<CartProvider>()
                         .addProduct(product);
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${product.name} added to cart',
+                          ),
+                          duration: const Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
                   },
                   child: const Text(
                     'Add to Cart',

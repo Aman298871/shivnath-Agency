@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../constants/app_constants.dart';
 import 'auth_service.dart';
 import 'session_service.dart';
 
@@ -36,7 +37,7 @@ class FranchiseService {
       final response = await http
           .get(
             Uri.parse(
-              '${AuthService.baseUrl}/api/auth/franchises/',
+              '${AppConstants.apiBaseUrl}/api/auth/franchises/',
             ),
             headers: await _headers(),
           )
@@ -59,11 +60,11 @@ class FranchiseService {
         'message':
             _errorMessage(response),
       };
-    } catch (e) {
+    } catch (_) {
       return {
         'success': false,
         'message':
-            'Unable to connect to server.',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -78,7 +79,7 @@ class FranchiseService {
       final response = await http
           .get(
             Uri.parse(
-              '${AuthService.baseUrl}/api/auth/franchises/pending/',
+              '${AppConstants.apiBaseUrl}/api/auth/franchises/pending/',
             ),
             headers: await _headers(),
           )
@@ -101,11 +102,11 @@ class FranchiseService {
         'message':
             _errorMessage(response),
       };
-    } catch (e) {
+    } catch (_) {
       return {
         'success': false,
         'message':
-            'Unable to connect to server.',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -120,7 +121,7 @@ Future<Map<String, dynamic>> createFranchise({
     final response = await http
         .post(
           Uri.parse(
-            '${AuthService.baseUrl}/api/auth/franchises/create/',
+            '${AppConstants.apiBaseUrl}/api/auth/franchises/create/',
           ),
           headers: await _headers(),
           body: jsonEncode(data),
@@ -153,7 +154,7 @@ Future<Map<String, dynamic>> createFranchise({
     return {
       'success': false,
       'message':
-          'Unable to connect to server.',
+          'Server unavailable. Please start the backend and try again.',
     };
   }
 }
@@ -165,7 +166,7 @@ Future<Map<String, dynamic>> createFranchise({
       final response = await http
           .post(
             Uri.parse(
-              '${AuthService.baseUrl}/api/auth/franchises/$franchiseId/approve/',
+              '${AppConstants.apiBaseUrl}/api/auth/franchises/$franchiseId/approve/',
             ),
             headers: await _headers(),
           )
@@ -194,11 +195,11 @@ Future<Map<String, dynamic>> createFranchise({
             decoded['message'] ??
                 'Unable to approve franchise.',
       };
-    } catch (e) {
+    } catch (_) {
       return {
         'success': false,
         'message':
-            'Unable to connect to server.',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -216,7 +217,7 @@ Future<Map<String, dynamic>> createFranchise({
       final response = await http
           .post(
             Uri.parse(
-              '${AuthService.baseUrl}/api/auth/franchises/$franchiseId/reject/',
+              '${AppConstants.apiBaseUrl}/api/auth/franchises/$franchiseId/reject/',
             ),
             headers: await _headers(),
             body: jsonEncode({
@@ -248,11 +249,11 @@ Future<Map<String, dynamic>> createFranchise({
             decoded['message'] ??
                 'Unable to reject franchise.',
       };
-    } catch (e) {
+    } catch (_) {
       return {
         'success': false,
         'message':
-            'Unable to connect to server.',
+            'Server unavailable. Please start the backend and try again.',
       };
     }
   }
@@ -295,7 +296,7 @@ Future<Map<String, dynamic>> createFranchise({
     final response = await http
         .put(
           Uri.parse(
-            '${AuthService.baseUrl}/api/auth/franchises/$franchiseId/update/',
+            '${AppConstants.apiBaseUrl}/api/auth/franchises/$franchiseId/update/',
           ),
           headers: await _headers(),
           body: jsonEncode(data),
@@ -328,7 +329,7 @@ Future<Map<String, dynamic>> createFranchise({
     return {
       'success': false,
       'message':
-          'Unable to connect to server.',
+          'Server unavailable. Please start the backend and try again.',
     };
   }
 }
@@ -339,7 +340,7 @@ Future<Map<String, dynamic>> deleteFranchise(
     final response = await http
         .delete(
           Uri.parse(
-            '${AuthService.baseUrl}/api/auth/franchises/$franchiseId/delete/',
+            '${AppConstants.apiBaseUrl}/api/auth/franchises/$franchiseId/delete/',
           ),
           headers: await _headers(),
         )
@@ -371,7 +372,7 @@ Future<Map<String, dynamic>> deleteFranchise(
     return {
       'success': false,
       'message':
-          'Unable to connect to server.',
+          'Server unavailable. Please start the backend and try again.',
     };
   }
 }

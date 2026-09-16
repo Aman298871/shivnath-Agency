@@ -94,7 +94,7 @@ class _CustomerProductsScreenState
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: .68,
+                childAspectRatio: 0.62,
               ),
               itemBuilder: (context, index) {
                 return _ProductCard(

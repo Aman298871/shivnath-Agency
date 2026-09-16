@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/services/OrderService.dart';
+import '../../../core/services/session_service.dart';
+
 class FranchiseOrdersScreen extends StatefulWidget {
   const FranchiseOrdersScreen({super.key});
 
@@ -10,10 +13,54 @@ class FranchiseOrdersScreen extends StatefulWidget {
 
 class _FranchiseOrdersScreenState
     extends State<FranchiseOrdersScreen> {
-  final List<Map<String, dynamic>> orders = [];
+  List<Map<String, dynamic>> orders = [];
+  bool isLoading = true;
 
   String searchText = '';
   String selectedStatus = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders();
+  }
+
+  Future<void> _fetchOrders() async {
+    setState(() => isLoading = true);
+    final res = await OrderService().getOrders();
+    if (!mounted) return;
+
+    if (res['success'] == true && res['data'] is Map) {
+      final rawOrders = res['data']['orders'];
+      if (rawOrders is List) {
+        final mapped = rawOrders.whereType<Map>().map((item) {
+          final mappedItem = OrderService().mapOrder(Map<String, dynamic>.from(item));
+          final rawId = mappedItem['orderId']?.toString();
+          final fallbackId = mappedItem['id'] != null ? 'ORD-${1000 + (int.tryParse(mappedItem['id'].toString()) ?? 0)}' : '';
+          final orderCode = (rawId != null && rawId.isNotEmpty) ? rawId : fallbackId;
+          return {
+            'id': orderCode,
+            'date': mappedItem['date']?.toString() ?? '',
+            'product': mappedItem['franchise']?.toString().isNotEmpty == true ? mappedItem['franchise']!.toString() : 'Packaged Water',
+            'qty': mappedItem['items'] ?? 1,
+            'amount': mappedItem['amount'] ?? 0,
+            'status': mappedItem['status']?.toString() ?? 'Plant Approval',
+            'payment': mappedItem['payment']?.toString() ?? 'Pending',
+          };
+        }).toList();
+
+        setState(() {
+          orders = mapped;
+          isLoading = false;
+        });
+        return;
+      }
+    }
+
+    setState(() {
+      isLoading = false;
+    });
+  }
 
   List<Map<String, dynamic>> get filteredOrders {
     final query = searchText.trim().toLowerCase();
@@ -157,6 +204,17 @@ class _FranchiseOrdersScreenState
         ),
 
         const SizedBox(width: 20),
+
+        IconButton(
+          tooltip: 'Refresh Orders',
+          onPressed: _fetchOrders,
+          icon: const Icon(
+            Icons.refresh_rounded,
+            color: Color(0xFF0284C7),
+          ),
+        ),
+
+        const SizedBox(width: 10),
 
         SizedBox(
           width: 180,
@@ -305,7 +363,16 @@ class _FranchiseOrdersScreenState
         children: [
           _tableHeader(),
 
-          if (filteredOrders.isEmpty)
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(
+                vertical: 55,
+              ),
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (filteredOrders.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(
                 vertical: 55,
@@ -536,6 +603,13 @@ class _FranchiseOrdersScreenState
       backgroundColor: const Color(0xFFF6F7FB),
       appBar: AppBar(
         title: const Text('My Orders'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: _fetchOrders,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
       ),
       floatingActionButton:
           FloatingActionButton.extended(
@@ -547,115 +621,126 @@ class _FranchiseOrdersScreenState
           'New Order',
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              onChanged: (value) {
-                setState(() {
-                  searchText = value;
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search orders...',
-                prefixIcon: const Icon(
-                  Icons.search_rounded,
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(12),
+      body: RefreshIndicator(
+        onRefresh: _fetchOrders,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              TextField(
+                onChanged: (value) {
+                  setState(() {
+                    searchText = value;
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search orders...',
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(12),
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            Row(
-              children: [
-                Expanded(
-                  child: _MobileStat(
-                    title: 'Total',
-                    value: '${orders.length}',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _MobileStat(
-                    title: 'Pending',
-                    value: '${orders.where((o) => o['status'] == 'Plant Approval').length}',
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _MobileStat(
-                    title: 'Dispatched',
-                    value: '${orders.where((o) => o['status'] == 'Dispatched').length}',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _MobileStat(
-                    title: 'Delivered',
-                    value: '${orders.where((o) => o['status'] == 'Delivered').length}',
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 18),
-
-            if (filteredOrders.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(
-                      Icons.inventory_2_outlined,
-                      size: 48,
-                      color: Color(0xFFCBD5E1),
+              Row(
+                children: [
+                  Expanded(
+                    child: _MobileStat(
+                      title: 'Total',
+                      value: '${orders.length}',
                     ),
-                    SizedBox(height: 12),
-                    Text(
-                      'No orders found',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF64748B),
-                        fontSize: 14,
-                      ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _MobileStat(
+                      title: 'Pending',
+                      value: '${orders.where((o) => o['status'] == 'Plant Approval').length}',
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Tap "Place New Order" above to create an order.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...filteredOrders.map(
-                (order) => _mobileOrderCard(order),
+                  ),
+                ],
               ),
 
-            const SizedBox(height: 80),
-          ],
+              const SizedBox(height: 10),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _MobileStat(
+                      title: 'Dispatched',
+                      value: '${orders.where((o) => o['status'] == 'Dispatched').length}',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _MobileStat(
+                      title: 'Delivered',
+                      value: '${orders.where((o) => o['status'] == 'Delivered').length}',
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 18),
+
+              if (isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (filteredOrders.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(
+                        Icons.inventory_2_outlined,
+                        size: 48,
+                        color: Color(0xFFCBD5E1),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'No orders found',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF64748B),
+                          fontSize: 14,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Tap "New Order" below or "Order" in Products.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ...filteredOrders.map(
+                  (order) => _mobileOrderCard(order),
+                ),
+
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
       ),
     );
@@ -781,16 +866,11 @@ class _FranchiseOrdersScreenState
   // =========================================================
 
   Future<void> _newOrder() async {
-    String selectedProduct =
-        '500ml Water Bottle';
+    String selectedProduct = '500ml Water Bottle';
 
-    final quantityController =
-        TextEditingController(
-      text: '1',
-    );
-
-    final notesController =
-        TextEditingController();
+    final quantityController = TextEditingController(text: '10');
+    final notesController = TextEditingController();
+    bool isSubmitting = false;
 
     await showDialog(
       context: context,
@@ -804,8 +884,10 @@ class _FranchiseOrdersScreenState
               title: const Text(
                 'Place New Order',
               ),
-              content: SizedBox(
-                width: 430,
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                ),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize:
@@ -945,7 +1027,7 @@ class _FranchiseOrdersScreenState
                         44,
                       ),
                     ),
-                    onPressed: () {
+                    onPressed: isSubmitting ? null : () {
                       Navigator.pop(
                         dialogContext,
                       );
@@ -961,6 +1043,8 @@ class _FranchiseOrdersScreenState
                   child: ElevatedButton(
                     style:
                         ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
                       minimumSize:
                           const Size(
                         0,
@@ -972,7 +1056,7 @@ class _FranchiseOrdersScreenState
                         44,
                       ),
                     ),
-                    onPressed: () {
+                    onPressed: isSubmitting ? null : () async {
                       final quantity =
                           int.tryParse(
                                 quantityController
@@ -984,51 +1068,54 @@ class _FranchiseOrdersScreenState
                         return;
                       }
 
-                      final now =
-                          DateTime.now();
+                      setDialogState(() => isSubmitting = true);
 
-                      final newOrder = {
-                        'id':
-                            'ORD-${1001 + orders.length}',
-                        'date':
-                            _formatDate(now),
-                        'product':
-                            selectedProduct,
-                        'qty': quantity,
-                        'amount':
-                            quantity * 20,
-                        'status':
-                            'Plant Approval',
-                        'payment':
-                            'Pending',
-                      };
+                      final user = await SessionService().getCurrentUser();
+                      final franchiseName = user?.businessName.isNotEmpty == true
+                          ? user!.businessName
+                          : (user?.name.isNotEmpty == true ? user!.name : 'Franchise Partner');
+                      final city = user?.city.isNotEmpty == true ? user!.city : 'Raipur';
+                      final double totalAmount = (quantity * 20).toDouble();
 
-                      Navigator.pop(
-                        dialogContext,
-                      );
+                      final res = await OrderService().createOrder({
+                        'franchise': franchiseName,
+                        'city': city,
+                        'items': quantity,
+                        'amount': totalAmount,
+                        'status': 'Plant Approval',
+                        'payment': 'Pending',
+                      });
 
-                      if (mounted) {
-                        setState(() {
-                          orders.insert(
-                            0,
-                            newOrder,
-                          );
-                        });
+                      if (!dialogContext.mounted) return;
 
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Order placed successfully',
+                      if (res['success'] == true) {
+                        Navigator.pop(dialogContext);
+                        await _fetchOrders();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Order of $quantity x $selectedProduct placed successfully!'),
+                              backgroundColor: const Color(0xFF0284C7),
                             ),
-                          ),
+                          );
+                        }
+                      } else {
+                        setDialogState(() => isSubmitting = false);
+                        final msg = res['message'] ?? 'Failed to place order';
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red),
                         );
                       }
                     },
-                    child: const Text(
-                      'Place Order',
-                    ),
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text(
+                            'Place Order',
+                          ),
                   ),
                 ),
               ],
@@ -1056,8 +1143,10 @@ class _FranchiseOrdersScreenState
           title: const Text(
             'Order Details',
           ),
-          content: SizedBox(
-            width: 430,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize:
@@ -1386,35 +1475,6 @@ class _FranchiseOrdersScreenState
         int.tryParse('$amount') ?? 0;
 
     return number.toString();
-  }
-
-  String _formatDate(
-    DateTime date,
-  ) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-
-    final day =
-        date.day
-            .toString()
-            .padLeft(
-              2,
-              '0',
-            );
-
-    return '$day ${months[date.month - 1]} ${date.year}';
   }
 }
 

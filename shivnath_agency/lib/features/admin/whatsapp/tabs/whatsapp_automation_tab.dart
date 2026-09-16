@@ -629,8 +629,10 @@ class _WhatsAppAutomationTabState
                   ),
                 ],
               ),
-              content: SizedBox(
-                width: 550,
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+                ),
                 child: SingleChildScrollView(
                   child: Column(
                     children: [

@@ -16,7 +16,7 @@ class OrderDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('#$orderId'),
+        title: Text(orderId.startsWith('#') ? orderId : '#$orderId'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(18),

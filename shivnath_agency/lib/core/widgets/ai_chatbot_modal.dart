@@ -51,6 +51,15 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   final Map<String, dynamic> _leadData = {};
 
   List<String> get _quickOptions {
+    if (widget.appType == 'admin') {
+      return [
+        'How do I manage leads?',
+        'How do I approve a franchise?',
+        'Where can I check inventory?',
+        'How many leads in the system?',
+        'How to add a supplier?',
+      ];
+    }
     if (widget.appType == 'franchise') {
       return [
         'How to place franchise order?',
@@ -72,9 +81,17 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   @override
   void initState() {
     super.initState();
-    final welcomeText = widget.appType == 'franchise'
-        ? 'Namaste Franchise Partner 👋\nI am your Pure Water AI Operations Assistant.\n\nAsk me anything about placing orders, stock dispatch, invoices, commission margins, territory policies, or general questions!'
-        : 'Namaste 👋\nThank you for choosing Shivnath Pure Water.\n\nI am your AI Assistant. How can I help you today with our products, home delivery, or franchise opportunities?';
+    String welcomeText;
+    if (widget.appType == 'admin') {
+      welcomeText =
+          'Namaste Admin 👋\nI am your Pure Water AI Operations Assistant.\n\nAsk me anything about managing CRM leads, franchise approvals, inventory levels, suppliers, or live system metrics!';
+    } else if (widget.appType == 'franchise') {
+      welcomeText =
+          'Namaste Franchise Partner 👋\nI am your Pure Water AI Operations Assistant.\n\nAsk me anything about placing orders, stock dispatch, invoices, commission margins, territory policies, or general questions!';
+    } else {
+      welcomeText =
+          'Namaste 👋\nThank you for choosing Shivnath Pure Water.\n\nI am your AI Assistant. How can I help you today with our products, home delivery, or franchise opportunities?';
+    }
 
     _messages.add(
       _ChatMessage(
@@ -266,6 +283,21 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     final theme = Theme.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final isFranchise = widget.appType == 'franchise';
+    final isAdmin = widget.appType == 'admin';
+
+    String headerTitle = 'Pure Water AI Assistant';
+    String headerSubtitle = 'Instant Product & Order Guidance';
+    String inputHint = 'Ask about products, delivery, pricing, orders...';
+
+    if (isAdmin) {
+      headerTitle = 'Admin AI Assistant';
+      headerSubtitle = 'Real-time Operations & System Insights';
+      inputHint = 'Ask about leads, franchises, inventory, orders...';
+    } else if (isFranchise) {
+      headerTitle = 'Franchise AI Assistant';
+      headerSubtitle = 'Real-time Operations & Guidelines';
+      inputHint = 'Ask about plant orders, dispatch, margins, territory...';
+    }
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -307,9 +339,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isFranchise
-                            ? 'Franchise AI Assistant'
-                            : 'Pure Water AI Assistant',
+                        headerTitle,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -317,9 +347,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
                         ),
                       ),
                       Text(
-                        isFranchise
-                            ? 'Real-time Operations & Guidelines'
-                            : 'Instant Product & Franchise Guidance',
+                        headerSubtitle,
                         style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                       ),
                     ],
@@ -390,9 +418,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
                       textInputAction: TextInputAction.send,
                       onSubmitted: _sendMessage,
                       decoration: InputDecoration(
-                        hintText: isFranchise
-                            ? 'Ask about orders, dispatch, margins, territory...'
-                            : 'Ask about products, delivery, pricing, Python...',
+                        hintText: inputHint,
                         hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),

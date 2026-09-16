@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/services/OrderService.dart';
 import '../cart/cart_provider.dart';
 import 'order_success_screen.dart';
 
@@ -13,6 +14,7 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   String paymentMethod = 'COD';
+  bool _isSubmitting = false;
 
   final nameController =
       TextEditingController(text: 'Demo Customer');
@@ -33,24 +35,68 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
-  void placeOrder() {
+  Future<void> placeOrder() async {
+    if (_isSubmitting) return;
+
     if (!(formKey.currentState?.validate() ?? false)) {
       return;
     }
 
     final cart = context.read<CartProvider>();
+    if (cart.items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your cart is empty.')),
+      );
+      return;
+    }
+
     final amount = cart.totalAmount;
+    final totalItems = cart.itemCount;
 
-    cart.clearCart();
+    setState(() => _isSubmitting = true);
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OrderSuccessScreen(
-          amount: amount,
+    try {
+      final res = await OrderService().createOrder({
+        'franchise': nameController.text.trim(),
+        'city': addressController.text.trim(),
+        'items': totalItems,
+        'amount': amount,
+        'status': 'Order Placement',
+        'payment': paymentMethod == 'COD' ? 'Pending' : 'Paid',
+      });
+
+      if (!mounted) return;
+
+      if (res['success'] == true) {
+        cart.clearCart();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OrderSuccessScreen(
+              amount: amount,
+            ),
+          ),
+        );
+      } else {
+        setState(() => _isSubmitting = false);
+        final msg = res['message'] ?? 'Unable to place order. Please try again.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg.toString()),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Server unavailable. Please try again.'),
+          backgroundColor: Colors.red,
         ),
-      ),
-    );
+      );
+    }
   }
 
   @override
@@ -194,8 +240,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             const SizedBox(height: 22),
             ElevatedButton(
-              onPressed: placeOrder,
-              child: const Text('Place Order'),
+              onPressed: _isSubmitting ? null : placeOrder,
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Place Order'),
             ),
           ],
         ),

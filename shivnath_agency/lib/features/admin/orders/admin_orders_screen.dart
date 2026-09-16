@@ -454,8 +454,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         return StatefulBuilder(
           builder: (_, update) => AlertDialog(
             title: Text('Update ${order['orderId']}'),
-            content: SizedBox(
-              width: 400,
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
+              ),
               child: DropdownButtonFormField<String>(
                 value: selected,
                 decoration: const InputDecoration(labelText: 'Order Status'),

@@ -2112,8 +2112,10 @@ void _viewBackupHistory() {
             const Text(
           'Backup History',
         ),
-        content: SizedBox(
-          width: 600,
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+          ),
           child:
               SingleChildScrollView(
             child: Column(
@@ -2591,10 +2593,8 @@ String _settingsTime() {
               insetPadding:
                   const EdgeInsets.all(16),
               child: Container(
-                width: 520,
-                constraints:
-                    const BoxConstraints(
-                  maxWidth: 520,
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.9 > 520 ? 520 : MediaQuery.of(context).size.width * 0.9,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white,

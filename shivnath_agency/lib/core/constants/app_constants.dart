@@ -27,10 +27,8 @@ class AppConstants {
       return 'http://127.0.0.1:8000';
     }
 
-    if (Platform.isAndroid) {
-      return 'http://192.168.1.15:8000';
-    }
-
+    // In development over USB with 'adb reverse tcp:8000 tcp:8000',
+    // Android connects to the local development machine via 127.0.0.1:8000.
     return 'http://127.0.0.1:8000';
   }
 }

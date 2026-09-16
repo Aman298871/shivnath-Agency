@@ -12,6 +12,7 @@ from .views import (
     UpdateFranchiseView,
     DeleteFranchiseView,
     AdminCreateFranchiseView,
+    AdminUserListView,
 )
 
 
@@ -80,5 +81,11 @@ path(
     'franchises/<int:pk>/delete/',
     DeleteFranchiseView.as_view(),
     name='delete-franchise'
+),
+
+path(
+    'users/',
+    AdminUserListView.as_view(),
+    name='admin-users'
 ),
 ]

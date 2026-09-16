@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/services/session_service.dart';
+import '../../core/widgets/ai_chatbot_modal.dart';
 import '../../routes/app_routes.dart';
 
 import 'dashboard/admin_dashboard_screen.dart';
@@ -14,6 +15,8 @@ import 'orders/admin_orders_screen.dart';
 import 'billing/admin_billing_screen.dart';
 import 'reports/admin_reports_screen.dart';
 import 'whatsapp/admin_whatsapp_screen.dart';
+import 'chat/admin_chat_conversations_screen.dart';
+import 'users/admin_users_screen.dart';
 import 'settings/admin_settings_screen.dart';
 import 'notifications/admin_notifications_screen.dart';
 import 'profile/admin_profile_screen.dart';
@@ -77,7 +80,14 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       title: 'WhatsApp settings',
       icon: Icons.chat_outlined,
     ),
-    
+    _AdminMenuItem(
+      title: 'Customer Inquiries',
+      icon: Icons.forum_outlined,
+    ),
+    _AdminMenuItem(
+      title: 'User Directory',
+      icon: Icons.manage_accounts_outlined,
+    ),
   ];
 
   // =========================================================
@@ -120,12 +130,18 @@ Widget _currentScreen() {
       return const AdminWhatsAppScreen();
 
     case 11:
-      return const AdminSettingsScreen();
+      return const AdminChatConversationsScreen();
 
     case 12:
-      return const AdminNotificationsScreen();
+      return const AdminUsersScreen();
 
     case 13:
+      return const AdminSettingsScreen();
+
+    case 14:
+      return const AdminNotificationsScreen();
+
+    case 15:
       return const AdminProfileScreen();
 
     default:
@@ -213,25 +229,37 @@ Widget _currentScreen() {
       'welcome message': 10,
       'quick reply': 10,
 
+      // Inquiries / Chat
+      'inquiry': 11,
+      'inquiries': 11,
+      'chat log': 11,
+      'chats': 11,
+      'conversation': 11,
+
+      // Users
+      'user': 12,
+      'users': 12,
+      'directory': 12,
+      'staff': 12,
+      'customers': 12,
+
       // Settings
-      'settings': 11,
-      'setting': 11,
-      'role': 11,
-      'roles': 11,
-      'permission': 11,
-      'permissions': 11,
-      'user': 11,
-      'users': 11,
+      'settings': 13,
+      'setting': 13,
+      'role': 13,
+      'roles': 13,
+      'permission': 13,
+      'permissions': 13,
 
       // Notifications
-      'notification': 12,
-      'notifications': 12,
-      'alert': 12,
-      'alerts': 12,
+      'notification': 14,
+      'notifications': 14,
+      'alert': 14,
+      'alerts': 14,
 
       // Profile
-      'profile': 13,
-      'admin': 13,
+      'profile': 15,
+      'admin': 15,
     };
 
     for (final entry in searchMap.entries) {
@@ -354,10 +382,18 @@ Widget _currentScreen() {
         ),
         actions: [
           IconButton(
+            tooltip: 'AI Assistant',
+            onPressed: () => AiChatbotModal.show(context, appType: 'admin'),
+            icon: const Icon(
+              Icons.smart_toy_outlined,
+              color: Color(0xFF0284C7),
+            ),
+          ),
+          IconButton(
             tooltip: 'Notifications',
             onPressed: () {
               setState(() {
-                currentIndex = 12;
+                currentIndex = 14;
               });
             },
             icon: const Icon(
@@ -695,6 +731,40 @@ Widget _currentScreen() {
             const Spacer(),
 
             // =================================================
+            // AI ASSISTANT
+            // =================================================
+
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => AiChatbotModal.show(context, appType: 'admin'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBAE6FD)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.smart_toy_rounded, size: 18, color: Color(0xFF0284C7)),
+                    SizedBox(width: 8),
+                    Text(
+                      'AI Assistant',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0369A1),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 14),
+
+            // =================================================
             // NOTIFICATIONS
             // =================================================
 
@@ -713,7 +783,7 @@ Widget _currentScreen() {
                         tooltip: 'Notifications',
                         onPressed: () {
                           setState(() {
-                            currentIndex = 12;
+                            currentIndex = 14;
                           });
                         },
                         icon: const Icon(
@@ -931,11 +1001,11 @@ Widget _currentScreen() {
   void _handleProfileMenu(String value) {
     if (value == 'profile') {
       setState(() {
-        currentIndex = 13;
+        currentIndex = 15;
       });
     } else if (value == 'settings') {
       setState(() {
-        currentIndex = 11;
+        currentIndex = 13;
       });
     } else if (value == 'logout') {
       _logout();
@@ -982,12 +1052,18 @@ Widget _currentScreen() {
       return 'WhatsApp Settings';
 
     case 11:
-      return 'Settings';
+      return 'Customer Inquiries';
 
     case 12:
-      return 'Notifications';
+      return 'User Directory';
 
     case 13:
+      return 'Settings';
+
+    case 14:
+      return 'Notifications';
+
+    case 15:
       return 'Profile';
 
     default:

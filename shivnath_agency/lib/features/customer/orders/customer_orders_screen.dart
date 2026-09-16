@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 import '../../../core/services/OrderService.dart';
@@ -36,8 +37,11 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
       if (rawOrders is List) {
         final mapped = rawOrders.whereType<Map>().map((item) {
           final mappedItem = _orderService.mapOrder(Map<String, dynamic>.from(item));
+          final rawId = mappedItem['orderId']?.toString();
+          final fallbackId = mappedItem['id'] != null ? 'ORD-${1000 + (int.tryParse(mappedItem['id'].toString()) ?? 0)}' : '';
+          final orderCode = (rawId != null && rawId.isNotEmpty) ? rawId : fallbackId;
           return {
-            'id': mappedItem['orderId']?.toString() ?? mappedItem['id']?.toString() ?? '',
+            'id': orderCode,
             'date': mappedItem['date']?.toString() ?? '',
             'amount': '₹${mappedItem['amount']}',
             'status': mappedItem['status']?.toString() ?? 'Pending',
@@ -109,14 +113,18 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                     children: [
                       Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.grey.shade400),
                       const SizedBox(height: 12),
-                      const Text(
-                        'No orders placed yet',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                      Text(
+                        _errorMessage ?? 'No orders placed yet',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Browse products and place your first water order.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                      Text(
+                        _errorMessage != null
+                            ? 'Pull to refresh or tap the refresh icon to retry.'
+                            : 'Browse products and place your first water order.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                       ),
                     ],
                   ),

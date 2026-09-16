@@ -83,7 +83,7 @@ return result;
       return {
         "success": false,
         "message":
-            "Unable to connect : $e",
+            "Server unavailable. Please start the backend and try again.",
       };
     }
   }
@@ -106,7 +106,7 @@ return result;
       return {
         "success": false,
         "message":
-            "Unable to connect : $e",
+            "Server unavailable. Please start the backend and try again.",
       };
     }
   }
@@ -136,7 +136,7 @@ return result;
       return {
         "success": false,
         "message":
-            "Unable to connect : $e",
+            "Server unavailable. Please start the backend and try again.",
       };
     }
   }
@@ -167,7 +167,7 @@ return result;
       return {
         "success": false,
         "message":
-            "Unable to connect : $e",
+            "Server unavailable. Please start the backend and try again.",
       };
     }
   }
@@ -196,7 +196,7 @@ return result;
       return {
         "success": false,
         "message":
-            "Unable to connect : $e",
+            "Server unavailable. Please start the backend and try again.",
       };
     }
   }
@@ -219,7 +219,7 @@ return result;
       return {
         "success": false,
         "message":
-            "Unable to connect : $e",
+            "Server unavailable. Please start the backend and try again.",
       };
     }
   }

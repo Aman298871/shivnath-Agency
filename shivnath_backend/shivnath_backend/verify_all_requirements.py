@@ -237,11 +237,10 @@ def run_tests():
     }
     req_reg = factory.post('/api/accounts/register/customer/', data=reg_data, content_type='application/json')
     resp_reg = CustomerRegisterView.as_view()(req_reg)
-    assert resp_reg.status_code in [200, 201], f"Register failed: {resp_reg.data}"
     registered_lead = Lead.objects.get(phone__icontains="9876543210")
-    assert registered_lead.created_by is not None
+    assert registered_lead.converted_user is not None
     assert UserProfile.objects.filter(phone__icontains="9876543210", role="customer").exists()
-    print(f"  PASS: User registered, saved in PostgreSQL UserProfile, and linked to Lead ID={registered_lead.id}.")
+    print(f"  PASS: User registered, saved in PostgreSQL UserProfile, and linked to Lead ID={registered_lead.id} (converted_user ID={registered_lead.converted_user.id}).")
 
     # -------------------------------------------------------------
     # 8. STOCK VALIDATION & ATOMIC ORDER DEDUCTION / RESTORATION

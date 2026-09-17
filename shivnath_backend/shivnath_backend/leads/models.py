@@ -165,6 +165,14 @@ class Lead(models.Model):
         related_name='created_leads'
     )
 
+    converted_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='converted_leads'
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True
     )

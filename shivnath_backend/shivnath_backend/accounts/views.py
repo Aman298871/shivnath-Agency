@@ -39,6 +39,35 @@ class CustomerRegisterView(APIView):
 
             user = serializer.save()
 
+            # Link existing lead if matching phone / email
+            try:
+                from leads.models import Lead, LeadActivity
+                phone_raw = str(request.data.get('phone', ''))
+                cleaned_phone = phone_raw.replace(' ', '').replace('-', '').replace('+', '')
+                if len(cleaned_phone) >= 10:
+                    cleaned_phone = cleaned_phone[-10:]
+                email_raw = str(request.data.get('email', '')).strip().lower()
+
+                lead_query = Q()
+                if cleaned_phone:
+                    lead_query |= Q(phone__icontains=cleaned_phone)
+                if email_raw:
+                    lead_query |= Q(email__iexact=email_raw)
+
+                if lead_query:
+                    matching_leads = Lead.objects.filter(lead_query)
+                    for lead in matching_leads:
+                        lead.converted_user = user
+                        lead.save(update_fields=['converted_user'])
+                        LeadActivity.objects.create(
+                            lead=lead,
+                            activity_type='converted',
+                            title='Customer Registered',
+                            description=f'User account created for {user.get_full_name() or user.username} (User ID: {user.id}).'
+                        )
+            except Exception:
+                pass
+
             return Response(
                 {
                     'success': True,

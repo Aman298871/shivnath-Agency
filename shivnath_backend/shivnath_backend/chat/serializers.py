@@ -84,3 +84,36 @@ class ChatbotOptionSerializer(serializers.ModelSerializer):
     def get_children(self, obj):
         active_children = obj.children.filter(is_active=True).order_by('order', 'title')
         return ChatbotOptionSerializer(active_children, many=True).data
+
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatMessage
+        fields = [
+            'id',
+            'session',
+            'sender',
+            'message',
+            'quick_replies',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class ChatSessionSerializer(serializers.ModelSerializer):
+    messages = ChatMessageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ChatSession
+        fields = [
+            'id',
+            'session_token',
+            'lead',
+            'inquiry_type',
+            'is_active',
+            'created_at',
+            'updated_at',
+            'messages',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'messages']
+

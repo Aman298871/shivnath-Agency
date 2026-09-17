@@ -1058,50 +1058,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _cardHeader({
     required String title,
     required String subtitle,
-    required String button,
+    String? button,
     VoidCallback? onTap,
   }) {
     return Row(
       children: [
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment
-                    .start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
-                style:
-                    const TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
-                  fontWeight:
-                      FontWeight
-                          .w800,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(
-                height: 3,
-              ),
+              const SizedBox(height: 3),
               Text(
                 subtitle,
-                style:
-                    const TextStyle(
+                style: const TextStyle(
                   fontSize: 11,
-                  color:
-                      Color(
-                    0xFF94A3B8,
-                  ),
+                  color: Color(0xFF94A3B8),
                 ),
               ),
             ],
           ),
         ),
-        TextButton(
-          onPressed: onTap,
-          child: Text(
-            button,
+        if (button != null)
+          TextButton(
+            onPressed: onTap,
+            child: Text(
+              button,
+            ),
           ),
-        ),
       ],
     );
   }

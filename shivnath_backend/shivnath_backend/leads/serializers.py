@@ -4,6 +4,7 @@ from .models import (
     Lead,
     LeadActivity,
 )
+from chat.serializers import ChatSessionSerializer
 
 
 class LeadActivitySerializer(serializers.ModelSerializer):
@@ -77,6 +78,11 @@ class LeadSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    chat_sessions = ChatSessionSerializer(
+        many=True,
+        read_only=True
+    )
+
     class Meta:
         model = Lead
 
@@ -109,6 +115,8 @@ class LeadSerializer(serializers.ModelSerializer):
             'source',
             'notes',
 
+            'converted_user',
+
             'created_by',
             'created_by_name',
 
@@ -116,6 +124,7 @@ class LeadSerializer(serializers.ModelSerializer):
             'updated_at',
 
             'activities',
+            'chat_sessions',
         ]
 
         read_only_fields = [
@@ -125,6 +134,8 @@ class LeadSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'activities',
+            'chat_sessions',
+            'converted_user',
 
             'score_display',
             'status_display',

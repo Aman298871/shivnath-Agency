@@ -6,11 +6,27 @@ import '../../../core/services/lead_service.dart';
 class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenLeads;
   final VoidCallback? onOpenFollowups;
+  final VoidCallback? onOpenFranchises;
+  final VoidCallback? onOpenInventory;
+  final VoidCallback? onOpenProducts;
+  final VoidCallback? onOpenOrders;
+  final VoidCallback? onOpenChatbot;
+  final VoidCallback? onOpenQuotations;
+  final VoidCallback? onOpenUsers;
+  final VoidCallback? onOpenNotifications;
 
   const AdminDashboardScreen({
     super.key,
     this.onOpenLeads,
     this.onOpenFollowups,
+    this.onOpenFranchises,
+    this.onOpenInventory,
+    this.onOpenProducts,
+    this.onOpenOrders,
+    this.onOpenChatbot,
+    this.onOpenQuotations,
+    this.onOpenUsers,
+    this.onOpenNotifications,
   });
 
   @override
@@ -240,6 +256,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     height: 22,
                   ),
 
+                  _quickActionsGrid(desktop),
+
+                  const SizedBox(
+                    height: 22,
+                  ),
+
                   _recentLeadsCard(
                     desktop,
                   ),
@@ -290,27 +312,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _statsSection(
     bool desktop,
   ) {
+    VoidCallback? getTapAction(int index) {
+      switch (index) {
+        case 0:
+          return widget.onOpenLeads;
+        case 1:
+          return widget.onOpenLeads;
+        case 2:
+          return widget.onOpenFollowups;
+        case 3:
+          return widget.onOpenFranchises;
+        default:
+          return null;
+      }
+    }
+
     if (desktop) {
       return Row(
-        children:
-            List.generate(
+        children: List.generate(
           _stats.length,
           (index) {
             return Expanded(
               child: Padding(
-                padding:
-                    EdgeInsets.only(
-                  right:
-                      index ==
-                              _stats.length -
-                                  1
-                          ? 0
-                          : 14,
+                padding: EdgeInsets.only(
+                  right: index == _stats.length - 1 ? 0 : 14,
                 ),
-                child:
-                    _StatCard(
-                  item:
-                      _stats[index],
+                child: _StatCard(
+                  item: _stats[index],
+                  onTap: getTapAction(index),
                 ),
               ),
             );
@@ -321,22 +350,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return GridView.builder(
       shrinkWrap: true,
-      physics:
-          const NeverScrollableScrollPhysics(),
-      gridDelegate:
-          const SliverGridDelegateWithFixedCrossAxisCount(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
         childAspectRatio: 1.10,
       ),
-      itemCount:
-          _stats.length,
-      itemBuilder:
-          (_, index) {
+      itemCount: _stats.length,
+      itemBuilder: (_, index) {
         return _StatCard(
-          item:
-              _stats[index],
+          item: _stats[index],
+          onTap: getTapAction(index),
         );
       },
     );
@@ -561,6 +586,91 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   ],
                 ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickActionsGrid(bool desktop) {
+    final actions = [
+      {'title': 'Leads', 'icon': Icons.people_alt_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenLeads},
+      {'title': 'Follow-ups', 'icon': Icons.calendar_month_outlined, 'color': const Color(0xFF0EA5E9), 'action': widget.onOpenFollowups},
+      {'title': 'Users', 'icon': Icons.manage_accounts_outlined, 'color': const Color(0xFF6366F1), 'action': widget.onOpenUsers},
+      {'title': 'Orders', 'icon': Icons.shopping_cart_outlined, 'color': const Color(0xFFF59E0B), 'action': widget.onOpenOrders},
+      {'title': 'Franchise', 'icon': Icons.storefront_outlined, 'color': const Color(0xFF8B5CF6), 'action': widget.onOpenFranchises},
+      {'title': 'Inventory', 'icon': Icons.inventory_2_outlined, 'color': const Color(0xFFEC4899), 'action': widget.onOpenInventory},
+      {'title': 'Chatbot', 'icon': Icons.account_tree_outlined, 'color': const Color(0xFF10B981), 'action': widget.onOpenChatbot},
+      {'title': 'Notifications', 'icon': Icons.notifications_none_outlined, 'color': const Color(0xFF06B6D4), 'action': widget.onOpenNotifications},
+    ];
+
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _cardHeader(
+            title: 'Quick Operations',
+            subtitle: 'Direct shortcuts to system modules',
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 600;
+              final crossAxisCount = isNarrow ? 2 : (desktop ? 4 : 4);
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: isNarrow ? 2.4 : 2.8,
+                ),
+                itemCount: actions.length,
+                itemBuilder: (context, index) {
+                  final act = actions[index];
+                  final color = act['color'] as Color;
+                  return InkWell(
+                    onTap: act['action'] as VoidCallback?,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: color.withAlpha(25),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(act['icon'] as IconData, color: color, size: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              act['title'] as String,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0F172A),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF94A3B8)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -1026,83 +1136,92 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
 class _StatCard extends StatelessWidget {
   final Map<String, dynamic> item;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.item,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  item['title'].toString(),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF64748B),
-                    height: 1.15,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    item['value'].toString(),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF111827),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: const Color(0xFFE5E7EB),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      item['title'].toString(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                        height: 1.15,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 3),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        item['value'].toString(),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item['change'].toString(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF16A34A),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  item['change'].toString(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF16A34A),
-                    fontWeight: FontWeight.w600,
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
-            ),
+                child: Icon(
+                  item['icon'] as IconData,
+                  color: const Color(0xFF0284C7),
+                  size: 19,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE0F2FE),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              item['icon'] as IconData,
-              color: const Color(0xFF0284C7),
-              size: 19,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

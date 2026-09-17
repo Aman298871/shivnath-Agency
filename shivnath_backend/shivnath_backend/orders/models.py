@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from products.models import Product
 
 
 class Order(models.Model):
@@ -11,6 +12,7 @@ class Order(models.Model):
         ('dispatch', 'Dispatch'),
         ('delivered', 'Delivered'),
         ('payment_collection', 'Payment Collection'),
+        ('cancelled', 'Cancelled'),
     ]
 
     PAYMENT_CHOICES = [
@@ -78,3 +80,43 @@ class Order(models.Model):
     @property
     def order_code(self):
         return f'ORD-{1000 + self.id}'
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='items',
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='order_items',
+    )
+    product_name = models.CharField(
+        max_length=200,
+        default='',
+    )
+    size = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+    )
+    quantity = models.PositiveIntegerField(
+        default=1,
+    )
+    unit_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
+    total_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+
+    def __str__(self):
+        return f"{self.quantity}x {self.product_name} in ORD-{self.order.id}"

@@ -111,6 +111,26 @@ class CustomerRegisterSerializer(serializers.Serializer):
         profile.status = 'active'
         profile.save()
 
+        # Link any existing Lead to this registered account without duplicate lead creation
+        try:
+            from leads.models import Lead, LeadActivity
+            import re
+            norm_phone = re.sub(r'\D', '', phone)[-10:] if len(re.sub(r'\D', '', phone)) >= 10 else phone
+            matching_leads = Lead.objects.filter(phone__icontains=norm_phone)
+            for m_lead in matching_leads:
+                if not m_lead.created_by:
+                    m_lead.created_by = user
+                    m_lead.save(update_fields=['created_by'])
+                LeadActivity.objects.create(
+                    lead=m_lead,
+                    activity_type='note',
+                    title='Customer Registered Account',
+                    description=f'Lead linked to registered customer account {email} (User ID: {user.id}).',
+                    created_by=user,
+                )
+        except Exception:
+            pass
+
         # Create Admin Notification
         try:
             from .models import AdminNotification

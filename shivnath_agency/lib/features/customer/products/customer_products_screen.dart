@@ -18,11 +18,14 @@ class _CustomerProductsScreenState
     extends State<CustomerProductsScreen> {
   String search = '';
   String category = 'All';
+  List<String> _categories = ['All'];
+  bool _loadingCategories = false;
 
   @override
   void initState() {
     super.initState();
     _fetchProducts();
+    _fetchCategories();
   }
 
   Future<void> _fetchProducts() async {
@@ -30,6 +33,30 @@ class _CustomerProductsScreenState
     if (mounted) setState(() {});
   }
 
+  Future<void> _fetchCategories() async {
+    setState(() => _loadingCategories = true);
+    final res = await ProductService().getCategories(activeOnly: true);
+    if (res['success'] == true && res['data'] is Map) {
+      final list = res['data']['categories'];
+      if (list is List) {
+        final names = <String>['All'];
+        for (var item in list) {
+          if (item is Map && item['name'] != null) {
+            final name = item['name'].toString();
+            if (!names.contains(name)) names.add(name);
+          }
+        }
+        if (mounted) {
+          setState(() {
+            _categories = names;
+            _loadingCategories = false;
+          });
+          return;
+        }
+      }
+    }
+    if (mounted) setState(() => _loadingCategories = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +66,7 @@ class _CustomerProductsScreenState
           .contains(search.toLowerCase());
 
       final matchesCategory =
-          category == 'All' || product.category == category;
+          category == 'All' || product.category.toLowerCase() == category.toLowerCase();
 
       return matchesSearch && matchesCategory;
     }).toList();
@@ -270,39 +297,21 @@ class _CustomerProductsScreenState
   Widget _filters() {
     return SizedBox(
       height: 45,
-      child: ListView(
+      child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        children: [
-          _FilterChip(
-            title: 'All',
-            selected: category == 'All',
+        itemCount: _categories.length,
+        itemBuilder: (context, index) {
+          final cat = _categories[index];
+          return _FilterChip(
+            title: cat,
+            selected: category == cat,
             onTap: () {
               setState(() {
-                category = 'All';
+                category = cat;
               });
             },
-          ),
-          _FilterChip(
-            title: 'Water Bottle',
-            selected:
-                category == 'Water Bottle',
-            onTap: () {
-              setState(() {
-                category = 'Water Bottle';
-              });
-            },
-          ),
-          _FilterChip(
-            title: 'Water Jar',
-            selected:
-                category == 'Water Jar',
-            onTap: () {
-              setState(() {
-                category = 'Water Jar';
-              });
-            },
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -499,33 +508,48 @@ class _ProductCard extends StatelessWidget {
                       ElevatedButton.styleFrom(
                     minimumSize:
                         const Size(0, 42),
+                    backgroundColor: product.stock <= 0 ? Colors.grey.shade400 : null,
                   ),
-                  onPressed: () {
-                    context
-                        .read<CartProvider>()
-                        .addProduct(product);
+                  onPressed: product.stock <= 0
+                      ? null
+                      : () {
+                          final error = context
+                              .read<CartProvider>()
+                              .addProduct(product);
 
-                    ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '${product.name} added to cart',
-                          ),
-                          duration:
-                              const Duration(
-                            seconds: 1,
-                          ),
-                        ),
-                      );
-                  },
-                  icon: const Icon(
-                    Icons
-                        .add_shopping_cart_rounded,
+                          if (error != null) {
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: Text(error),
+                                  backgroundColor: Colors.red.shade700,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                          } else {
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '${product.name} added to cart',
+                                  ),
+                                  backgroundColor: const Color(0xFF0284C7),
+                                  duration:
+                                      const Duration(
+                                    seconds: 1,
+                                  ),
+                                ),
+                              );
+                          }
+                        },
+                  icon: Icon(
+                    product.stock <= 0 ? Icons.remove_shopping_cart : Icons.add_shopping_cart_rounded,
                     size: 17,
                   ),
-                  label: const Text(
-                    'Add to Cart',
+                  label: Text(
+                    product.stock <= 0 ? 'Out of Stock' : 'Add to Cart',
                   ),
                 ),
               ),

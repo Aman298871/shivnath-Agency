@@ -332,9 +332,19 @@ class _DesktopCartItem
                     _QtyButton(
                       icon: Icons.add,
                       onTap: () {
-                        cart.increaseQuantity(
+                        final error = cart.increaseQuantity(
                           item.product.id,
                         );
+                        if (error != null) {
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(
+                              SnackBar(
+                                content: Text(error),
+                                backgroundColor: Colors.red.shade700,
+                              ),
+                            );
+                        }
                       },
                     ),
                   ],

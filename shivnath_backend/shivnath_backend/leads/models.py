@@ -70,6 +70,12 @@ class Lead(models.Model):
         max_length=15
     )
 
+    email = models.EmailField(
+        max_length=200,
+        blank=True,
+        default=''
+    )
+
     city = models.CharField(
         max_length=100
     )

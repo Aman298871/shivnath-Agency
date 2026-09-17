@@ -1,6 +1,20 @@
 from rest_framework import serializers
 
-from .models import Order
+from .models import Order, OrderItem
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = [
+            'id',
+            'product',
+            'product_name',
+            'size',
+            'quantity',
+            'unit_price',
+            'total_price',
+        ]
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -21,6 +35,7 @@ class OrderSerializer(serializers.ModelSerializer):
     )
 
     created_by_name = serializers.SerializerMethodField()
+    items = OrderItemSerializer(many=True, read_only=True)
 
     class Meta:
         model = Order
@@ -45,6 +60,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
             'created_by',
             'created_by_name',
+            'items',
 
             'created_at',
             'updated_at',
@@ -58,6 +74,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'payment_display',
             'created_by',
             'created_by_name',
+            'items',
             'created_at',
             'updated_at',
         ]
@@ -103,4 +120,4 @@ class OrderSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'Amount cannot be negative.'
             )
-        return value
+        return value

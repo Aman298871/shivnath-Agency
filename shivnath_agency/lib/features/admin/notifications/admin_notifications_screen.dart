@@ -44,10 +44,18 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   int get unreadCount =>
       notifications.where((e) => e['is_read'] == false || e['read'] == false).length;
 
+  int get readCount =>
+      notifications.where((e) => e['is_read'] == true || e['read'] == true).length;
+
   List<Map<String, dynamic>> get filtered {
     if (tab == 'Unread') {
       return notifications
           .where((e) => e['is_read'] == false || e['read'] == false)
+          .toList();
+    }
+    if (tab == 'Read') {
+      return notifications
+          .where((e) => e['is_read'] == true || e['read'] == true)
           .toList();
     }
 
@@ -129,42 +137,41 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
 
   Widget _stats(bool desktop) {
     final data = [
-      ['Total Notifications', '${notifications.length}'],
-      ['Unread', '$unreadCount'],
-      ['Read', '${notifications.length - unreadCount}'],
+      ['Total Notifications', '${notifications.length}', Icons.notifications_none_rounded, const Color(0xFF0284C7), 'All'],
+      ['Unread', '$unreadCount', Icons.mark_email_unread_outlined, const Color(0xFFDC2626), 'Unread'],
+      ['Read', '$readCount', Icons.done_all_rounded, const Color(0xFF16A34A), 'Read'],
     ];
 
-    if (desktop) {
-      return Row(
-        children: List.generate(
-          data.length,
-          (index) => Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(
-                right: index == data.length - 1 ? 0 : 12,
-              ),
-              child: _NotificationStat(
-                title: data[index][0],
-                value: data[index][1],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final isNarrow = width < 600;
 
-    return Column(
-      children: data
-          .map(
-            (e) => Padding(
-              padding: const EdgeInsets.only(bottom: 9),
-              child: _NotificationStat(
-                title: e[0],
-                value: e[1],
-              ),
-            ),
-          )
-          .toList(),
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isNarrow ? 2 : (desktop ? 3 : 3),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: isNarrow ? 1.7 : 2.3,
+          ),
+          itemCount: data.length,
+          itemBuilder: (context, index) {
+            final filterTab = data[index][4] as String;
+            final isSelected = tab == filterTab;
+
+            return _NotificationStat(
+              title: data[index][0] as String,
+              value: data[index][1] as String,
+              icon: data[index][2] as IconData,
+              color: data[index][3] as Color,
+              selected: isSelected,
+              onTap: () => setState(() => tab = filterTab),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -186,6 +193,8 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                 _tabButton('All', notifications.length),
                 const SizedBox(width: 8),
                 _tabButton('Unread', unreadCount),
+                const SizedBox(width: 8),
+                _tabButton('Read', readCount),
                 const Spacer(),
                 if (unreadCount > 0)
                   TextButton.icon(

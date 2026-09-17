@@ -314,15 +314,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _buildRoleFilterChip('All Accounts', 'all'),
+                      _buildRoleFilterChip('All Users', 'all'),
                       const SizedBox(width: 8),
                       _buildRoleFilterChip('Customers', 'customer'),
                       const SizedBox(width: 8),
                       _buildRoleFilterChip('Franchises', 'franchise'),
-                      const SizedBox(width: 8),
-                      _buildRoleFilterChip('Staff', 'staff'),
-                      const SizedBox(width: 8),
-                      _buildRoleFilterChip('Admins', 'admin'),
                     ],
                   ),
                 ),

@@ -202,6 +202,87 @@ return result;
   }
 
   //=========================================
+  // CATEGORIES
+  //=========================================
+
+  Future<Map<String, dynamic>> getCategories({
+    bool treeOnly = false,
+    bool activeOnly = false,
+  }) async {
+    try {
+      final query = <String, String>{};
+      if (treeOnly) query['tree'] = 'true';
+      if (activeOnly) query['active_only'] = 'true';
+
+      final uri = Uri.parse('$baseUrl/api/products/categories/').replace(
+        queryParameters: query.isEmpty ? null : query,
+      );
+
+      final response = await http.get(
+        uri,
+        headers: await _headers(),
+      );
+
+      return _decode(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Server unavailable. Please start the backend and try again.",
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> createCategory(Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/products/categories/'),
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+
+      return _decode(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Server unavailable. Please start the backend and try again.",
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCategory(int id, Map<String, dynamic> data) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/products/categories/$id/'),
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+
+      return _decode(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Server unavailable. Please start the backend and try again.",
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteCategory(int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/products/categories/$id/'),
+        headers: await _headers(),
+      );
+
+      return _decode(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Server unavailable. Please start the backend and try again.",
+      };
+    }
+  }
+
+  //=========================================
   // STATS
   //=========================================
 

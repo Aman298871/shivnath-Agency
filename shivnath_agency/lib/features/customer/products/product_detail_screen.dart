@@ -85,28 +85,58 @@ class ProductDetailScreen extends StatelessWidget {
 
           const SizedBox(height: 18),
 
-          Text(
-            'Available Stock: ${product.stock}',
-            style: const TextStyle(
-              color: Color(0xFF16A34A),
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: product.stock > 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                product.stock > 0
+                    ? 'Available Stock: ${product.stock} units'
+                    : 'Currently Out of Stock',
+                style: TextStyle(
+                  color: product.stock > 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 30),
 
           ElevatedButton.icon(
-            onPressed: () {
-              context.read<CartProvider>().addProduct(product);
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Added to cart'),
-                ),
-              );
-            },
+            onPressed: product.stock <= 0
+                ? null
+                : () {
+                    final error = context.read<CartProvider>().addProduct(product);
+                    if (error != null) {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(
+                            content: Text(error),
+                            backgroundColor: Colors.red.shade700,
+                          ),
+                        );
+                    } else {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(
+                            content: Text('${product.name} added to cart'),
+                            backgroundColor: const Color(0xFF0284C7),
+                          ),
+                        );
+                    }
+                  },
             icon: const Icon(Icons.shopping_cart_outlined),
-            label: const Text('Add to Cart'),
+            label: Text(product.stock > 0 ? 'Add to Cart' : 'Out of Stock'),
           ),
         ],
       ),

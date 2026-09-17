@@ -221,11 +221,38 @@ class StockRequestListCreateView(APIView):
             requested_by=request.user
         )
 
+        # If created by admin/staff or auto_approve requested, apply stock immediately
+        auto_apply = request.data.get('auto_approve', True)
+        if auto_apply or request.user.is_superuser or getattr(getattr(request.user, 'profile', None), 'role', '') == 'admin':
+            if request_type == 'stock_in':
+                item.stock = F('stock') + quantity
+            else:
+                item.stock = F('stock') - quantity
+
+            item.save()
+            item.refresh_from_db()
+
+            stock_request.status = 'approved'
+            stock_request.approved_by = request.user
+            stock_request.approved_at = timezone.now()
+            stock_request.save()
+
+            # Sync matching Product if exists
+            try:
+                from products.models import Product
+                if item.sku:
+                    Product.objects.filter(sku__iexact=item.sku).update(stock=item.stock)
+                else:
+                    Product.objects.filter(name__iexact=item.name).update(stock=item.stock)
+            except Exception:
+                pass
+
         return Response(
             {
                 'success': True,
-                'message': 'Stock request submitted for approval.',
+                'message': 'Stock entry recorded and inventory updated successfully.',
                 'request': StockRequestSerializer(stock_request).data,
+                'item': InventoryItemSerializer(item).data,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -278,6 +305,16 @@ class StockRequestApproveView(APIView):
         stock_request.approved_by = request.user
         stock_request.approved_at = timezone.now()
         stock_request.save()
+
+        # Sync matching Product if exists
+        try:
+            from products.models import Product
+            if item.sku:
+                Product.objects.filter(sku__iexact=item.sku).update(stock=item.stock)
+            else:
+                Product.objects.filter(name__iexact=item.name).update(stock=item.stock)
+        except Exception:
+            pass
 
         return Response(
             {

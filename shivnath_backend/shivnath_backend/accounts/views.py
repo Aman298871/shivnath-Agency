@@ -2,6 +2,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.db.models import Q
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 from rest_framework.permissions import (
@@ -11,7 +12,7 @@ from rest_framework.permissions import (
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import FranchiseProfile,UserProfile
+from .models import FranchiseProfile, UserProfile
 from .permissions import IsAdminRole
 
 from .serializers import (
@@ -1125,8 +1126,8 @@ class CurrentUserView(APIView):
 
 class AdminUserListView(APIView):
     """
-    Admin endpoint to view registered users (Customers, Franchises, Staff)
-    safely without exposing credentials or JWT tokens.
+    Admin endpoint to view registered users (Customers, Franchises)
+    safely without exposing credentials or internal admin accounts in the normal user directory.
     """
     permission_classes = [IsAdminRole]
 
@@ -1136,11 +1137,17 @@ class AdminUserListView(APIView):
 
         users = User.objects.select_related('profile', 'franchise_profile').all().order_by('-date_joined')
 
-        if role_filter and role_filter != 'all':
-            if role_filter == 'admin':
-                users = users.filter(profile__role='admin') | users.filter(is_superuser=True)
-            else:
-                users = users.filter(profile__role=role_filter)
+        if role_filter == 'customer':
+            users = users.filter(profile__role='customer')
+        elif role_filter == 'franchise':
+            users = users.filter(profile__role='franchise')
+        elif role_filter == 'admin':
+            users = users.filter(Q(profile__role='admin') | Q(is_superuser=True))
+        elif role_filter == 'staff':
+            users = users.filter(profile__role='staff')
+        else:
+            # By default, in user directory, show only actual customers and franchises
+            users = users.exclude(profile__role__in=['admin', 'staff']).exclude(is_superuser=True)
 
         if search:
             from django.db.models import Q

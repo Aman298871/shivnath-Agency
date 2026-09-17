@@ -148,78 +148,265 @@ class LeadListCreateView(APIView):
         # DISTRICT
         # ---------------------------------------------
 
-        district = request.query_params.get(
-            'district',
-            ''
-        ).strip()
+def _normalize_phone(p):
+    if not p:
+        return ""
+    import re
+    digits = re.sub(r'\D', '', str(p))
+    return digits[-10:] if len(digits) >= 10 else digits
 
-        if district:
-            leads = leads.filter(
-                district__iexact=district
+
+class PublicLeadCaptureView(APIView):
+    permission_classes = []
+    authentication_classes = []
+
+    def post(self, request):
+        name = str(request.data.get('name', '')).strip()
+        phone = str(request.data.get('phone', '')).strip()
+        email = str(request.data.get('email', '')).strip().lower()
+        city = str(request.data.get('city', '')).strip()
+        district = str(request.data.get('district', '')).strip()
+        budget = str(request.data.get('budget') or request.data.get('investment_budget', '')).strip()
+        space = str(request.data.get('space') or request.data.get('commercial_space', 'no')).strip().lower()
+        experience = str(request.data.get('experience') or request.data.get('previous_experience', '')).strip()
+        location = str(request.data.get('location') or request.data.get('preferred_location', '')).strip()
+        inquiry_type = str(request.data.get('inquiry_type', 'customer')).strip()
+        selected_options = request.data.get('selected_options', [])
+        notes = str(request.data.get('notes', '')).strip()
+        conversation_history = request.data.get('conversation_history', [])
+
+        if not name:
+            name = "Public Prospect"
+        if not phone:
+            return Response(
+                {'success': False, 'message': 'Mobile number is required to register inquiry.'},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = LeadSerializer(
-            leads,
-            many=True
+        norm_phone = _normalize_phone(phone)
+        
+        # Check for existing lead by phone or email
+        existing_lead = None
+        if norm_phone:
+            existing_lead = Lead.objects.filter(phone__icontains=norm_phone).first()
+        if not existing_lead and email and not email.endswith('@franchiseprospect.com') and not email.endswith('@purewatercrm.com'):
+            existing_lead = Lead.objects.filter(email__iexact=email).first()
+
+        score = 'warm'
+        if '10 lakh' in budget.lower() or '20 lakh' in budget.lower() or 'yes' in space.lower():
+            score = 'hot'
+
+        note_details = f"Inquiry Type: {inquiry_type.upper()}"
+        if budget:
+            note_details += f" | Budget: {budget}"
+        if space and space != 'no':
+            note_details += f" | Space: {space}"
+        if selected_options:
+            opts_str = ', '.join([str(o) for o in selected_options])
+            note_details += f" | Selected: {opts_str}"
+        if notes:
+            note_details += f" | Notes: {notes}"
+
+        from accounts.models import AdminNotification
+
+        if existing_lead:
+            # Update existing lead without creating duplicate card
+            if name and existing_lead.name in ['Public Prospect', 'Guest Customer', '']:
+                existing_lead.name = name
+            if city and not existing_lead.city:
+                existing_lead.city = city
+            if district and not existing_lead.district:
+                existing_lead.district = district
+            if budget:
+                existing_lead.investment_budget = budget
+            if space in ['available', 'searching', 'yes']:
+                existing_lead.commercial_space = 'available' if space in ['available', 'yes'] else 'searching'
+            if experience and not existing_lead.previous_experience:
+                existing_lead.previous_experience = experience
+            if location and not existing_lead.preferred_location:
+                existing_lead.preferred_location = location
+            if score == 'hot':
+                existing_lead.score = 'hot'
+            existing_lead.notes = (existing_lead.notes + f"\n[{inquiry_type.upper()} UPDATE] " + note_details).strip()
+            existing_lead.save()
+
+            LeadActivity.objects.create(
+                lead=existing_lead,
+                activity_type='whatsapp' if 'whatsapp' in notes.lower() else 'note',
+                title=f'Chatbot Inquiry Update ({inquiry_type.capitalize()})',
+                description=note_details,
+            )
+
+            try:
+                AdminNotification.objects.create(
+                    title='Lead Inquiry Updated',
+                    message=f'Existing Lead {existing_lead.name} ({existing_lead.phone}) submitted a new {inquiry_type} inquiry via Chatbot.',
+                    notification_type='general',
+                    reference_id=existing_lead.id,
+                )
+            except Exception:
+                pass
+
+            return Response(
+                {
+                    'success': True,
+                    'is_duplicate': True,
+                    'message': 'Inquiry linked to existing lead record successfully.',
+                    'lead': LeadSerializer(existing_lead).data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Create brand new Lead
+        new_lead = Lead.objects.create(
+            name=name,
+            phone=phone,
+            email=email,
+            city=city or 'Raipur',
+            district=district,
+            investment_budget=budget,
+            existing_business='yes' if 'yes' in str(request.data.get('existing_business', '')).lower() else 'no',
+            commercial_space='available' if space in ['available', 'yes'] else ('searching' if space == 'searching' else 'no'),
+            previous_experience=experience,
+            preferred_location=location or city,
+            score=score,
+            status='new_lead',
+            source='Public AI Chatbot',
+            notes=note_details,
         )
 
+        LeadActivity.objects.create(
+            lead=new_lead,
+            activity_type='note',
+            title=f'New {inquiry_type.capitalize()} Chatbot Lead',
+            description=note_details,
+        )
+
+        try:
+            AdminNotification.objects.create(
+                title='New Lead Received',
+                message=f'New {inquiry_type} lead received from {new_lead.name} ({new_lead.phone}) via Public Chatbot.',
+                notification_type='general',
+                reference_id=new_lead.id,
+            )
+        except Exception:
+            pass
+
+        return Response(
+            {
+                'success': True,
+                'is_duplicate': False,
+                'message': 'New lead captured successfully.',
+                'lead': LeadSerializer(new_lead).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class LeadListCreateView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        leads = (
+            Lead.objects
+            .select_related('created_by')
+            .prefetch_related('activities', 'activities__created_by')
+            .all()
+        )
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            leads = leads.filter(
+                Q(name__icontains=search)
+                | Q(phone__icontains=search)
+                | Q(city__icontains=search)
+                | Q(district__icontains=search)
+                | Q(preferred_location__icontains=search)
+                | Q(assigned_executive__icontains=search)
+            )
+
+        lead_status = request.query_params.get('status', '').strip()
+        if lead_status:
+            leads = leads.filter(status=lead_status)
+
+        score = request.query_params.get('score', '').strip()
+        if score:
+            leads = leads.filter(score=score)
+
+        city = request.query_params.get('city', '').strip()
+        if city:
+            leads = leads.filter(city__iexact=city)
+
+        district = request.query_params.get('district', '').strip()
+        if district:
+            leads = leads.filter(district__iexact=district)
+
+        serializer = LeadSerializer(leads, many=True)
         return Response(
             {
                 'success': True,
                 'count': leads.count(),
                 'leads': serializer.data,
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
     def post(self, request):
+        # Check duplicate before creating
+        phone = str(request.data.get('phone', '')).strip()
+        norm_phone = _normalize_phone(phone)
 
-        serializer = LeadSerializer(
-            data=request.data
-        )
+        if norm_phone:
+            existing = Lead.objects.filter(phone__icontains=norm_phone).first()
+            if existing:
+                serializer = LeadSerializer(existing, data=request.data, partial=True)
+                if serializer.is_valid():
+                    lead = serializer.save()
+                    _sync_followup(lead, request.user)
+                    LeadActivity.objects.create(
+                        lead=lead,
+                        activity_type='note',
+                        title='Lead Details Updated',
+                        description='Existing lead updated via Lead Management.',
+                        created_by=request.user,
+                    )
+                    return Response(
+                        {
+                            'success': True,
+                            'message': 'Existing lead updated successfully.',
+                            'lead': LeadSerializer(lead).data,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
 
+        serializer = LeadSerializer(data=request.data)
         if not serializer.is_valid():
-
             return Response(
                 {
                     'success': False,
                     'errors': serializer.errors,
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        lead = serializer.save(
-            created_by=request.user
-        )
-
-        # ---------------------------------------------
-        # SYNC FOLLOWUP TABLE (agar next_followup diya gaya ho)
-        # ---------------------------------------------
-
-        _sync_followup(
-            lead,
-            request.user
-        )
+        lead = serializer.save(created_by=request.user)
+        _sync_followup(lead, request.user)
 
         LeadActivity.objects.create(
             lead=lead,
             activity_type='note',
             title='Lead Created',
             description='New lead added to CRM.',
-            created_by=request.user
+            created_by=request.user,
         )
 
         return Response(
             {
                 'success': True,
-                'message':
-                    'Lead created successfully.',
-                'lead':
-                    LeadSerializer(
-                        lead
-                    ).data,
+                'message': 'Lead created successfully.',
+                'lead': LeadSerializer(lead).data,
             },
-            status=status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED,
         )
 
 

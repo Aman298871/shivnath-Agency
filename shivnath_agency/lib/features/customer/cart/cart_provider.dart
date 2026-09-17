@@ -36,6 +36,14 @@ class CartItem {
     return '';
   }
 
+  int get stock {
+    if (product is ProductModel) return (product as ProductModel).stock;
+    if (product is Map) {
+      return int.tryParse(product['stock']?.toString() ?? '0') ?? 0;
+    }
+    return 999;
+  }
+
   double get total => price * quantity;
 }
 
@@ -54,32 +62,57 @@ class CartProvider extends ChangeNotifier {
 
   double get totalAmount => subtotal + deliveryCharge;
 
-  void addProduct(dynamic product) {
+  /// Adds a product to the cart with stock validation.
+  /// Returns null on success, or an error message if stock limit is exceeded.
+  String? addProduct(dynamic product, {int qty = 1}) {
     String prodId = '';
+    int availableStock = 999;
+
     if (product is ProductModel) {
       prodId = product.id;
+      availableStock = product.stock;
     } else if (product is Map) {
       prodId = product['id']?.toString() ?? '';
+      availableStock = int.tryParse(product['stock']?.toString() ?? '999') ?? 999;
+    }
+
+    if (availableStock <= 0) {
+      return "This product is currently out of stock.";
     }
 
     final index = _items.indexWhere((item) => item.id == prodId);
 
     if (index >= 0) {
-      _items[index].quantity++;
+      if (_items[index].quantity + qty > availableStock) {
+        return "Only $availableStock units are currently available.";
+      }
+      _items[index].quantity += qty;
     } else {
-      _items.add(CartItem(product: product));
+      if (qty > availableStock) {
+        return "Only $availableStock units are currently available.";
+      }
+      _items.add(CartItem(product: product, quantity: qty));
     }
 
     notifyListeners();
+    return null;
   }
 
-  void increaseQuantity(String id) {
+  /// Increases the quantity of a cart item with stock validation.
+  /// Returns null on success, or an error message if stock limit is exceeded.
+  String? increaseQuantity(String id) {
     final index = _items.indexWhere((item) => item.id == id);
 
     if (index >= 0) {
-      _items[index].quantity++;
+      final item = _items[index];
+      if (item.quantity >= item.stock) {
+        return "Only ${item.stock} units are currently available.";
+      }
+      item.quantity++;
       notifyListeners();
+      return null;
     }
+    return "Item not found in cart.";
   }
 
   void decreaseQuantity(String id) {

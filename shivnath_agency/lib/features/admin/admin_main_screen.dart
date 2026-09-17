@@ -16,6 +16,8 @@ import 'billing/admin_billing_screen.dart';
 import 'reports/admin_reports_screen.dart';
 import 'whatsapp/admin_whatsapp_screen.dart';
 import 'chat/admin_chat_conversations_screen.dart';
+import 'chat/admin_chatbot_management_screen.dart';
+import 'chat/admin_quotations_screen.dart';
 import 'users/admin_users_screen.dart';
 import 'settings/admin_settings_screen.dart';
 import 'notifications/admin_notifications_screen.dart';
@@ -77,6 +79,14 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       icon: Icons.bar_chart_outlined,
     ),
     _AdminMenuItem(
+      title: 'Chatbot Builder',
+      icon: Icons.account_tree_outlined,
+    ),
+    _AdminMenuItem(
+      title: 'Quotations',
+      icon: Icons.request_quote_outlined,
+    ),
+    _AdminMenuItem(
       title: 'WhatsApp settings',
       icon: Icons.chat_outlined,
     ),
@@ -97,7 +107,18 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
 Widget _currentScreen() {
   switch (currentIndex) {
     case 0:
-      return const AdminDashboardScreen();
+      return AdminDashboardScreen(
+        onOpenLeads: () => _selectMenu(1),
+        onOpenFollowups: () => _selectMenu(2),
+        onOpenFranchises: () => _selectMenu(3),
+        onOpenInventory: () => _selectMenu(4),
+        onOpenProducts: () => _selectMenu(5),
+        onOpenOrders: () => _selectMenu(7),
+        onOpenChatbot: () => _selectMenu(10),
+        onOpenQuotations: () => _selectMenu(11),
+        onOpenUsers: () => _selectMenu(14),
+        onOpenNotifications: () => _selectMenu(16),
+      );
 
     case 1:
       return const AdminLeadsScreen();
@@ -127,25 +148,36 @@ Widget _currentScreen() {
       return const AdminReportsScreen();
 
     case 10:
-      return const AdminWhatsAppScreen();
+      return const AdminChatbotManagementScreen();
 
     case 11:
-      return const AdminChatConversationsScreen();
+      return const AdminQuotationsScreen();
 
     case 12:
-      return const AdminUsersScreen();
+      return const AdminWhatsAppScreen();
 
     case 13:
-      return const AdminSettingsScreen();
+      return const AdminChatConversationsScreen();
 
     case 14:
-      return const AdminNotificationsScreen();
+      return const AdminUsersScreen();
 
     case 15:
+      return const AdminSettingsScreen();
+
+    case 16:
+      return const AdminNotificationsScreen();
+
+    case 17:
       return const AdminProfileScreen();
 
     default:
-      return const AdminDashboardScreen();
+      return AdminDashboardScreen(
+        onOpenLeads: () => _selectMenu(1),
+        onOpenFollowups: () => _selectMenu(2),
+        onOpenFranchises: () => _selectMenu(3),
+        onOpenNotifications: () => _selectMenu(16),
+      );
   }
 }
 

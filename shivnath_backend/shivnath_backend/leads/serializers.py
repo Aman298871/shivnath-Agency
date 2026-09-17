@@ -85,6 +85,7 @@ class LeadSerializer(serializers.ModelSerializer):
 
             'name',
             'phone',
+            'email',
             'city',
             'district',
 

@@ -1138,26 +1138,43 @@ class _ProductCard extends StatelessWidget {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(0, 38),
+                    backgroundColor: product.stock <= 0 ? Colors.grey.shade400 : null,
                   ),
-                  onPressed: () {
-                    context
-                        .read<CartProvider>()
-                        .addProduct(product);
-                    ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '${product.name} added to cart',
-                          ),
-                          duration: const Duration(seconds: 2),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                  },
-                  child: const Text(
-                    'Add to Cart',
-                    style: TextStyle(fontSize: 11),
+                  onPressed: product.stock <= 0
+                      ? null
+                      : () {
+                          final error = context
+                              .read<CartProvider>()
+                              .addProduct(product);
+                          if (error != null) {
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: Text(error),
+                                  backgroundColor: Colors.red.shade700,
+                                  duration: const Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                          } else {
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '${product.name} added to cart',
+                                  ),
+                                  backgroundColor: const Color(0xFF0284C7),
+                                  duration: const Duration(seconds: 1),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                          }
+                        },
+                  child: Text(
+                    product.stock <= 0 ? 'Out of Stock' : 'Add to Cart',
+                    style: const TextStyle(fontSize: 11),
                   ),
                 ),
               ),

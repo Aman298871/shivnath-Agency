@@ -1,6 +1,38 @@
 from django.db import models
 
 
+class ProductCategory(models.Model):
+    name = models.CharField(max_length=150)
+    slug = models.SlugField(max_length=150, blank=True, default="")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="subcategories",
+    )
+    description = models.TextField(blank=True, default="")
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "name"]
+        verbose_name_plural = "Product Categories"
+
+    def __str__(self):
+        if self.parent:
+            return f"{self.parent.name} -> {self.name}"
+        return self.name
+
+    @property
+    def full_path(self):
+        if self.parent:
+            return f"{self.parent.full_path} > {self.name}"
+        return self.name
+
+
 class Product(models.Model):
 
     CATEGORY_CHOICES = [
@@ -27,9 +59,16 @@ class Product(models.Model):
     )
 
     category = models.CharField(
-        max_length=30,
-        choices=CATEGORY_CHOICES,
+        max_length=100,
         default="Bottle",
+    )
+
+    category_ref = models.ForeignKey(
+        ProductCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="products",
     )
 
     price = models.DecimalField(
@@ -84,6 +123,11 @@ class Product(models.Model):
             models.Index(fields=["category"]),
             models.Index(fields=["status"]),
         ]
+
+    def save(self, *args, **kwargs):
+        if self.category_ref and (not self.category or self.category in ["Bottle", "Jar", ""]):
+            self.category = self.category_ref.name
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

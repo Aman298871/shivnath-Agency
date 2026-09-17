@@ -1,7 +1,7 @@
 import 'dart:convert';
-
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../constants/app_constants.dart';
 import '../../models/user_model.dart';
 
 class SessionService {
@@ -96,6 +96,44 @@ class SessionService {
         await SharedPreferences.getInstance();
 
     return prefs.getString(_refreshTokenKey);
+  }
+
+  Future<String?> refreshAccessToken() async {
+    final refreshToken = await getRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return null;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.apiBaseUrl}/api/auth/refresh/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'refresh': refreshToken}),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic> && data['access'] != null) {
+          final newAccess = data['access'].toString();
+          final newRefresh = data['refresh']?.toString() ?? refreshToken;
+          await saveTokens(accessToken: newAccess, refreshToken: newRefresh);
+          return newAccess;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<Map<String, String>> getAuthHeaders() async {
+    final token = await getAccessToken();
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
   }
 
   Future<bool> isLoggedIn() async {

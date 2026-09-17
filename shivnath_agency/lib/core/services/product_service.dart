@@ -329,11 +329,22 @@ return result;
       };
     }
 
+    String message = "Something went wrong.";
+    if (decoded is Map<String, dynamic>) {
+      if (decoded['code'] == 'token_not_valid' ||
+          (decoded['detail'] != null && decoded['detail'].toString().contains('token not valid'))) {
+        message = 'Your session has expired. Please log in again.';
+        _sessionService.refreshAccessToken();
+      } else if (decoded['message'] != null) {
+        message = decoded['message'].toString();
+      } else if (decoded['detail'] != null) {
+        message = decoded['detail'].toString();
+      }
+    }
+
     return {
       "success": false,
-      "message":
-          decoded["message"] ??
-              "Something went wrong.",
+      "message": message,
       "data": decoded,
     };
   }

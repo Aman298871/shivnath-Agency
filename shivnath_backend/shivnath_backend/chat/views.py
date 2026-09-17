@@ -41,18 +41,19 @@ class ChatbotOptionListView(APIView):
             # STRICT FRANCHISE TREE: Franchise options only
             queryset = queryset.filter(Q(inquiry_type="franchise") | Q(inquiry_type="both"))
 
+        context = {'request': request, 'inquiry_type': inquiry_type}
         if parent_id and parent_id.isdigit():
             # Return sub-options of selected parent
             queryset = queryset.filter(parent_id=int(parent_id))
-            serializer = ChatbotOptionSerializer(queryset, many=True)
+            serializer = ChatbotOptionSerializer(queryset, many=True, context=context)
         elif tree_mode:
             # Return root tree nodes with nested children
             root_options = queryset.filter(parent__isnull=True)
-            serializer = ChatbotOptionSerializer(root_options, many=True)
+            serializer = ChatbotOptionSerializer(root_options, many=True, context=context)
         else:
             # Return root options (level 1)
             root_options = queryset.filter(parent__isnull=True)
-            serializer = ChatbotOptionSerializer(root_options, many=True)
+            serializer = ChatbotOptionSerializer(root_options, many=True, context=context)
 
         return Response({
             "success": True,

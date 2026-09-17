@@ -131,8 +131,19 @@ class ChatbotOptionSerializer(serializers.ModelSerializer):
         ]
 
     def get_children(self, obj):
+        inquiry_type = self.context.get('inquiry_type')
         active_children = obj.children.filter(is_active=True).order_by('order', 'title')
-        return ChatbotOptionSerializer(active_children, many=True).data
+        if inquiry_type == 'customer':
+            from django.db.models import Q
+            active_children = active_children.filter(
+                Q(inquiry_type="customer") | Q(inquiry_type="both")
+            ).exclude(Q(title__icontains="quotation") | Q(title__icontains="franchise"))
+        elif inquiry_type == 'franchise':
+            from django.db.models import Q
+            active_children = active_children.filter(
+                Q(inquiry_type="franchise") | Q(inquiry_type="both")
+            )
+        return ChatbotOptionSerializer(active_children, many=True, context=self.context).data
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):

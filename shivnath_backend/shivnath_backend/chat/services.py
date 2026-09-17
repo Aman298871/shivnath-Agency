@@ -406,7 +406,7 @@ class AIService:
                 )
 
             # --- PRODUCTS & INVENTORY ---
-            if matches(['which products are low stock', 'low stock products', 'low stock', 'how many products are low stock']):
+            if matches(['which products are low stock', 'low stock products', 'low stock', 'how many products are low stock', 'show low stock', 'show low-stock', 'show low stock products', 'show low-stock products', 'low-stock products', 'low-stock']):
                 low_prods = Product.objects.filter(status='Active', stock__gt=0, stock__lte=50)
                 if not low_prods.exists():
                     return "🟢 All active products have adequate stock (no products below 50 units)."
@@ -415,7 +415,7 @@ class AIService:
                     lines.append(f"• {p.name} ({p.size}): {p.stock} {p.unit} remaining")
                 return "\n".join(lines)
 
-            if matches(['which products are out of stock', 'out of stock products', 'out of stock']):
+            if matches(['which products are out of stock', 'out of stock products', 'out of stock', 'out-of-stock', 'show out of stock', 'show out-of-stock']):
                 out_prods = Product.objects.filter(status='Active', stock__lte=0)
                 if not out_prods.exists():
                     return "🟢 Zero products are out of stock! All catalog items are available."

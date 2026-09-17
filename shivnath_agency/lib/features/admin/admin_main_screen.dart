@@ -98,6 +98,14 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       title: 'User Directory',
       icon: Icons.manage_accounts_outlined,
     ),
+    _AdminMenuItem(
+      title: 'Notifications',
+      icon: Icons.notifications_none_outlined,
+    ),
+    _AdminMenuItem(
+      title: 'Settings',
+      icon: Icons.settings_outlined,
+    ),
   ];
 
   // =========================================================
@@ -117,7 +125,7 @@ Widget _currentScreen() {
         onOpenChatbot: () => _selectMenu(10),
         onOpenQuotations: () => _selectMenu(11),
         onOpenUsers: () => _selectMenu(14),
-        onOpenNotifications: () => _selectMenu(16),
+        onOpenNotifications: () => _selectMenu(15),
       );
 
     case 1:
@@ -163,10 +171,10 @@ Widget _currentScreen() {
       return const AdminUsersScreen();
 
     case 15:
-      return const AdminSettingsScreen();
+      return const AdminNotificationsScreen();
 
     case 16:
-      return const AdminNotificationsScreen();
+      return const AdminSettingsScreen();
 
     case 17:
       return const AdminProfileScreen();
@@ -176,7 +184,7 @@ Widget _currentScreen() {
         onOpenLeads: () => _selectMenu(1),
         onOpenFollowups: () => _selectMenu(2),
         onOpenFranchises: () => _selectMenu(3),
-        onOpenNotifications: () => _selectMenu(16),
+        onOpenNotifications: () => _selectMenu(15),
       );
   }
 }
@@ -253,45 +261,45 @@ Widget _currentScreen() {
       'analytics': 9,
 
       // WhatsApp
-      'whatsapp': 10,
-      'automation': 10,
+      'whatsapp': 12,
+      'automation': 12,
       'chatbot': 10,
-      'template': 10,
-      'message': 10,
-      'welcome message': 10,
-      'quick reply': 10,
+      'template': 12,
+      'message': 12,
+      'welcome message': 12,
+      'quick reply': 12,
 
       // Inquiries / Chat
-      'inquiry': 11,
-      'inquiries': 11,
-      'chat log': 11,
-      'chats': 11,
-      'conversation': 11,
+      'inquiry': 13,
+      'inquiries': 13,
+      'chat log': 13,
+      'chats': 13,
+      'conversation': 13,
 
       // Users
-      'user': 12,
-      'users': 12,
-      'directory': 12,
-      'staff': 12,
-      'customers': 12,
-
-      // Settings
-      'settings': 13,
-      'setting': 13,
-      'role': 13,
-      'roles': 13,
-      'permission': 13,
-      'permissions': 13,
+      'user': 14,
+      'users': 14,
+      'directory': 14,
+      'staff': 14,
+      'customers': 14,
 
       // Notifications
-      'notification': 14,
-      'notifications': 14,
-      'alert': 14,
-      'alerts': 14,
+      'notification': 15,
+      'notifications': 15,
+      'alert': 15,
+      'alerts': 15,
+
+      // Settings
+      'settings': 16,
+      'setting': 16,
+      'role': 16,
+      'roles': 16,
+      'permission': 16,
+      'permissions': 16,
 
       // Profile
-      'profile': 15,
-      'admin': 15,
+      'profile': 17,
+      'admin': 17,
     };
 
     for (final entry in searchMap.entries) {
@@ -425,7 +433,7 @@ Widget _currentScreen() {
             tooltip: 'Notifications',
             onPressed: () {
               setState(() {
-                currentIndex = 14;
+                currentIndex = 15;
               });
             },
             icon: const Icon(
@@ -815,7 +823,7 @@ Widget _currentScreen() {
                         tooltip: 'Notifications',
                         onPressed: () {
                           setState(() {
-                            currentIndex = 14;
+                            currentIndex = 15;
                           });
                         },
                         icon: const Icon(
@@ -1033,11 +1041,11 @@ Widget _currentScreen() {
   void _handleProfileMenu(String value) {
     if (value == 'profile') {
       setState(() {
-        currentIndex = 15;
+        currentIndex = 17;
       });
     } else if (value == 'settings') {
       setState(() {
-        currentIndex = 13;
+        currentIndex = 16;
       });
     } else if (value == 'logout') {
       _logout();
@@ -1081,21 +1089,27 @@ Widget _currentScreen() {
       return 'Reports & Analytics';
 
     case 10:
-      return 'WhatsApp Settings';
+      return 'Chatbot Builder';
 
     case 11:
-      return 'Customer Inquiries';
+      return 'Quotations';
 
     case 12:
-      return 'User Directory';
+      return 'WhatsApp Settings';
 
     case 13:
-      return 'Settings';
+      return 'Customer Inquiries';
 
     case 14:
-      return 'Notifications';
+      return 'User Directory';
 
     case 15:
+      return 'Notifications';
+
+    case 16:
+      return 'Settings';
+
+    case 17:
       return 'Profile';
 
     default:

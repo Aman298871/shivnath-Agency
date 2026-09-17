@@ -137,39 +137,77 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
 
   Widget _stats(bool desktop) {
     final data = [
-      ['Total Notifications', '${notifications.length}', Icons.notifications_none_rounded, const Color(0xFF0284C7), 'All'],
-      ['Unread', '$unreadCount', Icons.mark_email_unread_outlined, const Color(0xFFDC2626), 'Unread'],
-      ['Read', '$readCount', Icons.done_all_rounded, const Color(0xFF16A34A), 'Read'],
+      [
+        'Total Notifications',
+        '${notifications.length}',
+        Icons.notifications_none_rounded,
+        const Color(0xFF0284C7),
+        'All',
+      ],
+      [
+        'Unread Notifications',
+        '$unreadCount',
+        Icons.mark_email_unread_outlined,
+        const Color(0xFFDC2626),
+        'Unread',
+      ],
+      [
+        'Read Notifications',
+        '$readCount',
+        Icons.done_all_rounded,
+        const Color(0xFF16A34A),
+        'Read',
+      ],
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final isNarrow = width < 600;
+        final isMobile = width < 720;
 
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: isNarrow ? 2 : (desktop ? 3 : 3),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: isNarrow ? 1.7 : 2.3,
-          ),
-          itemCount: data.length,
-          itemBuilder: (context, index) {
-            final filterTab = data[index][4] as String;
-            final isSelected = tab == filterTab;
+        if (isMobile) {
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.85,
+            ),
+            itemCount: data.length,
+            itemBuilder: (context, index) {
+              final filterTab = data[index][4] as String;
+              final isSelected = tab == filterTab;
 
-            return _NotificationStat(
-              title: data[index][0] as String,
-              value: data[index][1] as String,
-              icon: data[index][2] as IconData,
-              color: data[index][3] as Color,
-              selected: isSelected,
-              onTap: () => setState(() => tab = filterTab),
-            );
-          },
+              return _NotificationStat(
+                title: data[index][0] as String,
+                value: data[index][1] as String,
+                icon: data[index][2] as IconData,
+                color: data[index][3] as Color,
+                selected: isSelected,
+                onTap: () => setState(() => tab = filterTab),
+              );
+            },
+          );
+        }
+
+        return Row(
+          children: [
+            for (int i = 0; i < data.length; i++) ...[
+              if (i > 0) const SizedBox(width: 14),
+              Expanded(
+                child: _NotificationStat(
+                  title: data[i][0] as String,
+                  value: data[i][1] as String,
+                  icon: data[i][2] as IconData,
+                  color: data[i][3] as Color,
+                  selected: tab == (data[i][4] as String),
+                  onTap: () => setState(() => tab = data[i][4] as String),
+                ),
+              ),
+            ],
+          ],
         );
       },
     );

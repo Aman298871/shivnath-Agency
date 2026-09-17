@@ -89,7 +89,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                     IconButton(
                       tooltip: 'AI Operations Assistant',
                       icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF0077B6)),
-                      onPressed: () => AiChatbotModal.show(context, appType: 'franchise'),
+                      onPressed: () => AiChatbotModal.show(context, mode: ChatbotMode.franchise),
                     ),
                     IconButton(
                       tooltip: 'My Profile',
@@ -115,7 +115,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
             foregroundColor: Colors.white,
             icon: const Icon(Icons.auto_awesome_rounded),
             label: const Text('AI Assistant'),
-            onPressed: () => AiChatbotModal.show(context, appType: 'franchise'),
+            onPressed: () => AiChatbotModal.show(context, mode: ChatbotMode.franchise),
           ),
           body: SingleChildScrollView(
             padding: EdgeInsets.all(desktop ? 28 : 16),

@@ -106,7 +106,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF0284C7),
         foregroundColor: Colors.white,
-        onPressed: () => AiChatbotModal.show(context),
+        onPressed: () => AiChatbotModal.show(context, mode: ChatbotMode.customer),
         icon: const Icon(Icons.smart_toy_rounded),
         label: const Text('AI Assistant', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
@@ -829,8 +829,43 @@ class _DesktopQuickProduct extends StatelessWidget {
                   ..hideCurrentSnackBar()
                   ..showSnackBar(
                     SnackBar(
-                      content: Text(
-                        '${product.name} added to cart',
+                      content: Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${product.name} added to cart',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: const Color(0xFF0284C7),
+                      duration: const Duration(seconds: 4),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      action: SnackBarAction(
+                        label: 'GO TO CART',
+                        textColor: const Color(0xFFFEF08A),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const CustomerCartScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   );

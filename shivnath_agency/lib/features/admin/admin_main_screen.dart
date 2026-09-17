@@ -423,7 +423,7 @@ Widget _currentScreen() {
         actions: [
           IconButton(
             tooltip: 'AI Assistant',
-            onPressed: () => AiChatbotModal.show(context, appType: 'admin'),
+            onPressed: () => AiChatbotModal.show(context, mode: ChatbotMode.admin),
             icon: const Icon(
               Icons.smart_toy_outlined,
               color: Color(0xFF0284C7),
@@ -776,7 +776,7 @@ Widget _currentScreen() {
 
             InkWell(
               borderRadius: BorderRadius.circular(10),
-              onTap: () => AiChatbotModal.show(context, appType: 'admin'),
+              onTap: () => AiChatbotModal.show(context, mode: ChatbotMode.admin),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(

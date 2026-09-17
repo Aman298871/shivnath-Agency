@@ -21,6 +21,7 @@ shivnath_agency/android/app/release/
 .Python
 *.log
 local_settings.py
+**/media/
 
 # IDE / Editor ignores
 .idea/

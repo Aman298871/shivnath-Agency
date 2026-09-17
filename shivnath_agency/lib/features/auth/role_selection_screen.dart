@@ -142,7 +142,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
               Center(
                 child: TextButton.icon(
-                  onPressed: () => AiChatbotModal.show(context),
+                  onPressed: () => AiChatbotModal.show(context, mode: ChatbotMode.public),
                   icon: const Icon(Icons.smart_toy_rounded, color: Color(0xFF0284C7)),
                   label: const Text(
                     'Have questions? Ask Pure Water AI Assistant',

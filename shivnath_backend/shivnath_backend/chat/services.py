@@ -246,6 +246,74 @@ class AIService:
             return False
 
         # =========================================================================
+        # 0. ADMIN LIVE QUERIES (STRICT POSTGRESQL STATS)
+        # =========================================================================
+        if app_type == 'admin':
+            from accounts.models import Profile
+            from orders.models import Order
+            from leads.models import Lead
+
+            if matches(['lead', 'leads']):
+                total = Lead.objects.count()
+                new_l = Lead.objects.filter(status='New').count()
+                hot_l = Lead.objects.filter(status='Hot').count()
+                warm_l = Lead.objects.filter(status='Warm').count()
+                return (
+                    f"📊 Live Leads Pipeline:\n"
+                    f"* Total Leads: {total}\n"
+                    f"* New: {new_l}\n"
+                    f"* Hot: {hot_l}\n"
+                    f"* Warm: {warm_l}\n"
+                )
+
+            if matches(['customer', 'customers']):
+                total_c = Profile.objects.filter(role='customer').count()
+                return f"👥 Live Customers:\n* Total Registered Customers: {total_c}"
+
+            if matches(['franchise', 'franchises', 'franchisees']):
+                total_f = Profile.objects.filter(role='franchise').count()
+                return f"🏢 Live Franchisees:\n* Approved Franchise Partners: {total_f}"
+
+            if matches(['order', 'orders', 'dispatch', 'delivered']):
+                total_o = Order.objects.count()
+                pending_o = Order.objects.filter(status='Pending').count()
+                approved_o = Order.objects.filter(status='Approved').count()
+                dispatched_o = Order.objects.filter(status='Dispatched').count()
+                delivered_o = Order.objects.filter(status='Delivered').count()
+                return (
+                    f"📦 Live Orders Pipeline:\n"
+                    f"* Total Orders: {total_o}\n"
+                    f"* Pending: {pending_o}\n"
+                    f"* Approved: {approved_o}\n"
+                    f"* Dispatched: {dispatched_o}\n"
+                    f"* Delivered: {delivered_o}\n"
+                )
+
+            if matches(['inventory', 'stock', 'materials', 'products']):
+                prods = Product.objects.filter(status='Active')
+                lines = ["🏭 Live Inventory (Finished Products):"]
+                for p in prods:
+                    status_indicator = "🟢" if p.stock > 50 else ("🟡" if p.stock > 0 else "🔴 OUT OF STOCK")
+                    lines.append(f"* {p.name} ({p.size}): {p.stock} units {status_indicator}")
+                return "\n".join(lines)
+            
+            if matches(['quotation', 'quotations']):
+                from chat.models import Quotation
+                total_q = Quotation.objects.count()
+                active_q = Quotation.objects.filter(is_active=True).count()
+                return f"📄 Live Quotations:\n* Total Templates: {total_q}\n* Active Templates: {active_q}"
+
+            return (
+                "Welcome to the Admin operations assistant.\n"
+                "I can fetch live data from the database. Try asking for:\n"
+                "- 'Total Leads' or 'Lead Pipeline'\n"
+                "- 'Customer Stats'\n"
+                "- 'Franchise Approvals'\n"
+                "- 'Order Pipeline'\n"
+                "- 'Live Inventory Stock'"
+            )
+
+        # =========================================================================
         # 1. MATCH CONFIGURED CHATBOT OPTIONS & KEYWORDS
         # =========================================================================
         active_options = ChatbotOption.objects.filter(is_active=True).select_related('product', 'quotation')

@@ -5,20 +5,27 @@ import '../constants/app_constants.dart';
 import '../services/chat_service.dart';
 import '../services/whatsapp_service.dart';
 
+enum ChatbotMode {
+  public,
+  customer,
+  franchise,
+  admin
+}
+
 class AiChatbotModal extends StatefulWidget {
-  final String appType;
+  final ChatbotMode mode;
 
   const AiChatbotModal({
     super.key,
-    this.appType = 'customer',
+    required this.mode,
   });
 
-  static Future<void> show(BuildContext context, {String appType = 'customer'}) {
+  static Future<void> show(BuildContext context, {required ChatbotMode mode}) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => AiChatbotModal(appType: appType),
+      builder: (_) => AiChatbotModal(mode: mode),
     );
   }
 
@@ -124,44 +131,260 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   }
 
   Future<void> _initChatbot() async {
-    final initialOptions = [
+    if (widget.mode == ChatbotMode.public) {
+      final initialOptions = [
+        _ChatOptionItem(
+          title: '1. Customer / Product Inquiry',
+          inquiryType: 'customer',
+          isRootSelection: true,
+        ),
+        _ChatOptionItem(
+          title: '2. Franchise Inquiry',
+          inquiryType: 'franchise',
+          isRootSelection: true,
+        ),
+      ];
+
+      setState(() {
+        _messages.add(
+          _ChatMessage(
+            text:
+                'Namaste! 🙏 Welcome to Shivnath Pure Packaged Drinking Water.\n\nPlease select the nature of your inquiry below or type any question directly.',
+            isUser: false,
+            optionItems: initialOptions,
+          ),
+        );
+      });
+
+      // Fetch dynamic trees from Backend in background
+      try {
+        final custRaw = await _chatService.getPublicOptions(inquiryType: 'customer', tree: true);
+        final franRaw = await _chatService.getPublicOptions(inquiryType: 'franchise', tree: true);
+
+        if (custRaw.isNotEmpty) {
+          _customerTree = custRaw.map((m) => _ChatOptionItem.fromJson(m)).toList();
+        }
+        if (franRaw.isNotEmpty) {
+          _franchiseTree = franRaw.map((m) => _ChatOptionItem.fromJson(m)).toList();
+        }
+      } catch (_) {}
+    } else if (widget.mode == ChatbotMode.customer) {
+      _currentInquiryType = 'customer';
+      _navStack.clear();
+      _navStack.add(_customerTree);
+      setState(() {
+        _messages.add(
+          _ChatMessage(
+            text: 'Welcome back! How can I assist you with your orders and products today?',
+            isUser: false,
+            optionItems: _customerTree,
+          ),
+        );
+      });
+      // Load dynamically
+      try {
+        final custRaw = await _chatService.getPublicOptions(inquiryType: 'customer', tree: true);
+        if (custRaw.isNotEmpty) {
+          setState(() {
+            _customerTree = custRaw.map((m) => _ChatOptionItem.fromJson(m)).toList();
+            if (_navStack.length == 1) {
+              _navStack[0] = _customerTree;
+              _messages.last = _ChatMessage(
+                text: 'Welcome back! How can I assist you with your orders and products today?',
+                isUser: false,
+                optionItems: _customerTree,
+              );
+            }
+          });
+        }
+      } catch (_) {}
+    } else if (widget.mode == ChatbotMode.franchise) {
+      _currentInquiryType = 'franchise';
+      _navStack.clear();
+      _navStack.add(_franchiseTree);
+      setState(() {
+        _messages.add(
+          _ChatMessage(
+            text: 'Welcome back, Partner! How can I assist you with your franchise operations?',
+            isUser: false,
+            optionItems: _franchiseTree,
+          ),
+        );
+      });
+      // Load dynamically
+      try {
+        final franRaw = await _chatService.getPublicOptions(inquiryType: 'franchise', tree: true);
+        if (franRaw.isNotEmpty) {
+          setState(() {
+            _franchiseTree = franRaw.map((m) => _ChatOptionItem.fromJson(m)).toList();
+            if (_navStack.length == 1) {
+              _navStack[0] = _franchiseTree;
+              _messages.last = _ChatMessage(
+                text: 'Welcome back, Partner! How can I assist you with your franchise operations?',
+                isUser: false,
+                optionItems: _franchiseTree,
+              );
+            }
+          });
+        }
+      } catch (_) {}
+    } else if (widget.mode == ChatbotMode.admin) {
+      _currentInquiryType = 'admin';
+      final adminTree = _getAdminOptions();
+      _navStack.clear();
+      _navStack.add(adminTree);
+      setState(() {
+        _messages.add(
+          _ChatMessage(
+            text: 'How can I help you manage the business?',
+            isUser: false,
+            optionItems: adminTree,
+          ),
+        );
+      });
+    }
+  }
+
+  List<_ChatOptionItem> _getAdminOptions() {
+    return [
       _ChatOptionItem(
-        title: '1. Customer / Product Inquiry',
-        inquiryType: 'customer',
-        isRootSelection: true,
+        title: '1. Leads & CRM',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Total Leads', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'New Leads', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Hot Leads', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Warm Leads', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Cold Leads', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Leads Today', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Lead Pipeline', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Customer Leads', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Franchise Leads', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Recent Lead Activity', inquiryType: 'admin'),
+        ],
       ),
       _ChatOptionItem(
-        title: '2. Franchise Inquiry',
-        inquiryType: 'franchise',
-        isRootSelection: true,
+        title: '2. Follow-ups',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Follow-ups Today', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Pending Follow-ups', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Overdue Follow-ups', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Completed Follow-ups', inquiryType: 'admin'),
+        ],
+      ),
+      _ChatOptionItem(
+        title: '3. Customers',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Total Customers', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Recent Customers', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Customer Enquiries', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Customer Orders', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Customer Chat Conversations', inquiryType: 'admin'),
+        ],
+      ),
+      _ChatOptionItem(
+        title: '4. Franchisees',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Pending Franchise Approvals', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Approved Franchisees', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Franchise Applications', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Franchise Orders', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Franchise Details', inquiryType: 'admin'),
+        ],
+      ),
+      _ChatOptionItem(
+        title: '5. Orders',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Today\'s Orders', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Customer Orders', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Franchise Orders', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Pending Orders', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Approved Orders', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Dispatched Orders', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Delivered Orders', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Payment Pending', inquiryType: 'admin'),
+        ],
+      ),
+      _ChatOptionItem(
+        title: '6. Products',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Product Catalogue', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Product Prices', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Product Availability', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Product Sizes', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Compare Products', inquiryType: 'admin'),
+        ],
+      ),
+      _ChatOptionItem(
+        title: '7. Inventory',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Current Stock', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Low Stock', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Out of Stock', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Raw Materials', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Finished Products', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Inventory Value', inquiryType: 'admin'),
+        ],
+      ),
+      _ChatOptionItem(
+        title: '8. Suppliers',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Suppliers', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Supplier Products', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Purchase Information', inquiryType: 'admin'),
+        ],
+      ),
+      _ChatOptionItem(
+        title: '9. Quotations',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Customer Quotations', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Franchise Quotations', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Active Quotations', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Expired Quotations', inquiryType: 'admin'),
+        ],
+      ),
+      _ChatOptionItem(
+        title: '10. Chat Conversations',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Recent Conversations', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Customer Conversations', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Franchise Conversations', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Lead Conversations', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Unread Conversations', inquiryType: 'admin'),
+        ],
+      ),
+      _ChatOptionItem(
+        title: '11. Dashboard & Reports',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Today\'s Leads', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Conversion Information', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Sales', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Pending Follow-ups', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Inventory Summary', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Outstanding Payments', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Franchise Summary', inquiryType: 'admin'),
+        ],
+      ),
+      _ChatOptionItem(
+        title: '12. Notifications',
+        inquiryType: 'admin',
+        children: [
+          _ChatOptionItem(title: 'Total Notifications', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Unread Notifications', inquiryType: 'admin'),
+          _ChatOptionItem(title: 'Read Notifications', inquiryType: 'admin'),
+        ],
       ),
     ];
-
-    setState(() {
-      _messages.add(
-        _ChatMessage(
-          text:
-              'Namaste! 🙏 Welcome to Shivnath Pure Packaged Drinking Water.\n\nPlease select the nature of your inquiry below or type any question directly.',
-          isUser: false,
-          optionItems: initialOptions,
-        ),
-      );
-    });
-
-    // Fetch dynamic trees from Backend in background
-    try {
-      final custRaw = await _chatService.getPublicOptions(inquiryType: 'customer', tree: true);
-      final franRaw = await _chatService.getPublicOptions(inquiryType: 'franchise', tree: true);
-
-      if (custRaw.isNotEmpty) {
-        _customerTree = custRaw.map((m) => _ChatOptionItem.fromJson(m)).toList();
-      }
-      if (franRaw.isNotEmpty) {
-        _franchiseTree = franRaw.map((m) => _ChatOptionItem.fromJson(m)).toList();
-      }
-    } catch (_) {
-      // Defaults already populated
-    }
   }
 
   List<_ChatOptionItem> _getDefaultCustomerOptions() {
@@ -425,8 +648,9 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
 
     // =========================================================
     // MANDATORY LEAD CAPTURE UPFRONT BEFORE SHOWING OPTIONS
+    // (APPLIES ONLY TO PUBLIC MODE)
     // =========================================================
-    if (option.isRootSelection) {
+    if (option.isRootSelection && widget.mode == ChatbotMode.public) {
       _currentInquiryType = option.inquiryType;
       _navStack.clear();
       _consumedOptionIds.clear();
@@ -519,6 +743,15 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         );
       });
       _scrollToBottom();
+
+      // If it's a lead trigger in public mode, initiate qualification
+      if (option.isLeadTrigger && widget.mode == ChatbotMode.public) {
+        if (option.inquiryType == 'franchise') {
+          _startFranchiseQualification();
+        } else {
+          _startCustomerQualification();
+        }
+      }
     } else {
       // Dynamic API message query
       _sendMessage(option.title, optionId: option.id);
@@ -558,25 +791,35 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         );
       });
     } else {
-      _navStack.clear();
-      _consumedOptionIds.clear();
-      _consumedOptionTitles.clear();
-      _selectedOptionTrail.clear();
-      _currentInquiryType = null;
-
-      setState(() {
-        _messages.add(_ChatMessage(text: '← Back to Main Menu', isUser: true));
-        _messages.add(
-          _ChatMessage(
-            text: 'Please select an inquiry path:',
-            isUser: false,
-            optionItems: [
-              _ChatOptionItem(title: '1. Customer / Product Inquiry', inquiryType: 'customer', isRootSelection: true),
-              _ChatOptionItem(title: '2. Franchise Inquiry', inquiryType: 'franchise', isRootSelection: true),
-            ],
-          ),
-        );
-      });
+      if (widget.mode == ChatbotMode.public) {
+        _currentInquiryType = null;
+        setState(() {
+          _messages.add(_ChatMessage(text: '← Back to Main Menu', isUser: true));
+          _messages.add(
+            _ChatMessage(
+              text: 'Please select an inquiry path:',
+              isUser: false,
+              optionItems: [
+                _ChatOptionItem(title: '1. Customer / Product Inquiry', inquiryType: 'customer', isRootSelection: true),
+                _ChatOptionItem(title: '2. Franchise Inquiry', inquiryType: 'franchise', isRootSelection: true),
+              ],
+            ),
+          );
+        });
+      } else {
+        // Authenticated users shouldn't reach here since they start at length 1 (root), but just in case
+        _navStack.add(widget.mode == ChatbotMode.admin ? _getAdminOptions() : (widget.mode == ChatbotMode.franchise ? _franchiseTree : _customerTree));
+        setState(() {
+          _messages.add(_ChatMessage(text: '← Back to Main Menu', isUser: true));
+          _messages.add(
+            _ChatMessage(
+              text: 'Here are the options:',
+              isUser: false,
+              optionItems: _navStack.last,
+            ),
+          );
+        });
+      }
     }
     _scrollToBottom();
   }
@@ -649,9 +892,11 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
 
     // Call Real Backend AI API
     final history = _getHistory();
+    final String apiAppType = widget.mode.name; // Use mode explicitly for backend context
+
     final res = await _chatService.sendMessage(
       message: trimmed,
-      appType: _currentInquiryType ?? widget.appType,
+      appType: apiAppType,
       optionId: optionId,
       sessionId: _activeSessionId,
       history: history,
@@ -679,10 +924,12 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       });
       _scrollToBottom();
 
-      if (_currentInquiryType == 'franchise') {
-        _startFranchiseQualification();
-      } else {
-        _startCustomerQualification();
+      if (widget.mode == ChatbotMode.public) {
+        if (_currentInquiryType == 'franchise') {
+          _startFranchiseQualification();
+        } else {
+          _startCustomerQualification();
+        }
       }
       return;
     }
@@ -1015,8 +1262,8 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final isFranchise = (_currentInquiryType ?? widget.appType) == 'franchise';
-    final isAdmin = widget.appType == 'admin';
+    final isFranchise = widget.mode == ChatbotMode.franchise;
+    final isAdmin = widget.mode == ChatbotMode.admin;
 
     String headerTitle = 'Shivnath Pure Water Assistant';
     String headerSubtitle = 'Instant Product, Price & Franchise Guide';

@@ -575,7 +575,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
             inquiryType: 'franchise',
             answerText:
                 '💰 *Franchise Investment Structure*:\n'
-                '• Investment Range: ₹3.5 Lakh – ₹7.5 Lakh\n'
+                '• Investment Range: ₹2 Lakh – ₹7.5 Lakh\n'
                 '• Includes: Initial product inventory stock, security deposit, dispenser stands, display banners & marketing collateral.\n'
                 '• Direct factory dispatch with 25%–35% gross profit margin.\n\n'
                 'Would you like to review the official Franchise Rate & Investment Quotation?',
@@ -769,7 +769,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     // =========================================================
     if (option.title.contains('Yes, show quotation')) {
       final summary = '📄 **Official Shivnath Franchise Investment & Rate Quotation**\n\n'
-          '• **Investment Package**: ₹3,50,000 - ₹5,00,000 (Unit) / ₹15,00,000+ (Master)\n'
+          '• **Investment Package**: ₹2,00,000 - ₹5,00,000 (Unit) / ₹15,00,000+ (Master)\n'
           '• **Expected Net Margin**: 28% - 35% on packaged pure water supply\n'
           '• **Product Range**: 20L Water Jars, 250ml/500ml/1L Bottled Water\n'
           '• **Company Support**: Marketing signage, vinyl boards, and supply logistics.\n\n'
@@ -1261,6 +1261,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
           _respond(
             '👉 **Step 6/9: What is your estimated Investment Budget?**',
             options: [
+              _ChatOptionItem(title: '₹2 Lakh - ₹3 Lakh'),
               _ChatOptionItem(title: '₹3 Lakh - ₹5 Lakh'),
               _ChatOptionItem(title: '₹5 Lakh - ₹10 Lakh'),
               _ChatOptionItem(title: '₹10 Lakh - ₹20 Lakh'),

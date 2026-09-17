@@ -625,7 +625,7 @@ class AIService:
             return (
                 "Shivnath Agency Franchise Opportunity:\n\n"
                 "* Model: Exclusive City / District Territory Distribution\n"
-                "* Investment Range: Rs.3 Lakh - Rs.20 Lakh (Based on territory tier)\n"
+                "* Investment Range: Rs.2 Lakh - Rs.20 Lakh (Based on territory tier)\n"
                 "* Requirement: 500-1200 sq.ft commercial storage space & local delivery vehicle\n"
                 "* Gross Profit Margin: 25% - 35% on direct plant supply\n"
                 "* Support Provided: Plant dispatch priority, CRM app, branded marketing materials, and dedicated territory protection.\n\n"

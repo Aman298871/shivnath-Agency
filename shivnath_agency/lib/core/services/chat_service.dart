@@ -368,7 +368,7 @@ class ChatService {
     }
 
     if (isFranchise || msg.contains('franchise') || msg.contains('investment')) {
-      return '🏢 *Franchise Opportunity*:\n• Territory: 5 KM Exclusive Zone\n• Margins: 25%-35% direct plant margin\n• Investment: ₹3 Lakh - ₹20 Lakh\n• Contact: +91 98062 47194';
+      return '🏢 *Franchise Opportunity*:\n• Territory: 5 KM Exclusive Zone\n• Margins: 25%-35% direct plant margin\n• Investment: ₹2 Lakh - ₹20 Lakh\n• Contact: +91 98062 47194';
     }
 
     return 'Thank you for your inquiry. Our team is available at +91 98062 47194 to assist you immediately.';

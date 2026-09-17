@@ -63,6 +63,12 @@ class Quotation(models.Model):
         choices=TARGET_AUDIENCE_CHOICES,
         default="customer",
     )
+    pdf_file = models.FileField(
+        upload_to="quotations/",
+        null=True,
+        blank=True,
+        help_text="Uploaded official quotation PDF file",
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -1,8 +1,10 @@
-from django.http import HttpResponse
+import os
+from django.http import HttpResponse, FileResponse, Http404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Max, Q
@@ -125,6 +127,8 @@ class AdminChatbotOptionDetailView(APIView):
 # =========================================================
 
 class QuotationListCreateView(APIView):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
@@ -146,7 +150,7 @@ class QuotationListCreateView(APIView):
         if quotation_type:
             queryset = queryset.filter(quotation_type=quotation_type)
 
-        serializer = QuotationSerializer(queryset, many=True)
+        serializer = QuotationSerializer(queryset, many=True, context={'request': request})
         return Response({
             "success": True,
             "count": queryset.count(),
@@ -154,7 +158,7 @@ class QuotationListCreateView(APIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request):
-        serializer = QuotationSerializer(data=request.data)
+        serializer = QuotationSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -162,11 +166,13 @@ class QuotationListCreateView(APIView):
         return Response({
             "success": True,
             "message": "Quotation template created successfully.",
-            "quotation": QuotationSerializer(quotation).data,
+            "quotation": QuotationSerializer(quotation, context={'request': request}).data,
         }, status=status.HTTP_201_CREATED)
 
 
 class QuotationDetailView(APIView):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
@@ -176,12 +182,12 @@ class QuotationDetailView(APIView):
         quotation = get_object_or_404(Quotation.objects.select_related("product"), pk=pk)
         return Response({
             "success": True,
-            "quotation": QuotationSerializer(quotation).data,
+            "quotation": QuotationSerializer(quotation, context={'request': request}).data,
         }, status=status.HTTP_200_OK)
 
     def patch(self, request, pk):
         quotation = get_object_or_404(Quotation, pk=pk)
-        serializer = QuotationSerializer(quotation, data=request.data, partial=True)
+        serializer = QuotationSerializer(quotation, data=request.data, partial=True, context={'request': request})
         if not serializer.is_valid():
             return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -189,17 +195,23 @@ class QuotationDetailView(APIView):
         return Response({
             "success": True,
             "message": "Quotation updated successfully.",
-            "quotation": QuotationSerializer(updated).data,
+            "quotation": QuotationSerializer(updated, context={'request': request}).data,
         }, status=status.HTTP_200_OK)
 
     def delete(self, request, pk):
         quotation = get_object_or_404(Quotation, pk=pk)
         title = quotation.title
+        if quotation.pdf_file:
+            try:
+                quotation.pdf_file.delete(save=False)
+            except Exception:
+                pass
         quotation.delete()
         return Response({
             "success": True,
             "message": f"Quotation '{title}' deleted successfully.",
         }, status=status.HTTP_200_OK)
+
 
 class QuotationPDFDownloadView(APIView):
     permission_classes = [AllowAny]
@@ -209,163 +221,41 @@ class QuotationPDFDownloadView(APIView):
             quotation = get_object_or_404(Quotation.objects.select_related("product"), pk=pk)
         else:
             q_type = request.query_params.get("type", "").strip().lower()
+            target = request.query_params.get("target", "").strip().lower()
+            queryset = Quotation.objects.select_related("product").filter(is_active=True)
             if q_type:
-                quotation = Quotation.objects.select_related("product").filter(quotation_type=q_type, is_active=True).first()
-            else:
-                quotation = Quotation.objects.select_related("product").filter(is_active=True).first()
+                queryset = queryset.filter(quotation_type=q_type)
+            if target:
+                queryset = queryset.filter(Q(target_audience=target) | Q(target_audience="both"))
+            quotation = queryset.first()
 
         if not quotation:
-            return Response({"success": False, "message": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"success": False, "has_pdf": False, "message": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        from io import BytesIO
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib import colors
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        # Check if actual PDF file is uploaded in database
+        if not quotation.pdf_file or not hasattr(quotation.pdf_file, 'path') or not os.path.exists(quotation.pdf_file.path):
+            return Response({
+                "success": False,
+                "has_pdf": False,
+                "quotation": QuotationSerializer(quotation, context={'request': request}).data,
+                "message": f"No official PDF document is currently attached to quotation '{quotation.title}'."
+            }, status=status.HTTP_404_NOT_FOUND)
 
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            rightMargin=36,
-            leftMargin=36,
-            topMargin=36,
-            bottomMargin=36
-        )
+        # Serve the real uploaded PDF file from database
+        try:
+            file_handle = open(quotation.pdf_file.path, 'rb')
+            response = FileResponse(file_handle, content_type='application/pdf')
+            filename = os.path.basename(quotation.pdf_file.name)
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+            return response
+        except Exception as e:
+            return Response({
+                "success": False,
+                "has_pdf": False,
+                "message": f"Error opening attached PDF file: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            'DocTitle',
-            parent=styles['Heading1'],
-            fontSize=20,
-            leading=24,
-            textColor=colors.HexColor('#0369A1'),
-            fontName='Helvetica-Bold'
-        )
-        subtitle_style = ParagraphStyle(
-            'DocSubtitle',
-            parent=styles['Normal'],
-            fontSize=10,
-            leading=14,
-            textColor=colors.HexColor('#475569')
-        )
-        header_style = ParagraphStyle(
-            'HeaderLabel',
-            parent=styles['Heading2'],
-            fontSize=13,
-            leading=16,
-            textColor=colors.HexColor('#0F172A'),
-            fontName='Helvetica-Bold'
-        )
-        body_style = ParagraphStyle(
-            'Body',
-            parent=styles['Normal'],
-            fontSize=9.5,
-            leading=13.5,
-            textColor=colors.HexColor('#1E293B')
-        )
-
-        elements = []
-
-        # Header Info
-        header_data = [
-            [
-                Paragraph("<b>SHIVNATH AGENCY</b><br/><font size=8 color='#475569'>Packaged Drinking Water & Beverages Plant<br/>Raipur, Chhattisgarh - 492001<br/>Phone: +91 98062 47194 | Email: info@shivnathagency.com</font>", body_style),
-                Paragraph(f"<b>OFFICIAL QUOTATION</b><br/><font size=8 color='#0284C7'>Ref No: SN-QTN-{quotation.id:04d}<br/>Date: {quotation.updated_at.strftime('%d %b %Y')}<br/>Validity: {quotation.validity}</font>", body_style)
-            ]
-        ]
-        header_table = Table(header_data, colWidths=[300, 220])
-        header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ]))
-        elements.append(header_table)
-        elements.append(Spacer(1, 10))
-        elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#0284C7'), spaceBefore=4, spaceAfter=12))
-
-        # Title
-        elements.append(Paragraph(quotation.title, title_style))
-        elements.append(Paragraph(f"Target Category: {quotation.get_quotation_type_display()} | Audience: {quotation.get_target_audience_display().upper()}", subtitle_style))
-        elements.append(Spacer(1, 14))
-
-        # Itemized Pricing Table
-        unit_p = float(quotation.unit_price or 0.0)
-        tot_p = float(quotation.total_price or unit_p)
-        product_name = quotation.product.name if quotation.product else "Shivnath Pure Water Volume Pack"
-        product_size = quotation.product.size if quotation.product else "Standard"
-
-        table_data = [
-            [
-                Paragraph("<b>Description / Item</b>", body_style),
-                Paragraph("<b>Tier / Volume</b>", body_style),
-                Paragraph("<b>Unit Price (Rs)</b>", body_style),
-                Paragraph("<b>Total (Rs)</b>", body_style)
-            ],
-            [
-                Paragraph(f"<b>{product_name}</b><br/><font size=8 color='#64748B'>Spec: {product_size} (BIS IS:14543 Certified 7-Stage Purified)</font>", body_style),
-                Paragraph(quotation.quantity_tier or "1 Unit", body_style),
-                Paragraph(f"Rs. {unit_p:,.2f}", body_style),
-                Paragraph(f"Rs. {tot_p:,.2f}", body_style),
-            ],
-            [
-                Paragraph("<b>Total Contract Quotation Amount:</b>", body_style),
-                "",
-                "",
-                Paragraph(f"<b>Rs. {tot_p:,.2f}</b>", body_style)
-            ]
-        ]
-
-        pricing_table = Table(table_data, colWidths=[240, 110, 85, 85])
-        pricing_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0F172A')),
-            ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
-            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#CBD5E1')),
-            ('SPAN', (0, 2), (2, 2)),
-            ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#E0F2FE')),
-        ]))
-        elements.append(pricing_table)
-        elements.append(Spacer(1, 14))
-
-        # Terms & Conditions
-        elements.append(Paragraph("<b>Terms & Conditions / Delivery Schedule</b>", header_style))
-        elements.append(Spacer(1, 4))
-        terms_text = quotation.applicable_terms or "1. Prices are inclusive of standard local freight within city limits.\n2. Delivery dispatched directly from certified automated bottling facility.\n3. Payment terms: Advance / Net 15 for registered contract accounts."
-        for line in terms_text.split('\n'):
-            if line.strip():
-                elements.append(Paragraph(f"• {line.strip()}", body_style))
-
-        if quotation.notes:
-            elements.append(Spacer(1, 8))
-            elements.append(Paragraph(f"<b>Special Notes:</b> {quotation.notes}", body_style))
-
-        elements.append(Spacer(1, 20))
-        elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#CBD5E1'), spaceBefore=6, spaceAfter=14))
-
-        # Signatory footer
-        sign_data = [
-            [
-                Paragraph("<font size=8 color='#64748B'>* This is a computer-generated quotation verified under Shivnath Agency Digital CRM System.</font>", body_style),
-                Paragraph("<b>For SHIVNATH AGENCY</b><br/><br/><font size=8 color='#475569'>Authorized Commercial Signatory<br/>Sales & Distribution Desk</font>", body_style)
-            ]
-        ]
-        sign_table = Table(sign_data, colWidths=[320, 200])
-        sign_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ]))
-        elements.append(sign_table)
-
-        doc.build(elements)
-        buffer.seek(0)
-
-        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-        filename = f"Shivnath_Quotation_{quotation.id:04d}.pdf"
-        response['Content-Disposition'] = f'inline; filename="{filename}"'
-        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
-        return response
 
 
 # =========================================================

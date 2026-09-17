@@ -1,3 +1,4 @@
+import os
 from rest_framework import serializers
 from .models import Quotation, ChatbotOption, ChatSession, ChatMessage
 from products.models import Product
@@ -12,6 +13,10 @@ class QuotationSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    pdf_url = serializers.SerializerMethodField()
+    pdf_name = serializers.SerializerMethodField()
+    has_pdf = serializers.SerializerMethodField()
+    remove_pdf = serializers.BooleanField(required=False, write_only=True, default=False)
 
     class Meta:
         model = Quotation
@@ -29,11 +34,55 @@ class QuotationSerializer(serializers.ModelSerializer):
             'notes',
             'validity',
             'target_audience',
+            'pdf_file',
+            'pdf_url',
+            'pdf_name',
+            'has_pdf',
+            'remove_pdf',
             'is_active',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'product_details']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'product_details', 'pdf_url', 'pdf_name', 'has_pdf']
+
+    def get_has_pdf(self, obj):
+        return bool(obj.pdf_file and hasattr(obj.pdf_file, 'name') and obj.pdf_file.name)
+
+    def get_pdf_name(self, obj):
+        if obj.pdf_file and hasattr(obj.pdf_file, 'name') and obj.pdf_file.name:
+            return os.path.basename(obj.pdf_file.name)
+        return None
+
+    def get_pdf_url(self, obj):
+        if obj.pdf_file and hasattr(obj.pdf_file, 'url'):
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.pdf_file.url)
+            return obj.pdf_file.url
+        return None
+
+    def validate_pdf_file(self, value):
+        if value:
+            # Check extension
+            ext = os.path.splitext(value.name)[1].lower()
+            if ext != '.pdf':
+                raise serializers.ValidationError("Only PDF files (.pdf) are allowed.")
+            # Check max size (15MB)
+            if value.size > 15 * 1024 * 1024:
+                raise serializers.ValidationError("PDF file size cannot exceed 15MB.")
+        return value
+
+    def create(self, validated_data):
+        validated_data.pop('remove_pdf', None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        remove_pdf = validated_data.pop('remove_pdf', False)
+        if remove_pdf:
+            if instance.pdf_file:
+                instance.pdf_file.delete(save=False)
+            instance.pdf_file = None
+        return super().update(instance, validated_data)
 
 
 class ChatbotOptionSerializer(serializers.ModelSerializer):

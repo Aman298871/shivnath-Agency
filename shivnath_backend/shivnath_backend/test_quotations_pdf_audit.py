@@ -17,16 +17,21 @@ print("==================================================")
 print("AUDITING QUOTATION CRUD, PDF GENERATION & DYNAMIC PRICE SYNC")
 print("==================================================")
 
-# 1. Test Admin Create Quotation
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+# 1. Test Admin Create Quotation with Uploaded PDF
 admin_user, _ = User.objects.get_or_create(username='test_admin_audit', is_staff=True, is_superuser=True)
 profile, _ = UserProfile.objects.get_or_create(user=admin_user, defaults={'role': 'admin', 'phone': '9876543219'})
 product = Product.objects.filter(status='Active').first()
 
 rf = APIRequestFactory()
 
-# Create Quotation
+pdf_content = b"%PDF-1.4 Official Shivnath Packaged Drinking Water Quotation PDF File Test Content"
+uploaded_pdf = SimpleUploadedFile("shivnath_official_rate_card.pdf", pdf_content, content_type="application/pdf")
+
+# Create Quotation with PDF
 req = rf.post('/api/chat/quotations/', {
-    'title': 'Test Bulk Audit Quotation',
+    'title': 'Test Bulk Audit Quotation with PDF',
     'quotation_type': 'bulk',
     'target_audience': 'both',
     'quantity_tier': '100+ Boxes',
@@ -34,40 +39,62 @@ req = rf.post('/api/chat/quotations/', {
     'total_price': '18000.00',
     'validity': 'Valid for 15 Days',
     'product_id': product.id if product else None,
-}, format='json')
+    'pdf_file': uploaded_pdf,
+}, format='multipart')
 force_authenticate(req, user=admin_user)
 res = QuotationListCreateView.as_view()(req)
 assert res.status_code == 201, f"Create quotation failed: {res.data}"
 q_id = res.data['quotation']['id']
-print(f"[TEST 1] Quotation Created Successfully (ID: {q_id}, Title: {res.data['quotation']['title']})")
+assert res.data['quotation']['has_pdf'] is True
+assert 'shivnath_official_rate_card' in res.data['quotation']['pdf_name']
+print(f"[TEST 1] Quotation Created with Real Uploaded PDF (ID: {q_id}, PDF: {res.data['quotation']['pdf_name']})")
 
-# 2. Test Admin Patch / Replace Quotation
-patch_req = rf.patch(f'/api/chat/quotations/{q_id}/', {
-    'title': 'Updated Bulk Audit Quotation 2026',
-    'unit_price': '175.00',
-    'total_price': '17500.00',
-}, format='json')
-force_authenticate(patch_req, user=admin_user)
-patch_res = QuotationDetailView.as_view()(patch_req, pk=q_id)
-assert patch_res.status_code == 200, f"Patch quotation failed: {patch_res.data}"
-assert patch_res.data['quotation']['unit_price'] == '175.00'
-print(f"[TEST 2] Quotation Updated / Replaced Successfully (New Unit Price: Rs. {patch_res.data['quotation']['unit_price']})")
-
-# 3. Test Quotation PDF Generation
+# 2. Test Download of Real Uploaded PDF
 pdf_req = rf.get(f'/api/chat/quotations/{q_id}/pdf/')
 pdf_res = QuotationPDFDownloadView.as_view()(pdf_req, pk=q_id)
 assert pdf_res.status_code == 200
 assert pdf_res['Content-Type'] == 'application/pdf'
-assert len(pdf_res.content) > 1000
-print(f"[TEST 3] Quotation PDF Generated Successfully with ReportLab ({len(pdf_res.content)} bytes generated)")
+assert b"Official Shivnath Packaged Drinking Water" in b"".join(pdf_res.streaming_content)
+print(f"[TEST 2] Verified Real Uploaded PDF Download from Database.")
 
-# 4. Test Quotation Delete
+# 3. Test Admin Replace PDF
+new_pdf_content = b"%PDF-1.4 Replaced 2026 Rate Card"
+new_uploaded_pdf = SimpleUploadedFile("updated_rates_2026.pdf", new_pdf_content, content_type="application/pdf")
+patch_req = rf.patch(f'/api/chat/quotations/{q_id}/', {
+    'title': 'Updated Bulk Audit Quotation 2026',
+    'unit_price': '175.00',
+    'pdf_file': new_uploaded_pdf,
+}, format='multipart')
+force_authenticate(patch_req, user=admin_user)
+patch_res = QuotationDetailView.as_view()(patch_req, pk=q_id)
+assert patch_res.status_code == 200, f"Patch quotation failed: {patch_res.data}"
+assert 'updated_rates_2026' in patch_res.data['quotation']['pdf_name']
+print(f"[TEST 3] Quotation PDF Replaced Successfully (New File: {patch_res.data['quotation']['pdf_name']})")
+
+# 4. Test Remove PDF
+remove_req = rf.patch(f'/api/chat/quotations/{q_id}/', {
+    'remove_pdf': True,
+}, format='json')
+force_authenticate(remove_req, user=admin_user)
+remove_res = QuotationDetailView.as_view()(remove_req, pk=q_id)
+assert remove_res.status_code == 200
+assert remove_res.data['quotation']['has_pdf'] is False
+print(f"[TEST 4] Quotation PDF Removed Successfully from Database.")
+
+# 5. Test Download without PDF (Must return structured data with has_pdf=False)
+pdf_req2 = rf.get(f'/api/chat/quotations/{q_id}/pdf/')
+pdf_res2 = QuotationPDFDownloadView.as_view()(pdf_req2, pk=q_id)
+assert pdf_res2.status_code == 404
+assert pdf_res2.data['has_pdf'] is False
+print(f"[TEST 5] Verified No-PDF Behavior: Returns 404 with structured notification and has_pdf: False.")
+
+# 6. Test Quotation Delete
 del_req = rf.delete(f'/api/chat/quotations/{q_id}/')
 force_authenticate(del_req, user=admin_user)
 del_res = QuotationDetailView.as_view()(del_req, pk=q_id)
 assert del_res.status_code == 200
 assert not Quotation.objects.filter(id=q_id).exists()
-print(f"[TEST 4] Quotation Deleted Successfully from PostgreSQL.")
+print(f"[TEST 6] Quotation Deleted Successfully from PostgreSQL.")
 
 # 5. Test Dynamic Product Price Sync in Chatbot Live Context
 if product:

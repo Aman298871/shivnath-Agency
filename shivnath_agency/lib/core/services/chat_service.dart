@@ -202,27 +202,79 @@ class ChatService {
     return [];
   }
 
-  Future<Map<String, dynamic>> createQuotation(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createQuotation(
+    Map<String, dynamic> data, {
+    String? pdfFilePath,
+    List<int>? pdfBytes,
+    String? pdfFileName,
+  }) async {
+    final token = await _sessionService.getAccessToken();
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/chat/quotations/'),
-        headers: await _headers(requireAuth: true),
-        body: jsonEncode(data),
-      );
-      return jsonDecode(response.body);
+      if (pdfFilePath != null || pdfBytes != null) {
+        final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/chat/quotations/'));
+        if (token != null && token.isNotEmpty) {
+          request.headers['Authorization'] = 'Bearer $token';
+        }
+        data.forEach((k, v) {
+          if (v != null) request.fields[k] = v.toString();
+        });
+        if (pdfFilePath != null && pdfFilePath.isNotEmpty) {
+          request.files.add(await http.MultipartFile.fromPath('pdf_file', pdfFilePath, filename: pdfFileName));
+        } else if (pdfBytes != null) {
+          request.files.add(http.MultipartFile.fromBytes('pdf_file', pdfBytes, filename: pdfFileName ?? 'quotation.pdf'));
+        }
+        final streamed = await request.send().timeout(const Duration(seconds: 20));
+        final response = await http.Response.fromStream(streamed);
+        return jsonDecode(response.body);
+      } else {
+        final response = await http.post(
+          Uri.parse('$baseUrl/api/chat/quotations/'),
+          headers: await _headers(requireAuth: true),
+          body: jsonEncode(data),
+        );
+        return jsonDecode(response.body);
+      }
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
   }
 
-  Future<Map<String, dynamic>> updateQuotation(int id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateQuotation(
+    int id,
+    Map<String, dynamic> data, {
+    String? pdfFilePath,
+    List<int>? pdfBytes,
+    String? pdfFileName,
+    bool removePdf = false,
+  }) async {
+    final token = await _sessionService.getAccessToken();
     try {
-      final response = await http.patch(
-        Uri.parse('$baseUrl/api/chat/quotations/$id/'),
-        headers: await _headers(requireAuth: true),
-        body: jsonEncode(data),
-      );
-      return jsonDecode(response.body);
+      if (pdfFilePath != null || pdfBytes != null || removePdf) {
+        final request = http.MultipartRequest('PATCH', Uri.parse('$baseUrl/api/chat/quotations/$id/'));
+        if (token != null && token.isNotEmpty) {
+          request.headers['Authorization'] = 'Bearer $token';
+        }
+        data.forEach((k, v) {
+          if (v != null) request.fields[k] = v.toString();
+        });
+        if (removePdf) {
+          request.fields['remove_pdf'] = 'true';
+        } else if (pdfFilePath != null && pdfFilePath.isNotEmpty) {
+          request.files.add(await http.MultipartFile.fromPath('pdf_file', pdfFilePath, filename: pdfFileName));
+        } else if (pdfBytes != null) {
+          request.files.add(http.MultipartFile.fromBytes('pdf_file', pdfBytes, filename: pdfFileName ?? 'quotation.pdf'));
+        }
+        final streamed = await request.send().timeout(const Duration(seconds: 20));
+        final response = await http.Response.fromStream(streamed);
+        return jsonDecode(response.body);
+      } else {
+        final response = await http.patch(
+          Uri.parse('$baseUrl/api/chat/quotations/$id/'),
+          headers: await _headers(requireAuth: true),
+          body: jsonEncode(data),
+        );
+        return jsonDecode(response.body);
+      }
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }

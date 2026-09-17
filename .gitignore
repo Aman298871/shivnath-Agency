@@ -4,9 +4,13 @@ shivnath_agency/.flutter-plugins-dependencies
 shivnath_agency/.pub-cache/
 shivnath_agency/.pub/
 shivnath_agency/build/
+shivnath_agency/android/build/
+shivnath_agency/android/.kotlin/
+shivnath_agency/android/app/build/
 shivnath_agency/android/app/debug/
 shivnath_agency/android/app/profile/
 shivnath_agency/android/app/release/
+*.apk
 
 # Python / Django ignores
 **/venv/

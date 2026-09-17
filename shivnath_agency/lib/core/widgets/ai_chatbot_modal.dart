@@ -423,6 +423,9 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       return;
     }
 
+    // =========================================================
+    // MANDATORY LEAD CAPTURE UPFRONT BEFORE SHOWING OPTIONS
+    // =========================================================
     if (option.isRootSelection) {
       _currentInquiryType = option.inquiryType;
       _navStack.clear();
@@ -431,25 +434,17 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       _selectedOptionTrail.clear();
       _selectedOptionTrail.add(option.title);
 
-      List<_ChatOptionItem> rootList = option.inquiryType == 'customer' ? _customerTree : _franchiseTree;
-      if (rootList.isEmpty) {
-        rootList = option.inquiryType == 'customer' ? _getDefaultCustomerOptions() : _getDefaultFranchiseOptions();
-      }
-      _navStack.add(rootList);
-
       setState(() {
         _messages.add(_ChatMessage(text: option.title, isUser: true));
-        _messages.add(
-          _ChatMessage(
-            text: option.inquiryType == 'customer'
-                ? 'Here are the available options for Customer & Product inquiries. Please select an area:'
-                : 'Here are the available options for Franchise & Distribution inquiries. Please select an area:',
-            isUser: false,
-            optionItems: _buildOptionListWithBack(rootList, canGoBack: true, isRootLevel: true),
-          ),
-        );
       });
       _scrollToBottom();
+
+      // Immediately start qualification without showing products/franchise options
+      if (option.inquiryType == 'franchise') {
+        _startFranchiseQualification();
+      } else {
+        _startCustomerQualification();
+      }
       return;
     }
 
@@ -489,14 +484,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       return;
     }
 
-    // Leaf node: check if lead qualification or quotation PDF is required
-    final isLeadTrigger = option.isLeadTrigger ||
-        option.title.toLowerCase().contains('qualify') ||
-        option.title.toLowerCase().contains('apply for franchise') ||
-        option.title.toLowerCase().contains('product details') ||
-        option.title.toLowerCase().contains('bulk order') ||
-        option.title.toLowerCase().contains('subscription');
-
+    // Leaf node: check if quotation PDF or dynamic query is required
     final isQuotationNode = option.title.toLowerCase().contains('quotation') ||
         option.title.toLowerCase().contains('quote') ||
         option.title.toLowerCase().contains('bulk') ||
@@ -506,50 +494,31 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     if (option.answerText != null && option.answerText!.trim().isNotEmpty) {
       final answer = option.answerText!;
 
-      if (isLeadTrigger) {
-        // Output answer first, then start lead details collection
-        setState(() {
-          _messages.add(
-            _ChatMessage(
-              text: answer,
-              isUser: false,
-            ),
-          );
-        });
-        _scrollToBottom();
+      // Informational leaf node (e.g. Price, details) - Show answer and remaining unconsumed siblings
+      final currentLevel = _navStack.isNotEmpty ? _navStack.last : <_ChatOptionItem>[];
+      final remaining = currentLevel.where((c) {
+        final idMatches = c.id != null && _consumedOptionIds.contains(c.id);
+        final titleMatches = _consumedOptionTitles.contains(c.title);
+        return !idMatches && !titleMatches;
+      }).toList();
 
-        if (_currentInquiryType == 'franchise') {
-          _startFranchiseQualification();
-        } else {
-          _startCustomerQualification();
-        }
-      } else {
-        // Informational leaf node (e.g. Price) - Show answer and remaining unconsumed siblings
-        final currentLevel = _navStack.isNotEmpty ? _navStack.last : <_ChatOptionItem>[];
-        final remaining = currentLevel.where((c) {
-          final idMatches = c.id != null && _consumedOptionIds.contains(c.id);
-          final titleMatches = _consumedOptionTitles.contains(c.title);
-          return !idMatches && !titleMatches;
-        }).toList();
+      final optionChips = _buildOptionListWithBack(
+        remaining,
+        canGoBack: _navStack.isNotEmpty,
+        includePdfDownload: isQuotationNode,
+        quotationId: option.quotationId,
+      );
 
-        final optionChips = _buildOptionListWithBack(
-          remaining,
-          canGoBack: _navStack.isNotEmpty,
-          includePdfDownload: isQuotationNode,
-          quotationId: option.quotationId,
+      setState(() {
+        _messages.add(
+          _ChatMessage(
+            text: answer,
+            isUser: false,
+            optionItems: optionChips,
+          ),
         );
-
-        setState(() {
-          _messages.add(
-            _ChatMessage(
-              text: answer,
-              isUser: false,
-              optionItems: optionChips,
-            ),
-          );
-        });
-        _scrollToBottom();
-      }
+      });
+      _scrollToBottom();
     } else {
       // Dynamic API message query
       _sendMessage(option.title, optionId: option.id);
@@ -936,37 +905,30 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       'district': district,
       'inquiry_type': 'customer',
       'selected_options': _selectedOptionTrail,
-      'notes': 'Customer Inquiry Path: $trailStr',
+      'notes': 'Customer Inquiry: $trailStr',
       'conversation_history': _getHistory(),
     });
 
     final isExisting = res['is_duplicate'] == true;
 
+    final rootList = _customerTree.isNotEmpty ? _customerTree : _getDefaultCustomerOptions();
+    _navStack.clear();
+    _navStack.add(rootList);
+
     final summary = isExisting
-        ? '✅ *Inquiry Linked to Existing Profile!*\n\n'
+        ? '✅ *Welcome back, $name!*\n\n'
+            '• *Mobile*: $phone\n'
+            '• *Location*: $city, $district\n\n'
+            'Your customer inquiry has been linked in our Admin CRM. Please select from our products and pricing options below:'
+        : '🎉 *Customer Details Verified!*\n\n'
             '• *Name*: $name\n'
             '• *Mobile*: $phone\n'
-            '• *Location*: $city, $district\n'
-            '• *Inquiry*: $trailStr\n\n'
-            'Your inquiry has been updated in our Admin CRM without duplicate records. Our customer care desk will contact you shortly.'
-        : '🎉 *Customer Inquiry Submitted Successfully!*\n\n'
-            '• *Name*: $name\n'
-            '• *Mobile*: $phone\n'
-            '• *Location*: $city, $district\n'
-            '• *Inquiry*: $trailStr\n\n'
-            'Your new lead has been recorded in the Admin CRM. Our sales representative will get in touch with you shortly.';
+            '• *Location*: $city, $district\n\n'
+            'Your lead has been recorded in the Admin CRM. Please select from our packaged water products, pricing, and quotation options below:';
 
     _respond(
       summary,
-      options: [
-        _ChatOptionItem(
-          title: '📄 Download Official Quotation PDF',
-          isPdfDownload: true,
-          inquiryType: 'customer',
-        ),
-        _ChatOptionItem(title: 'Talk to Sales Support on WhatsApp'),
-        _ChatOptionItem(title: '← Back to Main Menu', isBackButton: true),
-      ],
+      options: _buildOptionListWithBack(rootList, canGoBack: true, isRootLevel: true),
     );
   }
 
@@ -1002,31 +964,27 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
 
     final isExisting = res['is_duplicate'] == true;
 
+    final rootList = _franchiseTree.isNotEmpty ? _franchiseTree : _getDefaultFranchiseOptions();
+    _navStack.clear();
+    _navStack.add(rootList);
+
     final summary = isExisting
-        ? '✅ *Franchise Inquiry Linked to Existing Lead!*\n\n'
+        ? '✅ *Franchise Details Updated!*\n\n'
             '• *Prospect*: $name\n'
             '• *Mobile*: $phone\n'
             '• *Territory*: $loc ($city)\n'
             '• *Budget*: $budget\n\n'
-            'Your updated franchise inquiry is recorded in our Admin CRM. Our territory manager will connect with you shortly.'
-        : '🎉 *Franchise Application Pre-Qualified!*\n\n'
+            'Your inquiry is updated in our Admin CRM. Please explore our territory models, margins, and franchise quotation options below:'
+        : '🎉 *Franchise Pre-Qualification Submitted!*\n\n'
             '• *Prospect*: $name\n'
             '• *Mobile*: $phone\n'
             '• *Territory*: $loc ($city)\n'
             '• *Budget*: $budget\n\n'
-            'Your franchise lead is now active in the Admin CRM. A dedicated Franchise Development Manager will call you within 24 hours.';
+            'Your franchise lead is now active in the Admin CRM. Please explore our territory models, margins, and franchise quotation options below:';
 
     _respond(
       summary,
-      options: [
-        _ChatOptionItem(
-          title: '📄 Download Franchise Quotation PDF',
-          isPdfDownload: true,
-          inquiryType: 'franchise',
-        ),
-        _ChatOptionItem(title: 'Talk to Franchise Desk on WhatsApp'),
-        _ChatOptionItem(title: '← Back to Main Menu', isBackButton: true),
-      ],
+      options: _buildOptionListWithBack(rootList, canGoBack: true, isRootLevel: true),
     );
   }
 

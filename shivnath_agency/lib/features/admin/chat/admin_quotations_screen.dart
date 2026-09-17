@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
@@ -58,6 +59,16 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
     String targetAudience = quotation?['target_audience']?.toString() ?? 'customer';
     int? selectedProductId = quotation?['product'] != null ? (quotation!['product'] is Map ? quotation!['product']['id'] : quotation!['product']) : null;
     bool isActive = quotation?['is_active'] ?? true;
+
+    // PDF Management State
+    String? existingPdfUrl = quotation?['pdf_url']?.toString();
+    String? existingPdfName = quotation?['pdf_name']?.toString();
+    bool hasExistingPdf = (quotation?['has_pdf'] == true || (existingPdfUrl != null && existingPdfUrl.isNotEmpty));
+
+    String? selectedPdfPath;
+    String? selectedPdfName;
+    List<int>? selectedPdfBytes;
+    bool removeExistingPdf = false;
 
     showDialog(
       context: context,
@@ -201,6 +212,207 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  const SizedBox(height: 14),
+
+                  // ==========================================
+                  // PDF UPLOAD & MANAGEMENT SECTION
+                  // ==========================================
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFE11D48), size: 20),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Quotation PDF Document',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            const Spacer(),
+                            if (hasExistingPdf && !removeExistingPdf && selectedPdfName == null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withAlpha(30),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'PDF Attached',
+                                  style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              )
+                            else if (selectedPdfName != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withAlpha(30),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'New File Selected',
+                                  style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              )
+                            else
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withAlpha(30),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'No PDF attached',
+                                  style: TextStyle(color: Colors.grey, fontSize: 11),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (selectedPdfName != null) ...[
+                          Text(
+                            '📄 Selected: $selectedPdfName',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.refresh, size: 16),
+                                label: const Text('Change PDF', style: TextStyle(fontSize: 12)),
+                                onPressed: () async {
+                                  final result = await FilePicker.platform.pickFiles(
+                                    type: FileType.custom,
+                                    allowedExtensions: ['pdf'],
+                                    withData: true,
+                                  );
+                                  if (result != null && result.files.isNotEmpty) {
+                                    final file = result.files.first;
+                                    setDlgState(() {
+                                      selectedPdfPath = file.path;
+                                      selectedPdfName = file.name;
+                                      selectedPdfBytes = file.bytes;
+                                      removeExistingPdf = false;
+                                    });
+                                  }
+                                },
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                icon: const Icon(Icons.close, color: Colors.red, size: 16),
+                                label: const Text('Clear Selection', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                onPressed: () {
+                                  setDlgState(() {
+                                    selectedPdfPath = null;
+                                    selectedPdfName = null;
+                                    selectedPdfBytes = null;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ] else if (hasExistingPdf && !removeExistingPdf) ...[
+                          Text(
+                            '📄 Current: ${existingPdfName ?? 'quotation.pdf'}',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              if (existingPdfUrl != null && existingPdfUrl.isNotEmpty) ...[
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0284C7),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  ),
+                                  icon: const Icon(Icons.open_in_new, size: 14),
+                                  label: const Text('View PDF', style: TextStyle(fontSize: 11)),
+                                  onPressed: () async {
+                                    final uri = Uri.parse(existingPdfUrl);
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.upload_file, size: 14),
+                                label: const Text('Replace PDF', style: TextStyle(fontSize: 11)),
+                                onPressed: () async {
+                                  final result = await FilePicker.platform.pickFiles(
+                                    type: FileType.custom,
+                                    allowedExtensions: ['pdf'],
+                                    withData: true,
+                                  );
+                                  if (result != null && result.files.isNotEmpty) {
+                                    final file = result.files.first;
+                                    setDlgState(() {
+                                      selectedPdfPath = file.path;
+                                      selectedPdfName = file.name;
+                                      selectedPdfBytes = file.bytes;
+                                      removeExistingPdf = false;
+                                    });
+                                  }
+                                },
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red, size: 14),
+                                label: const Text('Remove PDF', style: TextStyle(color: Colors.red, fontSize: 11)),
+                                onPressed: () {
+                                  setDlgState(() {
+                                    removeExistingPdf = true;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          Row(
+                            children: [
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0F172A),
+                                  foregroundColor: Colors.white,
+                                ),
+                                icon: const Icon(Icons.upload_file, size: 16),
+                                label: const Text('Upload Quotation PDF', style: TextStyle(fontSize: 12)),
+                                onPressed: () async {
+                                  final result = await FilePicker.platform.pickFiles(
+                                    type: FileType.custom,
+                                    allowedExtensions: ['pdf'],
+                                    withData: true,
+                                  );
+                                  if (result != null && result.files.isNotEmpty) {
+                                    final file = result.files.first;
+                                    setDlgState(() {
+                                      selectedPdfPath = file.path;
+                                      selectedPdfName = file.name;
+                                      selectedPdfBytes = file.bytes;
+                                      removeExistingPdf = false;
+                                    });
+                                  }
+                                },
+                              ),
+                              if (removeExistingPdf) ...[
+                                const SizedBox(width: 8),
+                                const Text('(Marked for removal)', style: TextStyle(fontSize: 11, color: Colors.red)),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
                   const SizedBox(height: 12),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -238,9 +450,21 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
 
                 Navigator.pop(ctx);
                 if (quotation == null) {
-                  await _chatService.createQuotation(payload);
+                  await _chatService.createQuotation(
+                    payload,
+                    pdfFilePath: selectedPdfPath,
+                    pdfBytes: selectedPdfBytes,
+                    pdfFileName: selectedPdfName,
+                  );
                 } else {
-                  await _chatService.updateQuotation(quotation['id'] as int, payload);
+                  await _chatService.updateQuotation(
+                    quotation['id'] as int,
+                    payload,
+                    pdfFilePath: selectedPdfPath,
+                    pdfBytes: selectedPdfBytes,
+                    pdfFileName: selectedPdfName,
+                    removePdf: removeExistingPdf,
+                  );
                 }
                 _loadData();
               },
@@ -380,6 +604,8 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                           final audience = q['target_audience']?.toString().toUpperCase() ?? 'CUSTOMER';
                           final unitP = q['unit_price'] ?? 0;
                           final totalP = q['total_price'] ?? 0;
+                          final hasPdf = q['has_pdf'] == true || (q['pdf_url'] != null && q['pdf_url'].toString().isNotEmpty);
+                          final pdfName = q['pdf_name']?.toString() ?? 'Quotation.pdf';
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -469,6 +695,57 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                     const SizedBox(height: 8),
                                     Text('Terms: ${q['applicable_terms']}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                                   ],
+
+                                  // PDF Status Banner
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: hasPdf ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: hasPdf ? const Color(0xFFBBF7D0) : const Color(0xFFE2E8F0),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          hasPdf ? Icons.picture_as_pdf_rounded : Icons.insert_drive_file_outlined,
+                                          size: 16,
+                                          color: hasPdf ? const Color(0xFF16A34A) : Colors.grey,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            hasPdf ? 'PDF: $pdfName' : 'No PDF document attached',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: hasPdf ? FontWeight.w600 : FontWeight.normal,
+                                              color: hasPdf ? const Color(0xFF15803D) : const Color(0xFF64748B),
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (hasPdf)
+                                          GestureDetector(
+                                            onTap: () => _downloadPdf(qId),
+                                            child: const Padding(
+                                              padding: EdgeInsets.symmetric(horizontal: 4),
+                                              child: Text(
+                                                'View PDF',
+                                                style: TextStyle(
+                                                  color: Color(0xFF0284C7),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                  decoration: TextDecoration.underline,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+
                                   const SizedBox(height: 8),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,

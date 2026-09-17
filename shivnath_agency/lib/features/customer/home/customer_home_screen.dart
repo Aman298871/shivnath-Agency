@@ -5,6 +5,7 @@ import '../../../core/services/product_service.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
 import '../../../models/product_model.dart';
 import '../cart/cart_provider.dart';
+import '../cart/customer_cart_screen.dart';
 import '../notifications/customer_notifications_screen.dart';
 import '../products/product_detail_screen.dart';
 
@@ -1162,12 +1163,45 @@ class _ProductCard extends StatelessWidget {
                               ..hideCurrentSnackBar()
                               ..showSnackBar(
                                 SnackBar(
-                                  content: Text(
-                                    '${product.name} added to cart',
+                                  content: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.check_circle_rounded,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          '${product.name} added to cart',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   backgroundColor: const Color(0xFF0284C7),
-                                  duration: const Duration(seconds: 1),
+                                  duration: const Duration(seconds: 4),
                                   behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  action: SnackBarAction(
+                                    label: 'GO TO CART',
+                                    textColor: const Color(0xFFFEF08A),
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const CustomerCartScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
                               );
                           }

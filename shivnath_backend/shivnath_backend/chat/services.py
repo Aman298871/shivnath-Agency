@@ -246,71 +246,253 @@ class AIService:
             return False
 
         # =========================================================================
-        # 0. ADMIN LIVE QUERIES (STRICT POSTGRESQL STATS)
+        # 0. ADMIN LIVE DATABASE HANDLER (STRICT POSTGRESQL QUERIES)
         # =========================================================================
         if app_type == 'admin':
-            from accounts.models import Profile
+            from accounts.models import UserProfile, FranchiseProfile
             from orders.models import Order
             from leads.models import Lead
+            from followups.models import FollowUp
+            from products.models import Product
+            from chat.models import Quotation, ChatSession
+            from django.utils import timezone
+            from django.db.models import Sum, F
 
-            if matches(['lead', 'leads']):
-                total = Lead.objects.count()
-                new_l = Lead.objects.filter(status='New').count()
-                hot_l = Lead.objects.filter(status='Hot').count()
-                warm_l = Lead.objects.filter(status='Warm').count()
+            today = timezone.now().date()
+
+            # --- CUSTOMERS ---
+            if matches(['recent customer', 'recent customers', 'latest customer', 'latest customers', 'show recent customers', 'new customers', 'show customers']):
+                recent_custs = UserProfile.objects.filter(role='customer').select_related('user').order_by('-created_at')[:5]
+                if not recent_custs.exists():
+                    return "👥 No registered customers found in database."
+                lines = ["👥 Recent Registered Customers:"]
+                for i, c in enumerate(recent_custs, 1):
+                    c_name = c.name or c.user.get_full_name() or c.user.username
+                    c_city = c.city or "Raipur"
+                    c_date = c.created_at.strftime("%d %b %Y")
+                    lines.append(f"{i}. {c_name} — {c_city} (Phone: {c.phone or 'N/A'}, Registered: {c_date})")
+                return "\n".join(lines)
+
+            if matches(['how many customer', 'how many customers', 'total customer', 'total customers', 'customer count', 'customers count', 'all customers']):
+                total_c = UserProfile.objects.filter(role='customer').count()
+                active_c = UserProfile.objects.filter(role='customer', status='active').count()
                 return (
-                    f"📊 Live Leads Pipeline:\n"
-                    f"* Total Leads: {total}\n"
-                    f"* New: {new_l}\n"
-                    f"* Hot: {hot_l}\n"
-                    f"* Warm: {warm_l}\n"
+                    f"👥 Customer Analytics (Live Database):\n"
+                    f"• Total Registered Customers: {total_c}\n"
+                    f"• Active Customers: {active_c}"
                 )
 
-            if matches(['customer', 'customers']):
-                total_c = Profile.objects.filter(role='customer').count()
-                return f"👥 Live Customers:\n* Total Registered Customers: {total_c}"
+            if matches(['customer order', 'customer orders']):
+                c_orders = Order.objects.filter(created_by__profile__role='customer')
+                return (
+                    f"📦 Customer Orders Summary:\n"
+                    f"• Total Customer Orders: {c_orders.count()}\n"
+                    f"• Pending Delivery: {c_orders.filter(status__in=['order_placement', 'plant_approval', 'dispatch']).count()}"
+                )
 
-            if matches(['franchise', 'franchises', 'franchisees']):
-                total_f = Profile.objects.filter(role='franchise').count()
-                return f"🏢 Live Franchisees:\n* Approved Franchise Partners: {total_f}"
+            if matches(['customer enquiry', 'customer enquiries', 'customer leads']):
+                c_leads = Lead.objects.filter(notes__icontains='customer').count()
+                return f"📞 Total Customer Enquiries/Leads: {c_leads}"
 
-            if matches(['order', 'orders', 'dispatch', 'delivered']):
+            # --- FRANCHISE ---
+            if matches(['pending franchise approval', 'pending franchise approvals', 'pending franchise', 'pending approvals', 'franchise application', 'franchise applications']):
+                pending_f = FranchiseProfile.objects.filter(status='pending').select_related('user')
+                p_count = pending_f.count()
+                if p_count == 0:
+                    return "🏢 Pending Franchise Approvals: 0 (All franchise applications are processed)."
+                lines = [f"🏢 Pending Franchise Approvals ({p_count}):"]
+                for i, f in enumerate(pending_f[:5], 1):
+                    owner = f.user.get_full_name() or f.user.username
+                    b_name = f.business_name or "Franchise Applicant"
+                    lines.append(f"{i}. {b_name} (Applicant: {owner})")
+                return "\n".join(lines)
+
+            if matches(['approved franchisee', 'approved franchisees', 'total franchisee', 'total franchisees', 'franchise count', 'how many franchisee', 'how many franchisees']):
+                approved_f = FranchiseProfile.objects.filter(status='approved').count()
+                if approved_f == 0:
+                    approved_f = UserProfile.objects.filter(role='franchise').count()
+                return (
+                    f"🏢 Franchise Network Summary:\n"
+                    f"• Approved Franchise Partners: {approved_f}\n"
+                    f"• Pending Approvals: {FranchiseProfile.objects.filter(status='pending').count()}"
+                )
+
+            if matches(['franchise order', 'franchise orders']):
+                f_orders = Order.objects.filter(created_by__profile__role='franchise')
+                return (
+                    f"🏢 Franchise Wholesale Orders:\n"
+                    f"• Total Franchise Orders: {f_orders.count()}\n"
+                    f"• Pending Plant Approval/Dispatch: {f_orders.filter(status__in=['order_placement', 'plant_approval', 'dispatch']).count()}"
+                )
+
+            # --- LEADS & CRM ---
+            if matches(['lead today', 'leads today', 'today lead', 'today leads', 'how many leads today', 'today\'s leads']):
+                today_count = Lead.objects.filter(created_at__date=today).count()
+                return f"📈 Today's Leads: {today_count} new inquiry record(s) created today ({today.strftime('%d %b %Y')})."
+
+            if matches(['hot lead', 'hot leads', 'how many hot leads']):
+                hot_count = Lead.objects.filter(score='hot').count()
+                return f"🔥 Hot Leads Pipeline: {hot_count} high-priority inquiry lead(s)."
+
+            if matches(['warm lead', 'warm leads', 'cold lead', 'cold leads']):
+                warm_count = Lead.objects.filter(score='warm').count()
+                cold_count = Lead.objects.filter(score='cold').count()
+                return f"📊 Lead Score Distribution:\n• Warm Leads: {warm_count}\n• Cold Leads: {cold_count}"
+
+            if matches(['recent lead', 'recent leads', 'show recent leads', 'latest leads', 'latest lead']):
+                recent_leads = Lead.objects.order_by('-created_at')[:5]
+                if not recent_leads.exists():
+                    return "📈 No leads found in database."
+                lines = ["📈 Recent CRM Leads:"]
+                for i, l in enumerate(recent_leads, 1):
+                    lines.append(f"{i}. {l.name} — {l.phone} ({l.city}) | Score: {l.score.upper()} | Status: {l.status}")
+                return "\n".join(lines)
+
+            if matches(['total lead', 'total leads', 'how many leads', 'lead count', 'leads count', 'all leads', 'lead pipeline', 'leads pipeline']):
+                total_leads = Lead.objects.count()
+                new_l = Lead.objects.filter(status='new_lead').count()
+                contacted_l = Lead.objects.filter(status='contacted').count()
+                interested_l = Lead.objects.filter(status='interested').count()
+                confirmed_l = Lead.objects.filter(status='franchise_confirmed').count()
+                hot_l = Lead.objects.filter(score='hot').count()
+                today_l = Lead.objects.filter(created_at__date=today).count()
+                return (
+                    f"📊 Live Leads Pipeline (CRM):\n"
+                    f"• Total Leads: {total_leads}\n"
+                    f"• Today's Leads: {today_l}\n"
+                    f"• High-Priority Hot Leads: {hot_l}\n"
+                    f"• New Inquiries: {new_l}\n"
+                    f"• Contacted: {contacted_l}\n"
+                    f"• Interested: {interested_l}\n"
+                    f"• Franchise Confirmed: {confirmed_l}"
+                )
+
+            # --- FOLLOW-UPS ---
+            if matches(['today\'s follow-up', 'today\'s follow-ups', 'today follow-ups', 'followups today', 'follow-ups today']):
+                today_fus = FollowUp.objects.filter(followup_datetime__date=today)
+                return f"⏰ Today's Scheduled Follow-ups: {today_fus.count()} (Pending: {today_fus.filter(status='Pending').count()})"
+
+            if matches(['pending follow-up', 'pending follow-ups', 'overdue follow-up', 'overdue follow-ups', 'show pending follow-ups', 'follow-ups']):
+                p_fus = FollowUp.objects.filter(status='Pending').count()
+                overdue = FollowUp.objects.filter(status='Pending', followup_datetime__lt=timezone.now()).count()
+                return f"⏰ Pending Follow-ups:\n• Total Pending: {p_fus}\n• Overdue: {overdue}"
+
+            # --- ORDERS ---
+            if matches(['today\'s order', 'today\'s orders', 'orders today', 'today orders', 'how many orders today']):
+                today_orders = Order.objects.filter(order_date=today).count()
+                return f"📦 Today's Orders: {today_orders} order(s) placed today ({today.strftime('%d %b %Y')})."
+
+            if matches(['how many pending order', 'how many pending orders', 'pending order', 'pending orders', 'orders pending']):
+                pending_o = Order.objects.filter(status__in=['order_placement', 'plant_approval']).count()
+                return f"📦 Pending Orders: {pending_o} order(s) awaiting plant approval or dispatch."
+
+            if matches(['payment pending', 'unpaid orders', 'outstanding payment', 'outstanding payments']):
+                unpaid_o = Order.objects.filter(payment_status='pending').count()
+                return f"💳 Payment Pending Orders: {unpaid_o} order(s) awaiting payment collection."
+
+            if matches(['total order', 'total orders', 'how many orders', 'order pipeline', 'orders pipeline']):
                 total_o = Order.objects.count()
-                pending_o = Order.objects.filter(status='Pending').count()
-                approved_o = Order.objects.filter(status='Approved').count()
-                dispatched_o = Order.objects.filter(status='Dispatched').count()
-                delivered_o = Order.objects.filter(status='Delivered').count()
+                pending_o = Order.objects.filter(status='order_placement').count()
+                approved_o = Order.objects.filter(status='plant_approval').count()
+                dispatched_o = Order.objects.filter(status='dispatch').count()
+                delivered_o = Order.objects.filter(status='delivered').count()
                 return (
                     f"📦 Live Orders Pipeline:\n"
-                    f"* Total Orders: {total_o}\n"
-                    f"* Pending: {pending_o}\n"
-                    f"* Approved: {approved_o}\n"
-                    f"* Dispatched: {dispatched_o}\n"
-                    f"* Delivered: {delivered_o}\n"
+                    f"• Total Orders: {total_o}\n"
+                    f"• Order Placement: {pending_o}\n"
+                    f"• Plant Approval: {approved_o}\n"
+                    f"• In Transit / Dispatched: {dispatched_o}\n"
+                    f"• Delivered: {delivered_o}"
                 )
 
-            if matches(['inventory', 'stock', 'materials', 'products']):
+            # --- PRODUCTS & INVENTORY ---
+            if matches(['which products are low stock', 'low stock products', 'low stock', 'how many products are low stock']):
+                low_prods = Product.objects.filter(status='Active', stock__gt=0, stock__lte=50)
+                if not low_prods.exists():
+                    return "🟢 All active products have adequate stock (no products below 50 units)."
+                lines = [f"🟡 Low Stock Products ({low_prods.count()} items ≤ 50 units):"]
+                for p in low_prods:
+                    lines.append(f"• {p.name} ({p.size}): {p.stock} {p.unit} remaining")
+                return "\n".join(lines)
+
+            if matches(['which products are out of stock', 'out of stock products', 'out of stock']):
+                out_prods = Product.objects.filter(status='Active', stock__lte=0)
+                if not out_prods.exists():
+                    return "🟢 Zero products are out of stock! All catalog items are available."
+                lines = [f"🔴 Out of Stock Products ({out_prods.count()} items):"]
+                for p in out_prods:
+                    lines.append(f"• {p.name} ({p.size}): 0 {p.unit}")
+                return "\n".join(lines)
+
+            if matches(['inventory value', 'stock value', 'total inventory value']):
                 prods = Product.objects.filter(status='Active')
+                total_val = sum([p.stock * p.price for p in prods])
+                return f"💰 Total Finished Goods Inventory Value: ₹{total_val:,.2f}"
+
+            if matches(['current stock', 'inventory stock', 'stock level', 'stock levels', 'inventory', 'live inventory']):
+                prods = Product.objects.filter(status='Active')
+                if not prods.exists():
+                    return "🏭 No active products found in inventory catalog."
                 lines = ["🏭 Live Inventory (Finished Products):"]
                 for p in prods:
-                    status_indicator = "🟢" if p.stock > 50 else ("🟡" if p.stock > 0 else "🔴 OUT OF STOCK")
-                    lines.append(f"* {p.name} ({p.size}): {p.stock} units {status_indicator}")
+                    status_indicator = "🟢" if p.stock > 50 else ("🟡 Low" if p.stock > 0 else "🔴 OUT OF STOCK")
+                    lines.append(f"• {p.name} ({p.size}): {p.stock} {p.unit} [{status_indicator}]")
                 return "\n".join(lines)
-            
-            if matches(['quotation', 'quotations']):
-                from chat.models import Quotation
-                total_q = Quotation.objects.count()
-                active_q = Quotation.objects.filter(is_active=True).count()
-                return f"📄 Live Quotations:\n* Total Templates: {total_q}\n* Active Templates: {active_q}"
+
+            if matches(['product catalogue', 'product catalog', 'all products', 'total products', 'how many products']):
+                total_p = Product.objects.filter(status='Active').count()
+                return f"💧 Active Product Catalog: {total_p} commercial water product(s) configured."
+
+            # --- QUOTATIONS ---
+            if matches(['active quotation', 'active quotations', 'show active quotations', 'quotation', 'quotations']):
+                quotes = Quotation.objects.filter(is_active=True).select_related('product')
+                total_q = quotes.count()
+                if total_q == 0:
+                    return "📄 No active quotations currently configured."
+                lines = [f"📄 Active Quotation Templates ({total_q}):"]
+                for q in quotes:
+                    price_txt = f"₹{q.total_price}" if q.total_price > 0 else f"₹{q.unit_price}/unit"
+                    has_pdf_txt = " (PDF attached ✅)" if q.pdf_file else ""
+                    lines.append(f"• {q.title} [{q.target_audience.capitalize()}]: {price_txt} — Tier: {q.quantity_tier}{has_pdf_txt}")
+                return "\n".join(lines)
+
+            # --- CHAT CONVERSATIONS ---
+            if matches(['recent conversation', 'recent conversations', 'show recent chatbot conversations', 'chat conversation', 'chat conversations']):
+                sessions = ChatSession.objects.order_by('-updated_at')[:5]
+                if not sessions.exists():
+                    return "💬 No chatbot conversations logged yet."
+                lines = ["💬 Recent Chatbot Conversations:"]
+                for s in sessions:
+                    last_msg = s.messages.order_by('-timestamp').first()
+                    snippet = last_msg.content[:50] + "..." if last_msg else "No messages"
+                    lines.append(f"• Session #{s.id} ({s.app_type.upper()}): {s.customer_name or 'Visitor'} — \"{snippet}\"")
+                return "\n".join(lines)
+
+            # --- EXECUTIVE SUMMARY FALLBACK (NEVER SEND ADMIN TO SUPPORT!) ---
+            total_customers = UserProfile.objects.filter(role='customer').count()
+            approved_fran = FranchiseProfile.objects.filter(status='approved').count()
+            if approved_fran == 0:
+                approved_fran = UserProfile.objects.filter(role='franchise').count()
+            total_leads = Lead.objects.count()
+            today_leads = Lead.objects.filter(created_at__date=today).count()
+            pending_orders = Order.objects.filter(status__in=['order_placement', 'plant_approval']).count()
+            low_stock_count = Product.objects.filter(status='Active', stock__lte=50).count()
 
             return (
-                "Welcome to the Admin operations assistant.\n"
-                "I can fetch live data from the database. Try asking for:\n"
-                "- 'Total Leads' or 'Lead Pipeline'\n"
-                "- 'Customer Stats'\n"
-                "- 'Franchise Approvals'\n"
-                "- 'Order Pipeline'\n"
-                "- 'Live Inventory Stock'"
+                f"📊 *Admin Executive Business Overview*:\n"
+                f"• Registered Customers: {total_customers}\n"
+                f"• Franchise Partners: {approved_fran} (Pending: {FranchiseProfile.objects.filter(status='pending').count()})\n"
+                f"• Total Leads: {total_leads} ({today_leads} today)\n"
+                f"• Pending Orders: {pending_orders}\n"
+                f"• Low/Out of Stock Products: {low_stock_count}\n\n"
+                f"💡 *Ask me specific questions such as*:\n"
+                f"• 'Show recent customers'\n"
+                f"• 'How many leads today?'\n"
+                f"• 'Which products are low stock?'\n"
+                f"• 'How many pending orders?'\n"
+                f"• 'Pending franchise approvals'\n"
+                f"• 'Show active quotations'\n"
+                f"• 'Today\'s follow-ups'"
             )
 
         # =========================================================================
@@ -343,10 +525,18 @@ class AIService:
                     )
 
         # =========================================================================
-        # 2. MATCH QUOTATIONS (Admin Created & Dynamic Database Quotations)
+        # 2. MATCH QUOTATIONS (Franchise Only — Customer uses Standard Price List)
         # =========================================================================
         is_quote_query = matches(['quotation', 'quote', 'rate chart', 'wholesale price', 'bulk rate', 'price list', 'rate list', 'tier price', 'bulk quantity', 'custom quote', 'discount'])
         if is_quote_query:
+            if app_type == 'customer':
+                products = Product.objects.filter(status='Active')
+                resp_lines = ["Shivnath Packaged Drinking Water — Standard Product Prices:"]
+                for p in products:
+                    resp_lines.append(f"• {p.name} ({p.size}): ₹{p.price} per {p.unit} ({'In Stock' if p.stock > 0 else 'Out of Stock'})")
+                resp_lines.append("\nYou can add products directly to your cart in the app or contact customer support for large orders.")
+                return "\n".join(resp_lines)
+
             active_quotations = Quotation.objects.filter(is_active=True).select_related('product')
             if app_type == 'franchise':
                 active_quotations = active_quotations.filter(Q(target_audience='franchise') | Q(target_audience='both'))

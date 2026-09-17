@@ -32,8 +32,14 @@ class ChatbotOptionListView(APIView):
 
         queryset = ChatbotOption.objects.filter(is_active=True).order_by("order", "title")
 
-        if inquiry_type in ["customer", "franchise"]:
-            queryset = queryset.filter(Q(inquiry_type=inquiry_type) | Q(inquiry_type="both"))
+        if inquiry_type == "customer":
+            # STRICT CUSTOMER TREE: Never show quotation or franchise options
+            queryset = queryset.filter(Q(inquiry_type="customer") | Q(inquiry_type="both")).exclude(
+                Q(title__icontains="quotation") | Q(title__icontains="franchise")
+            )
+        elif inquiry_type == "franchise":
+            # STRICT FRANCHISE TREE: Franchise options only
+            queryset = queryset.filter(Q(inquiry_type="franchise") | Q(inquiry_type="both"))
 
         if parent_id and parent_id.isdigit():
             # Return sub-options of selected parent
@@ -269,6 +275,9 @@ class ChatView(APIView):
     def post(self, request):
         message = str(request.data.get('message', '')).strip()
         app_type = str(request.data.get('app_type', 'customer')).strip().lower()
+        chatbot_mode = str(request.data.get('chatbot_mode', app_type)).strip().lower()
+        inquiry_type = str(request.data.get('inquiry_type', app_type)).strip().lower()
+        lead_capture_completed = request.data.get('lead_capture_completed') is True
         history = request.data.get('history', [])
         session_id = str(request.data.get('session_id', '')).strip()
         cust_name = str(request.data.get('customer_name', '')).strip()
@@ -332,7 +341,9 @@ class ChatView(APIView):
                         'customer_name': user.get_full_name() or user.username,
                         'customer_email': user.email,
                         'customer_phone': getattr(getattr(user, 'profile', None), 'phone', ''),
-                        'inquiry_type': app_type,
+                        'inquiry_type': inquiry_type,
+                        'chatbot_mode': chatbot_mode,
+                        'lead_capture_completed': True,
                     }
                 )
             elif session_id:
@@ -343,7 +354,9 @@ class ChatView(APIView):
                         'customer_name': cust_name or 'Guest Customer',
                         'customer_phone': cust_phone,
                         'customer_email': cust_email,
-                        'inquiry_type': app_type,
+                        'inquiry_type': inquiry_type,
+                        'chatbot_mode': chatbot_mode,
+                        'lead_capture_completed': lead_capture_completed,
                     }
                 )
             else:
@@ -352,7 +365,9 @@ class ChatView(APIView):
                     customer_name=cust_name or 'Guest Customer',
                     customer_phone=cust_phone,
                     customer_email=cust_email,
-                    inquiry_type=app_type,
+                    inquiry_type=inquiry_type,
+                    chatbot_mode=chatbot_mode,
+                    lead_capture_completed=lead_capture_completed,
                 )
 
             if session:
@@ -366,6 +381,15 @@ class ChatView(APIView):
                 if cust_email and not session.customer_email:
                     session.customer_email = cust_email
                     updated = True
+                if chatbot_mode and session.chatbot_mode != chatbot_mode:
+                    session.chatbot_mode = chatbot_mode
+                    updated = True
+                if inquiry_type and session.inquiry_type != inquiry_type:
+                    session.inquiry_type = inquiry_type
+                    updated = True
+                if lead_capture_completed and not session.lead_capture_completed:
+                    session.lead_capture_completed = True
+                    updated = True
                 if updated:
                     session.save()
 
@@ -376,12 +400,22 @@ class ChatView(APIView):
                 'success': True,
                 'reply': reply,
                 'app_type': app_type,
+                'chatbot_mode': session.chatbot_mode if session else chatbot_mode,
+                'inquiry_type': session.inquiry_type if session else inquiry_type,
+                'lead_capture_completed': session.lead_capture_completed if session else lead_capture_completed,
                 'session_id': session.id if session else None,
                 'is_lead_trigger': configured_opt.is_lead_trigger if configured_opt else False,
                 'lead_inquiry_type': configured_opt.lead_inquiry_type if configured_opt else '',
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
+            if app_type == 'admin':
+                return Response({
+                    'success': True,
+                    'reply': f"Admin Analytics Assistant: Error processing data query: {str(e)}",
+                    'app_type': app_type,
+                    'chatbot_mode': 'admin',
+                }, status=status.HTTP_200_OK)
             return Response({
                 'success': True,
                 'reply': 'Thank you for your inquiry. For direct assistance, our customer support team is available at +91 98062 47194.',

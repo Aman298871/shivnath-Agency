@@ -28,6 +28,9 @@ class ChatService {
   Future<Map<String, dynamic>> sendMessage({
     required String message,
     String appType = 'customer',
+    String? chatbotMode,
+    String? inquiryType,
+    bool leadCaptureCompleted = false,
     int? optionId,
     String? sessionId,
     String? customerName,
@@ -40,6 +43,9 @@ class ChatService {
     final body = jsonEncode({
       'message': message,
       'app_type': appType,
+      'chatbot_mode': chatbotMode ?? appType,
+      'inquiry_type': inquiryType ?? appType,
+      'lead_capture_completed': leadCaptureCompleted,
       'option_id': optionId,
       'session_id': sessionId,
       'customer_name': customerName,

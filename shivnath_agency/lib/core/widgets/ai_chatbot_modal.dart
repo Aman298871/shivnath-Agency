@@ -41,6 +41,7 @@ class _ChatOptionItem {
   final bool isBackButton;
   final bool isRootSelection;
   final bool isPdfDownload;
+  final bool isStartNewEnquiry;
   final int? quotationId;
   final String inquiryType;
   final List<_ChatOptionItem> children;
@@ -53,6 +54,7 @@ class _ChatOptionItem {
     this.isBackButton = false,
     this.isRootSelection = false,
     this.isPdfDownload = false,
+    this.isStartNewEnquiry = false,
     this.quotationId,
     this.inquiryType = 'customer',
     this.children = const [],
@@ -98,7 +100,9 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   final List<_ChatMessage> _messages = [];
   final ChatService _chatService = ChatService();
   bool _isTyping = false;
-  String? _currentInquiryType; // 'customer' or 'franchise'
+  String? _lockedInquiryType; // 'customer' or 'franchise' or 'admin'
+  String? _currentInquiryType;
+  bool _leadCaptureCompleted = false;
 
   // Dynamic Options Tree from Backend
   List<_ChatOptionItem> _customerTree = [];
@@ -118,6 +122,9 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   @override
   void initState() {
     super.initState();
+    if (widget.mode != ChatbotMode.public) {
+      _leadCaptureCompleted = true;
+    }
     _customerTree = _getDefaultCustomerOptions();
     _franchiseTree = _getDefaultFranchiseOptions();
     _initChatbot();
@@ -132,6 +139,8 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
 
   Future<void> _initChatbot() async {
     if (widget.mode == ChatbotMode.public) {
+      _lockedInquiryType = null;
+      _leadCaptureCompleted = false;
       final initialOptions = [
         _ChatOptionItem(
           title: '1. Customer / Product Inquiry',
@@ -169,7 +178,8 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         }
       } catch (_) {}
     } else if (widget.mode == ChatbotMode.customer) {
-      _currentInquiryType = 'customer';
+      _lockedInquiryType = 'customer';
+      _leadCaptureCompleted = true;
       _navStack.clear();
       _navStack.add(_customerTree);
       setState(() {
@@ -199,7 +209,8 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         }
       } catch (_) {}
     } else if (widget.mode == ChatbotMode.franchise) {
-      _currentInquiryType = 'franchise';
+      _lockedInquiryType = 'franchise';
+      _leadCaptureCompleted = true;
       _navStack.clear();
       _navStack.add(_franchiseTree);
       setState(() {
@@ -229,14 +240,15 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         }
       } catch (_) {}
     } else if (widget.mode == ChatbotMode.admin) {
-      _currentInquiryType = 'admin';
+      _lockedInquiryType = 'admin';
+      _leadCaptureCompleted = true;
       final adminTree = _getAdminOptions();
       _navStack.clear();
       _navStack.add(adminTree);
       setState(() {
         _messages.add(
           _ChatMessage(
-            text: 'How can I help you manage the business?',
+            text: 'Welcome Admin! How can I assist with your business and operational data?',
             isUser: false,
             optionItems: adminTree,
           ),
@@ -394,61 +406,50 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         inquiryType: 'customer',
         children: [
           _ChatOptionItem(
-            title: '2 Litre Bottle',
+            title: '2 Litre Family Pack',
             inquiryType: 'customer',
             children: [
               _ChatOptionItem(
-                title: 'Price',
+                title: 'Price & Availability',
                 answerText:
-                    '💧 *Shivnath 2 Litre Packaged Drinking Water*:\n• Single Bottle: ₹30\n• Family Crate (9 Bottles): ₹260\n• 7-Stage RO + UV + Ozonation purified.',
+                    '💧 *Shivnath 2 Litre Packaged Drinking Water*:\n• Single Bottle: ₹30\n• Family Crate (9 Bottles): ₹260\n• Availability: In Stock\n• 7-Stage RO + UV + Ozonation purified.',
               ),
               _ChatOptionItem(
-                title: 'Product Details',
-                isLeadTrigger: true,
+                title: 'Product Details & Quality',
                 answerText:
-                    '✨ *2 Litre Family Pack Details*:\n• BIS IS:14543 Certified\n• Natural minerals with balanced 7.2 pH\n• Heavy-duty tamper-evident seal and convenient handle.',
-              ),
-              _ChatOptionItem(
-                title: 'Bulk Order / Quotation',
-                isLeadTrigger: true,
-                answerText:
-                    '📋 *2 Litre Bulk Order Quote*:\n• 10+ Crates: ₹250 per crate\n• Free doorstep logistics across Raipur city.\n• Official PDF quotation available for download below.',
+                    '✨ *2 Litre Family Pack Details*:\n• BIS IS:14543 Certified & FSSAI Licensed\n• Natural minerals with balanced 7.2 pH\n• Heavy-duty tamper-evident seal and convenient carry handle.',
               ),
             ],
           ),
           _ChatOptionItem(
-            title: '1 Litre Bottle',
+            title: '1 Litre Active Bottle',
             inquiryType: 'customer',
             children: [
               _ChatOptionItem(
-                title: 'Price',
-                answerText: '💧 *Shivnath 1 Litre Packaged Water*:\n• ₹20 per bottle\n• Box of 12 bottles: ₹220.',
-              ),
-              _ChatOptionItem(
-                title: 'Product Details',
-                isLeadTrigger: true,
+                title: 'Price & Availability',
                 answerText:
-                    '✨ *1 Litre Personal Hydration*:\n• Perfectly balanced mineral water for daily active hydration.\n• Certified pure at plant laboratory.',
+                    '💧 *Shivnath 1 Litre Packaged Water*:\n• Single Bottle: ₹20\n• Box of 12 bottles: ₹220\n• Availability: In Stock\n• Pure mineral-enriched water for daily active hydration.',
               ),
               _ChatOptionItem(
-                title: 'Bulk Order / Quotation',
-                isLeadTrigger: true,
-                answerText: '📋 *1L Bulk Quotation*:\n• 50+ Boxes: ₹195 per box (15% wholesale discount).\n• Download official PDF quotation below.',
+                title: 'Product Details & Quality',
+                answerText:
+                    '✨ *1 Litre Bottle Details*:\n• 100% food-grade virgin PET packaging\n• Certified pure at plant quality testing laboratory.',
               ),
             ],
           ),
           _ChatOptionItem(
-            title: '500ml Bottle',
+            title: '500ml Travel Bottle',
             inquiryType: 'customer',
             children: [
               _ChatOptionItem(
-                title: 'Price',
-                answerText: '💧 *Shivnath 500ml Bottle*:\n• ₹10 per bottle\n• Box of 24: ₹220.',
+                title: 'Price & Availability',
+                answerText:
+                    '💧 *Shivnath 500ml Travel Bottle*:\n• Single Bottle: ₹10\n• Box of 24 bottles: ₹220\n• Availability: In Stock.',
               ),
               _ChatOptionItem(
                 title: 'Product Details',
-                isLeadTrigger: true,
-                answerText: '✨ *500ml Travel Size*:\n• Convenient pocket size for travel, dining, and meetings.',
+                answerText:
+                    '✨ *500ml Travel Size*:\n• Convenient pocket size for travel, dining, conferences, and active lifestyle.',
               ),
             ],
           ),
@@ -457,13 +458,14 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
             inquiryType: 'customer',
             children: [
               _ChatOptionItem(
-                title: 'Price',
-                answerText: '💧 *Shivnath 250ml Pocket Bottle*:\n• ₹6 per bottle\n• Box of 30: ₹165.',
+                title: 'Price & Availability',
+                answerText:
+                    '💧 *Shivnath 250ml Pocket Bottle*:\n• Single Bottle: ₹6\n• Box of 30 bottles: ₹165\n• Availability: In Stock.',
               ),
               _ChatOptionItem(
                 title: 'Product Details',
-                isLeadTrigger: true,
-                answerText: '✨ *250ml Mini Bottle*:\n• Ideal for corporate events, parties, catering, and meetings.',
+                answerText:
+                    '✨ *250ml Mini Bottle*:\n• Ideal for corporate events, parties, catering, conferences, and institutional meetings.',
               ),
             ],
           ),
@@ -474,35 +476,64 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         inquiryType: 'customer',
         children: [
           _ChatOptionItem(
-            title: 'Price & Security Deposit',
+            title: 'Jar Price & Security Deposit',
             answerText:
-                '🚰 *20 Litre Water Jar*:\n• Refill Rate: ₹60 per jar\n• First-time Refundable Security Deposit: ₹150 per jar.',
+                '🚰 *20 Litre Water Jar*:\n• Refill Rate: ₹60 per jar\n• First-time Refundable Security Deposit: ₹150 per jar\n• High-grade food safe dispenser jar with tamper-proof pull-tab seal.',
           ),
           _ChatOptionItem(
-            title: 'Home / Office Subscription',
-            isLeadTrigger: true,
+            title: 'Home & Office Daily Subscription',
             answerText:
-                '🚚 *Daily Subscription Plan*:\n• Monthly contract: ₹50 per jar\n• Daily morning doorstep delivery across Raipur.\n• Download formal rate quotation PDF below.',
+                '🚚 *Daily Subscription Plan*:\n• Monthly contract: ₹50 per jar\n• Daily morning doorstep delivery across Raipur\n• Dedicated delivery vehicle on scheduled morning route.',
           ),
         ],
       ),
       _ChatOptionItem(
-        title: '📄 Official Quotation PDF',
+        title: '📦 Orders & Delivery Tracking',
         inquiryType: 'customer',
-        isPdfDownload: true,
+        children: [
+          _ChatOptionItem(
+            title: 'How to Track My Orders',
+            answerText:
+                '📦 *Order Tracking*:\n• You can view live order status under "Recent Orders" on the Home tab.\n• Stages: Placed → Plant Approved → In Transit → Delivered.',
+          ),
+          _ChatOptionItem(
+            title: 'Delivery Timings & Zones',
+            answerText:
+                '🚚 *Doorstep Delivery Hours*:\n• 7:00 AM to 6:00 PM (All 7 Days)\n• Express delivery across Raipur, Durg-Bhilai, and Rajnandgaon.',
+          ),
+        ],
       ),
       _ChatOptionItem(
-        title: '📝 Submit Customer Inquiry / Callback',
+        title: '💳 Payment & Billing',
         inquiryType: 'customer',
-        isLeadTrigger: true,
-        answerText: 'Please share your details so our customer team can assist you with orders or inquiries.',
+        children: [
+          _ChatOptionItem(
+            title: 'Accepted Payment Methods',
+            answerText:
+                '💳 *Payment Modes*:\n• Cash on Delivery (COD)\n• UPI (GPay, PhonePe, Paytm, BHIM)\n• Net Banking / Cards on Delivery.',
+          ),
+          _ChatOptionItem(
+            title: 'GST Tax Invoices',
+            answerText:
+                '📄 *Official Invoices*:\n• GST-compliant invoices are automatically generated for every order.\n• Download directly from your order receipts in the app.',
+          ),
+        ],
       ),
       _ChatOptionItem(
-        title: '📞 Talk to Sales Executive',
+        title: '📞 Customer Support Desk',
         inquiryType: 'customer',
-        isLeadTrigger: true,
-        answerText:
-            'Connecting you to our Sales Desk.\nDirect Hotline: +91 98062 47194\nEmail: sales@shivnathagency.com',
+        children: [
+          _ChatOptionItem(
+            title: 'Call Support Helpline',
+            answerText:
+                '📞 *Shivnath Customer Helpline*:\n• Phone: +91 98062 47194\n• Hours: 9:00 AM – 7:00 PM (Monday to Saturday)\n• Head Office: H Block, Farishta Complex, Raipur, CG.',
+          ),
+          _ChatOptionItem(
+            title: 'WhatsApp Customer Desk',
+            answerText:
+                '💬 Opening official WhatsApp customer support desk at +91 98062 47194. You can also continue typing here.',
+          ),
+        ],
       ),
     ];
   }
@@ -510,7 +541,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   List<_ChatOptionItem> _getDefaultFranchiseOptions() {
     return [
       _ChatOptionItem(
-        title: 'Territory Model & Availability',
+        title: '🏢 Territory Model & Availability',
         inquiryType: 'franchise',
         children: [
           _ChatOptionItem(
@@ -520,53 +551,84 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
           ),
           _ChatOptionItem(
             title: 'Check Territory Availability',
-            isLeadTrigger: true,
             answerText:
-                '📍 *Territories Open for Allocation*:\n• Raipur (North & South zones)\n• Bilaspur, Durg-Bhilai, Korba, Rajnandgaon\n• Please submit your location to check exact availability.',
+                '📍 *Territories Open for Allocation*:\n• Raipur (North & South zones)\n• Bilaspur, Durg-Bhilai, Korba, Rajnandgaon\n• Submit your desired territory name in the chat to check live availability.',
           ),
         ],
       ),
       _ChatOptionItem(
-        title: 'Investment & Space Requirements',
+        title: '💼 Investment & Requirements',
         inquiryType: 'franchise',
         children: [
           _ChatOptionItem(
-            title: 'Investment Breakdown',
-            isLeadTrigger: true,
-            answerText:
-                '💰 *Investment Structure*:\n• Investment: ₹3.5 Lakh – ₹7.5 Lakh\n• Includes initial product stock inventory, security deposit & local branding.\n• Download complete franchise package PDF below.',
-          ),
-          _ChatOptionItem(
             title: 'Space & Vehicle Requirements',
             answerText:
-                '🏬 *Space & Infrastructure*:\n• Space: 500 – 1200 sq.ft commercial storage/shop\n• Vehicle: 1 delivery 3-wheeler or mini-truck.',
+                '🏬 *Space & Infrastructure*:\n• Space: 500 – 1200 sq.ft commercial storage/shop\n• Vehicle: 1 delivery 3-wheeler or mini-truck for daily local dispatch.',
+          ),
+          _ChatOptionItem(
+            title: 'Territory Allocation Criteria',
+            answerText:
+                '📍 *Territory Criteria*:\n• Minimum 5 KM radius protected territory\n• Direct plant dispatch & dedicated distributor margin\n• Exclusive rights with zero intra-brand competition.',
+          ),
+          _ChatOptionItem(
+            title: '💰 Investment Package & Feasibility',
+            inquiryType: 'franchise',
+            answerText:
+                '💰 *Franchise Investment Structure*:\n'
+                '• Investment Range: ₹3.5 Lakh – ₹7.5 Lakh\n'
+                '• Includes: Initial product inventory stock, security deposit, dispenser stands, display banners & marketing collateral.\n'
+                '• Direct factory dispatch with 25%–35% gross profit margin.\n\n'
+                'Would you like to review the official Franchise Rate & Investment Quotation?',
+            children: [
+              _ChatOptionItem(
+                title: '✅ Yes, show quotation',
+                inquiryType: 'franchise',
+              ),
+              _ChatOptionItem(
+                title: '❌ No, maybe later',
+                inquiryType: 'franchise',
+              ),
+            ],
           ),
         ],
       ),
       _ChatOptionItem(
-        title: 'Profit Margins & ROI',
+        title: '📈 Profit Margins & ROI',
         inquiryType: 'franchise',
         children: [
           _ChatOptionItem(
             title: 'Margin & ROI Calculation',
-            isLeadTrigger: true,
             answerText:
-                '📈 *Profitability & Margins*:\n• Packaged Bottles: 25% to 35% gross profit margin\n• 20L Water Jars: Up to 50% margin\n• Average ROI: 6 to 9 months.',
+                '📈 *Profitability & Margins*:\n• Packaged Bottles: 25% to 35% gross profit margin\n• 20L Water Jars: Up to 50% margin\n• Average ROI: 6 to 9 months based on territory sales density.',
+          ),
+          _ChatOptionItem(
+            title: 'Expected Monthly Volume',
+            answerText:
+                '📊 *Monthly Distribution Targets*:\n• Tier 1 Territory: 1200 – 2000 crates/month\n• Tier 2 Territory: 600 – 1000 crates/month\n• Priority dispatch access guaranteed for network partners.',
           ),
         ],
       ),
       _ChatOptionItem(
-        title: 'Apply for Franchise (Qualify Now)',
+        title: '🚚 Operations & Supply Chain',
         inquiryType: 'franchise',
-        isLeadTrigger: true,
-        answerText: 'Let us capture your franchise qualification details and generate your feasibility report.',
+        children: [
+          _ChatOptionItem(
+            title: 'Plant Priority Replenishment',
+            answerText:
+                '🏭 *Plant Operations*:\n• 24 to 48 hours replenishment dispatch from Raipur plant\n• Real-time stock status monitoring in distributor dashboard.',
+          ),
+          _ChatOptionItem(
+            title: 'Branding & Marketing Support',
+            answerText:
+                '📢 *Marketing Package*:\n• Store signboards, vinyl wall branding, and glow signs provided\n• Local newspaper inserts and promotional campaigns supported.',
+          ),
+        ],
       ),
       _ChatOptionItem(
-        title: 'Contact Franchise Desk',
+        title: '📞 Contact Franchise Desk',
         inquiryType: 'franchise',
-        isLeadTrigger: true,
         answerText:
-            'Direct Franchise Hotline: +91 98062 47194\nHead Office: H Block, Farishta Complex, Raipur, CG.',
+            'Direct Franchise Desk: +91 98062 47194\nHead Office: H Block, Farishta Complex, Raipur, CG.\nEmail: franchise@shivnathagency.com',
       ),
     ];
   }
@@ -626,6 +688,11 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   }
 
   void _onOptionSelected(_ChatOptionItem option) {
+    if (option.isStartNewEnquiry) {
+      _startNewEnquiry();
+      return;
+    }
+
     if (option.isBackButton) {
       _handleBackNavigation();
       return;
@@ -648,10 +715,11 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
 
     // =========================================================
     // MANDATORY LEAD CAPTURE UPFRONT BEFORE SHOWING OPTIONS
-    // (APPLIES ONLY TO PUBLIC MODE)
+    // (APPLIES ONLY TO PUBLIC MODE & ONLY ONCE PER SESSION)
     // =========================================================
     if (option.isRootSelection && widget.mode == ChatbotMode.public) {
       _currentInquiryType = option.inquiryType;
+      _lockedInquiryType = option.inquiryType;
       _navStack.clear();
       _consumedOptionIds.clear();
       _consumedOptionTitles.clear();
@@ -662,6 +730,19 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         _messages.add(_ChatMessage(text: option.title, isUser: true));
       });
       _scrollToBottom();
+
+      // If lead capture was already completed in this session, do NOT re-ask!
+      if (_leadCaptureCompleted) {
+        final rootList = option.inquiryType == 'franchise'
+            ? (_franchiseTree.isNotEmpty ? _franchiseTree : _getDefaultFranchiseOptions())
+            : (_customerTree.isNotEmpty ? _customerTree : _getDefaultCustomerOptions());
+        _navStack.add(rootList);
+        _respond(
+          'Please select from the options below:',
+          options: _buildOptionListWithBack(rootList, canGoBack: false, isRootLevel: true),
+        );
+        return;
+      }
 
       // Immediately start qualification without showing products/franchise options
       if (option.inquiryType == 'franchise') {
@@ -682,6 +763,59 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       _selectedOptionTrail.add(option.title);
     });
     _scrollToBottom();
+
+    // =========================================================
+    // INTERCEPT QUOTATION CONFIRMATION UX (DEEP FRANCHISE ONLY)
+    // =========================================================
+    if (option.title.contains('Yes, show quotation')) {
+      final summary = '📄 **Official Shivnath Franchise Investment & Rate Quotation**\n\n'
+          '• **Investment Package**: ₹3,50,000 - ₹5,00,000 (Unit) / ₹15,00,000+ (Master)\n'
+          '• **Expected Net Margin**: 28% - 35% on packaged pure water supply\n'
+          '• **Product Range**: 20L Water Jars, 250ml/500ml/1L Bottled Water\n'
+          '• **Company Support**: Marketing signage, vinyl boards, and supply logistics.\n\n'
+          'Click the button below to view or download the official PDF quotation document:';
+
+      setState(() {
+        _messages.add(
+          _ChatMessage(
+            text: summary,
+            isUser: false,
+            optionItems: _buildOptionListWithBack(
+              [],
+              canGoBack: true,
+              includePdfDownload: true,
+              quotationId: option.quotationId,
+            ),
+          ),
+        );
+      });
+      _scrollToBottom();
+      return;
+    }
+
+    if (option.title.contains('No, maybe later')) {
+      final currentLevel = _navStack.isNotEmpty ? _navStack.last : <_ChatOptionItem>[];
+      final remaining = currentLevel.where((c) {
+        final idMatches = c.id != null && _consumedOptionIds.contains(c.id);
+        final titleMatches = _consumedOptionTitles.contains(c.title);
+        return !idMatches && !titleMatches;
+      }).toList();
+
+      setState(() {
+        _messages.add(
+          _ChatMessage(
+            text: 'Understood. You can review the quotation whenever you are ready. Let\'s continue with franchise details:',
+            isUser: false,
+            optionItems: _buildOptionListWithBack(
+              remaining.isNotEmpty ? remaining : currentLevel,
+              canGoBack: _navStack.isNotEmpty,
+            ),
+          ),
+        );
+      });
+      _scrollToBottom();
+      return;
+    }
 
     // Check if this node has children
     if (option.children.isNotEmpty) {
@@ -709,16 +843,18 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     }
 
     // Leaf node: check if quotation PDF or dynamic query is required
-    final isQuotationNode = option.title.toLowerCase().contains('quotation') ||
+    final isCustomerMode = widget.mode == ChatbotMode.customer || _lockedInquiryType == 'customer';
+    final isQuotationNode = !isCustomerMode && (
+        option.title.toLowerCase().contains('quotation') ||
         option.title.toLowerCase().contains('quote') ||
         option.title.toLowerCase().contains('bulk') ||
         option.title.toLowerCase().contains('subscription') ||
-        option.title.toLowerCase().contains('franchise');
+        option.title.toLowerCase().contains('franchise'));
 
     if (option.answerText != null && option.answerText!.trim().isNotEmpty) {
       final answer = option.answerText!;
 
-      // Informational leaf node (e.g. Price, details) - Show answer and remaining unconsumed siblings
+      // Informational leaf node - Show answer and remaining unconsumed siblings
       final currentLevel = _navStack.isNotEmpty ? _navStack.last : <_ChatOptionItem>[];
       final remaining = currentLevel.where((c) {
         final idMatches = c.id != null && _consumedOptionIds.contains(c.id);
@@ -744,9 +880,9 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       });
       _scrollToBottom();
 
-      // If it's a lead trigger in public mode, initiate qualification
-      if (option.isLeadTrigger && widget.mode == ChatbotMode.public) {
-        if (option.inquiryType == 'franchise') {
+      // If it's a lead trigger in public mode and NOT yet completed, initiate qualification
+      if (option.isLeadTrigger && widget.mode == ChatbotMode.public && !_leadCaptureCompleted) {
+        if (_lockedInquiryType == 'franchise' || option.inquiryType == 'franchise') {
           _startFranchiseQualification();
         } else {
           _startCustomerQualification();
@@ -791,36 +927,72 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         );
       });
     } else {
+      // At root level of current branch
       if (widget.mode == ChatbotMode.public) {
-        _currentInquiryType = null;
+        final isFranchise = (_lockedInquiryType ?? _currentInquiryType) == 'franchise';
+        final rootList = isFranchise
+            ? (_franchiseTree.isNotEmpty ? _franchiseTree : _getDefaultFranchiseOptions())
+            : (_customerTree.isNotEmpty ? _customerTree : _getDefaultCustomerOptions());
+
         setState(() {
-          _messages.add(_ChatMessage(text: '← Back to Main Menu', isUser: true));
+          _messages.add(_ChatMessage(text: '← Back to Menu', isUser: true));
           _messages.add(
             _ChatMessage(
-              text: 'Please select an inquiry path:',
+              text: 'You are at the main ${isFranchise ? 'Franchise' : 'Customer'} menu. Would you like to explore other options or start a new enquiry?',
               isUser: false,
               optionItems: [
-                _ChatOptionItem(title: '1. Customer / Product Inquiry', inquiryType: 'customer', isRootSelection: true),
-                _ChatOptionItem(title: '2. Franchise Inquiry', inquiryType: 'franchise', isRootSelection: true),
+                ...rootList,
+                _ChatOptionItem(
+                  title: '🔄 Start New Enquiry',
+                  isStartNewEnquiry: true,
+                ),
               ],
             ),
           );
         });
       } else {
-        // Authenticated users shouldn't reach here since they start at length 1 (root), but just in case
-        _navStack.add(widget.mode == ChatbotMode.admin ? _getAdminOptions() : (widget.mode == ChatbotMode.franchise ? _franchiseTree : _customerTree));
+        final rootOptions = widget.mode == ChatbotMode.admin
+            ? _getAdminOptions()
+            : (widget.mode == ChatbotMode.franchise ? _franchiseTree : _customerTree);
         setState(() {
           _messages.add(_ChatMessage(text: '← Back to Main Menu', isUser: true));
           _messages.add(
             _ChatMessage(
               text: 'Here are the options:',
               isUser: false,
-              optionItems: _navStack.last,
+              optionItems: rootOptions,
             ),
           );
         });
       }
     }
+    _scrollToBottom();
+  }
+
+  void _startNewEnquiry() {
+    setState(() {
+      _lockedInquiryType = null;
+      _currentInquiryType = null;
+      _leadCaptureCompleted = false;
+      _qualificationStep = 0;
+      _leadData.clear();
+      _navStack.clear();
+      _consumedOptionIds.clear();
+      _consumedOptionTitles.clear();
+      _selectedOptionTrail.clear();
+
+      _messages.add(_ChatMessage(text: '🔄 Start New Enquiry', isUser: true));
+      _messages.add(
+        _ChatMessage(
+          text: 'Welcome to Shivnath Agency! How can we assist you today? Please choose your inquiry path:',
+          isUser: false,
+          optionItems: [
+            _ChatOptionItem(title: '1. Customer / Product Inquiry', inquiryType: 'customer', isRootSelection: true),
+            _ChatOptionItem(title: '2. Franchise Inquiry', inquiryType: 'franchise', isRootSelection: true),
+          ],
+        ),
+      );
+    });
     _scrollToBottom();
   }
 
@@ -833,13 +1005,15 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   }) {
     final list = List<_ChatOptionItem>.from(items);
 
-    if (includePdfDownload) {
+    // Customer mode must NEVER have a quotation PDF download option
+    final isCustomerMode = widget.mode == ChatbotMode.customer || _lockedInquiryType == 'customer';
+    if (includePdfDownload && !isCustomerMode) {
       list.add(
         _ChatOptionItem(
           title: '📄 Download Official Quotation PDF',
           isPdfDownload: true,
           quotationId: quotationId,
-          inquiryType: _currentInquiryType ?? 'customer',
+          inquiryType: _lockedInquiryType ?? _currentInquiryType ?? 'franchise',
         ),
       );
     }
@@ -884,8 +1058,14 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       return;
     }
 
+    final isCustomer = widget.mode == ChatbotMode.customer || _lockedInquiryType == 'customer';
+
     if (lower.contains('download quotation') || lower.contains('quotation pdf') || lower.contains('download quote') || lower.contains('pdf quotation')) {
-      _downloadQuotationPdf(qType: _currentInquiryType ?? 'customer');
+      if (isCustomer) {
+        _respond('As a valued customer, you can view our transparent retail and wholesale product prices directly in the Products menu! For corporate orders, call +91 98062 47194.');
+        return;
+      }
+      _downloadQuotationPdf(qType: _lockedInquiryType ?? _currentInquiryType ?? 'franchise');
       _respond('Generating your official Shivnath Agency quotation PDF. Please check your browser/downloads window!');
       return;
     }
@@ -900,6 +1080,9 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       optionId: optionId,
       sessionId: _activeSessionId,
       history: history,
+      chatbotMode: widget.mode.name,
+      inquiryType: _lockedInquiryType ?? _currentInquiryType,
+      leadCaptureCompleted: _leadCaptureCompleted,
     );
 
     if (!mounted) return;
@@ -911,25 +1094,24 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     final reply = res['reply']?.toString() ??
         'Thank you for your inquiry. For direct assistance, call +91 98062 47194.';
 
-    final hasQuotationIntent = lower.contains('quotation') ||
+    final hasQuotationIntent = !isCustomer && (
+        lower.contains('quotation') ||
         lower.contains('quote') ||
         lower.contains('bulk') ||
         lower.contains('rate list') ||
-        lower.contains('pricing');
+        lower.contains('pricing'));
 
-    if (res['is_lead_trigger'] == true) {
+    if (res['is_lead_trigger'] == true && widget.mode == ChatbotMode.public && !_leadCaptureCompleted) {
       setState(() {
         _isTyping = false;
         _messages.add(_ChatMessage(text: reply, isUser: false));
       });
       _scrollToBottom();
 
-      if (widget.mode == ChatbotMode.public) {
-        if (_currentInquiryType == 'franchise') {
-          _startFranchiseQualification();
-        } else {
-          _startCustomerQualification();
-        }
+      if ((_lockedInquiryType ?? _currentInquiryType) == 'franchise') {
+        _startFranchiseQualification();
+      } else {
+        _startCustomerQualification();
       }
       return;
     }
@@ -1158,6 +1340,10 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
 
     final isExisting = res['is_duplicate'] == true;
 
+    _leadCaptureCompleted = true;
+    _lockedInquiryType = 'customer';
+    _currentInquiryType = 'customer';
+
     final rootList = _customerTree.isNotEmpty ? _customerTree : _getDefaultCustomerOptions();
     _navStack.clear();
     _navStack.add(rootList);
@@ -1171,11 +1357,11 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
             '• *Name*: $name\n'
             '• *Mobile*: $phone\n'
             '• *Location*: $city, $district\n\n'
-            'Your lead has been recorded in the Admin CRM. Please select from our packaged water products, pricing, and quotation options below:';
+            'Your lead has been recorded in the Admin CRM. Please select from our packaged water products, pricing, and order support options below:';
 
     _respond(
       summary,
-      options: _buildOptionListWithBack(rootList, canGoBack: true, isRootLevel: true),
+      options: _buildOptionListWithBack(rootList, canGoBack: false, isRootLevel: true),
     );
   }
 
@@ -1211,6 +1397,10 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
 
     final isExisting = res['is_duplicate'] == true;
 
+    _leadCaptureCompleted = true;
+    _lockedInquiryType = 'franchise';
+    _currentInquiryType = 'franchise';
+
     final rootList = _franchiseTree.isNotEmpty ? _franchiseTree : _getDefaultFranchiseOptions();
     _navStack.clear();
     _navStack.add(rootList);
@@ -1221,17 +1411,17 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
             '• *Mobile*: $phone\n'
             '• *Territory*: $loc ($city)\n'
             '• *Budget*: $budget\n\n'
-            'Your inquiry is updated in our Admin CRM. Please explore our territory models, margins, and franchise quotation options below:'
+            'Your inquiry is updated in our Admin CRM. Please explore our territory models, margins, and franchise investment options below:'
         : '🎉 *Franchise Pre-Qualification Submitted!*\n\n'
             '• *Prospect*: $name\n'
             '• *Mobile*: $phone\n'
             '• *Territory*: $loc ($city)\n'
             '• *Budget*: $budget\n\n'
-            'Your franchise lead is now active in the Admin CRM. Please explore our territory models, margins, and franchise quotation options below:';
+            'Your franchise lead is now active in the Admin CRM. Please explore our territory models, margins, and franchise investment options below:';
 
     _respond(
       summary,
-      options: _buildOptionListWithBack(rootList, canGoBack: true, isRootLevel: true),
+      options: _buildOptionListWithBack(rootList, canGoBack: false, isRootLevel: true),
     );
   }
 
@@ -1507,6 +1697,11 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
                     borderColor = const Color(0xFFFDE68A);
                     textColor = const Color(0xFFB45309);
                     avatar = const Icon(Icons.picture_as_pdf_rounded, size: 15, color: Color(0xFFB45309));
+                  } else if (opt.isStartNewEnquiry) {
+                    bgColor = const Color(0xFFFEF2F2);
+                    borderColor = const Color(0xFFFECACA);
+                    textColor = const Color(0xFFDC2626);
+                    avatar = const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFFDC2626));
                   }
 
                   return ActionChip(

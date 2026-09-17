@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -199,6 +200,172 @@ class QuotationDetailView(APIView):
             "success": True,
             "message": f"Quotation '{title}' deleted successfully.",
         }, status=status.HTTP_200_OK)
+
+class QuotationPDFDownloadView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk=None):
+        if pk:
+            quotation = get_object_or_404(Quotation.objects.select_related("product"), pk=pk)
+        else:
+            q_type = request.query_params.get("type", "").strip().lower()
+            if q_type:
+                quotation = Quotation.objects.select_related("product").filter(quotation_type=q_type, is_active=True).first()
+            else:
+                quotation = Quotation.objects.select_related("product").filter(is_active=True).first()
+
+        if not quotation:
+            return Response({"success": False, "message": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        from io import BytesIO
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=36,
+            leftMargin=36,
+            topMargin=36,
+            bottomMargin=36
+        )
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'DocTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            leading=24,
+            textColor=colors.HexColor('#0369A1'),
+            fontName='Helvetica-Bold'
+        )
+        subtitle_style = ParagraphStyle(
+            'DocSubtitle',
+            parent=styles['Normal'],
+            fontSize=10,
+            leading=14,
+            textColor=colors.HexColor('#475569')
+        )
+        header_style = ParagraphStyle(
+            'HeaderLabel',
+            parent=styles['Heading2'],
+            fontSize=13,
+            leading=16,
+            textColor=colors.HexColor('#0F172A'),
+            fontName='Helvetica-Bold'
+        )
+        body_style = ParagraphStyle(
+            'Body',
+            parent=styles['Normal'],
+            fontSize=9.5,
+            leading=13.5,
+            textColor=colors.HexColor('#1E293B')
+        )
+
+        elements = []
+
+        # Header Info
+        header_data = [
+            [
+                Paragraph("<b>SHIVNATH AGENCY</b><br/><font size=8 color='#475569'>Packaged Drinking Water & Beverages Plant<br/>Raipur, Chhattisgarh - 492001<br/>Phone: +91 98062 47194 | Email: info@shivnathagency.com</font>", body_style),
+                Paragraph(f"<b>OFFICIAL QUOTATION</b><br/><font size=8 color='#0284C7'>Ref No: SN-QTN-{quotation.id:04d}<br/>Date: {quotation.updated_at.strftime('%d %b %Y')}<br/>Validity: {quotation.validity}</font>", body_style)
+            ]
+        ]
+        header_table = Table(header_data, colWidths=[300, 220])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 10))
+        elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#0284C7'), spaceBefore=4, spaceAfter=12))
+
+        # Title
+        elements.append(Paragraph(quotation.title, title_style))
+        elements.append(Paragraph(f"Target Category: {quotation.get_quotation_type_display()} | Audience: {quotation.get_target_audience_display().upper()}", subtitle_style))
+        elements.append(Spacer(1, 14))
+
+        # Itemized Pricing Table
+        unit_p = float(quotation.unit_price or 0.0)
+        tot_p = float(quotation.total_price or unit_p)
+        product_name = quotation.product.name if quotation.product else "Shivnath Pure Water Volume Pack"
+        product_size = quotation.product.size if quotation.product else "Standard"
+
+        table_data = [
+            [
+                Paragraph("<b>Description / Item</b>", body_style),
+                Paragraph("<b>Tier / Volume</b>", body_style),
+                Paragraph("<b>Unit Price (Rs)</b>", body_style),
+                Paragraph("<b>Total (Rs)</b>", body_style)
+            ],
+            [
+                Paragraph(f"<b>{product_name}</b><br/><font size=8 color='#64748B'>Spec: {product_size} (BIS IS:14543 Certified 7-Stage Purified)</font>", body_style),
+                Paragraph(quotation.quantity_tier or "1 Unit", body_style),
+                Paragraph(f"Rs. {unit_p:,.2f}", body_style),
+                Paragraph(f"Rs. {tot_p:,.2f}", body_style),
+            ],
+            [
+                Paragraph("<b>Total Contract Quotation Amount:</b>", body_style),
+                "",
+                "",
+                Paragraph(f"<b>Rs. {tot_p:,.2f}</b>", body_style)
+            ]
+        ]
+
+        pricing_table = Table(table_data, colWidths=[240, 110, 85, 85])
+        pricing_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0F172A')),
+            ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#CBD5E1')),
+            ('SPAN', (0, 2), (2, 2)),
+            ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#E0F2FE')),
+        ]))
+        elements.append(pricing_table)
+        elements.append(Spacer(1, 14))
+
+        # Terms & Conditions
+        elements.append(Paragraph("<b>Terms & Conditions / Delivery Schedule</b>", header_style))
+        elements.append(Spacer(1, 4))
+        terms_text = quotation.applicable_terms or "1. Prices are inclusive of standard local freight within city limits.\n2. Delivery dispatched directly from certified automated bottling facility.\n3. Payment terms: Advance / Net 15 for registered contract accounts."
+        for line in terms_text.split('\n'):
+            if line.strip():
+                elements.append(Paragraph(f"• {line.strip()}", body_style))
+
+        if quotation.notes:
+            elements.append(Spacer(1, 8))
+            elements.append(Paragraph(f"<b>Special Notes:</b> {quotation.notes}", body_style))
+
+        elements.append(Spacer(1, 20))
+        elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#CBD5E1'), spaceBefore=6, spaceAfter=14))
+
+        # Signatory footer
+        sign_data = [
+            [
+                Paragraph("<font size=8 color='#64748B'>* This is a computer-generated quotation verified under Shivnath Agency Digital CRM System.</font>", body_style),
+                Paragraph("<b>For SHIVNATH AGENCY</b><br/><br/><font size=8 color='#475569'>Authorized Commercial Signatory<br/>Sales & Distribution Desk</font>", body_style)
+            ]
+        ]
+        sign_table = Table(sign_data, colWidths=[320, 200])
+        sign_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ]))
+        elements.append(sign_table)
+
+        doc.build(elements)
+        buffer.seek(0)
+
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        filename = f"Shivnath_Quotation_{quotation.id:04d}.pdf"
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        return response
 
 
 # =========================================================

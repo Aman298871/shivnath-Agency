@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/services/product_service.dart';
 import '../../../models/product_model.dart';
@@ -248,6 +250,28 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
         ),
       ),
     );
+  }
+
+  void _downloadPdf(int id) async {
+    final pdfUrl = '${AppConstants.apiBaseUrl}/api/chat/quotations/$id/pdf/';
+    try {
+      final uri = Uri.parse(pdfUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open PDF URL: $pdfUrl')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error launching PDF: $e')),
+        );
+      }
+    }
   }
 
   void _deleteQuotation(int id, String title) {

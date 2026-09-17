@@ -12,6 +12,8 @@ from .views import (
 urlpatterns = [
     # Public Lead Capture
     path('public/', PublicLeadCaptureView.as_view(), name='public-lead-capture'),
+    path('public-capture/', PublicLeadCaptureView.as_view(), name='public-lead-capture-alt'),
+    path('public/ingest/', PublicLeadCaptureView.as_view(), name='public-lead-ingest'),
 
     # Admin Lead List + Create
     path('', LeadListCreateView.as_view(), name='lead-list-create'),

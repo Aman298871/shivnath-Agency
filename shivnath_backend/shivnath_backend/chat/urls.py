@@ -6,6 +6,7 @@ from .views import (
     AdminChatbotOptionDetailView,
     QuotationListCreateView,
     QuotationDetailView,
+    QuotationPDFDownloadView,
     AdminChatConversationsView,
     AdminChatConversationDetailView,
 )
@@ -17,6 +18,8 @@ urlpatterns = [
     path('admin/options/<int:pk>/', AdminChatbotOptionDetailView.as_view(), name='admin-chatbot-option-detail'),
     path('quotations/', QuotationListCreateView.as_view(), name='quotations-list-create'),
     path('quotations/<int:pk>/', QuotationDetailView.as_view(), name='quotation-detail'),
+    path('quotations/<int:pk>/pdf/', QuotationPDFDownloadView.as_view(), name='quotation-pdf-download-id'),
+    path('quotations/pdf/', QuotationPDFDownloadView.as_view(), name='quotation-pdf-download-default'),
     path('admin/conversations/', AdminChatConversationsView.as_view(), name='admin-chat-conversations'),
     path('admin/conversations/<int:session_id>/', AdminChatConversationDetailView.as_view(), name='admin-chat-conversation-detail'),
 ]

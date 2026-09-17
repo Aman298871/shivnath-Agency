@@ -1,5 +1,6 @@
 from django.db.models import Q, Count
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -170,13 +171,15 @@ class PublicLeadCaptureView(APIView):
         space = str(request.data.get('space') or request.data.get('commercial_space', 'no')).strip().lower()
         experience = str(request.data.get('experience') or request.data.get('previous_experience', '')).strip()
         location = str(request.data.get('location') or request.data.get('preferred_location', '')).strip()
-        inquiry_type = str(request.data.get('inquiry_type', 'customer')).strip()
+        inquiry_type = str(request.data.get('inquiry_type', 'customer')).strip().lower()
+        if inquiry_type not in ['customer', 'franchise']:
+            inquiry_type = 'customer'
         selected_options = request.data.get('selected_options', [])
         notes = str(request.data.get('notes', '')).strip()
         conversation_history = request.data.get('conversation_history', [])
 
-        if not name:
-            name = "Public Prospect"
+        if not name or name.strip() == '':
+            name = "Public Customer" if inquiry_type == 'customer' else "Franchise Prospect"
         if not phone:
             return Response(
                 {'success': False, 'message': 'Mobile number is required to register inquiry.'},
@@ -185,7 +188,15 @@ class PublicLeadCaptureView(APIView):
 
         norm_phone = _normalize_phone(phone)
         
-        # Check for existing lead by phone or email
+        # 1. Check for existing Customer/UserProfile record
+        from accounts.models import UserProfile, AdminNotification
+        existing_customer_profile = None
+        if norm_phone:
+            existing_customer_profile = UserProfile.objects.filter(phone__icontains=norm_phone).first()
+        if not existing_customer_profile and email and not email.endswith('@franchiseprospect.com') and not email.endswith('@purewatercrm.com'):
+            existing_customer_profile = UserProfile.objects.filter(user__email__iexact=email).first()
+
+        # 2. Check for existing Lead by phone or email
         existing_lead = None
         if norm_phone:
             existing_lead = Lead.objects.filter(phone__icontains=norm_phone).first()
@@ -193,25 +204,53 @@ class PublicLeadCaptureView(APIView):
             existing_lead = Lead.objects.filter(email__iexact=email).first()
 
         score = 'warm'
-        if '10 lakh' in budget.lower() or '20 lakh' in budget.lower() or 'yes' in space.lower():
+        if '10 lakh' in budget.lower() or '20 lakh' in budget.lower() or 'yes' in space.lower() or 'bulk' in notes.lower():
             score = 'hot'
 
-        note_details = f"Inquiry Type: {inquiry_type.upper()}"
-        if budget:
-            note_details += f" | Budget: {budget}"
-        if space and space != 'no':
-            note_details += f" | Space: {space}"
+        # Build clean, structured note and inquiry details
+        note_details = f"Inquiry Category: {inquiry_type.upper()}"
         if selected_options:
-            opts_str = ', '.join([str(o) for o in selected_options])
-            note_details += f" | Selected: {opts_str}"
+            if isinstance(selected_options, list):
+                opts_str = " -> ".join([str(o) for o in selected_options if o])
+            else:
+                opts_str = str(selected_options)
+            note_details += f"\nInquiry Navigation Path: {opts_str}"
+        if city:
+            note_details += f"\nCity: {city}"
+        if district:
+            note_details += f"\nDistrict: {district}"
+        if budget:
+            note_details += f"\nInvestment / Budget Tier: {budget}"
+        if space and space != 'no':
+            note_details += f"\nCommercial Space: {space}"
+        if experience:
+            note_details += f"\nExperience: {experience}"
+        if location:
+            note_details += f"\nPreferred Location: {location}"
         if notes:
-            note_details += f" | Notes: {notes}"
+            note_details += f"\nSpecific Inquiry Notes: {notes}"
 
-        from accounts.models import AdminNotification
+        # Append formatted conversation transcript
+        if conversation_history and isinstance(conversation_history, list):
+            conv_lines = []
+            for item in conversation_history:
+                if isinstance(item, dict):
+                    role = item.get('role', 'user')
+                    content = str(item.get('content', '')).strip()
+                    if content:
+                        prefix = "👤 User" if role == 'user' else "🤖 Chatbot"
+                        conv_lines.append(f"{prefix}: {content}")
+            if conv_lines:
+                note_details += "\n\n=== CHATBOT CONVERSATION TRANSCRIPT ===\n" + "\n".join(conv_lines)
+
+        if existing_customer_profile and not existing_lead:
+            # Existing registered customer opened the chatbot
+            # Link to their customer profile without creating duplicate new lead records
+            existing_lead = Lead.objects.filter(converted_user=existing_customer_profile.user).first()
 
         if existing_lead:
-            # Update existing lead without creating duplicate card
-            if name and existing_lead.name in ['Public Prospect', 'Guest Customer', '']:
+            # Update existing lead without creating duplicate card in Admin
+            if name and existing_lead.name in ['Public Prospect', 'Public Customer', 'Guest Customer', '', 'Prospect']:
                 existing_lead.name = name
             if city and not existing_lead.city:
                 existing_lead.city = city
@@ -219,15 +258,18 @@ class PublicLeadCaptureView(APIView):
                 existing_lead.district = district
             if budget:
                 existing_lead.investment_budget = budget
-            if space in ['available', 'searching', 'yes']:
-                existing_lead.commercial_space = 'available' if space in ['available', 'yes'] else 'searching'
+            if 'available' in space or 'yes' in space or 'searching' in space:
+                existing_lead.commercial_space = 'available' if ('available' in space or 'yes' in space) else 'searching'
             if experience and not existing_lead.previous_experience:
                 existing_lead.previous_experience = experience
             if location and not existing_lead.preferred_location:
                 existing_lead.preferred_location = location
             if score == 'hot':
                 existing_lead.score = 'hot'
-            existing_lead.notes = (existing_lead.notes + f"\n[{inquiry_type.upper()} UPDATE] " + note_details).strip()
+            if existing_customer_profile and not existing_lead.converted_user:
+                existing_lead.converted_user = existing_customer_profile.user
+            
+            existing_lead.notes = (existing_lead.notes + f"\n\n[{inquiry_type.upper()} UPDATE - {timezone.now().strftime('%d %b %Y %I:%M %p')}]\n" + note_details).strip()
             existing_lead.save()
 
             LeadActivity.objects.create(
@@ -251,7 +293,7 @@ class PublicLeadCaptureView(APIView):
                 {
                     'success': True,
                     'is_duplicate': True,
-                    'message': 'Inquiry linked to existing lead record successfully.',
+                    'message': 'Inquiry linked to existing lead profile successfully without duplicates.',
                     'lead': LeadSerializer(existing_lead).data,
                 },
                 status=status.HTTP_200_OK,
@@ -266,13 +308,14 @@ class PublicLeadCaptureView(APIView):
             district=district,
             investment_budget=budget,
             existing_business='yes' if 'yes' in str(request.data.get('existing_business', '')).lower() else 'no',
-            commercial_space='available' if space in ['available', 'yes'] else ('searching' if space == 'searching' else 'no'),
+            commercial_space='available' if ('available' in space or 'yes' in space) else ('searching' if 'searching' in space else 'no'),
             previous_experience=experience,
             preferred_location=location or city,
             score=score,
             status='new_lead',
             source='Public AI Chatbot',
             notes=note_details,
+            converted_user=existing_customer_profile.user if existing_customer_profile else None,
         )
 
         LeadActivity.objects.create(
@@ -296,7 +339,7 @@ class PublicLeadCaptureView(APIView):
             {
                 'success': True,
                 'is_duplicate': False,
-                'message': 'New lead captured successfully.',
+                'message': 'New lead captured successfully in Admin CRM.',
                 'lead': LeadSerializer(new_lead).data,
             },
             status=status.HTTP_201_CREATED,

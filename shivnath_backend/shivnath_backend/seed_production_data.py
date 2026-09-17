@@ -5,11 +5,14 @@ from decimal import Decimal
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
+from django.contrib.auth.models import User
+from accounts.models import UserProfile, AdminNotification
 from products.models import ProductCategory, Product
 from chat.models import ChatbotOption, Quotation
+from leads.models import Lead, LeadActivity
 
 def seed():
-    print("Seeding initial production data for categories, products, quotations, and chatbot options...")
+    print("Seeding initial production data for categories, products, quotations, customers, notifications, and chatbot options...")
 
     # 1. Categories
     cat_bottles, _ = ProductCategory.objects.get_or_create(
@@ -23,6 +26,10 @@ def seed():
     cat_alkaline, _ = ProductCategory.objects.get_or_create(
         name="Alkaline Water",
         defaults={"slug": "alkaline-water", "order": 3, "description": "pH 8.5+ ionized antioxidant alkaline water", "is_active": True}
+    )
+    cat_dispensers, _ = ProductCategory.objects.get_or_create(
+        name="Dispensers & Accessories",
+        defaults={"slug": "dispensers-accessories", "order": 4, "description": "Water dispensers, stands, and automatic pumps", "is_active": True}
     )
 
     sub_250ml, _ = ProductCategory.objects.get_or_create(
@@ -57,7 +64,7 @@ def seed():
             "price": Decimal("6.00"),
             "stock": 500,
             "unit": "Bottle",
-            "description": "250ml packaged drinking water, ideal for events and meetings.",
+            "description": "250ml packaged drinking water, ideal for events, conferences and meetings.",
             "status": "Active"
         }
     )
@@ -117,8 +124,47 @@ def seed():
             "status": "Active"
         }
     )
+    p6, _ = Product.objects.get_or_create(
+        sku="SKU-ALK-1000",
+        defaults={
+            "name": "Shivnath 1L Alkaline Mineral Water",
+            "category": "Alkaline Water",
+            "size": "1 Litre",
+            "price": Decimal("25.00"),
+            "stock": 200,
+            "unit": "Bottle",
+            "description": "Enriched with essential minerals, high TDS and balanced 8.5+ pH for active wellness.",
+            "status": "Active"
+        }
+    )
+    p7, _ = Product.objects.get_or_create(
+        sku="SKU-ACC-STAND",
+        defaults={
+            "name": "Shivnath Metal Jar Stand with Tap",
+            "category": "Dispensers & Accessories",
+            "size": "Standard",
+            "price": Decimal("350.00"),
+            "stock": 100,
+            "unit": "Piece",
+            "description": "Heavy duty powder-coated stainless steel table stand for 20L jars.",
+            "status": "Active"
+        }
+    )
+    p8, _ = Product.objects.get_or_create(
+        sku="SKU-ACC-PUMP",
+        defaults={
+            "name": "Automatic USB Rechargeable Water Pump",
+            "category": "Dispensers & Accessories",
+            "size": "Universal 20L",
+            "price": Decimal("450.00"),
+            "stock": 120,
+            "unit": "Piece",
+            "description": "One-touch electric wireless water dispenser pump with long-lasting battery.",
+            "status": "Active"
+        }
+    )
 
-    # 3. Quotations
+    # 3. Quotations with PDF Generation Metadata
     q1, _ = Quotation.objects.get_or_create(
         title="20L Jar Monthly Office Subscription",
         defaults={
@@ -128,9 +174,9 @@ def seed():
             "quantity_tier": "30 Jars / Month",
             "unit_price": Decimal("50.00"),
             "total_price": Decimal("1500.00"),
-            "applicable_terms": "Daily morning delivery included. Security deposit of Rs 150 per empty jar.",
+            "applicable_terms": "Daily morning doorstep delivery included in Raipur. Security deposit of Rs 150 per empty jar (Refundable).",
             "notes": "Discounted rate for corporate and office daily delivery.",
-            "validity": "30 days",
+            "validity": "Valid for 30 days from generation",
             "is_active": True
         }
     )
@@ -142,9 +188,9 @@ def seed():
             "quantity_tier": "Complete Plant & Distribution Territory",
             "unit_price": Decimal("350000.00"),
             "total_price": Decimal("350000.00"),
-            "applicable_terms": "Includes RO plant setup, initial stock, branding materials, and marketing support.",
-            "notes": "Estimated 35% - 42% operational margin with territorial exclusivity.",
-            "validity": "60 days",
+            "applicable_terms": "Includes RO purification unit setup, initial product inventory stock, ERP billing software, and territory branding.",
+            "notes": "Guaranteed 25% - 35% operational margin with exclusive 5 KM radius territorial rights.",
+            "validity": "Valid for 60 days from generation",
             "is_active": True
         }
     )
@@ -157,14 +203,75 @@ def seed():
             "quantity_tier": "100+ Boxes (1200 Bottles)",
             "unit_price": Decimal("14.00"),
             "total_price": Decimal("16800.00"),
-            "applicable_terms": "Free transport within Raipur, Bilaspur, and Durg-Bhilai.",
-            "notes": "Special direct wholesale pricing for distributors and retailers.",
-            "validity": "45 days",
+            "applicable_terms": "Free transport within Raipur, Bilaspur, and Durg-Bhilai city limits.",
+            "notes": "Special direct wholesale pricing for distributors, hotels, and retail outlets.",
+            "validity": "Valid for 45 days from generation",
+            "is_active": True
+        }
+    )
+    q4, _ = Quotation.objects.get_or_create(
+        title="Corporate & Event 2 Litre Family Pack Quotation",
+        defaults={
+            "quotation_type": "customer",
+            "target_audience": "customer",
+            "product": p4,
+            "quantity_tier": "50+ Crates (450 Bottles)",
+            "unit_price": Decimal("26.00"),
+            "total_price": Decimal("11700.00"),
+            "applicable_terms": "Includes direct venue vehicle dispatch with GST invoice and tamper-proof verification.",
+            "notes": "Special catering and banquet hall bulk contract quotation.",
+            "validity": "Valid for 30 days from generation",
             "is_active": True
         }
     )
 
-    # 4. Chatbot Options Hierarchy (Admin Configurable)
+    # 4. Registered Dummy Customers
+    dummy_customers = [
+        {"username": "ramesh_agarwal", "name": "Ramesh Agarwal", "phone": "9826112345", "email": "ramesh.agarwal@example.com", "city": "Raipur", "district": "Raipur", "address": "Plot 42, Shankar Nagar, Raipur"},
+        {"username": "priya_sharma", "name": "Priya Sharma", "phone": "9827223456", "email": "priya.sharma@example.com", "city": "Bilaspur", "district": "Bilaspur", "address": "Shop 12, Vyapar Vihar, Bilaspur"},
+        {"username": "vikram_patel", "name": "Vikram Patel", "phone": "9828334567", "email": "vikram.patel@example.com", "city": "Durg", "district": "Durg", "address": "G.E. Road, Malviya Nagar, Durg"},
+        {"username": "sunita_dewangan", "name": "Sunita Dewangan", "phone": "9829445678", "email": "sunita.dewangan@example.com", "city": "Raipur", "district": "Raipur", "address": "Sector 2, Devendra Nagar, Raipur"},
+    ]
+
+    for c in dummy_customers:
+        user, _ = User.objects.get_or_create(
+            username=c["username"],
+            defaults={"email": c["email"], "first_name": c["name"].split()[0], "last_name": c["name"].split()[-1]}
+        )
+        if not user.has_usable_password():
+            user.set_password("pass1234")
+            user.save()
+
+        UserProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                "name": c["name"],
+                "phone": c["phone"],
+                "city": c["city"],
+                "district": c["district"],
+                "address": c["address"],
+                "role": "customer",
+                "status": "active"
+            }
+        )
+
+    # 5. Dummy Admin Notifications
+    notifications_data = [
+        {"title": "New Order #1042 Received", "message": "Order #1042 placed by Ramesh Agarwal (Raipur) for 5x 20L Jars (₹300.00).", "type": "order_placed", "read": False},
+        {"title": "Low Stock Warning: 2 Litre Bottles", "message": "Inventory for 2 Litre Mineral Water is at 45 units. Please initiate production bottling batch.", "type": "general", "read": False},
+        {"title": "New Franchise Lead: Amit Sharma", "message": "Franchise inquiry received from Amit Sharma for Bilaspur North Zone (Budget: ₹10 Lakhs).", "type": "franchise_registration", "read": False},
+        {"title": "Quotation Downloaded: 50+ Jars Quote", "message": "Official PDF Quotation was generated and downloaded for Corporate Office Subscription.", "type": "general", "read": True},
+        {"title": "Customer Registered: Priya Sharma", "message": "New customer Priya Sharma verified mobile number and registered profile from Bilaspur.", "type": "customer_registration", "read": True},
+        {"title": "Delivery Dispatched: Morning Route", "message": "Vehicle CG-04-1122 has departed plant for Shankar Nagar & Pandri scheduled morning jar deliveries.", "type": "general", "read": True},
+    ]
+
+    for n in notifications_data:
+        AdminNotification.objects.get_or_create(
+            title=n["title"],
+            defaults={"message": n["message"], "notification_type": n["type"], "is_read": n["read"]}
+        )
+
+    # 6. Chatbot Options Hierarchy (Multi-Level Tree with Quotation PDF Download)
     cust_root, _ = ChatbotOption.objects.get_or_create(
         title="Customer / Product Inquiry",
         defaults={"inquiry_type": "customer", "order": 1, "is_active": True}
@@ -174,51 +281,138 @@ def seed():
         defaults={"inquiry_type": "franchise", "order": 2, "is_active": True}
     )
 
-    # Customer Sub-Options
-    c_sub1, _ = ChatbotOption.objects.get_or_create(
-        title="Product Pricing & Sizes", parent=cust_root,
+    # 6A. CUSTOMER TREE
+    c_bottles, _ = ChatbotOption.objects.get_or_create(
+        title="Water Bottles", parent=cust_root,
         defaults={"inquiry_type": "customer", "order": 1, "is_active": True,
-                  "answer_text": "Shivnath Agency provides:\n- 250ml Bottle: Rs 6\n- 500ml Bottle: Rs 10\n- 1 Litre Bottle: Rs 20\n- 2 Litre Bottle: Rs 30\n- 20 Litre Jar: Rs 60\n\nAll products undergo 7-stage RO + UV + Ozonation purification."}
+                  "answer_text": "We offer 250ml, 500ml, 1 Litre, and 2 Litre packaged mineral water bottles with BIS IS:14543 certification."}
     )
-    c_sub2, _ = ChatbotOption.objects.get_or_create(
-        title="Bottle Inquiry", parent=cust_root,
-        defaults={"inquiry_type": "customer", "order": 2, "is_active": True,
-                  "answer_text": "We offer 250ml, 500ml, 1 Litre, and 2 Litre packaged mineral water bottles with tamper-evident seal and BIS IS:14543 certification."}
+    c_bottle_2l, _ = ChatbotOption.objects.get_or_create(
+        title="2 Litre Bottle", parent=c_bottles,
+        defaults={"inquiry_type": "customer", "order": 1, "product": p4, "is_active": True,
+                  "answer_text": "Shivnath 2 Litre Mineral Water Bottle is priced at Rs 30 per unit (Crate of 9: Rs 260)."}
     )
-    c_sub3, _ = ChatbotOption.objects.get_or_create(
-        title="20L Jar Delivery", parent=cust_root,
-        defaults={"inquiry_type": "customer", "order": 3, "product": p5, "quotation": q1, "is_active": True,
-                  "answer_text": "Shivnath 20 Litre Jars are delivered daily to homes and offices. Price is Rs 60 per jar, with monthly subscription discounts at Rs 50/jar."}
+    ChatbotOption.objects.get_or_create(
+        title="Price", parent=c_bottle_2l,
+        defaults={"inquiry_type": "customer", "order": 1, "is_active": True, "is_lead_trigger": False,
+                  "answer_text": "Shivnath 2 Litre Packaged Drinking Water is Rs 30 per unit. Box of 9 bottles is Rs 260."}
     )
-    c_sub4, _ = ChatbotOption.objects.get_or_create(
-        title="Bulk Quantity / Quotation", parent=cust_root,
-        defaults={"inquiry_type": "customer", "order": 4, "quotation": q3, "is_active": True,
-                  "answer_text": "Special wholesale discounts available for orders over 50+ units. Contact our bulk sales desk at +91 98062 47194 for customized contract rates."}
+    ChatbotOption.objects.get_or_create(
+        title="Product Details", parent=c_bottle_2l,
+        defaults={"inquiry_type": "customer", "order": 2, "product": p4, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "customer",
+                  "answer_text": "Shivnath 2 Litre Family Pack is bottled in our BIS IS:14543 certified plant with 7-stage RO + UV + Ozonation purification and balanced 7.2 pH minerals."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Bulk Order / Quotation", parent=c_bottle_2l,
+        defaults={"inquiry_type": "customer", "order": 3, "quotation": q4, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "customer",
+                  "answer_text": "Wholesale discount: Rs 250 per box for orders exceeding 10+ boxes. You can download the official quotation PDF below."}
     )
 
-    # Franchise Sub-Options
-    f_sub1, _ = ChatbotOption.objects.get_or_create(
-        title="Investment Requirement", parent=fran_root,
-        defaults={"inquiry_type": "franchise", "order": 1, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "franchise",
-                  "answer_text": "Shivnath Franchise investment ranges from ₹3.5 Lakhs to ₹7.5 Lakhs depending on the territorial model and distribution capacity."}
+    c_bottle_1l, _ = ChatbotOption.objects.get_or_create(
+        title="1 Litre Bottle", parent=c_bottles,
+        defaults={"inquiry_type": "customer", "order": 2, "product": p3, "is_active": True,
+                  "answer_text": "Shivnath 1 Litre Packaged Water is Rs 20 per bottle (Box of 12: Rs 220)."}
     )
-    f_sub2, _ = ChatbotOption.objects.get_or_create(
-        title="Profit / Margin Information", parent=fran_root,
+    ChatbotOption.objects.get_or_create(
+        title="Price", parent=c_bottle_1l,
+        defaults={"inquiry_type": "customer", "order": 1, "is_active": True, "is_lead_trigger": False,
+                  "answer_text": "Shivnath 1 Litre Bottle is Rs 20 per bottle. Box of 12 bottles is Rs 220."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Product Details", parent=c_bottle_1l,
+        defaults={"inquiry_type": "customer", "order": 2, "product": p3, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "customer",
+                  "answer_text": "1 Litre personal hydration bottle with tamper-evident seal and active minerals."}
+    )
+
+    c_jars, _ = ChatbotOption.objects.get_or_create(
+        title="20 Litre Water Jar", parent=cust_root,
+        defaults={"inquiry_type": "customer", "order": 2, "product": p5, "quotation": q1, "is_active": True,
+                  "answer_text": "Shivnath 20 Litre Jars are delivered daily to homes and offices. Price is Rs 60 per refill."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Price & Security Deposit", parent=c_jars,
+        defaults={"inquiry_type": "customer", "order": 1, "is_active": True, "is_lead_trigger": False,
+                  "answer_text": "20L Jar Refill: Rs 60 per jar. First-time refundable security deposit: Rs 150 per jar."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Home / Office Subscription", parent=c_jars,
+        defaults={"inquiry_type": "customer", "order": 2, "quotation": q1, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "customer",
+                  "answer_text": "Monthly subscription plan: Rs 50 per jar with daily morning doorstep delivery across Raipur city. Official contract quotation available for download."}
+    )
+
+    c_quotes, _ = ChatbotOption.objects.get_or_create(
+        title="Official Quotations & Bulk Orders", parent=cust_root,
+        defaults={"inquiry_type": "customer", "order": 3, "quotation": q3, "is_active": True,
+                  "answer_text": "We provide special wholesale contract quotes for events, hotels, corporates and institutions."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Corporate / Event Bulk Quotation", parent=c_quotes,
+        defaults={"inquiry_type": "customer", "order": 1, "quotation": q3, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "customer",
+                  "answer_text": "Tiered discounts of 15-20% available for orders of 50+ units with priority transport and GST invoices. Tap the button below to download the official quotation PDF."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Talk to Sales Executive", parent=c_quotes,
+        defaults={"inquiry_type": "customer", "order": 2, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "customer",
+                  "answer_text": "Direct sales hotline: +91 98062 47194. Our representative will contact you with a customized quote."}
+    )
+
+    # 6B. FRANCHISE TREE
+    f_territory, _ = ChatbotOption.objects.get_or_create(
+        title="Territory Model & Availability", parent=fran_root,
+        defaults={"inquiry_type": "franchise", "order": 1, "is_active": True,
+                  "answer_text": "Exclusive 5 KM radius territory protection with direct bottling plant distribution rights."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Territory Model Details", parent=f_territory,
+        defaults={"inquiry_type": "franchise", "order": 1, "is_active": True, "is_lead_trigger": False,
+                  "answer_text": "Shivnath Agency assigns protected geographic territories to prevent intra-brand competition."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Check Territory Availability", parent=f_territory,
         defaults={"inquiry_type": "franchise", "order": 2, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "franchise",
-                  "answer_text": "Shivnath Franchise partners earn an estimated gross margin of 35% - 42% on bottle lines and 50% on 20L jar delivery networks."}
-    )
-    f_sub3, _ = ChatbotOption.objects.get_or_create(
-        title="Territory & Location Availability", parent=fran_root,
-        defaults={"inquiry_type": "franchise", "order": 3, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "franchise",
-                  "answer_text": "Territory exclusivity is granted per district or commercial zone across Chhattisgarh, Odisha, and MP. Submit your contact details for territory verification."}
-    )
-    f_sub4, _ = ChatbotOption.objects.get_or_create(
-        title="Talk to Franchise Sales / Submit Lead", parent=fran_root,
-        defaults={"inquiry_type": "franchise", "order": 4, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "franchise", "quotation": q2,
-                  "answer_text": "Our franchise development team will reach out to you within 24 business hours."}
+                  "answer_text": "Territory verification in progress for Chhattisgarh, Odisha, and MP. Submit your location details for instant feasibility check."}
     )
 
-    print("Seeding completed successfully with real production database records.")
+    f_invest, _ = ChatbotOption.objects.get_or_create(
+        title="Investment & Space Requirements", parent=fran_root,
+        defaults={"inquiry_type": "franchise", "order": 2, "is_active": True,
+                  "answer_text": "Franchise investment ranges from Rs 3.5 Lakhs to Rs 7.5 Lakhs depending on territorial zone tier."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Investment Breakdown", parent=f_invest,
+        defaults={"inquiry_type": "franchise", "order": 1, "quotation": q2, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "franchise",
+                  "answer_text": "Investment covers initial product inventory, security deposit, billing software, and local branding. You can download the complete franchise package quotation PDF below."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Space & Vehicle Requirements", parent=f_invest,
+        defaults={"inquiry_type": "franchise", "order": 2, "is_active": True, "is_lead_trigger": False,
+                  "answer_text": "Requires 500 to 1200 sq.ft commercial storage and 1 delivery 3-wheeler or mini-truck."}
+    )
+
+    f_margin, _ = ChatbotOption.objects.get_or_create(
+        title="Profit Margins & ROI", parent=fran_root,
+        defaults={"inquiry_type": "franchise", "order": 3, "is_active": True,
+                  "answer_text": "Franchise partners earn an estimated gross margin of 25% - 35% on bottles and up to 50% on 20L jars."}
+    )
+    ChatbotOption.objects.get_or_create(
+        title="Margin & ROI Calculation", parent=f_margin,
+        defaults={"inquiry_type": "franchise", "order": 1, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "franchise",
+                  "answer_text": "Average break-even ROI is achieved within 6 to 9 months with an established route."}
+    )
+
+    ChatbotOption.objects.get_or_create(
+        title="Apply for Franchise (Qualify Now)", parent=fran_root,
+        defaults={"inquiry_type": "franchise", "order": 4, "quotation": q2, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "franchise",
+                  "answer_text": "Let us capture your franchise details and pre-qualify your preferred location. You can also review the franchise setup quotation PDF."}
+    )
+
+    ChatbotOption.objects.get_or_create(
+        title="Contact Franchise Desk", parent=fran_root,
+        defaults={"inquiry_type": "franchise", "order": 5, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "franchise",
+                  "answer_text": "Franchise Hotline: +91 98062 47194. Head Office: H Block, Farishta Complex, Raipur, CG."}
+    )
+
+    print("Seeding completed successfully with rich production products, customers, notifications, and quotation PDFs.")
 
 if __name__ == '__main__':
     seed()

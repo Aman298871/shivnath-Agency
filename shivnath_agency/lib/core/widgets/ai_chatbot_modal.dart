@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../constants/app_constants.dart';
 import '../services/chat_service.dart';
 import '../services/whatsapp_service.dart';
 
@@ -31,6 +33,8 @@ class _ChatOptionItem {
   final bool isLeadTrigger;
   final bool isBackButton;
   final bool isRootSelection;
+  final bool isPdfDownload;
+  final int? quotationId;
   final String inquiryType;
   final List<_ChatOptionItem> children;
 
@@ -41,6 +45,8 @@ class _ChatOptionItem {
     this.isLeadTrigger = false,
     this.isBackButton = false,
     this.isRootSelection = false,
+    this.isPdfDownload = false,
+    this.quotationId,
     this.inquiryType = 'customer',
     this.children = const [],
   });
@@ -58,6 +64,7 @@ class _ChatOptionItem {
       title: json['title']?.toString() ?? '',
       answerText: json['answer_text']?.toString(),
       isLeadTrigger: json['is_lead_trigger'] == true,
+      quotationId: json['quotation'] is int ? json['quotation'] as int : (json['quotation'] is Map ? json['quotation']['id'] as int? : null),
       inquiryType: json['inquiry_type']?.toString() ?? 'customer',
       children: childList,
     );
@@ -89,10 +96,12 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   // Dynamic Options Tree from Backend
   List<_ChatOptionItem> _customerTree = [];
   List<_ChatOptionItem> _franchiseTree = [];
-  
-  // Navigation stack for back button support
+
+  // Navigation stack and option consumption memory
   final List<List<_ChatOptionItem>> _navStack = [];
   final Set<int> _consumedOptionIds = {};
+  final Set<String> _consumedOptionTitles = {};
+  final List<String> _selectedOptionTrail = [];
 
   // Lead qualification flow state
   int _qualificationStep = 0;
@@ -102,6 +111,8 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   @override
   void initState() {
     super.initState();
+    _customerTree = _getDefaultCustomerOptions();
+    _franchiseTree = _getDefaultFranchiseOptions();
     _initChatbot();
   }
 
@@ -113,7 +124,6 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   }
 
   Future<void> _initChatbot() async {
-    // 1. Initial greeting with the 2 required initial inquiry paths
     final initialOptions = [
       _ChatOptionItem(
         title: '1. Customer / Product Inquiry',
@@ -130,62 +140,146 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     setState(() {
       _messages.add(
         _ChatMessage(
-          text: 'Namaste! 🙏 Welcome to Shivnath Pure Packaged Drinking Water.\n\nPlease select the nature of your inquiry below or type any question directly.',
+          text:
+              'Namaste! 🙏 Welcome to Shivnath Pure Packaged Drinking Water.\n\nPlease select the nature of your inquiry below or type any question directly.',
           isUser: false,
           optionItems: initialOptions,
         ),
       );
     });
 
-    // 2. Fetch dynamic trees from Backend in background
+    // Fetch dynamic trees from Backend in background
     try {
       final custRaw = await _chatService.getPublicOptions(inquiryType: 'customer', tree: true);
       final franRaw = await _chatService.getPublicOptions(inquiryType: 'franchise', tree: true);
 
-      _customerTree = custRaw.map((m) => _ChatOptionItem.fromJson(m)).toList();
-      _franchiseTree = franRaw.map((m) => _ChatOptionItem.fromJson(m)).toList();
-
-      // If backend has no options seeded yet, prepare standard defaults
-      if (_customerTree.isEmpty) {
-        _customerTree = _getDefaultCustomerOptions();
+      if (custRaw.isNotEmpty) {
+        _customerTree = custRaw.map((m) => _ChatOptionItem.fromJson(m)).toList();
       }
-      if (_franchiseTree.isEmpty) {
-        _franchiseTree = _getDefaultFranchiseOptions();
+      if (franRaw.isNotEmpty) {
+        _franchiseTree = franRaw.map((m) => _ChatOptionItem.fromJson(m)).toList();
       }
     } catch (_) {
-      _customerTree = _getDefaultCustomerOptions();
-      _franchiseTree = _getDefaultFranchiseOptions();
+      // Defaults already populated
     }
   }
 
   List<_ChatOptionItem> _getDefaultCustomerOptions() {
     return [
       _ChatOptionItem(
-        title: 'Product Inquiry & Pricing',
+        title: '💧 Packaged Water Bottles',
         inquiryType: 'customer',
         children: [
-          _ChatOptionItem(title: 'Water Bottles (250ml / 500ml / 1L / 2L)', answerText: '💧 *Shivnath Bottled Water*:\n• 250ml Pocket Bottle: ₹10\n• 500ml Pack of 24: ₹240\n• 1 Litre Bottle: ₹20\n• 2 Litre Family Pack: ₹30\n\nAll bottled in certified BIS/FSSAI facility with 7-stage RO+UV filtration.'),
-          _ChatOptionItem(title: '20L Commercial Water Jar', answerText: '🚰 *20 Litre Water Jar*:\n• Refill Rate: ₹40 per jar\n• Security Deposit for New Jar: ₹150 (Refundable)\n• Free doorstep delivery available across Raipur city for daily & weekly subscriptions.'),
-          _ChatOptionItem(title: 'Alkaline Water (High TDS / Essential Minerals)', answerText: '✨ *Shivnath Premium Alkaline Water*:\n• 1L Glass/PET Bottle: ₹25\n• Enriched with natural calcium, magnesium & balanced 8.5+ pH.'),
+          _ChatOptionItem(
+            title: '2 Litre Bottle',
+            inquiryType: 'customer',
+            children: [
+              _ChatOptionItem(
+                title: 'Price',
+                answerText:
+                    '💧 *Shivnath 2 Litre Packaged Drinking Water*:\n• Single Bottle: ₹30\n• Family Crate (9 Bottles): ₹260\n• 7-Stage RO + UV + Ozonation purified.',
+              ),
+              _ChatOptionItem(
+                title: 'Product Details',
+                isLeadTrigger: true,
+                answerText:
+                    '✨ *2 Litre Family Pack Details*:\n• BIS IS:14543 Certified\n• Natural minerals with balanced 7.2 pH\n• Heavy-duty tamper-evident seal and convenient handle.',
+              ),
+              _ChatOptionItem(
+                title: 'Bulk Order / Quotation',
+                isLeadTrigger: true,
+                answerText:
+                    '📋 *2 Litre Bulk Order Quote*:\n• 10+ Crates: ₹250 per crate\n• Free doorstep logistics across Raipur city.\n• Official PDF quotation available for download below.',
+              ),
+            ],
+          ),
+          _ChatOptionItem(
+            title: '1 Litre Bottle',
+            inquiryType: 'customer',
+            children: [
+              _ChatOptionItem(
+                title: 'Price',
+                answerText: '💧 *Shivnath 1 Litre Packaged Water*:\n• ₹20 per bottle\n• Box of 12 bottles: ₹220.',
+              ),
+              _ChatOptionItem(
+                title: 'Product Details',
+                isLeadTrigger: true,
+                answerText:
+                    '✨ *1 Litre Personal Hydration*:\n• Perfectly balanced mineral water for daily active hydration.\n• Certified pure at plant laboratory.',
+              ),
+              _ChatOptionItem(
+                title: 'Bulk Order / Quotation',
+                isLeadTrigger: true,
+                answerText: '📋 *1L Bulk Quotation*:\n• 50+ Boxes: ₹195 per box (15% wholesale discount).\n• Download official PDF quotation below.',
+              ),
+            ],
+          ),
+          _ChatOptionItem(
+            title: '500ml Bottle',
+            inquiryType: 'customer',
+            children: [
+              _ChatOptionItem(
+                title: 'Price',
+                answerText: '💧 *Shivnath 500ml Bottle*:\n• ₹10 per bottle\n• Box of 24: ₹220.',
+              ),
+              _ChatOptionItem(
+                title: 'Product Details',
+                isLeadTrigger: true,
+                answerText: '✨ *500ml Travel Size*:\n• Convenient pocket size for travel, dining, and meetings.',
+              ),
+            ],
+          ),
+          _ChatOptionItem(
+            title: '250ml Pocket Bottle',
+            inquiryType: 'customer',
+            children: [
+              _ChatOptionItem(
+                title: 'Price',
+                answerText: '💧 *Shivnath 250ml Pocket Bottle*:\n• ₹6 per bottle\n• Box of 30: ₹165.',
+              ),
+              _ChatOptionItem(
+                title: 'Product Details',
+                isLeadTrigger: true,
+                answerText: '✨ *250ml Mini Bottle*:\n• Ideal for corporate events, parties, catering, and meetings.',
+              ),
+            ],
+          ),
         ],
       ),
       _ChatOptionItem(
-        title: 'Official Quotations & Bulk Orders',
+        title: '🚰 20 Litre Water Jar',
         inquiryType: 'customer',
         children: [
-          _ChatOptionItem(title: '50+ Jars Weekly Contract Quote', answerText: '📋 *Quotation for 50+ Jars*:\n• Rate: ₹35 per jar\n• Daily morning delivery schedule & automated billing support.'),
-          _ChatOptionItem(title: 'Corporate / Event Bottle Bulk Quote', answerText: '📋 *Event & Corporate Bulk Quote*:\n• 100+ Boxes: ₹210 per box (12.5% discount)\n• Priority vehicle dispatch to event venue.'),
+          _ChatOptionItem(
+            title: 'Price & Security Deposit',
+            answerText:
+                '🚰 *20 Litre Water Jar*:\n• Refill Rate: ₹60 per jar\n• First-time Refundable Security Deposit: ₹150 per jar.',
+          ),
+          _ChatOptionItem(
+            title: 'Home / Office Subscription',
+            isLeadTrigger: true,
+            answerText:
+                '🚚 *Daily Subscription Plan*:\n• Monthly contract: ₹50 per jar\n• Daily morning doorstep delivery across Raipur.\n• Download formal rate quotation PDF below.',
+          ),
         ],
       ),
       _ChatOptionItem(
-        title: 'Doorstep Delivery & Order Placement',
+        title: '📄 Official Quotation PDF',
         inquiryType: 'customer',
-        answerText: '🚚 *Doorstep Delivery Guide*:\n1. Add products to cart via the Products section.\n2. Enter delivery address and choose Cash on Delivery or Online Payment.\n3. Orders placed before 2:00 PM are delivered same-day in Raipur.',
+        isPdfDownload: true,
       ),
       _ChatOptionItem(
-        title: 'Talk to Sales & Support',
+        title: '📝 Submit Customer Inquiry / Callback',
         inquiryType: 'customer',
-        answerText: 'Connecting you to our customer support team.\nCall or WhatsApp: +91 98062 47194\nEmail: support@shivnathagency.com',
+        isLeadTrigger: true,
+        answerText: 'Please share your details so our customer team can assist you with orders or inquiries.',
+      ),
+      _ChatOptionItem(
+        title: '📞 Talk to Sales Executive',
+        inquiryType: 'customer',
+        isLeadTrigger: true,
+        answerText:
+            'Connecting you to our Sales Desk.\nDirect Hotline: +91 98062 47194\nEmail: sales@shivnathagency.com',
       ),
     ];
   }
@@ -193,29 +287,63 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   List<_ChatOptionItem> _getDefaultFranchiseOptions() {
     return [
       _ChatOptionItem(
-        title: 'Franchise Opportunity & Territory Model',
+        title: 'Territory Model & Availability',
         inquiryType: 'franchise',
-        answerText: '🏢 *Shivnath Agency Franchise Model*:\n• Exclusive 5 KM Radius Territory Protection.\n• Direct supply from automated bottling plant.\n• Guaranteed operational gross profit margin of 25% to 35% on volume sales.',
+        children: [
+          _ChatOptionItem(
+            title: 'Territory Model Details',
+            answerText:
+                '🏢 *Exclusive Territory Model*:\n• Protected 5 KM geographic radius\n• Zero intra-brand competition\n• Direct plant dispatch and ERP distributor billing.',
+          ),
+          _ChatOptionItem(
+            title: 'Check Territory Availability',
+            isLeadTrigger: true,
+            answerText:
+                '📍 *Territories Open for Allocation*:\n• Raipur (North & South zones)\n• Bilaspur, Durg-Bhilai, Korba, Rajnandgaon\n• Please submit your location to check exact availability.',
+          ),
+        ],
       ),
       _ChatOptionItem(
         title: 'Investment & Space Requirements',
         inquiryType: 'franchise',
-        answerText: '💰 *Investment & Space Details*:\n• Investment: ₹3 Lakh – ₹10 Lakh depending on territory tier.\n• Space Required: 500 – 1200 sq.ft commercial storage.\n• Vehicle: 1 delivery vehicle (e.g. 3-wheeler or mini-truck).',
+        children: [
+          _ChatOptionItem(
+            title: 'Investment Breakdown',
+            isLeadTrigger: true,
+            answerText:
+                '💰 *Investment Structure*:\n• Investment: ₹3.5 Lakh – ₹7.5 Lakh\n• Includes initial product stock inventory, security deposit & local branding.\n• Download complete franchise package PDF below.',
+          ),
+          _ChatOptionItem(
+            title: 'Space & Vehicle Requirements',
+            answerText:
+                '🏬 *Space & Infrastructure*:\n• Space: 500 – 1200 sq.ft commercial storage/shop\n• Vehicle: 1 delivery 3-wheeler or mini-truck.',
+          ),
+        ],
       ),
       _ChatOptionItem(
         title: 'Profit Margins & ROI',
         inquiryType: 'franchise',
-        answerText: '📈 *Profitability & Margins*:\n• 20L Jar Plant Supply: ₹22-25 | Retail: ₹40 (Margin: ₹15-18 per jar)\n• Packaged Bottles: 20-30% margin on MRP.\n• Average ROI: 6 to 9 months with established local route.',
+        children: [
+          _ChatOptionItem(
+            title: 'Margin & ROI Calculation',
+            isLeadTrigger: true,
+            answerText:
+                '📈 *Profitability & Margins*:\n• Packaged Bottles: 25% to 35% gross profit margin\n• 20L Water Jars: Up to 50% margin\n• Average ROI: 6 to 9 months.',
+          ),
+        ],
       ),
       _ChatOptionItem(
         title: 'Apply for Franchise (Qualify Now)',
         inquiryType: 'franchise',
         isLeadTrigger: true,
+        answerText: 'Let us capture your franchise qualification details and generate your feasibility report.',
       ),
       _ChatOptionItem(
-        title: 'Contact Executive / WhatsApp',
+        title: 'Contact Franchise Desk',
         inquiryType: 'franchise',
-        answerText: 'Direct Franchise Desk: +91 98062 47194\nHead Office: H Block, Farishta Complex, Raipur, CG.',
+        isLeadTrigger: true,
+        answerText:
+            'Direct Franchise Hotline: +91 98062 47194\nHead Office: H Block, Farishta Complex, Raipur, CG.',
       ),
     ];
   }
@@ -242,16 +370,71 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         .toList();
   }
 
+  Future<void> _downloadQuotationPdf({int? quotationId, String? qType}) async {
+    final baseUrl = AppConstants.apiBaseUrl;
+    final query = quotationId != null
+        ? '$baseUrl/api/chat/quotations/$quotationId/pdf/'
+        : '$baseUrl/api/chat/quotations/pdf/${qType != null && qType.isNotEmpty ? '?type=$qType' : ''}';
+    final uri = Uri.parse(query);
+
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('📄 Opening Official Shivnath Quotation PDF...'),
+            backgroundColor: Color(0xFF0284C7),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _onOptionSelected(_ChatOptionItem option) {
     if (option.isBackButton) {
       _handleBackNavigation();
       return;
     }
 
+    if (option.isPdfDownload) {
+      _downloadQuotationPdf(quotationId: option.quotationId, qType: option.inquiryType);
+      return;
+    }
+
+    // Intercept qualification chip clicks immediately!
+    if (_qualificationStep > 0) {
+      setState(() {
+        _messages.add(_ChatMessage(text: option.title, isUser: true));
+      });
+      _scrollToBottom();
+      _processQualificationAnswer(option.title);
+      return;
+    }
+
     if (option.isRootSelection) {
       _currentInquiryType = option.inquiryType;
       _navStack.clear();
-      final rootList = option.inquiryType == 'customer' ? _customerTree : _franchiseTree;
+      _consumedOptionIds.clear();
+      _consumedOptionTitles.clear();
+      _selectedOptionTrail.clear();
+      _selectedOptionTrail.add(option.title);
+
+      List<_ChatOptionItem> rootList = option.inquiryType == 'customer' ? _customerTree : _franchiseTree;
+      if (rootList.isEmpty) {
+        rootList = option.inquiryType == 'customer' ? _getDefaultCustomerOptions() : _getDefaultFranchiseOptions();
+      }
       _navStack.add(rootList);
 
       setState(() {
@@ -270,32 +453,35 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       return;
     }
 
-    // Record user choice
+    // Record user choice in consumption memory & trail
     setState(() {
       _messages.add(_ChatMessage(text: option.title, isUser: true));
       if (option.id != null) {
         _consumedOptionIds.add(option.id!);
       }
+      _consumedOptionTitles.add(option.title);
+      _selectedOptionTrail.add(option.title);
     });
     _scrollToBottom();
 
-    // Check if lead qualification is triggered
-    if (option.isLeadTrigger || option.title.toLowerCase().contains('qualify') || option.title.toLowerCase().contains('apply for franchise')) {
-      _startQualification();
-      return;
-    }
-
-    // If option has sub-options / children
+    // Check if this node has children
     if (option.children.isNotEmpty) {
-      final unconsumedChildren = option.children.where((c) => c.id == null || !_consumedOptionIds.contains(c.id)).toList();
       _navStack.add(option.children);
+      final unconsumedChildren = option.children.where((c) {
+        final idMatches = c.id != null && _consumedOptionIds.contains(c.id);
+        final titleMatches = _consumedOptionTitles.contains(c.title);
+        return !idMatches && !titleMatches;
+      }).toList();
 
       setState(() {
         _messages.add(
           _ChatMessage(
-            text: 'Please choose from the sub-options below:',
+            text: 'Please select from the available options:',
             isUser: false,
-            optionItems: _buildOptionListWithBack(unconsumedChildren.isNotEmpty ? unconsumedChildren : option.children, canGoBack: true),
+            optionItems: _buildOptionListWithBack(
+              unconsumedChildren.isNotEmpty ? unconsumedChildren : option.children,
+              canGoBack: true,
+            ),
           ),
         );
       });
@@ -303,32 +489,91 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       return;
     }
 
-    // Leaf node: return answer text or call API
-    if (option.answerText != null && option.answerText!.trim().isNotEmpty) {
-      final currentLevel = _navStack.isNotEmpty ? _navStack.last : <_ChatOptionItem>[];
-      final remaining = currentLevel.where((c) => c.id == null || !_consumedOptionIds.contains(c.id)).toList();
+    // Leaf node: check if lead qualification or quotation PDF is required
+    final isLeadTrigger = option.isLeadTrigger ||
+        option.title.toLowerCase().contains('qualify') ||
+        option.title.toLowerCase().contains('apply for franchise') ||
+        option.title.toLowerCase().contains('product details') ||
+        option.title.toLowerCase().contains('bulk order') ||
+        option.title.toLowerCase().contains('subscription');
 
-      setState(() {
-        _messages.add(
-          _ChatMessage(
-            text: option.answerText!,
-            isUser: false,
-            optionItems: _buildOptionListWithBack(remaining, canGoBack: _navStack.length > 1),
-          ),
+    final isQuotationNode = option.title.toLowerCase().contains('quotation') ||
+        option.title.toLowerCase().contains('quote') ||
+        option.title.toLowerCase().contains('bulk') ||
+        option.title.toLowerCase().contains('subscription') ||
+        option.title.toLowerCase().contains('franchise');
+
+    if (option.answerText != null && option.answerText!.trim().isNotEmpty) {
+      final answer = option.answerText!;
+
+      if (isLeadTrigger) {
+        // Output answer first, then start lead details collection
+        setState(() {
+          _messages.add(
+            _ChatMessage(
+              text: answer,
+              isUser: false,
+            ),
+          );
+        });
+        _scrollToBottom();
+
+        if (_currentInquiryType == 'franchise') {
+          _startFranchiseQualification();
+        } else {
+          _startCustomerQualification();
+        }
+      } else {
+        // Informational leaf node (e.g. Price) - Show answer and remaining unconsumed siblings
+        final currentLevel = _navStack.isNotEmpty ? _navStack.last : <_ChatOptionItem>[];
+        final remaining = currentLevel.where((c) {
+          final idMatches = c.id != null && _consumedOptionIds.contains(c.id);
+          final titleMatches = _consumedOptionTitles.contains(c.title);
+          return !idMatches && !titleMatches;
+        }).toList();
+
+        final optionChips = _buildOptionListWithBack(
+          remaining,
+          canGoBack: _navStack.isNotEmpty,
+          includePdfDownload: isQuotationNode,
+          quotationId: option.quotationId,
         );
-      });
-      _scrollToBottom();
+
+        setState(() {
+          _messages.add(
+            _ChatMessage(
+              text: answer,
+              isUser: false,
+              optionItems: optionChips,
+            ),
+          );
+        });
+        _scrollToBottom();
+      }
     } else {
-      // Fetch dynamic answer from API
+      // Dynamic API message query
       _sendMessage(option.title, optionId: option.id);
     }
   }
 
   void _handleBackNavigation() {
+    if (_qualificationStep > 0) {
+      _qualificationStep = 0;
+      _leadData.clear();
+    }
+
+    if (_selectedOptionTrail.isNotEmpty) {
+      _selectedOptionTrail.removeLast();
+    }
+
     if (_navStack.length > 1) {
       _navStack.removeLast();
       final parentList = _navStack.last;
-      final remaining = parentList.where((c) => c.id == null || !_consumedOptionIds.contains(c.id)).toList();
+      final remaining = parentList.where((c) {
+        final idMatches = c.id != null && _consumedOptionIds.contains(c.id);
+        final titleMatches = _consumedOptionTitles.contains(c.title);
+        return !idMatches && !titleMatches;
+      }).toList();
 
       setState(() {
         _messages.add(_ChatMessage(text: '← Back', isUser: true));
@@ -336,14 +581,20 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
           _ChatMessage(
             text: 'Navigated back to previous options:',
             isUser: false,
-            optionItems: _buildOptionListWithBack(remaining.isNotEmpty ? remaining : parentList, canGoBack: _navStack.length > 1),
+            optionItems: _buildOptionListWithBack(
+              remaining.isNotEmpty ? remaining : parentList,
+              canGoBack: _navStack.length > 1,
+            ),
           ),
         );
       });
     } else {
-      // Return to main root selection
       _navStack.clear();
+      _consumedOptionIds.clear();
+      _consumedOptionTitles.clear();
+      _selectedOptionTrail.clear();
       _currentInquiryType = null;
+
       setState(() {
         _messages.add(_ChatMessage(text: '← Back to Main Menu', isUser: true));
         _messages.add(
@@ -361,8 +612,26 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     _scrollToBottom();
   }
 
-  List<_ChatOptionItem> _buildOptionListWithBack(List<_ChatOptionItem> items, {bool canGoBack = true, bool isRootLevel = false}) {
+  List<_ChatOptionItem> _buildOptionListWithBack(
+    List<_ChatOptionItem> items, {
+    bool canGoBack = true,
+    bool isRootLevel = false,
+    bool includePdfDownload = false,
+    int? quotationId,
+  }) {
     final list = List<_ChatOptionItem>.from(items);
+
+    if (includePdfDownload) {
+      list.add(
+        _ChatOptionItem(
+          title: '📄 Download Official Quotation PDF',
+          isPdfDownload: true,
+          quotationId: quotationId,
+          inquiryType: _currentInquiryType ?? 'customer',
+        ),
+      );
+    }
+
     if (canGoBack) {
       list.add(
         _ChatOptionItem(
@@ -387,26 +656,25 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     });
     _scrollToBottom();
 
-    // Check if user initiated qualification via typing
-    final lower = trimmed.toLowerCase();
-    if (_qualificationStep == 0 &&
-        (lower.contains('apply for franchise') || lower.contains('franchise application') || lower.contains('qualify now') || lower.contains('franchise chahiye'))) {
-      _startQualification();
-      return;
-    }
-
-    // If inside qualification questionnaire
+    // Qualification flow interception
     if (_qualificationStep > 0) {
       _processQualificationAnswer(trimmed);
       return;
     }
 
+    final lower = trimmed.toLowerCase();
     if (lower == 'talk to sales' || lower == 'contact support' || lower == 'whatsapp support') {
       WhatsAppService.openWhatsApp(
         phone: WhatsAppService.officialSupportPhone,
-        message: 'Namaste Shivnath Team,\nInquiry from Shivnath Pure Water Mobile App.',
+        message: 'Namaste Shivnath Team,\nInquiry from Shivnath Pure Water App.',
       );
-      _respond('Connecting you to our official WhatsApp support at +91 98062 47194. You can also continue asking any questions here!');
+      _respond('Connecting you to our official WhatsApp support at +91 98062 47194. You can also continue asking questions here!');
+      return;
+    }
+
+    if (lower.contains('download quotation') || lower.contains('quotation pdf') || lower.contains('download quote') || lower.contains('pdf quotation')) {
+      _downloadQuotationPdf(qType: _currentInquiryType ?? 'customer');
+      _respond('Generating your official Shivnath Agency quotation PDF. Please check your browser/downloads window!');
       return;
     }
 
@@ -426,131 +694,337 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       _activeSessionId = res['session_id']?.toString();
     }
 
-    final reply = res['reply']?.toString() ?? 'Thank you for your inquiry. For direct assistance, call +91 98062 47194.';
+    final reply = res['reply']?.toString() ??
+        'Thank you for your inquiry. For direct assistance, call +91 98062 47194.';
 
-    // Check if response triggered lead qualification
+    final hasQuotationIntent = lower.contains('quotation') ||
+        lower.contains('quote') ||
+        lower.contains('bulk') ||
+        lower.contains('rate list') ||
+        lower.contains('pricing');
+
     if (res['is_lead_trigger'] == true) {
-      _startQualification();
+      setState(() {
+        _isTyping = false;
+        _messages.add(_ChatMessage(text: reply, isUser: false));
+      });
+      _scrollToBottom();
+
+      if (_currentInquiryType == 'franchise') {
+        _startFranchiseQualification();
+      } else {
+        _startCustomerQualification();
+      }
       return;
     }
 
     final currentLevel = _navStack.isNotEmpty ? _navStack.last : <_ChatOptionItem>[];
-    _respond(reply, options: _buildOptionListWithBack(currentLevel, canGoBack: _navStack.isNotEmpty));
+    final remaining = currentLevel.where((c) {
+      final idMatches = c.id != null && _consumedOptionIds.contains(c.id);
+      final titleMatches = _consumedOptionTitles.contains(c.title);
+      return !idMatches && !titleMatches;
+    }).toList();
+
+    _respond(
+      reply,
+      options: _buildOptionListWithBack(
+        remaining,
+        canGoBack: _navStack.isNotEmpty,
+        includePdfDownload: hasQuotationIntent,
+      ),
+    );
   }
 
-  void _startQualification() {
-    _qualificationStep = 1;
+  // =========================================================
+  // CUSTOMER LEAD CAPTURE FLOW (Steps 101 - 105)
+  // =========================================================
+  void _startCustomerQualification() {
+    _qualificationStep = 101;
     _leadData.clear();
-    _respond('Great! Let\'s pre-qualify your inquiry in a few quick questions so our team can prepare your proposal.\n\n1. What is your Full Name?');
+    _respond(
+      '📝 *Customer Inquiry & Callback Desk*\n\nTo connect you with our Raipur sales desk, please share your details:\n\n👉 **Step 1/5: What is your Full Name?**\n*(Type your name below)*',
+    );
+  }
+
+  // =========================================================
+  // FRANCHISE LEAD QUALIFICATION FLOW (Steps 201 - 209)
+  // =========================================================
+  void _startFranchiseQualification() {
+    _qualificationStep = 201;
+    _leadData.clear();
+    _respond(
+      '🏢 *Franchise Pre-Qualification & Territory Feasibility*\n\nTo evaluate territory availability and ROI margins, please answer these quick questions:\n\n👉 **Step 1/9: What is your Full Name?**\n*(Type your name below)*',
+    );
   }
 
   void _processQualificationAnswer(String answer) {
-    switch (_qualificationStep) {
-      case 1:
-        _leadData['name'] = answer;
-        _qualificationStep = 2;
-        _respond('Nice to meet you, $answer! 👋\n\n2. Please provide your 10-digit Mobile Number:');
-        break;
-      case 2:
-        _leadData['phone'] = answer;
-        _qualificationStep = 3;
-        _respond('3. What is your Email Address? (Optional - type "skip" if not available):');
-        break;
-      case 3:
-        if (answer.toLowerCase() != 'skip') {
-          _leadData['email'] = answer;
-        }
-        _qualificationStep = 4;
-        _respond('4. What is your City / Preferred Location for the inquiry?');
-        break;
-      case 4:
-        _leadData['city'] = answer;
-        _qualificationStep = 5;
-        _respond(
-          '5. What is your estimated Investment Budget?',
-          options: [
-            _ChatOptionItem(title: '₹3 Lakh - ₹5 Lakh'),
-            _ChatOptionItem(title: '₹5 Lakh - ₹10 Lakh'),
-            _ChatOptionItem(title: '₹10 Lakh - ₹20 Lakh'),
-            _ChatOptionItem(title: '₹20 Lakh+ (Master Franchise)'),
-          ],
-        );
-        break;
-      case 5:
-        _leadData['budget'] = answer;
-        _qualificationStep = 6;
-        _respond(
-          '6. Do you already have commercial space or a shop available?',
-          options: [
-            _ChatOptionItem(title: 'Yes (Ready to setup)'),
-            _ChatOptionItem(title: 'No (Will rent on approval)'),
-            _ChatOptionItem(title: 'Searching in progress'),
-          ],
-        );
-        break;
-      case 6:
-        _leadData['space'] = answer;
-        _qualificationStep = 7;
-        _respond(
-          '7. Do you have previous business or distribution experience?',
-          options: [
-            _ChatOptionItem(title: 'Yes (FMCG / Water distribution)'),
-            _ChatOptionItem(title: 'Yes (Other business)'),
-            _ChatOptionItem(title: 'First-time entrepreneur'),
-          ],
-        );
-        break;
-      case 7:
-        _leadData['experience'] = answer;
-        _qualificationStep = 0; // Finished
-        _finalizeQualification();
-        break;
+    // --- CUSTOMER FLOW ---
+    if (_qualificationStep >= 101 && _qualificationStep <= 105) {
+      switch (_qualificationStep) {
+        case 101:
+          _leadData['name'] = answer;
+          _qualificationStep = 102;
+          _respond('Nice to meet you, $answer! 👋\n\n👉 **Step 2/5: Please enter your 10-digit Mobile Number:**\n*(Type your phone number below)*');
+          break;
+        case 102:
+          _leadData['phone'] = answer;
+          _qualificationStep = 103;
+          _respond(
+            '👉 **Step 3/5: What is your Email Address?** (Optional):',
+            options: [_ChatOptionItem(title: 'Skip Email')],
+          );
+          break;
+        case 103:
+          if (answer.toLowerCase() != 'skip' && answer.toLowerCase() != 'skip email') {
+            _leadData['email'] = answer;
+          }
+          _qualificationStep = 104;
+          _respond(
+            '👉 **Step 4/5: What is your City / Location?**',
+            options: [
+              _ChatOptionItem(title: 'Raipur'),
+              _ChatOptionItem(title: 'Durg'),
+              _ChatOptionItem(title: 'Bhilai'),
+              _ChatOptionItem(title: 'Bilaspur'),
+              _ChatOptionItem(title: 'Rajnandgaon'),
+            ],
+          );
+          break;
+        case 104:
+          _leadData['city'] = answer;
+          _qualificationStep = 105;
+          _respond(
+            '👉 **Step 5/5: What is your District?**',
+            options: [
+              _ChatOptionItem(title: 'Raipur'),
+              _ChatOptionItem(title: 'Durg'),
+              _ChatOptionItem(title: 'Bilaspur'),
+              _ChatOptionItem(title: 'Rajnandgaon'),
+            ],
+          );
+          break;
+        case 105:
+          _leadData['district'] = answer;
+          _qualificationStep = 0;
+          _finalizeCustomerLead();
+          break;
+      }
+      return;
+    }
+
+    // --- FRANCHISE FLOW ---
+    if (_qualificationStep >= 201 && _qualificationStep <= 209) {
+      switch (_qualificationStep) {
+        case 201:
+          _leadData['name'] = answer;
+          _qualificationStep = 202;
+          _respond('Nice to meet you, $answer! 👋\n\n👉 **Step 2/9: Please enter your 10-digit Mobile Number:**\n*(Type your phone number below)*');
+          break;
+        case 202:
+          _leadData['phone'] = answer;
+          _qualificationStep = 203;
+          _respond(
+            '👉 **Step 3/9: What is your Email Address?** (Optional):',
+            options: [_ChatOptionItem(title: 'Skip Email')],
+          );
+          break;
+        case 203:
+          if (answer.toLowerCase() != 'skip' && answer.toLowerCase() != 'skip email') {
+            _leadData['email'] = answer;
+          }
+          _qualificationStep = 204;
+          _respond(
+            '👉 **Step 4/9: What is your City?**',
+            options: [
+              _ChatOptionItem(title: 'Raipur'),
+              _ChatOptionItem(title: 'Durg'),
+              _ChatOptionItem(title: 'Bhilai'),
+              _ChatOptionItem(title: 'Bilaspur'),
+              _ChatOptionItem(title: 'Rajnandgaon'),
+            ],
+          );
+          break;
+        case 204:
+          _leadData['city'] = answer;
+          _qualificationStep = 205;
+          _respond(
+            '👉 **Step 5/9: What is your District?**',
+            options: [
+              _ChatOptionItem(title: 'Raipur'),
+              _ChatOptionItem(title: 'Durg'),
+              _ChatOptionItem(title: 'Bilaspur'),
+              _ChatOptionItem(title: 'Rajnandgaon'),
+            ],
+          );
+          break;
+        case 205:
+          _leadData['district'] = answer;
+          _qualificationStep = 206;
+          _respond(
+            '👉 **Step 6/9: What is your estimated Investment Budget?**',
+            options: [
+              _ChatOptionItem(title: '₹3 Lakh - ₹5 Lakh'),
+              _ChatOptionItem(title: '₹5 Lakh - ₹10 Lakh'),
+              _ChatOptionItem(title: '₹10 Lakh - ₹20 Lakh'),
+              _ChatOptionItem(title: '₹20 Lakh+ (Master Franchise)'),
+            ],
+          );
+          break;
+        case 206:
+          _leadData['budget'] = answer;
+          _qualificationStep = 207;
+          _respond(
+            '👉 **Step 7/9: Do you already have commercial space or a shop available?**',
+            options: [
+              _ChatOptionItem(title: 'Yes (Ready to setup)'),
+              _ChatOptionItem(title: 'No (Will rent on approval)'),
+              _ChatOptionItem(title: 'Searching in progress'),
+            ],
+          );
+          break;
+        case 207:
+          _leadData['space'] = answer;
+          _qualificationStep = 208;
+          _respond(
+            '👉 **Step 8/9: Do you have previous business or distribution experience?**',
+            options: [
+              _ChatOptionItem(title: 'Yes (FMCG / Water distribution)'),
+              _ChatOptionItem(title: 'Yes (Other business)'),
+              _ChatOptionItem(title: 'First-time entrepreneur'),
+            ],
+          );
+          break;
+        case 208:
+          _leadData['experience'] = answer;
+          _qualificationStep = 209;
+          _respond(
+            '👉 **Step 9/9: What is your Preferred Franchise Territory / Location?**',
+            options: [
+              _ChatOptionItem(title: 'Raipur Central / North'),
+              _ChatOptionItem(title: 'Raipur South / Naya Raipur'),
+              _ChatOptionItem(title: 'Durg-Bhilai'),
+              _ChatOptionItem(title: 'Bilaspur City'),
+              _ChatOptionItem(title: 'Korba'),
+              _ChatOptionItem(title: 'Rajnandgaon'),
+            ],
+          );
+          break;
+        case 209:
+          _leadData['location'] = answer;
+          _qualificationStep = 0;
+          _finalizeFranchiseLead();
+          break;
+      }
     }
   }
 
-  Future<void> _finalizeQualification() async {
-    final name = _leadData['name']?.toString() ?? 'Prospect';
+  Future<void> _finalizeCustomerLead() async {
+    final name = _leadData['name']?.toString() ?? 'Customer';
     final phone = _leadData['phone']?.toString() ?? '';
     final email = _leadData['email']?.toString() ?? '';
     final city = _leadData['city']?.toString() ?? 'Raipur';
-    final budget = _leadData['budget']?.toString() ?? '₹5 Lakh';
-    final space = _leadData['space']?.toString() ?? 'Yes';
-    final exp = _leadData['experience']?.toString() ?? 'None';
+    final district = _leadData['district']?.toString() ?? 'Raipur';
+    final trailStr = _selectedOptionTrail.join(' -> ');
 
-    // Submit lead to backend PostgreSQL with duplicate prevention
+    setState(() => _isTyping = true);
+
     final res = await _chatService.submitPublicLead({
       'name': name,
       'phone': phone,
       'email': email,
       'city': city,
-      'budget': budget,
-      'space': space,
-      'experience': exp,
-      'inquiry_type': _currentInquiryType ?? 'franchise',
-      'notes': 'Chatbot Qualified Lead. Budget: $budget | Space: $space | Experience: $exp',
+      'district': district,
+      'inquiry_type': 'customer',
+      'selected_options': _selectedOptionTrail,
+      'notes': 'Customer Inquiry Path: $trailStr',
       'conversation_history': _getHistory(),
     });
 
     final isExisting = res['is_duplicate'] == true;
 
     final summary = isExisting
-        ? '✅ *Inquiry Received & Linked to Existing Profile!*\n\n'
+        ? '✅ *Inquiry Linked to Existing Profile!*\n\n'
             '• *Name*: $name\n'
-            '• *Contact*: $phone\n'
-            '• *Location*: $city\n'
-            '• *Budget Tier*: $budget\n\n'
-            'Your updated inquiry has been recorded in our CRM. Our sales desk will call you shortly.'
-        : '🎉 *Application Received & Pre-Qualified!*\n\n'
+            '• *Mobile*: $phone\n'
+            '• *Location*: $city, $district\n'
+            '• *Inquiry*: $trailStr\n\n'
+            'Your inquiry has been updated in our Admin CRM without duplicate records. Our customer care desk will contact you shortly.'
+        : '🎉 *Customer Inquiry Submitted Successfully!*\n\n'
             '• *Name*: $name\n'
-            '• *Contact*: $phone\n'
-            '• *Location*: $city\n'
-            '• *Budget Tier*: $budget\n\n'
-            'Your new lead profile is now active in the Admin CRM. A dedicated Executive will connect with you within 24 hours.';
+            '• *Mobile*: $phone\n'
+            '• *Location*: $city, $district\n'
+            '• *Inquiry*: $trailStr\n\n'
+            'Your new lead has been recorded in the Admin CRM. Our sales representative will get in touch with you shortly.';
 
     _respond(
       summary,
       options: [
-        _ChatOptionItem(title: 'Talk to Sales Executive on WhatsApp'),
+        _ChatOptionItem(
+          title: '📄 Download Official Quotation PDF',
+          isPdfDownload: true,
+          inquiryType: 'customer',
+        ),
+        _ChatOptionItem(title: 'Talk to Sales Support on WhatsApp'),
+        _ChatOptionItem(title: '← Back to Main Menu', isBackButton: true),
+      ],
+    );
+  }
+
+  Future<void> _finalizeFranchiseLead() async {
+    final name = _leadData['name']?.toString() ?? 'Franchise Prospect';
+    final phone = _leadData['phone']?.toString() ?? '';
+    final email = _leadData['email']?.toString() ?? '';
+    final city = _leadData['city']?.toString() ?? 'Raipur';
+    final district = _leadData['district']?.toString() ?? 'Raipur';
+    final budget = _leadData['budget']?.toString() ?? '₹5 Lakh';
+    final space = _leadData['space']?.toString() ?? 'Yes';
+    final exp = _leadData['experience']?.toString() ?? 'None';
+    final loc = _leadData['location']?.toString() ?? city;
+    final trailStr = _selectedOptionTrail.join(' -> ');
+
+    setState(() => _isTyping = true);
+
+    final res = await _chatService.submitPublicLead({
+      'name': name,
+      'phone': phone,
+      'email': email,
+      'city': city,
+      'district': district,
+      'budget': budget,
+      'space': space,
+      'experience': exp,
+      'location': loc,
+      'inquiry_type': 'franchise',
+      'selected_options': _selectedOptionTrail,
+      'notes': 'Franchise Inquiry: $trailStr | Budget: $budget | Space: $space | Experience: $exp | Location: $loc',
+      'conversation_history': _getHistory(),
+    });
+
+    final isExisting = res['is_duplicate'] == true;
+
+    final summary = isExisting
+        ? '✅ *Franchise Inquiry Linked to Existing Lead!*\n\n'
+            '• *Prospect*: $name\n'
+            '• *Mobile*: $phone\n'
+            '• *Territory*: $loc ($city)\n'
+            '• *Budget*: $budget\n\n'
+            'Your updated franchise inquiry is recorded in our Admin CRM. Our territory manager will connect with you shortly.'
+        : '🎉 *Franchise Application Pre-Qualified!*\n\n'
+            '• *Prospect*: $name\n'
+            '• *Mobile*: $phone\n'
+            '• *Territory*: $loc ($city)\n'
+            '• *Budget*: $budget\n\n'
+            'Your franchise lead is now active in the Admin CRM. A dedicated Franchise Development Manager will call you within 24 hours.';
+
+    _respond(
+      summary,
+      options: [
+        _ChatOptionItem(
+          title: '📄 Download Franchise Quotation PDF',
+          isPdfDownload: true,
+          inquiryType: 'franchise',
+        ),
+        _ChatOptionItem(title: 'Talk to Franchise Desk on WhatsApp'),
         _ChatOptionItem(title: '← Back to Main Menu', isBackButton: true),
       ],
     );
@@ -571,7 +1045,6 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   }
 
   String _cleanFormattedText(String text) {
-    // Sanitizes raw markdown asterisks and symbols while keeping clean bullet points
     return text
         .replaceAll(r'**', '')
         .replaceAll(r'###', '')
@@ -812,16 +1285,35 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
                 runSpacing: 6,
                 children: msg.optionItems!.map((opt) {
                   final isBack = opt.isBackButton;
+                  final isPdf = opt.isPdfDownload;
+
+                  Color bgColor = const Color(0xFFE0F2FE);
+                  Color borderColor = const Color(0xFFBAE6FD);
+                  Color textColor = const Color(0xFF0369A1);
+                  Widget? avatar;
+
+                  if (isBack) {
+                    bgColor = const Color(0xFFF1F5F9);
+                    borderColor = const Color(0xFFCBD5E1);
+                    textColor = const Color(0xFF475569);
+                    avatar = const Icon(Icons.arrow_back, size: 14, color: Color(0xFF475569));
+                  } else if (isPdf) {
+                    bgColor = const Color(0xFFFEF3C7);
+                    borderColor = const Color(0xFFFDE68A);
+                    textColor = const Color(0xFFB45309);
+                    avatar = const Icon(Icons.picture_as_pdf_rounded, size: 15, color: Color(0xFFB45309));
+                  }
+
                   return ActionChip(
-                    backgroundColor: isBack ? const Color(0xFFF1F5F9) : const Color(0xFFE0F2FE),
-                    side: BorderSide(color: isBack ? const Color(0xFFCBD5E1) : const Color(0xFFBAE6FD)),
-                    avatar: isBack ? const Icon(Icons.arrow_back, size: 14, color: Color(0xFF475569)) : null,
+                    backgroundColor: bgColor,
+                    side: BorderSide(color: borderColor),
+                    avatar: avatar,
                     label: Text(
                       opt.title,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: isBack ? const Color(0xFF475569) : const Color(0xFF0369A1),
+                        color: textColor,
                       ),
                     ),
                     onPressed: () => _onOptionSelected(opt),

@@ -5,10 +5,12 @@ from .views import (
     OrderDetailView,
     OrderStatusUpdateView,
     OrderStatsView,
+    CustomerBulkOrderView,
 )
 
 urlpatterns = [
     path('', OrderListCreateView.as_view()),
+    path('bulk/', CustomerBulkOrderView.as_view(), name='bulk-orders'),
     path('<int:pk>/', OrderDetailView.as_view()),
     path('<int:pk>/status/', OrderStatusUpdateView.as_view()),
     path('stats/', OrderStatsView.as_view()),

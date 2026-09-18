@@ -412,7 +412,165 @@ def seed():
                   "answer_text": "Franchise Hotline: +91 98062 47194. Head Office: H Block, Farishta Complex, Raipur, CG."}
     )
 
-    print("Seeding completed successfully with rich production products, customers, notifications, and quotation PDFs.")
+    # =====================================================================
+    # 7. [TEST / DEMO SEED DATA] MASTER TERRITORY & FRANCHISE ASSIGNMENTS
+    # =====================================================================
+    print("Seeding [TEST / DEMO SEED DATA] for territory, zones, PIN mappings, and franchise territory assignments...")
+    from accounts.models import (
+        ServiceDistrict, ServiceZone, ServiceArea,
+        FranchiseProfile, FranchiseTerritoryAssignment
+    )
+
+    # Districts
+    d_raipur, _ = ServiceDistrict.objects.get_or_create(name="Raipur", defaults={"state": "Chhattisgarh", "is_active": True})
+    d_durg, _ = ServiceDistrict.objects.get_or_create(name="Durg", defaults={"state": "Chhattisgarh", "is_active": True})
+    d_bilaspur, _ = ServiceDistrict.objects.get_or_create(name="Bilaspur", defaults={"state": "Chhattisgarh", "is_active": True})
+
+    # Zones
+    z_east_raipur, _ = ServiceZone.objects.get_or_create(district=d_raipur, name="East Raipur", defaults={"code": "RPR-EAST", "is_active": True})
+    z_west_raipur, _ = ServiceZone.objects.get_or_create(district=d_raipur, name="West Raipur", defaults={"code": "RPR-WEST", "is_active": True})
+    z_central_durg, _ = ServiceZone.objects.get_or_create(district=d_durg, name="Central Durg", defaults={"code": "DURG-CENTRAL", "is_active": True})
+    z_central_bilaspur, _ = ServiceZone.objects.get_or_create(district=d_bilaspur, name="Bilaspur Central", defaults={"code": "BIL-CENTRAL", "is_active": True})
+
+    # Service Areas (PIN mappings) [TEST / DEMO DATA]
+    ServiceArea.objects.get_or_create(district=d_raipur, zone=z_east_raipur, pincode="492001", locality_name="Pandri", defaults={"is_active": True})
+    ServiceArea.objects.get_or_create(district=d_raipur, zone=z_east_raipur, pincode="492001", locality_name="Devendra Nagar", defaults={"is_active": True})
+    ServiceArea.objects.get_or_create(district=d_raipur, zone=z_east_raipur, pincode="492006", locality_name="Telibandha", defaults={"is_active": True})
+    ServiceArea.objects.get_or_create(district=d_raipur, zone=z_west_raipur, pincode="492002", locality_name="Gudhiyari", defaults={"is_active": True})
+    # Ambiguous test PIN (maps to two different zones)
+    ServiceArea.objects.get_or_create(district=d_raipur, zone=z_east_raipur, pincode="492099", locality_name="North Pandri Border", defaults={"is_active": True})
+    ServiceArea.objects.get_or_create(district=d_raipur, zone=z_west_raipur, pincode="492099", locality_name="Gudhiyari East Border", defaults={"is_active": True})
+    # Durg & Bilaspur test areas
+    ServiceArea.objects.get_or_create(district=d_durg, zone=z_central_durg, pincode="490006", locality_name="Bhilai Sector 1-6", defaults={"is_active": True})
+    ServiceArea.objects.get_or_create(district=d_bilaspur, zone=z_central_bilaspur, pincode="495001", locality_name="Vyapar Vihar", defaults={"is_active": True})
+
+    # Headquarters Franchise [TEST / DEMO SEED DATA]
+    u_hq, _ = User.objects.get_or_create(
+        username="hq@shivnath.com",
+        defaults={"email": "hq@shivnath.com", "first_name": "Shivnath Central HQ", "is_active": True}
+    )
+    if not u_hq.has_usable_password():
+        u_hq.set_password("hq123456")
+        u_hq.save()
+    p_hq, _ = UserProfile.objects.get_or_create(user=u_hq, defaults={"name": "Shivnath Central HQ", "phone": "9806247194", "role": "franchise", "status": "active", "city": "Raipur", "district": "Raipur"})
+    f_hq, _ = FranchiseProfile.objects.get_or_create(
+        user=u_hq,
+        defaults={
+            "business_name": "Shivnath Agency Central HQ",
+            "city": "Raipur",
+            "address": "Farishta Complex, G.E. Road, Raipur",
+            "territory": "All Chhattisgarh",
+            "is_headquarters": True,
+            "status": "approved",
+            "security_deposit": Decimal("100000.00"),
+            "commission": Decimal("15.00"),
+            "agreement_status": "uploaded",
+        }
+    )
+    if not f_hq.is_headquarters:
+        f_hq.is_headquarters = True
+        f_hq.status = "approved"
+        f_hq.save(update_fields=['is_headquarters', 'status'])
+
+    # Primary Franchise for East Raipur [TEST / DEMO SEED DATA]
+    u_f1, _ = User.objects.get_or_create(
+        username="franchise_east@shivnath.com",
+        defaults={"email": "franchise_east@shivnath.com", "first_name": "Ramesh Kumar (East)", "is_active": True}
+    )
+    if not u_f1.has_usable_password():
+        u_f1.set_password("franchise123456")
+        u_f1.save()
+    up1, _ = UserProfile.objects.get_or_create(user=u_f1, defaults={"name": "Ramesh Kumar", "phone": "9826123456", "role": "franchise", "status": "active", "city": "Raipur", "district": "Raipur"})
+    up1.role = "franchise"
+    up1.status = "active"
+    up1.save()
+    f_east, _ = FranchiseProfile.objects.get_or_create(
+        user=u_f1,
+        defaults={
+            "business_name": "Shivnath Water Raipur East",
+            "city": "Raipur",
+            "address": "Shop 12, Pandri Market, Raipur",
+            "territory": "East Raipur",
+            "is_headquarters": False,
+            "status": "approved",
+            "security_deposit": Decimal("50000.00"),
+            "commission": Decimal("10.00"),
+            "agreement_status": "uploaded",
+        }
+    )
+    f_east.status = "approved"
+    f_east.save()
+    FranchiseTerritoryAssignment.objects.get_or_create(
+        franchise=f_east, zone=z_east_raipur,
+        defaults={"is_primary": True, "is_active": True}
+    )
+
+    # Secondary Franchise for East Raipur [TEST / DEMO SEED DATA]
+    u_f2, _ = User.objects.get_or_create(
+        username="pureflow_east@shivnath.com",
+        defaults={"email": "pureflow_east@shivnath.com", "first_name": "Sunil Agrawal", "is_active": True}
+    )
+    if not u_f2.has_usable_password():
+        u_f2.set_password("franchise123456")
+        u_f2.save()
+    up2, _ = UserProfile.objects.get_or_create(user=u_f2, defaults={"name": "Sunil Agrawal", "phone": "9826987654", "role": "franchise", "status": "active", "city": "Raipur", "district": "Raipur"})
+    up2.role = "franchise"
+    up2.status = "active"
+    up2.save()
+    f_east_sec, _ = FranchiseProfile.objects.get_or_create(
+        user=u_f2,
+        defaults={
+            "business_name": "Pure Flow Water East Zone",
+            "city": "Raipur",
+            "address": "Telibandha Main Road, Raipur",
+            "territory": "East Raipur",
+            "is_headquarters": False,
+            "status": "approved",
+            "security_deposit": Decimal("50000.00"),
+            "commission": Decimal("10.00"),
+            "agreement_status": "uploaded",
+        }
+    )
+    f_east_sec.status = "approved"
+    f_east_sec.save()
+    FranchiseTerritoryAssignment.objects.get_or_create(
+        franchise=f_east_sec, zone=z_east_raipur,
+        defaults={"is_primary": False, "is_active": True}
+    )
+
+    # Primary Franchise for Central Durg [TEST / DEMO SEED DATA]
+    u_f3, _ = User.objects.get_or_create(
+        username="franchise_durg@shivnath.com",
+        defaults={"email": "franchise_durg@shivnath.com", "first_name": "Vijay Verma (Durg)", "is_active": True}
+    )
+    if not u_f3.has_usable_password():
+        u_f3.set_password("franchise123456")
+        u_f3.save()
+    up3, _ = UserProfile.objects.get_or_create(user=u_f3, defaults={"name": "Vijay Verma", "phone": "9827112233", "role": "franchise", "status": "active", "city": "Durg", "district": "Durg"})
+    up3.role = "franchise"
+    up3.status = "active"
+    up3.save()
+    f_durg, _ = FranchiseProfile.objects.get_or_create(
+        user=u_f3,
+        defaults={
+            "business_name": "Shivnath Water Durg",
+            "city": "Durg",
+            "address": "Station Road, Durg",
+            "territory": "Central Durg",
+            "is_headquarters": False,
+            "status": "approved",
+            "security_deposit": Decimal("50000.00"),
+            "commission": Decimal("10.00"),
+            "agreement_status": "uploaded",
+        }
+    )
+    FranchiseTerritoryAssignment.objects.get_or_create(
+        franchise=f_durg, zone=z_central_durg,
+        defaults={"is_primary": True, "is_active": True}
+    )
+
+    print("Seeding completed successfully with rich production products, customers, notifications, quotation PDFs, and territory master test data.")
 
 if __name__ == '__main__':
     seed()
+

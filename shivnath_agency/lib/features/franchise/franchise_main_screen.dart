@@ -5,6 +5,7 @@ import '../../core/services/session_service.dart';
 import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
 
+import 'customers/franchise_customers_screen.dart';
 import 'dashboard/franchise_dashboard_screen.dart';
 import 'documents/franchise_documents_screen.dart';
 import 'franchise_settings_screen.dart';
@@ -70,6 +71,11 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       selectedIcon: Icons.shopping_bag_rounded,
     ),
     _FranchiseMenuItem(
+      title: 'Customers',
+      icon: Icons.people_outline,
+      selectedIcon: Icons.people_rounded,
+    ),
+    _FranchiseMenuItem(
       title: 'Invoices',
       icon: Icons.receipt_long_outlined,
       selectedIcon: Icons.receipt_long_rounded,
@@ -112,21 +118,24 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
         return const FranchiseOrdersScreen();
 
       case 3:
-        return const FranchiseInvoicesScreen();
+        return const FranchiseCustomersScreen();
 
       case 4:
-        return const FranchisePaymentsScreen();
+        return const FranchiseInvoicesScreen();
 
       case 5:
-        return const FranchiseDocumentsScreen();
+        return const FranchisePaymentsScreen();
 
       case 6:
-        return const FranchiseTerritoryScreen();
+        return const FranchiseDocumentsScreen();
 
       case 7:
-        return const FranchiseProfileScreen();
+        return const FranchiseTerritoryScreen();
 
       case 8:
+        return const FranchiseProfileScreen();
+
+      case 9:
         return const FranchiseSettingsScreen();
 
       default:
@@ -873,12 +882,12 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
 
       case 3:
         mobileScreen =
-            const FranchiseInvoicesScreen();
+            const FranchiseCustomersScreen();
         break;
 
       case 4:
         mobileScreen =
-            const FranchisePaymentsScreen();
+            const FranchiseInvoicesScreen();
         break;
 
       case 0:
@@ -929,6 +938,16 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
               Icons.shopping_bag_rounded,
             ),
             label: 'Orders',
+          ),
+
+          NavigationDestination(
+            icon: Icon(
+              Icons.people_outline,
+            ),
+            selectedIcon: Icon(
+              Icons.people_rounded,
+            ),
+            label: 'Customers',
           ),
 
           NavigationDestination(

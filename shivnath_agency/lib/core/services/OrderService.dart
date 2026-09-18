@@ -206,7 +206,7 @@ class OrderService {
   Map<String, dynamic> _prepareOrderData(
     Map<String, dynamic> data,
   ) {
-    return {
+    final map = <String, dynamic>{
       'franchise_name':
           data['franchise']?.toString().trim() ?? '',
 
@@ -230,6 +230,16 @@ class OrderService {
         data['payment']?.toString() ?? 'Pending',
       ),
     };
+
+    if (data.containsKey('order_items')) map['order_items'] = data['order_items'];
+    if (data.containsKey('serving_franchise_id')) map['serving_franchise_id'] = data['serving_franchise_id'];
+    if (data.containsKey('duration_choice')) map['duration_choice'] = data['duration_choice'];
+    if (data.containsKey('duration_days')) map['duration_days'] = data['duration_days'];
+    if (data.containsKey('customer_name')) map['customer_name'] = data['customer_name'];
+    if (data.containsKey('phone')) map['phone'] = data['phone'];
+    if (data.containsKey('delivery_address')) map['delivery_address'] = data['delivery_address'];
+
+    return map;
   }
 
   // =====================================================
@@ -439,6 +449,45 @@ class OrderService {
           '${date.year}';
     } catch (_) {
       return value.toString();
+    }
+  }
+
+  // =====================================================
+  // BULK ORDERS
+  // =====================================================
+
+  Future<Map<String, dynamic>> createBulkOrder(
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/orders/bulk/'),
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Server unavailable. Please start the backend and try again.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> getBulkOrders() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/orders/bulk/'),
+        headers: await _headers(),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Server unavailable. Please start the backend and try again.',
+      };
     }
   }
 }

@@ -64,6 +64,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final status = (u['status'] ?? (u['is_active'] == true ? 'active' : 'inactive')).toString();
     final orderCount = u['order_count'] ?? 0;
     final franchiseDetails = u['franchise_details'] as Map<String, dynamic>?;
+    final territory = u['territory'] as Map<String, dynamic>?;
+    final activeStockCycle = u['active_stock_cycle'] as Map<String, dynamic>?;
 
     showModalBottomSheet(
       context: context,
@@ -189,6 +191,48 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 _buildDetailRow(Icons.home_outlined, 'Address / Landmark', address),
               _buildDetailRow(Icons.shopping_bag_outlined, 'Total Orders', '$orderCount orders placed'),
               _buildDetailRow(Icons.calendar_today_outlined, 'Registration Date', _formatDate(dateJoined)),
+              if (territory != null) ...[
+                const SizedBox(height: 12),
+                const Divider(),
+                const SizedBox(height: 8),
+                Text(
+                  'Assigned Service Territory & Franchise',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if ((territory['zone_name'] ?? '').toString().isNotEmpty)
+                  _buildDetailRow(Icons.location_on_outlined, 'Service Zone', territory['zone_name'].toString()),
+                if ((territory['pincode'] ?? '').toString().isNotEmpty)
+                  _buildDetailRow(Icons.pin_drop_outlined, 'PIN Code', territory['pincode'].toString()),
+                if ((territory['registered_franchise'] ?? '').toString().isNotEmpty)
+                  _buildDetailRow(Icons.storefront_outlined, 'Registered Franchise', territory['registered_franchise'].toString()),
+                if ((territory['serving_franchise'] ?? '').toString().isNotEmpty)
+                  _buildDetailRow(Icons.delivery_dining_outlined, 'Current Serving Franchise', territory['serving_franchise'].toString()),
+              ],
+              if (activeStockCycle != null) ...[
+                const SizedBox(height: 12),
+                const Divider(),
+                const SizedBox(height: 8),
+                Text(
+                  'Active Supply Stock Cycle',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildDetailRow(Icons.timelapse_outlined, 'Status', (activeStockCycle['status'] ?? '').toString().toUpperCase()),
+                _buildDetailRow(Icons.hourglass_bottom_outlined, 'Days Remaining', '${activeStockCycle['days_remaining'] ?? 0} days'),
+                if ((activeStockCycle['duration_choice'] ?? '').toString().isNotEmpty)
+                  _buildDetailRow(Icons.date_range_outlined, 'Duration Choice', activeStockCycle['duration_choice'].toString()),
+                if ((activeStockCycle['expected_end_date'] ?? '').toString().isNotEmpty)
+                  _buildDetailRow(Icons.event_outlined, 'Expected End Date', activeStockCycle['expected_end_date'].toString()),
+                if ((activeStockCycle['serving_franchise'] ?? '').toString().isNotEmpty)
+                  _buildDetailRow(Icons.store_outlined, 'Cycle Serving Partner', activeStockCycle['serving_franchise'].toString()),
+              ],
               if (franchiseDetails != null) ...[
                 const SizedBox(height: 12),
                 const Divider(),

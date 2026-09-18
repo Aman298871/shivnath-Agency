@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/auth_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/services/whatsapp_service.dart';
 import '../../../models/user_model.dart';
@@ -17,9 +18,14 @@ class CustomerProfileScreen extends StatefulWidget {
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   final SessionService _sessionService = SessionService();
+  final AuthService _authService = AuthService();
   UserModel? _currentUser;
   bool _isLoading = true;
   String _savedAddress = 'Farishta Complex, G.E. Road, Raipur, Chhattisgarh - 492001';
+
+  Map<String, dynamic>? _territoryData;
+  Map<String, dynamic>? _stockCycleData;
+  bool _isUpdatingStatus = false;
 
   @override
   void initState() {
@@ -32,12 +38,24 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     final address = prefs.getString('customer_delivery_address');
 
+    Map<String, dynamic>? territory;
+    Map<String, dynamic>? stockCycle;
+
+    final res = await _authService.getCurrentUser();
+    if (res['success'] == true && res['data'] is Map<String, dynamic>) {
+      final d = res['data'] as Map<String, dynamic>;
+      territory = d['territory'] as Map<String, dynamic>?;
+      stockCycle = d['stock_cycle'] as Map<String, dynamic>?;
+    }
+
     if (mounted) {
       setState(() {
         _currentUser = user;
         if (address != null && address.isNotEmpty) {
           _savedAddress = address;
         }
+        _territoryData = territory;
+        _stockCycleData = stockCycle;
         _isLoading = false;
       });
     }
@@ -341,6 +359,230 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
+  Future<void> _handleCustomerServiceStatusChange(String currentStatus) async {
+    final isHold = currentStatus == 'hold';
+    final action = isHold ? 'resume' : 'hold';
+    final reasonController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(isHold ? 'Resume Water Delivery' : 'Pause Water Delivery (Hold)', style: const TextStyle(fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isHold
+                  ? 'Reactivate daily water deliveries. Your remaining stock cycle days will resume from today.'
+                  : 'Going on vacation or renovation? Pause your service and freeze remaining days safely.',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: reasonController,
+              decoration: InputDecoration(
+                labelText: isHold ? 'Notes (Optional)' : 'Reason for Hold *',
+                hintText: isHold ? 'e.g. Back from trip' : 'e.g. Out of station for 10 days',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isHold ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(isHold ? 'Resume Now' : 'Confirm Pause'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isUpdatingStatus = true);
+    final res = await _authService.updateServiceStatus(
+      action: action,
+      reason: reasonController.text.trim(),
+    );
+    setState(() => _isUpdatingStatus = false);
+
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['data']?['message']?.toString() ?? 'Service status updated successfully.'),
+          backgroundColor: isHold ? const Color(0xFF16A34A) : const Color(0xFF0284C7),
+        ),
+      );
+      _loadUserData();
+    } else {
+      final msg = res['message'] ?? 'Failed to update service status';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red.shade700),
+      );
+    }
+  }
+
+  Widget _buildServiceTerritoryCard() {
+    final zone = _territoryData?['zone_name']?.toString() ?? 'Standard Service Zone';
+    final district = _territoryData?['district']?.toString() ?? 'Raipur';
+    final pincode = _territoryData?['pincode']?.toString() ?? '';
+    final franchise = _territoryData?['current_serving_franchise_name']?.toString() ??
+        _territoryData?['registered_franchise_name']?.toString() ??
+        'Shivnath Partner Plant';
+
+    final cycleStatus = _stockCycleData?['status']?.toString() ?? 'none';
+    final daysRemaining = _stockCycleData?['days_remaining'] ?? 0;
+    final expectedEnd = _stockCycleData?['expected_end_date']?.toString() ?? '';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.water_drop, color: Color(0xFF0284C7), size: 20),
+                  SizedBox(width: 8),
+                  Text('Water Supply & Territory', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                ],
+              ),
+              if (cycleStatus == 'active')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: const Text('ACTIVE', style: TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.w800, fontSize: 11)),
+                )
+              else if (cycleStatus == 'hold')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: const Text('ON HOLD', style: TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.w800, fontSize: 11)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFF64748B)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Service Zone: $zone ${pincode.isNotEmpty ? "($pincode, $district)" : ""}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.storefront_outlined, size: 16, color: Color(0xFF64748B)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Supply Partner: $franchise',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                ),
+              ),
+            ],
+          ),
+          if (cycleStatus == 'active' || cycleStatus == 'hold') ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cycleStatus == 'active' ? const Color(0xFFF0F9FF) : const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    cycleStatus == 'active' ? Icons.timer_outlined : Icons.pause_circle_outline,
+                    color: cycleStatus == 'active' ? const Color(0xFF0284C7) : const Color(0xFFD97706),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          cycleStatus == 'active'
+                              ? '$daysRemaining Days Supply Remaining'
+                              : 'Service Paused ($daysRemaining Days Preserved)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            color: cycleStatus == 'active' ? const Color(0xFF0369A1) : const Color(0xFF92400E),
+                          ),
+                        ),
+                        if (expectedEnd.isNotEmpty)
+                          Text(
+                            cycleStatus == 'active' ? 'Ends around $expectedEnd' : 'Countdown paused safely',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          ),
+                      ],
+                    ),
+                  ),
+                  _isUpdatingStatus
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: cycleStatus == 'active' ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                            side: BorderSide(
+                              color: cycleStatus == 'active' ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () => _handleCustomerServiceStatusChange(cycleStatus),
+                          child: Text(
+                            cycleStatus == 'active' ? 'Hold' : 'Resume',
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                          ),
+                        ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -461,6 +703,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 14),
+                            _buildServiceTerritoryCard(),
                           ],
                         ),
                       ),
@@ -583,7 +827,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 14),
+        _buildServiceTerritoryCard(),
+        const SizedBox(height: 14),
         _ProfileTile(
           icon: Icons.person_outline,
           title: 'Personal Information',

@@ -63,6 +63,46 @@ class Order(models.Model):
         related_name='created_orders',
     )
 
+    serving_franchise = models.ForeignKey(
+        'accounts.FranchiseProfile',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders_fulfilled',
+        help_text="The exact franchise fulfilling this order. Permanent ownership."
+    )
+
+    registered_franchise = models.ForeignKey(
+        'accounts.FranchiseProfile',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders_from_registered_customers',
+        help_text="The franchise under which the customer was originally registered."
+    )
+
+    zone = models.ForeignKey(
+        'accounts.ServiceZone',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders'
+    )
+
+    duration_choice = models.CharField(
+        max_length=30,
+        default='1 Month'
+    )
+
+    duration_days = models.PositiveIntegerField(
+        default=30
+    )
+
+    expected_end_date = models.DateField(
+        null=True,
+        blank=True
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )

@@ -60,6 +60,9 @@ class AuthService {
     String city = '',
     String district = '',
     String address = '',
+    String pincode = '',
+    String locality = '',
+    int? zoneId,
   }) async {
     return _post(
       '/api/auth/register/customer/',
@@ -72,6 +75,9 @@ class AuthService {
         'city': city,
         'district': district,
         'address': address,
+        if (pincode.isNotEmpty) 'pincode': pincode,
+        if (locality.isNotEmpty) 'locality': locality,
+        if (zoneId != null) 'zone_id': zoneId,
       },
     );
   }
@@ -323,6 +329,268 @@ class AuthService {
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': 'Failed to update notifications', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  // =========================================================
+  // TERRITORY & ZONE RESOLUTION
+  // =========================================================
+
+  Future<Map<String, dynamic>> resolveZone({
+    required String district,
+    required String pincode,
+    String locality = '',
+  }) async {
+    return _post(
+      '/api/accounts/resolve-zone/',
+      {
+        'district': district.trim(),
+        'pincode': pincode.trim(),
+        if (locality.trim().isNotEmpty) 'locality': locality.trim(),
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> getTerritoryMaster() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/accounts/territory-master/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to fetch territory master', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getEligibleFranchises({
+    String district = '',
+    int? zoneId,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (district.trim().isNotEmpty) {
+        queryParams['district'] = district.trim();
+      }
+      if (zoneId != null) {
+        queryParams['zone_id'] = zoneId.toString();
+      }
+
+      final uri = Uri.parse('$baseUrl/api/accounts/eligible-franchises/').replace(
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to fetch eligible franchises', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  // =========================================================
+  // SERVICE STATUS (HOLD / RESUME)
+  // =========================================================
+
+  Future<Map<String, dynamic>> updateServiceStatus({
+    required String action,
+    String reason = '',
+    int? customerId,
+  }) async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final payload = <String, dynamic>{
+        'action': action.trim().toLowerCase(),
+        if (reason.trim().isNotEmpty) 'reason': reason.trim(),
+        if (customerId != null) 'customer_id': customerId,
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/accounts/service-status/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      final msg = decoded is Map && decoded['error'] != null ? decoded['error'].toString() : 'Failed to update service status';
+      return {'success': false, 'message': msg, 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  // =========================================================
+  // FRANCHISE CUSTOMERS
+  // =========================================================
+
+  Future<Map<String, dynamic>> getFranchiseCustomers({String? search}) async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final queryParams = <String, String>{};
+      if (search != null && search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
+
+      final uri = Uri.parse('$baseUrl/api/accounts/franchise-customers/').replace(
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to fetch franchise customers', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  // =========================================================
+  // FRANCHISE NOTIFICATIONS
+  // =========================================================
+
+  Future<Map<String, dynamic>> getFranchiseNotifications() async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/accounts/franchise-notifications/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to fetch franchise notifications', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> markFranchiseNotificationsAsRead({int? id}) async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/accounts/franchise-notifications/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(id != null ? {'id': id} : {}),
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to update franchise notifications', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  // =========================================================
+  // SUPPORT CONTACT
+  // =========================================================
+
+  Future<Map<String, dynamic>> getSupportContact() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/accounts/support-contact/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to fetch support contact', 'data': decoded};
     } catch (_) {
       return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
     }

@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import FranchiseProfile, UserProfile
-from .permissions import IsAdminRole
+from .permissions import IsAdminRole, IsApprovedFranchise
 
 from .serializers import (
     CustomerRegisterSerializer,
@@ -1191,12 +1191,36 @@ class AdminUserListView(APIView):
 
         results = []
         from orders.models import Order
+        from datetime import date
+        today = date.today()
+
         for u in users.distinct():
             prof = getattr(u, 'profile', None)
             fp = getattr(u, 'franchise_profile', None)
+            rel = getattr(u, 'customer_relationship', None)
             role = prof.role if prof else ('admin' if u.is_superuser else 'customer')
 
             order_count = Order.objects.filter(created_by=u).count()
+
+            # Active stock cycle info
+            stock_info = None
+            if role == 'customer':
+                from .models import CustomerStockCycle
+                cycle = CustomerStockCycle.objects.filter(customer=u, service_status__in=['active', 'hold']).first()
+                if cycle:
+                    rem = cycle.remaining_days_at_hold if cycle.service_status == 'hold' and cycle.remaining_days_at_hold is not None else max((cycle.expected_end_date - today).days, 0)
+                    stock_info = {
+                        'id': cycle.id,
+                        'duration_choice': cycle.duration_choice,
+                        'duration_days': cycle.duration_days,
+                        'start_date': cycle.start_date.isoformat(),
+                        'expected_end_date': cycle.expected_end_date.isoformat(),
+                        'service_status': cycle.service_status,
+                        'remaining_days': rem,
+                        'is_low_stock': (rem <= 7 and cycle.service_status == 'active'),
+                        'serving_franchise_id': cycle.serving_franchise.id,
+                        'serving_franchise_name': cycle.serving_franchise.business_name,
+                    }
 
             item = {
                 'id': u.id,
@@ -1206,12 +1230,25 @@ class AdminUserListView(APIView):
                 'email': u.email,
                 'phone': prof.phone if prof else '',
                 'city': (prof.city if prof and prof.city else (fp.city if fp else '')),
-                'district': prof.district if prof else '',
+                'district': (rel.district.name if rel and rel.district else (prof.district if prof else '')),
+                'pincode': (rel.pincode if rel and rel.pincode else (prof.pincode if prof else '')),
+                'zone_name': (rel.zone.name if rel and rel.zone else (prof.zone.name if prof and prof.zone else '')),
+                'locality': (rel.locality if rel and rel.locality else (prof.locality if prof else '')),
                 'address': (prof.address if prof and prof.address else (fp.address if fp else '')),
                 'role': role,
                 'status': prof.status if prof else ('active' if u.is_active else 'inactive'),
+                'service_status': rel.service_status if rel else 'active',
                 'is_active': u.is_active,
                 'order_count': order_count,
+                'registered_franchise': {
+                    'id': rel.registered_franchise.id,
+                    'business_name': rel.registered_franchise.business_name,
+                } if rel and rel.registered_franchise else None,
+                'current_serving_franchise': {
+                    'id': rel.current_serving_franchise.id,
+                    'business_name': rel.current_serving_franchise.business_name,
+                } if rel and rel.current_serving_franchise else None,
+                'active_stock_cycle': stock_info,
                 'date_joined': u.date_joined.strftime('%Y-%m-%d %H:%M'),
             }
 
@@ -1220,6 +1257,7 @@ class AdminUserListView(APIView):
                     'business_name': fp.business_name,
                     'status': fp.status,
                     'territory': fp.territory or 'Pending',
+                    'is_headquarters': fp.is_headquarters,
                     'gst_number': fp.gst_number or '',
                     'security_deposit': str(fp.security_deposit),
                     'commission_rate': str(fp.commission),
@@ -1269,4 +1307,575 @@ class AdminNotificationListView(APIView):
             AdminNotification.objects.filter(id=notification_id).update(is_read=True)
         else:
             AdminNotification.objects.filter(is_read=False).update(is_read=True)
-        return Response({'success': True, 'message': 'Notifications marked as read.'})
+        return Response({'success': True, 'message': 'Notifications marked as read.'})
+
+
+# =====================================================================
+# TERRITORY RESOLUTION & MASTER VIEWS
+# =====================================================================
+
+class ZoneResolutionView(APIView):
+    """
+    Public endpoint: Customer inputs District + PIN (and optional locality).
+    Database derives the authoritative ServiceZone.
+    Handles unambiguous, ambiguous (multiple zones for PIN), and unknown PINs.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        district_str = str(request.data.get('district', '')).strip()
+        pincode_str = str(request.data.get('pincode', '')).strip()
+        locality_str = str(request.data.get('locality', '')).strip()
+
+        if not pincode_str:
+            return Response({
+                'success': False,
+                'status': 'error',
+                'message': 'PIN code is required to resolve service zone.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        from .models import ServiceArea, ServiceDistrict, ServiceZone
+
+        # Query matching active areas
+        areas_query = ServiceArea.objects.filter(pincode=pincode_str, is_active=True).select_related('district', 'zone')
+        if district_str:
+            district_match = areas_query.filter(district__name__iexact=district_str)
+            if district_match.exists():
+                areas_query = district_match
+
+        if not areas_query.exists():
+            # Unknown PIN code -> suggest recognized areas
+            available = ServiceArea.objects.filter(is_active=True).select_related('district', 'zone')[:8]
+            return Response({
+                'success': True,
+                'status': 'unknown',
+                'pincode': pincode_str,
+                'district': district_str,
+                'message': f'PIN code {pincode_str} was not found in our currently active service areas. Please select your locality or contact support.',
+                'available_areas': [
+                    {
+                        'area_id': a.id,
+                        'locality': a.locality_name,
+                        'pincode': a.pincode,
+                        'district': a.district.name,
+                        'zone_id': a.zone.id,
+                        'zone_name': a.zone.name,
+                    }
+                    for a in available
+                ]
+            }, status=status.HTTP_200_OK)
+
+        # Check unique zones
+        unique_zones = list({a.zone for a in areas_query})
+
+        if len(unique_zones) == 1:
+            z = unique_zones[0]
+            matched_area = areas_query.first()
+            return Response({
+                'success': True,
+                'status': 'resolved',
+                'zone_id': z.id,
+                'zone_name': z.name,
+                'zone_code': z.code,
+                'district': matched_area.district.name,
+                'pincode': pincode_str,
+                'locality': matched_area.locality_name,
+                'message': f'📍 Your service zone appears to be {z.name}.'
+            }, status=status.HTTP_200_OK)
+
+        # Multiple zones for this PIN -> check locality if provided
+        if locality_str:
+            for a in areas_query:
+                if a.locality_name.lower() in locality_str.lower() or locality_str.lower() in a.locality_name.lower():
+                    return Response({
+                        'success': True,
+                        'status': 'resolved',
+                        'zone_id': a.zone.id,
+                        'zone_name': a.zone.name,
+                        'zone_code': a.zone.code,
+                        'district': a.district.name,
+                        'pincode': pincode_str,
+                        'locality': a.locality_name,
+                        'message': f'📍 Your service zone appears to be {a.zone.name}.'
+                    }, status=status.HTTP_200_OK)
+
+        # Ambiguous -> ask customer to choose locality
+        options = [
+            {
+                'area_id': a.id,
+                'locality': a.locality_name,
+                'zone_id': a.zone.id,
+                'zone_name': a.zone.name,
+                'district': a.district.name,
+            }
+            for a in areas_query
+        ]
+        return Response({
+            'success': True,
+            'status': 'ambiguous',
+            'pincode': pincode_str,
+            'district': district_str or areas_query.first().district.name,
+            'message': f'PIN code {pincode_str} covers multiple service zones. Please select your specific locality or delivery area.',
+            'options': options,
+        }, status=status.HTTP_200_OK)
+
+
+class TerritoryMasterView(APIView):
+    """
+    Returns hierarchical master territory data: Districts, Zones, and Service Areas.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        from .models import ServiceDistrict
+        from .serializers import ServiceDistrictSerializer
+        districts = ServiceDistrict.objects.filter(is_active=True).prefetch_related('zones__areas')
+        serializer = ServiceDistrictSerializer(districts, many=True)
+        return Response({
+            'success': True,
+            'districts': serializer.data,
+        }, status=status.HTTP_200_OK)
+
+
+class EligibleFranchisesView(APIView):
+    """
+    Returns active franchises serving a specific District and Zone.
+    Derived server-side from customer's profile if authenticated, or query params.
+    Uses multi-tier resolver: Exact Zone -> Same-District Fallback -> Service Unavailable.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from .models import ServiceZone, ServiceDistrict
+        from .services import resolve_serviceable_franchises
+
+        zone_id = request.query_params.get('zone_id')
+        district_name = request.query_params.get('district', '').strip()
+
+        target_zone = None
+        target_district = None
+
+        # If user is authenticated customer, auto-derive zone and district from customer relationship
+        if request.user and request.user.is_authenticated:
+            rel = getattr(request.user, 'customer_relationship', None)
+            if rel:
+                if not zone_id and rel.zone:
+                    target_zone = rel.zone
+                if not district_name and rel.district:
+                    target_district = rel.district
+
+        if zone_id and not target_zone:
+            try:
+                target_zone = ServiceZone.objects.select_related('district').get(id=zone_id, is_active=True)
+            except ServiceZone.DoesNotExist:
+                pass
+
+        if district_name and not target_district:
+            target_district = ServiceDistrict.objects.filter(name__iexact=district_name, is_active=True).first()
+
+        result = resolve_serviceable_franchises(zone=target_zone, district=target_district, allow_fallback=True)
+        return Response(result, status=status.HTTP_200_OK)
+
+
+
+# =====================================================================
+# SERVICE HOLD / RESUME LIFECYCLE VIEW
+# =====================================================================
+
+class CustomerServiceStatusView(APIView):
+    """
+    Safe multi-cycle ACTIVE <-> HOLD lifecycle management.
+    Customer can hold/resume their own service.
+    Serving franchise can hold/resume customers currently served by it.
+    Admin can hold/resume any customer.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        action = str(request.data.get('action', '')).strip().lower()
+        reason = str(request.data.get('reason', '')).strip()
+        target_customer_id = request.data.get('customer_id')
+
+        if action not in ['hold', 'resume']:
+            return Response({
+                'success': False,
+                'message': 'Action must be either "hold" or "resume".'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        from .models import (
+            CustomerFranchiseRelationship,
+            CustomerStockCycle,
+            ServiceHoldHistory,
+            FranchiseNotification,
+            AdminNotification,
+        )
+        from datetime import date, timedelta
+
+        actor = request.user
+        actor_role = getattr(actor, 'profile', None).role if hasattr(actor, 'profile') else 'customer'
+
+        # Determine target customer
+        if target_customer_id and (actor_role in ['admin', 'staff'] or actor.is_superuser):
+            customer_user = get_object_or_404(User, id=target_customer_id)
+        elif target_customer_id and actor_role == 'franchise':
+            customer_user = get_object_or_404(User, id=target_customer_id)
+            fp = getattr(actor, 'franchise_profile', None)
+            rel = getattr(customer_user, 'customer_relationship', None)
+            # Permission check: must be serving or registered franchise
+            is_served = CustomerStockCycle.objects.filter(customer=customer_user, serving_franchise=fp).exists()
+            is_registered = (rel and rel.registered_franchise == fp)
+            if not (is_served or is_registered):
+                return Response({
+                    'success': False,
+                    'message': 'Permission denied. You can only modify service status for customers served by your franchise.'
+                }, status=status.HTTP_403_FORBIDDEN)
+        else:
+            customer_user = actor
+
+        rel, _ = CustomerFranchiseRelationship.objects.get_or_create(
+            customer=customer_user,
+            defaults={'service_status': 'active'}
+        )
+
+        today = date.today()
+
+        if action == 'hold':
+            cycle = CustomerStockCycle.objects.filter(customer=customer_user, service_status='active').order_by('-created_at').first()
+            if not cycle:
+                # If no cycle currently active, still set relationship status
+                rel.service_status = 'hold'
+                rel.save(update_fields=['service_status'])
+                return Response({
+                    'success': True,
+                    'message': 'Customer service has been placed on hold.',
+                    'service_status': 'hold',
+                    'remaining_days': 0,
+                })
+
+            if cycle.expected_end_date < today:
+                return Response({
+                    'success': False,
+                    'message': 'Cannot pause an expired stock cycle.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            remaining_days = max((cycle.expected_end_date - today).days, 0)
+            cycle.remaining_days_at_hold = remaining_days
+            cycle.service_status = 'hold'
+            cycle.hold_timestamp = timezone.now()
+            cycle.hold_by = actor
+            cycle.hold_reason = reason
+            cycle.save(update_fields=['remaining_days_at_hold', 'service_status', 'hold_timestamp', 'hold_by', 'hold_reason'])
+
+            rel.service_status = 'hold'
+            rel.save(update_fields=['service_status'])
+
+            ServiceHoldHistory.objects.create(
+                stock_cycle=cycle,
+                customer=customer_user,
+                action='hold',
+                actor=actor,
+                actor_role=actor_role,
+                remaining_days=remaining_days,
+                notes=reason,
+            )
+
+            # Notifications
+            try:
+                if cycle.serving_franchise:
+                    FranchiseNotification.objects.create(
+                        franchise=cycle.serving_franchise,
+                        title='Customer Service Paused (On Hold)',
+                        message=f'Customer {customer_user.get_full_name() or customer_user.username} has paused their water supply service ({remaining_days} days preserved). Reason: {reason or "Customer request"}.',
+                        notification_type='service_status',
+                        reference_id=cycle.id,
+                    )
+                AdminNotification.objects.create(
+                    title='Customer Service Paused',
+                    message=f'Customer {customer_user.get_full_name() or customer_user.username} paused service ({remaining_days} days remaining). Reason: {reason or "N/A"}.',
+                    notification_type='service_status',
+                    reference_id=cycle.id,
+                )
+            except Exception:
+                pass
+
+            return Response({
+                'success': True,
+                'message': f'Service placed on hold. {remaining_days} days preserved.',
+                'service_status': 'hold',
+                'remaining_days': remaining_days,
+            }, status=status.HTTP_200_OK)
+
+        elif action == 'resume':
+            cycle = CustomerStockCycle.objects.filter(customer=customer_user, service_status='hold').order_by('-created_at').first()
+            if not cycle:
+                rel.service_status = 'active'
+                rel.save(update_fields=['service_status'])
+                return Response({
+                    'success': True,
+                    'message': 'Service resumed.',
+                    'service_status': 'active',
+                })
+
+            rem = cycle.remaining_days_at_hold if cycle.remaining_days_at_hold is not None else 0
+            if rem <= 0:
+                return Response({
+                    'success': False,
+                    'message': 'Cannot resume a completed or expired stock cycle. Please place a new water order.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            new_expected_end_date = today + timedelta(days=rem)
+            cycle.expected_end_date = new_expected_end_date
+            cycle.service_status = 'active'
+            cycle.remaining_days_at_hold = None
+            cycle.low_stock_alert_sent = False
+            cycle.save(update_fields=['expected_end_date', 'service_status', 'remaining_days_at_hold', 'low_stock_alert_sent'])
+
+            rel.service_status = 'active'
+            rel.save(update_fields=['service_status'])
+
+            ServiceHoldHistory.objects.create(
+                stock_cycle=cycle,
+                customer=customer_user,
+                action='resume',
+                actor=actor,
+                actor_role=actor_role,
+                remaining_days=rem,
+                notes=reason,
+            )
+
+            # Notifications
+            try:
+                if cycle.serving_franchise:
+                    FranchiseNotification.objects.create(
+                        franchise=cycle.serving_franchise,
+                        title='Customer Service Resumed',
+                        message=f'Customer {customer_user.get_full_name() or customer_user.username} has resumed service. Expected cycle active until {new_expected_end_date}.',
+                        notification_type='service_status',
+                        reference_id=cycle.id,
+                    )
+                AdminNotification.objects.create(
+                    title='Customer Service Resumed',
+                    message=f'Customer {customer_user.get_full_name() or customer_user.username} resumed service until {new_expected_end_date}.',
+                    notification_type='service_status',
+                    reference_id=cycle.id,
+                )
+            except Exception:
+                pass
+
+            return Response({
+                'success': True,
+                'message': f'Service successfully resumed until {new_expected_end_date.strftime("%d %b %Y")}.',
+                'service_status': 'active',
+                'expected_end_date': new_expected_end_date.isoformat(),
+                'remaining_days': rem,
+            }, status=status.HTTP_200_OK)
+
+
+# =====================================================================
+# FRANCHISE CUSTOMER VIEW & DATA ISOLATION
+# =====================================================================
+
+class FranchiseCustomerListView(APIView):
+    """
+    Franchise-only endpoint with strict data isolation:
+    A franchise can ONLY access customers registered under it or served by it.
+    """
+    permission_classes = [IsApprovedFranchise]
+
+    def get(self, request):
+        franchise = getattr(request.user, 'franchise_profile', None)
+        if not franchise:
+            return Response({'success': False, 'message': 'Franchise profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        from .models import CustomerFranchiseRelationship, CustomerStockCycle
+        from orders.models import Order
+        from datetime import date
+        today = date.today()
+
+        # Strict isolation: registered with this franchise OR served by this franchise
+        relationships = CustomerFranchiseRelationship.objects.filter(
+            Q(registered_franchise=franchise) | Q(current_serving_franchise=franchise)
+        ).select_related('customer', 'customer__profile', 'district', 'zone', 'registered_franchise')
+
+        search = request.query_params.get('search', '').strip().lower()
+        if search:
+            relationships = relationships.filter(
+                Q(customer__first_name__icontains=search)
+                | Q(customer__email__icontains=search)
+                | Q(customer__profile__phone__icontains=search)
+                | Q(locality__icontains=search)
+                | Q(pincode__icontains=search)
+            )
+
+        customer_list = []
+        for rel in relationships:
+            cust = rel.customer
+            prof = getattr(cust, 'profile', None)
+
+            # Only orders fulfilled by THIS franchise
+            fulfilled_orders = Order.objects.filter(
+                created_by=cust,
+                serving_franchise=franchise
+            ).order_by('-created_at')
+
+            latest_order = fulfilled_orders.first()
+
+            # Active stock cycle fulfilled by THIS franchise
+            cycle = CustomerStockCycle.objects.filter(
+                customer=cust,
+                serving_franchise=franchise,
+                service_status__in=['active', 'hold']
+            ).order_by('-created_at').first()
+
+            cycle_data = None
+            if cycle:
+                rem = cycle.remaining_days_at_hold if cycle.service_status == 'hold' and cycle.remaining_days_at_hold is not None else max((cycle.expected_end_date - today).days, 0)
+                cycle_data = {
+                    'duration_choice': cycle.duration_choice,
+                    'duration_days': cycle.duration_days,
+                    'start_date': cycle.start_date.isoformat(),
+                    'expected_end_date': cycle.expected_end_date.isoformat(),
+                    'service_status': cycle.service_status,
+                    'remaining_days': rem,
+                    'is_low_stock': (rem <= 7 and cycle.service_status == 'active'),
+                }
+
+            customer_list.append({
+                'id': cust.id,
+                'customer_code': f'CUST-{1000 + cust.id}',
+                'name': cust.get_full_name() or (prof.name if prof else cust.username),
+                'phone': prof.phone if prof else '',
+                'email': cust.email,
+                'city': prof.city if prof else '',
+                'district': rel.district.name if rel.district else (prof.district if prof else ''),
+                'pincode': rel.pincode or (prof.pincode if prof else ''),
+                'zone_name': rel.zone.name if rel.zone else (prof.zone.name if prof and prof.zone else ''),
+                'locality': rel.locality or (prof.locality if prof else ''),
+                'registered_date': cust.date_joined.strftime('%Y-%m-%d %H:%M'),
+                'customer_status': prof.status if prof else 'active',
+                'service_status': rel.service_status,
+                'is_registered_franchise': (rel.registered_franchise == franchise),
+                'active_stock_cycle': cycle_data,
+                'orders_count': fulfilled_orders.count(),
+                'latest_order': {
+                    'order_id': latest_order.order_code,
+                    'date': latest_order.order_date.isoformat(),
+                    'amount': str(latest_order.amount),
+                    'status': latest_order.status,
+                } if latest_order else None,
+            })
+
+        return Response({
+            'success': True,
+            'count': len(customer_list),
+            'customers': customer_list,
+        }, status=status.HTTP_200_OK)
+
+
+# =====================================================================
+# FRANCHISE NOTIFICATIONS VIEW
+# =====================================================================
+
+class FranchiseNotificationListView(APIView):
+    """
+    Franchise notification inbox.
+    """
+    permission_classes = [IsApprovedFranchise]
+
+    def get(self, request):
+        franchise = getattr(request.user, 'franchise_profile', None)
+        if not franchise:
+            return Response({'success': False, 'message': 'Franchise not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        from .models import FranchiseNotification
+        notifs = FranchiseNotification.objects.filter(franchise=franchise)[:50]
+        unread = FranchiseNotification.objects.filter(franchise=franchise, is_read=False).count()
+
+        data = [
+            {
+                'id': n.id,
+                'title': n.title,
+                'message': n.message,
+                'notification_type': n.notification_type,
+                'reference_id': n.reference_id,
+                'is_read': n.is_read,
+                'created_at': n.created_at.strftime('%Y-%m-%d %H:%M'),
+            }
+            for n in notifs
+        ]
+
+        return Response({
+            'success': True,
+            'unread_count': unread,
+            'notifications': data,
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        franchise = getattr(request.user, 'franchise_profile', None)
+        from .models import FranchiseNotification
+        notif_id = request.data.get('id')
+        if notif_id:
+            FranchiseNotification.objects.filter(franchise=franchise, id=notif_id).update(is_read=True)
+        else:
+            FranchiseNotification.objects.filter(franchise=franchise, is_read=False).update(is_read=True)
+        return Response({'success': True, 'message': 'Franchise notifications marked as read.'})
+
+
+# =====================================================================
+# DYNAMIC CONTEXTUAL SUPPORT CONTACT VIEW
+# =====================================================================
+
+class SupportContactView(APIView):
+    """
+    Dynamic support contact resolution from backend configuration:
+    - Customer -> Assigned or Serving Franchise contact.
+    - Franchise -> Admin Central Support.
+    - Public / Anonymous -> Central Shivnath Helpline.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        user = request.user if request.user and request.user.is_authenticated else None
+        role = getattr(getattr(user, 'profile', None), 'role', 'public') if user else 'public'
+
+        from .models import FranchiseProfile
+
+        central_phone = "9806247194"
+        central_email = "support@shivnath.com"
+
+        if role == 'franchise':
+            return Response({
+                'success': True,
+                'target': 'admin',
+                'name': 'Shivnath Agency Admin Desk',
+                'phone': central_phone,
+                'email': central_email,
+                'message_template': f"Namaste Admin Support,\nI am reaching out regarding franchise account {user.get_full_name() or user.username}."
+            })
+        elif role == 'customer':
+            rel = getattr(user, 'customer_relationship', None)
+            target_f = (rel.current_serving_franchise if rel and rel.current_serving_franchise else (rel.registered_franchise if rel else None))
+            if target_f:
+                f_phone = target_f.user.profile.phone if hasattr(target_f.user, 'profile') and target_f.user.profile.phone else central_phone
+                return Response({
+                    'success': True,
+                    'target': 'franchise',
+                    'franchise_id': target_f.id,
+                    'name': target_f.business_name,
+                    'owner_name': target_f.user.get_full_name() or target_f.user.username,
+                    'phone': f_phone,
+                    'email': target_f.user.email,
+                    'message_template': f"Namaste {target_f.business_name},\nI am customer {user.get_full_name() or user.username} (Phone: {user.profile.phone if hasattr(user, 'profile') else ''}). I need assistance with my drinking water supply."
+                })
+
+        return Response({
+            'success': True,
+            'target': 'central',
+            'name': 'Shivnath Agency Central Helpline',
+            'phone': central_phone,
+            'email': central_email,
+            'message_template': "Namaste Shivnath Support,\nI would like to inquire about your pure drinking water products and delivery service."
+        })
+

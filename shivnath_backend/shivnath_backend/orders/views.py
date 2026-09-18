@@ -128,9 +128,45 @@ class OrderListCreateView(APIView):
 
             # Prepare data for OrderSerializer
             order_data = request.data.copy()
+
+            serving_franchise = None
+            registered_franchise = None
+            zone = None
+
+            if creator:
+                rel = getattr(creator, 'customer_relationship', None)
+                if rel:
+                    registered_franchise = rel.registered_franchise
+                    zone = rel.zone
+
+            serving_franchise_id = request.data.get('serving_franchise_id') or request.data.get('serving_franchise')
+            if serving_franchise_id:
+                from accounts.models import FranchiseProfile
+                from accounts.services import resolve_serviceable_franchises
+                try:
+                    sf = FranchiseProfile.objects.get(id=serving_franchise_id, status='approved')
+                    # Server validate: must be an eligible exact or fallback franchise for customer's territory
+                    if zone:
+                        serv_res = resolve_serviceable_franchises(zone=zone, district=rel.district if rel else None, allow_fallback=True)
+                        allowed_ids = {f['id'] for f in serv_res.get('franchises', [])}
+                        if sf.id not in allowed_ids:
+                            return Response({
+                                'success': False,
+                                'message': f'Franchise "{sf.business_name}" is not serviceable for your delivery area ({zone.name}).'
+                            }, status=status.HTTP_400_BAD_REQUEST)
+                    serving_franchise = sf
+                except FranchiseProfile.DoesNotExist:
+                    return Response({
+                        'success': False,
+                        'message': 'Selected serving franchise does not exist or is not approved.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            elif registered_franchise:
+                serving_franchise = registered_franchise
+
             if not order_data.get('franchise_name'):
                 order_data['franchise_name'] = (
-                    order_data.get('franchise')
+                    (serving_franchise.business_name if serving_franchise else None)
+                    or order_data.get('franchise')
                     or order_data.get('customer_name')
                     or (creator.get_full_name() if creator else None)
                     or (creator.username if creator else 'Customer Order')
@@ -154,6 +190,16 @@ class OrderListCreateView(APIView):
             if 'payment' in order_data and not order_data.get('payment_status'):
                 order_data['payment_status'] = 'pending' if str(order_data.get('payment')).lower() == 'pending' else 'paid'
 
+            # Dynamic Stock Duration Calculation
+            from datetime import date, timedelta
+            today = date.today()
+            duration_choice = str(request.data.get('duration_choice', '1 Month')).strip() or '1 Month'
+            try:
+                duration_days = int(request.data.get('duration_days') or (60 if '2' in duration_choice else (90 if '3' in duration_choice else 30)))
+            except (ValueError, TypeError):
+                duration_days = 30
+            expected_end_date = today + timedelta(days=duration_days)
+
             serializer = OrderSerializer(data=order_data)
             if not serializer.is_valid():
                 return Response(
@@ -164,7 +210,15 @@ class OrderListCreateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            order = serializer.save(created_by=creator)
+            order = serializer.save(
+                created_by=creator,
+                serving_franchise=serving_franchise,
+                registered_franchise=registered_franchise,
+                zone=zone,
+                duration_choice=duration_choice,
+                duration_days=duration_days,
+                expected_end_date=expected_end_date,
+            )
 
             # Deduct stock and create OrderItems
             for prod, qty, price in validated_order_items:
@@ -180,12 +234,54 @@ class OrderListCreateView(APIView):
                     total_price=float(price) * qty,
                 )
 
-            # Create notification
+            # Start/Renew Active Stock Cycle with permanent serving franchise association
+            if creator and serving_franchise:
+                from accounts.models import CustomerStockCycle
+                # Mark previous active cycles as completed
+                CustomerStockCycle.objects.filter(customer=creator, service_status='active').update(service_status='completed')
+                CustomerStockCycle.objects.create(
+                    customer=creator,
+                    order=order,
+                    serving_franchise=serving_franchise,
+                    start_date=today,
+                    duration_choice=duration_choice,
+                    duration_days=duration_days,
+                    expected_end_date=expected_end_date,
+                    service_status='active',
+                )
+                if hasattr(creator, 'customer_relationship'):
+                    creator.customer_relationship.current_serving_franchise = serving_franchise
+                    creator.customer_relationship.service_status = 'active'
+                    creator.customer_relationship.save(update_fields=['current_serving_franchise', 'service_status'])
+
+            # Targeted Notifications
             try:
-                from accounts.models import AdminNotification
+                from accounts.models import FranchiseNotification, AdminNotification
+                cust_name = (creator.get_full_name() or creator.username) if creator else 'Valued Customer'
+                
+                # 1. Notify Serving Franchise for this order
+                if serving_franchise:
+                    FranchiseNotification.objects.create(
+                        franchise=serving_franchise,
+                        title=f'New Order Placed: #{order.order_code}',
+                        message=(
+                            f"New order received for your franchise!\n\n"
+                            f"Customer: {cust_name}\n"
+                            f"Order ID: #{order.order_code}\n"
+                            f"Items: {order.items_count}\n"
+                            f"Amount: ₹{order.amount}\n"
+                            f"Duration: {duration_choice} ({duration_days} days)\n"
+                            f"District: {order.city}\n"
+                            f"Zone: {zone.name if zone else 'N/A'}"
+                        ),
+                        notification_type='order_placed',
+                        reference_id=order.id,
+                    )
+
+                # 2. Notify Admin
                 AdminNotification.objects.create(
                     title='New Order Placed',
-                    message=f'Order #{order.order_code} for ₹{order.amount} placed by {order.franchise_name} ({order.city}).',
+                    message=f'Customer {cust_name} placed Order #{order.order_code} for ₹{order.amount} with {serving_franchise.business_name if serving_franchise else order.franchise_name} (Duration: {duration_choice}).',
                     notification_type='order_placed',
                     reference_id=order.id,
                 )
@@ -200,6 +296,143 @@ class OrderListCreateView(APIView):
                 },
                 status=status.HTTP_201_CREATED,
             )
+
+
+# =========================================================
+# CUSTOMER BULK ORDERS VIEW
+# =========================================================
+
+class CustomerBulkOrderView(APIView):
+    """
+    Secure Customer Bulk Orders.
+    Server derives District + Zone strictly from customer's profile.
+    Server validates that serving_franchise is licensed/assigned to that zone.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', 'customer')
+        from accounts.models import CustomerBulkOrder
+        from accounts.serializers import CustomerBulkOrderSerializer
+
+        if role == 'customer':
+            orders = CustomerBulkOrder.objects.filter(customer=user).select_related('serving_franchise', 'product')
+        elif role == 'franchise':
+            fp = getattr(user, 'franchise_profile', None)
+            orders = CustomerBulkOrder.objects.filter(serving_franchise=fp).select_related('customer', 'customer__profile', 'product')
+        else:
+            orders = CustomerBulkOrder.objects.all().select_related('customer', 'customer__profile', 'serving_franchise', 'product')
+
+        serializer = CustomerBulkOrderSerializer(orders, many=True)
+        return Response({
+            'success': True,
+            'count': orders.count(),
+            'bulk_orders': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        user = request.user
+        from accounts.models import CustomerFranchiseRelationship, FranchiseProfile, FranchiseTerritoryAssignment, CustomerBulkOrder, FranchiseNotification, AdminNotification
+        from accounts.serializers import CustomerBulkOrderSerializer
+        from products.models import Product
+
+        rel = getattr(user, 'customer_relationship', None)
+        if not rel or not rel.zone:
+            return Response({
+                'success': False,
+                'message': 'Please complete your service area registration before placing bulk orders.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Server-authoritative: Derive District and Zone strictly from customer profile!
+        derived_district = rel.district.name if rel.district else (user.profile.district or 'Raipur')
+        derived_zone_name = rel.zone.name
+
+        serving_franchise_id = request.data.get('serving_franchise_id')
+        serving_franchise = None
+        if serving_franchise_id:
+            from accounts.services import resolve_serviceable_franchises
+            try:
+                sf = FranchiseProfile.objects.get(id=serving_franchise_id, status='approved')
+                # Server validation: must serve customer's territory (exact or configured fallback)
+                serv_res = resolve_serviceable_franchises(zone=rel.zone, district=rel.district, allow_fallback=True)
+                allowed_ids = {f['id'] for f in serv_res.get('franchises', [])}
+                if sf.id not in allowed_ids:
+                    return Response({
+                        'success': False,
+                        'message': f'Franchise "{sf.business_name}" does not serve your zone ({derived_zone_name}).'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                serving_franchise = sf
+            except FranchiseProfile.DoesNotExist:
+                return Response({
+                    'success': False,
+                    'message': 'Selected serving franchise not found.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            serving_franchise = rel.registered_franchise
+
+        product_id = request.data.get('product_id')
+        product = Product.objects.filter(id=product_id).first() if product_id else None
+        product_name = str(request.data.get('product_name') or (product.name if product else 'Packaged Drinking Water')).strip()
+        variant_size = str(request.data.get('variant_size') or (product.size if product else '')).strip()
+        
+        try:
+            quantity = int(request.data.get('quantity', 1))
+        except (ValueError, TypeError):
+            quantity = 1
+
+        duration_choice = str(request.data.get('duration_choice', 'One-time supply')).strip()
+        required_date_str = request.data.get('required_date')
+        from datetime import date
+        try:
+            required_date = date.fromisoformat(required_date_str) if required_date_str else date.today()
+        except (ValueError, TypeError):
+            required_date = date.today()
+
+        delivery_address = str(request.data.get('delivery_address') or user.profile.address or 'Standard Delivery Address').strip()
+        notes = str(request.data.get('additional_notes') or request.data.get('notes') or '').strip()
+
+        bulk_order = CustomerBulkOrder.objects.create(
+            customer=user,
+            product=product,
+            product_name=product_name,
+            variant_size=variant_size,
+            quantity=quantity,
+            duration_choice=duration_choice,
+            required_date=required_date,
+            delivery_address=delivery_address,
+            district=derived_district,
+            zone_name=derived_zone_name,
+            serving_franchise=serving_franchise,
+            additional_notes=notes,
+            status='pending',
+        )
+
+        # Dual Notifications
+        try:
+            cust_name = user.get_full_name() or user.username
+            FranchiseNotification.objects.create(
+                franchise=serving_franchise,
+                title=f'New Bulk Order Request #{bulk_order.id}',
+                message=f'Customer {cust_name} has requested a bulk order: {quantity}x {product_name} ({variant_size}) for {required_date}. Delivery: {delivery_address}, {derived_zone_name}.',
+                notification_type='bulk_order',
+                reference_id=bulk_order.id,
+            )
+            AdminNotification.objects.create(
+                title='New Bulk Order Request',
+                message=f'Customer {cust_name} requested bulk order #{bulk_order.id} ({quantity}x {product_name}) with {serving_franchise.business_name} in {derived_zone_name}.',
+                notification_type='bulk_order',
+                reference_id=bulk_order.id,
+            )
+        except Exception:
+            pass
+
+        return Response({
+            'success': True,
+            'message': 'Bulk order request submitted successfully.',
+            'bulk_order': CustomerBulkOrderSerializer(bulk_order).data,
+        }, status=status.HTTP_201_CREATED)
+
 
 
 # =========================================================

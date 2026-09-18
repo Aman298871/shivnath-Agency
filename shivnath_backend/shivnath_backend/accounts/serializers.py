@@ -41,6 +41,16 @@ class CustomerRegisterSerializer(serializers.Serializer):
 
     district = serializers.CharField(
         max_length=100,
+        required=True
+    )
+
+    pincode = serializers.CharField(
+        max_length=10,
+        required=True
+    )
+
+    locality = serializers.CharField(
+        max_length=150,
         required=False,
         allow_blank=True,
         default=''
@@ -52,43 +62,178 @@ class CustomerRegisterSerializer(serializers.Serializer):
         default=''
     )
 
+    zone_id = serializers.IntegerField(
+        required=False,
+        allow_null=True
+    )
+
+    referral_code = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default=''
+    )
+
     def validate_email(self, value):
-
         value = value.strip().lower()
-
-        if User.objects.filter(
-            email__iexact=value
-        ).exists():
+        if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError(
                 'An account with this email already exists.'
             )
-
         return value
 
     def validate(self, attrs):
-
         if attrs['password'] != attrs['confirm_password']:
             raise serializers.ValidationError({
-                'confirm_password':
-                    'Passwords do not match.'
+                'confirm_password': 'Passwords do not match.'
             })
 
+        district_str = attrs.get('district', '').strip()
+        pincode_str = attrs.get('pincode', '').strip()
+        locality_str = attrs.get('locality', '').strip()
+        submitted_zone_id = attrs.get('zone_id')
+
+        from .models import ServiceArea, ServiceDistrict, ServiceZone
+
+        # Authoritative server-side zone resolution & validation
+        matching_areas = ServiceArea.objects.filter(
+            pincode=pincode_str,
+            district__name__iexact=district_str,
+            is_active=True
+        ).select_related('zone', 'district')
+
+        if not matching_areas.exists():
+            # If exact district name didn't match, check by pincode alone in active areas
+            matching_areas = ServiceArea.objects.filter(
+                pincode=pincode_str,
+                is_active=True
+            ).select_related('zone', 'district')
+
+        if not matching_areas.exists():
+            raise serializers.ValidationError({
+                'pincode': f'PIN code {pincode_str} is not currently registered in a recognized service zone. Please select a valid service area or contact support.'
+            })
+
+        # Check unique zones
+        unique_zones = list({area.zone for area in matching_areas})
+        resolved_zone = None
+        matched_area = None
+
+        if len(unique_zones) == 1:
+            resolved_zone = unique_zones[0]
+            matched_area = matching_areas.first()
+        else:
+            # Multiple zones for this PIN - resolve via locality if available
+            if locality_str:
+                for a in matching_areas:
+                    if a.locality_name.lower() in locality_str.lower() or locality_str.lower() in a.locality_name.lower():
+                        resolved_zone = a.zone
+                        matched_area = a
+                        break
+
+            if not resolved_zone and submitted_zone_id:
+                for a in matching_areas:
+                    if a.zone_id == submitted_zone_id:
+                        resolved_zone = a.zone
+                        matched_area = a
+                        break
+
+            if not resolved_zone:
+                raise serializers.ValidationError({
+                    'locality': 'Multiple service zones cover this PIN code. Please select your specific locality or delivery area from the valid options.'
+                })
+
+        # Critical Security Rule: Prevent arbitrary/tampered zone ID submission
+        if submitted_zone_id and resolved_zone.id != submitted_zone_id:
+            raise serializers.ValidationError({
+                'zone_id': 'Invalid or tampered zone ID for the provided district and PIN code.'
+            })
+
+        attrs['_resolved_zone'] = resolved_zone
+        attrs['_matched_area'] = matched_area
+        attrs['_matched_district'] = matched_area.district if matched_area else resolved_zone.district
         return attrs
 
     @transaction.atomic
     def create(self, validated_data):
-
-        validated_data.pop(
-            'confirm_password'
+        from .models import (
+            FranchiseProfile,
+            FranchiseTerritoryAssignment,
+            CustomerFranchiseRelationship,
+            FranchiseNotification,
+            AdminNotification,
         )
+
+        validated_data.pop('confirm_password')
+        resolved_zone = validated_data.pop('_resolved_zone')
+        matched_area = validated_data.pop('_matched_area', None)
+        matched_district = validated_data.pop('_matched_district', None)
+        zone_id = validated_data.pop('zone_id', None)
+        referral_code = validated_data.pop('referral_code', '').strip()
 
         name = validated_data.pop('name').strip()
         phone = validated_data.pop('phone').strip()
         email = validated_data.pop('email').lower()
         password = validated_data.pop('password')
-        city = validated_data.pop('city', '').strip()
-        district = validated_data.pop('district', '').strip()
+        city = validated_data.pop('city', '').strip() or (matched_district.name if matched_district else 'Raipur')
+        district = validated_data.pop('district', '').strip() or (matched_district.name if matched_district else 'Raipur')
+        pincode = validated_data.pop('pincode', '').strip()
+        locality = validated_data.pop('locality', '').strip() or (matched_area.locality_name if matched_area else '')
         address = validated_data.pop('address', '').strip()
+
+        # =====================================================================
+        # DETERMINISTIC REGISTERED FRANCHISE ASSIGNMENT HIERARCHY
+        # Priority:
+        # a) Valid franchise referral code
+        # b) Admin-designated primary franchise for District + Zone
+        # c) Configured Headquarters franchise
+        # d) Clear configuration error
+        # =====================================================================
+        assigned_franchise = None
+
+        # a) Referral check
+        if referral_code:
+            assigned_franchise = FranchiseProfile.objects.filter(
+                Q(user__username__iexact=referral_code)
+                | Q(user__profile__phone=referral_code)
+                | Q(business_name__icontains=referral_code),
+                status='approved'
+            ).first()
+
+        # b) Admin-designated primary franchise for Zone
+        if not assigned_franchise:
+            primary_assignment = FranchiseTerritoryAssignment.objects.filter(
+                zone=resolved_zone,
+                is_primary=True,
+                is_active=True,
+                franchise__status='approved'
+            ).select_related('franchise').first()
+
+            if primary_assignment:
+                assigned_franchise = primary_assignment.franchise
+
+        # c) Any approved active franchise assigned to this Zone
+        if not assigned_franchise:
+            zone_assignment = FranchiseTerritoryAssignment.objects.filter(
+                zone=resolved_zone,
+                is_active=True,
+                franchise__status='approved'
+            ).select_related('franchise').first()
+
+            if zone_assignment:
+                assigned_franchise = zone_assignment.franchise
+
+        # d) Headquarters Fallback
+        if not assigned_franchise:
+            assigned_franchise = FranchiseProfile.objects.filter(
+                is_headquarters=True,
+                status='approved'
+            ).first()
+
+        # e) Strict failure if neither exists
+        if not assigned_franchise:
+            raise serializers.ValidationError({
+                'territory': 'Service unavailable: No active franchise or headquarters is configured to serve this territory. Please contact administration.'
+            })
 
         user = User.objects.create_user(
             username=email,
@@ -98,18 +243,31 @@ class CustomerRegisterSerializer(serializers.Serializer):
             is_active=True,
         )
 
-        profile, _ = UserProfile.objects.get_or_create(
-            user=user
-        )
-
+        profile, _ = UserProfile.objects.get_or_create(user=user)
         profile.name = name
         profile.phone = phone
         profile.city = city
         profile.district = district
+        profile.pincode = pincode
+        profile.locality = locality
+        profile.zone = resolved_zone
         profile.address = address
         profile.role = 'customer'
         profile.status = 'active'
         profile.save()
+
+        # Create authoritative CustomerFranchiseRelationship
+        CustomerFranchiseRelationship.objects.create(
+            customer=user,
+            registered_franchise=assigned_franchise,
+            current_serving_franchise=assigned_franchise,
+            district=matched_district,
+            zone=resolved_zone,
+            service_area=matched_area,
+            pincode=pincode,
+            locality=locality,
+            service_status='active',
+        )
 
         # Link any existing Lead to this registered account without duplicate lead creation
         try:
@@ -125,19 +283,38 @@ class CustomerRegisterSerializer(serializers.Serializer):
                     lead=m_lead,
                     activity_type='note',
                     title='Customer Registered Account',
-                    description=f'Lead linked to registered customer account {email} (User ID: {user.id}).',
+                    description=f'Lead linked to registered customer account {email} (User ID: {user.id}). Registered Franchise: {assigned_franchise.business_name}.',
                     created_by=user,
                 )
         except Exception:
             pass
 
-        # Create Admin Notification
+        # Dual Notifications
         try:
-            from .models import AdminNotification
-            location_str = f" from {city}" if city else ""
+            # 1. To the Registered / Assigned Franchise
+            FranchiseNotification.objects.create(
+                franchise=assigned_franchise,
+                title='New Customer Added to Your Franchise',
+                message=(
+                    f"New customer added to your franchise.\n\n"
+                    f"Customer: {name}\n"
+                    f"Mobile: {phone}\n"
+                    f"District: {district}\n"
+                    f"Zone: {resolved_zone.name}\n"
+                    f"PIN: {pincode}\n"
+                    f"Registered: Today"
+                ),
+                notification_type='new_customer',
+                reference_id=user.id,
+            )
+
+            # 2. To Admin
             AdminNotification.objects.create(
                 title='New Customer Registered',
-                message=f'{name} ({phone}){location_str} has registered on the Pure Water platform.',
+                message=(
+                    f"New customer {name} ({phone}) registered under {assigned_franchise.business_name} "
+                    f"({district} - {resolved_zone.name}, PIN: {pincode})."
+                ),
                 notification_type='customer_registration',
                 reference_id=user.id,
             )
@@ -484,10 +661,72 @@ class CurrentUserSerializer(
             return obj.franchise_profile.business_name
         return ''
 
+    city = serializers.SerializerMethodField()
+    territory = serializers.SerializerMethodField()
+    approved_at = serializers.SerializerMethodField()
+
+    district = serializers.SerializerMethodField()
+    pincode = serializers.SerializerMethodField()
+    locality = serializers.SerializerMethodField()
+    zone_id = serializers.SerializerMethodField()
+    zone_name = serializers.SerializerMethodField()
+    registered_franchise = serializers.SerializerMethodField()
+    current_serving_franchise = serializers.SerializerMethodField()
+    service_status = serializers.SerializerMethodField()
+    active_stock_cycle = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+
+        fields = [
+            'id',
+            'name',
+            'email',
+            'phone',
+            'role',
+            'status',
+            'rejection_reason',
+            'business_name',
+            'city',
+            'territory',
+            'approved_at',
+            'district',
+            'pincode',
+            'locality',
+            'zone_id',
+            'zone_name',
+            'registered_franchise',
+            'current_serving_franchise',
+            'service_status',
+            'active_stock_cycle',
+        ]
+
+    def get_name(self, obj):
+        return (
+            obj.get_full_name()
+            or obj.username
+        )
+
+    def get_status(self, obj):
+        if hasattr(obj, 'franchise_profile'):
+            return obj.franchise_profile.status
+        return 'approved'
+
+    def get_rejection_reason(self, obj):
+        if hasattr(obj, 'franchise_profile'):
+            return obj.franchise_profile.rejection_reason
+        return ''
+
+    def get_business_name(self, obj):
+        if hasattr(obj, 'franchise_profile'):
+            return obj.franchise_profile.business_name
+        return ''
+
     def get_city(self, obj):
         if hasattr(obj, 'franchise_profile'):
             return obj.franchise_profile.city
-        return ''
+        prof = getattr(obj, 'profile', None)
+        return prof.city if prof else ''
 
     def get_territory(self, obj):
         if hasattr(obj, 'franchise_profile'):
@@ -498,3 +737,241 @@ class CurrentUserSerializer(
         if hasattr(obj, 'franchise_profile') and obj.franchise_profile.approved_at:
             return obj.franchise_profile.approved_at.isoformat()
         return None
+
+    def get_district(self, obj):
+        rel = getattr(obj, 'customer_relationship', None)
+        if rel and rel.district:
+            return rel.district.name
+        prof = getattr(obj, 'profile', None)
+        return prof.district if prof else ''
+
+    def get_pincode(self, obj):
+        rel = getattr(obj, 'customer_relationship', None)
+        if rel and rel.pincode:
+            return rel.pincode
+        prof = getattr(obj, 'profile', None)
+        return prof.pincode if prof else ''
+
+    def get_locality(self, obj):
+        rel = getattr(obj, 'customer_relationship', None)
+        if rel and rel.locality:
+            return rel.locality
+        prof = getattr(obj, 'profile', None)
+        return prof.locality if prof else ''
+
+    def get_zone_id(self, obj):
+        rel = getattr(obj, 'customer_relationship', None)
+        if rel and rel.zone:
+            return rel.zone.id
+        prof = getattr(obj, 'profile', None)
+        return prof.zone.id if prof and prof.zone else None
+
+    def get_zone_name(self, obj):
+        rel = getattr(obj, 'customer_relationship', None)
+        if rel and rel.zone:
+            return rel.zone.name
+        prof = getattr(obj, 'profile', None)
+        return prof.zone.name if prof and prof.zone else ''
+
+    def get_registered_franchise(self, obj):
+        rel = getattr(obj, 'customer_relationship', None)
+        if rel and rel.registered_franchise:
+            rf = rel.registered_franchise
+            return {
+                'id': rf.id,
+                'business_name': rf.business_name,
+                'city': rf.city,
+                'phone': rf.user.profile.phone if hasattr(rf.user, 'profile') else '',
+            }
+        return None
+
+    def get_current_serving_franchise(self, obj):
+        rel = getattr(obj, 'customer_relationship', None)
+        if rel and rel.current_serving_franchise:
+            sf = rel.current_serving_franchise
+            return {
+                'id': sf.id,
+                'business_name': sf.business_name,
+                'city': sf.city,
+                'phone': sf.user.profile.phone if hasattr(sf.user, 'profile') else '',
+            }
+        return None
+
+    def get_service_status(self, obj):
+        rel = getattr(obj, 'customer_relationship', None)
+        return rel.service_status if rel else 'active'
+
+    def get_active_stock_cycle(self, obj):
+        from datetime import date
+        from .models import CustomerStockCycle
+        cycle = CustomerStockCycle.objects.filter(customer=obj, service_status__in=['active', 'hold']).first()
+        if not cycle:
+            return None
+
+        today = date.today()
+        if cycle.service_status == 'hold':
+            remaining = cycle.remaining_days_at_hold if cycle.remaining_days_at_hold is not None else max((cycle.expected_end_date - today).days, 0)
+        else:
+            remaining = max((cycle.expected_end_date - today).days, 0)
+
+        return {
+            'id': cycle.id,
+            'duration_choice': cycle.duration_choice,
+            'duration_days': cycle.duration_days,
+            'start_date': cycle.start_date.isoformat(),
+            'expected_end_date': cycle.expected_end_date.isoformat(),
+            'service_status': cycle.service_status,
+            'remaining_days': remaining,
+            'is_low_stock': (remaining <= 7 and cycle.service_status == 'active'),
+            'serving_franchise_id': cycle.serving_franchise.id,
+            'serving_franchise_name': cycle.serving_franchise.business_name,
+        }
+
+
+# =====================================================================
+# TERRITORY & LIFECYCLE SERIALIZERS
+# =====================================================================
+
+from .models import (
+    ServiceDistrict,
+    ServiceZone,
+    ServiceArea,
+    CustomerBulkOrder,
+    CustomerStockCycle,
+    ServiceHoldHistory,
+    FranchiseNotification,
+)
+
+class ServiceAreaSerializer(serializers.ModelSerializer):
+    zone_name = serializers.CharField(source='zone.name', read_only=True)
+    district_name = serializers.CharField(source='district.name', read_only=True)
+
+    class Meta:
+        model = ServiceArea
+        fields = ['id', 'district', 'district_name', 'zone', 'zone_name', 'pincode', 'locality_name', 'is_active']
+
+
+class ServiceZoneSerializer(serializers.ModelSerializer):
+    district_name = serializers.CharField(source='district.name', read_only=True)
+    areas = ServiceAreaSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ServiceZone
+        fields = ['id', 'district', 'district_name', 'name', 'code', 'is_active', 'areas']
+
+
+class ServiceDistrictSerializer(serializers.ModelSerializer):
+    zones = ServiceZoneSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ServiceDistrict
+        fields = ['id', 'name', 'state', 'is_active', 'zones']
+
+
+class CustomerBulkOrderSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.get_full_name', read_only=True)
+    customer_phone = serializers.CharField(source='customer.profile.phone', read_only=True)
+    customer_email = serializers.CharField(source='customer.email', read_only=True)
+    serving_franchise_name = serializers.CharField(source='serving_franchise.business_name', read_only=True)
+
+    class Meta:
+        model = CustomerBulkOrder
+        fields = [
+            'id',
+            'customer',
+            'customer_name',
+            'customer_phone',
+            'customer_email',
+            'product',
+            'product_name',
+            'variant_size',
+            'quantity',
+            'duration_choice',
+            'required_date',
+            'delivery_address',
+            'district',
+            'zone_name',
+            'serving_franchise',
+            'serving_franchise_name',
+            'status',
+            'additional_notes',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'customer', 'created_at', 'updated_at']
+
+
+class CustomerStockCycleSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.get_full_name', read_only=True)
+    customer_phone = serializers.CharField(source='customer.profile.phone', read_only=True)
+    serving_franchise_name = serializers.CharField(source='serving_franchise.business_name', read_only=True)
+    remaining_days = serializers.SerializerMethodField()
+    is_low_stock = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomerStockCycle
+        fields = [
+            'id',
+            'customer',
+            'customer_name',
+            'customer_phone',
+            'order',
+            'serving_franchise',
+            'serving_franchise_name',
+            'start_date',
+            'duration_choice',
+            'duration_days',
+            'expected_end_date',
+            'service_status',
+            'remaining_days',
+            'is_low_stock',
+            'hold_reason',
+            'hold_timestamp',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_remaining_days(self, obj):
+        from datetime import date
+        today = date.today()
+        if obj.service_status == 'hold':
+            return obj.remaining_days_at_hold if obj.remaining_days_at_hold is not None else max((obj.expected_end_date - today).days, 0)
+        return max((obj.expected_end_date - today).days, 0)
+
+    def get_is_low_stock(self, obj):
+        rem = self.get_remaining_days(obj)
+        return (rem <= 7 and obj.service_status == 'active')
+
+
+class ServiceHoldHistorySerializer(serializers.ModelSerializer):
+    actor_name = serializers.CharField(source='actor.get_full_name', read_only=True)
+
+    class Meta:
+        model = ServiceHoldHistory
+        fields = [
+            'id',
+            'stock_cycle',
+            'customer',
+            'action',
+            'actor',
+            'actor_name',
+            'actor_role',
+            'remaining_days',
+            'notes',
+            'created_at',
+        ]
+
+
+class FranchiseNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FranchiseNotification
+        fields = [
+            'id',
+            'franchise',
+            'title',
+            'message',
+            'notification_type',
+            'reference_id',
+            'is_read',
+            'created_at',
+        ]

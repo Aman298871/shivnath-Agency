@@ -9,6 +9,7 @@ import 'leads/admin_leads_screen.dart';
 import 'followups/admin_followups_screen.dart';
 import 'franchises/admin_franchises_screen.dart';
 import 'inventory/admin_inventory_screen.dart';
+import 'inventory/admin_stock_management_screen.dart';
 import 'products/admin_products_screen.dart';
 import 'suppliers/admin_suppliers_screen.dart';
 import 'orders/admin_orders_screen.dart';
@@ -106,6 +107,10 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       title: 'Settings',
       icon: Icons.settings_outlined,
     ),
+    _AdminMenuItem(
+      title: 'Customer Stocks',
+      icon: Icons.water_drop_outlined,
+    ),
   ];
 
   // =========================================================
@@ -177,6 +182,9 @@ Widget _currentScreen() {
       return const AdminSettingsScreen();
 
     case 17:
+      return const AdminStockManagementScreen();
+
+    case 18:
       return const AdminProfileScreen();
 
     default:
@@ -297,9 +305,15 @@ Widget _currentScreen() {
       'permission': 16,
       'permissions': 16,
 
+      // Customer Stocks
+      'stock': 17,
+      'stocks': 17,
+      'customer stock': 17,
+      'customer stocks': 17,
+
       // Profile
-      'profile': 17,
-      'admin': 17,
+      'profile': 18,
+      'admin': 18,
     };
 
     for (final entry in searchMap.entries) {
@@ -1041,7 +1055,7 @@ Widget _currentScreen() {
   void _handleProfileMenu(String value) {
     if (value == 'profile') {
       setState(() {
-        currentIndex = 17;
+        currentIndex = 18;
       });
     } else if (value == 'settings') {
       setState(() {
@@ -1110,6 +1124,9 @@ Widget _currentScreen() {
       return 'Settings';
 
     case 17:
+      return 'Customer Stocks';
+
+    case 18:
       return 'Profile';
 
     default:

@@ -164,7 +164,9 @@ class _AdminInventoryScreenState
                       CrossAxisAlignment.start,
                   children: [
                     _header(desktop),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 14),
+                    _customerStockBanner(),
+                    const SizedBox(height: 16),
                     _stats(desktop),
                     const SizedBox(height: 20),
                     _toolbar(desktop),
@@ -223,19 +225,6 @@ class _AdminInventoryScreenState
             ],
           ),
         ),
-        if (!desktop)
-          IconButton(
-            tooltip: 'Customer Stock Monitoring',
-            icon: const Icon(Icons.water_drop_outlined, color: Color(0xFF0284C7)),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AdminStockManagementScreen(),
-                ),
-              );
-            },
-          ),
         if (desktop)
           Row(
             children: [
@@ -337,6 +326,67 @@ class _AdminInventoryScreenState
             ],
           ),
       ],
+    );
+  }
+
+  Widget _customerStockBanner() {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const AdminStockManagementScreen(),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0284C7).withOpacity(0.25),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.water_drop_rounded, color: Colors.white, size: 24),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Customer Stock Cycles & Alerts',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'Monitor customer countdowns, 7-day low-stock alerts & hold audit log',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+          ],
+        ),
+      ),
     );
   }
 
@@ -483,6 +533,38 @@ class _AdminInventoryScreenState
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(
+                  height: 10,
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminStockManagementScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.water_drop_rounded, size: 18),
+                    label: const Text(
+                      'Customer Stocks',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),

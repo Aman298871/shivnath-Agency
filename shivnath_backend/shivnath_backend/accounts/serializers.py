@@ -257,7 +257,7 @@ class CustomerRegisterSerializer(serializers.Serializer):
         profile.save()
 
         # Create authoritative CustomerFranchiseRelationship
-        CustomerFranchiseRelationship.objects.create(
+        rel = CustomerFranchiseRelationship.objects.create(
             customer=user,
             registered_franchise=assigned_franchise,
             current_serving_franchise=assigned_franchise,
@@ -289,35 +289,10 @@ class CustomerRegisterSerializer(serializers.Serializer):
         except Exception:
             pass
 
-        # Dual Notifications
+        # Dual Notifications on Customer Registration
         try:
-            # 1. To the Registered / Assigned Franchise
-            FranchiseNotification.objects.create(
-                franchise=assigned_franchise,
-                title='New Customer Added to Your Franchise',
-                message=(
-                    f"New customer added to your franchise.\n\n"
-                    f"Customer: {name}\n"
-                    f"Mobile: {phone}\n"
-                    f"District: {district}\n"
-                    f"Zone: {resolved_zone.name}\n"
-                    f"PIN: {pincode}\n"
-                    f"Registered: Today"
-                ),
-                notification_type='new_customer',
-                reference_id=user.id,
-            )
-
-            # 2. To Admin
-            AdminNotification.objects.create(
-                title='New Customer Registered',
-                message=(
-                    f"New customer {name} ({phone}) registered under {assigned_franchise.business_name} "
-                    f"({district} - {resolved_zone.name}, PIN: {pincode})."
-                ),
-                notification_type='customer_registration',
-                reference_id=user.id,
-            )
+            from accounts.services import send_customer_registration_notifications
+            send_customer_registration_notifications(user, rel)
         except Exception:
             pass
 

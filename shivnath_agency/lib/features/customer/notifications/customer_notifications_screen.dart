@@ -1,69 +1,177 @@
 import 'package:flutter/material.dart';
+import '../../../core/services/stock_service.dart';
 
-class CustomerNotificationsScreen extends StatelessWidget {
+class CustomerNotificationsScreen extends StatefulWidget {
   const CustomerNotificationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final notifications = <(IconData, String, String, String)>[];
+  State<CustomerNotificationsScreen> createState() => _CustomerNotificationsScreenState();
+}
 
+class _CustomerNotificationsScreenState extends State<CustomerNotificationsScreen> {
+  final StockService _stockService = StockService();
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _notifications = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchNotifications();
+  }
+
+  Future<void> _fetchNotifications() async {
+    setState(() => _isLoading = true);
+    final res = await _stockService.getCustomerNotifications();
+    if (!mounted) return;
+
+    if (res['success'] == true && res['data'] is Map<String, dynamic>) {
+      final list = res['data']['notifications'] as List? ?? [];
+      setState(() {
+        _notifications = List<Map<String, dynamic>>.from(list);
+        _isLoading = false;
+      });
+    } else {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _markAsRead(int? id) async {
+    await _stockService.markCustomerNotificationsAsRead(id: id);
+    _fetchNotifications();
+  }
+
+  IconData _getIcon(String? type) {
+    switch (type) {
+      case 'low_stock':
+        return Icons.warning_amber_rounded;
+      case 'order':
+        return Icons.shopping_bag_rounded;
+      case 'service_status':
+        return Icons.pause_circle_outline_rounded;
+      default:
+        return Icons.notifications_rounded;
+    }
+  }
+
+  Color _getIconColor(String? type) {
+    switch (type) {
+      case 'low_stock':
+        return const Color(0xFFD97706);
+      case 'order':
+        return const Color(0xFF0284C7);
+      case 'service_status':
+        return const Color(0xFF9333EA);
+      default:
+        return const Color(0xFF64748B);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
           'Notifications',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _fetchNotifications,
+          ),
+        ],
       ),
-      body: notifications.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.notifications_none_rounded, size: 64, color: Colors.grey.shade400),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'No new notifications',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _notifications.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.notifications_none_rounded, size: 64, color: Colors.grey.shade400),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No notifications',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Updates on your stock, daily deliveries, and orders will appear here.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Updates on your orders and promotions will appear here.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                  ),
-                ],
-              ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(18),
-              itemCount: notifications.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final item = notifications[index];
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _notifications.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final item = _notifications[index];
+                    final isRead = item['is_read'] == true;
+                    final notifType = item['notification_type']?.toString();
+                    final title = item['title']?.toString() ?? 'Notification';
+                    final message = item['message']?.toString() ?? '';
+                    final createdAt = item['created_at']?.toString() ?? '';
+                    final iconColor = _getIconColor(notifType);
 
-                return Card(
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(14),
-                    leading: CircleAvatar(
-                      backgroundColor: const Color(0xFFE0F2FE),
-                      child: Icon(
-                        item.$1,
-                        color: const Color(0xFF0284C7),
+                    return Card(
+                      elevation: isRead ? 0 : 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: isRead ? const Color(0xFFE2E8F0) : iconColor.withOpacity(0.4),
+                          width: isRead ? 1 : 1.5,
+                        ),
                       ),
-                    ),
-                    title: Text(
-                      item.$2,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
+                      color: isRead ? Colors.white : const Color(0xFFFFFBEB),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(14),
+                        leading: CircleAvatar(
+                          backgroundColor: iconColor.withOpacity(0.12),
+                          child: Icon(
+                            _getIcon(notifType),
+                            color: iconColor,
+                          ),
+                        ),
+                        title: Text(
+                          title,
+                          style: TextStyle(
+                            fontWeight: isRead ? FontWeight.w600 : FontWeight.w800,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                message,
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                              ),
+                              if (createdAt.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  createdAt,
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        trailing: !isRead
+                            ? IconButton(
+                                icon: const Icon(Icons.check_circle_outline, size: 20, color: Color(0xFF16A34A)),
+                                tooltip: 'Mark as read',
+                                onPressed: () => _markAsRead(item['id']),
+                              )
+                            : null,
                       ),
-                    ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 5),
-                      child: Text('${item.$3}\n${item.$4}'),
-                    ),
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
     );
   }
 }

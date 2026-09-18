@@ -376,6 +376,7 @@ class CustomerStockCycle(models.Model):
     SERVICE_STATUS_CHOICES = [
         ('active', 'Active'),
         ('hold', 'On Hold'),
+        ('expired', 'Expired'),
         ('completed', 'Completed'),
     ]
 
@@ -386,19 +387,57 @@ class CustomerStockCycle(models.Model):
     )
     order = models.ForeignKey(
         'orders.Order',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='stock_cycles',
+        help_text="Permanent authoritative link to the exact order that originated this stock cycle."
+    )
+    product = models.ForeignKey(
+        'products.Product',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='stock_cycles'
     )
+    product_name = models.CharField(max_length=200, blank=True, default='')
+    variant_size = models.CharField(max_length=100, blank=True, default='')
+    quantity = models.PositiveIntegerField(default=1)
     serving_franchise = models.ForeignKey(
         FranchiseProfile,
         on_delete=models.PROTECT,
         related_name='fulfilled_stock_cycles',
         help_text="The exact franchise fulfilling this cycle. Permanent ownership."
     )
+    registered_franchise = models.ForeignKey(
+        FranchiseProfile,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='registered_customer_stock_cycles',
+        help_text="The franchise under which the customer was originally registered."
+    )
+    district = models.ForeignKey(
+        'ServiceDistrict',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    zone = models.ForeignKey(
+        'ServiceZone',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    service_area = models.ForeignKey(
+        'ServiceArea',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    pincode = models.CharField(max_length=10, blank=True, default='')
     start_date = models.DateField()
-    duration_choice = models.CharField(max_length=30, default='1 Month')
+    duration_choice = models.CharField(max_length=50, default='1 Month')
     duration_days = models.PositiveIntegerField(default=30)
     expected_end_date = models.DateField()
     service_status = models.CharField(
@@ -416,15 +455,45 @@ class CustomerStockCycle(models.Model):
         related_name='+'
     )
     hold_reason = models.TextField(blank=True, default='')
-    low_stock_alert_sent = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
 
+    @property
+    def days_remaining(self):
+        from django.utils import timezone
+        if self.service_status == 'hold' and self.remaining_days_at_hold is not None:
+            return self.remaining_days_at_hold
+        today = timezone.now().date()
+        diff = (self.expected_end_date - today).days
+        return max(0, diff) if self.service_status != 'expired' else 0
+
+    @property
+    def computed_status(self):
+        from django.utils import timezone
+        if self.service_status == 'hold':
+            return 'On Hold'
+        if self.service_status in ['expired', 'completed']:
+            return 'Expired'
+        today = timezone.now().date()
+        if (self.expected_end_date - today).days <= 0:
+            return 'Expired'
+        return 'Active'
+
+    @property
+    def is_low_stock(self):
+        from django.utils import timezone
+        if self.service_status != 'active':
+            return False
+        today = timezone.now().date()
+        days = (self.expected_end_date - today).days
+        return 1 <= days <= 7
+
     def __str__(self):
-        return f"StockCycle for {self.customer.email}: {self.duration_choice} until {self.expected_end_date} ({self.service_status})"
+        return f"StockCycle #{self.id} for {self.customer.email}: {self.product_name or 'Stock'} ({self.duration_choice}) until {self.expected_end_date}"
+
 
 
 class ServiceHoldHistory(models.Model):
@@ -543,4 +612,79 @@ class FranchiseNotification(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"[{self.franchise.business_name}] {self.title} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"
+        return f"[{self.franchise.business_name}] {self.title} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"
+
+
+class StockAlertLog(models.Model):
+    RECIPIENT_CHOICES = [
+        ('customer', 'Customer'),
+        ('franchise', 'Serving Franchise'),
+        ('admin', 'Admin'),
+    ]
+
+    stock_cycle = models.ForeignKey(
+        CustomerStockCycle,
+        on_delete=models.CASCADE,
+        related_name='alert_logs'
+    )
+    alert_date = models.DateField(db_index=True)
+    recipient_type = models.CharField(max_length=20, choices=RECIPIENT_CHOICES)
+    recipient_id = models.PositiveIntegerField()
+    notification_type = models.CharField(max_length=40, default='low_stock')
+    days_remaining = models.IntegerField(default=7)
+    status = models.CharField(max_length=20, default='sent')  # 'sent', 'failed'
+    error_message = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['stock_cycle', 'alert_date', 'recipient_type', 'recipient_id'],
+                condition=models.Q(status='sent'),
+                name='unique_successful_stock_alert_per_recipient_per_day'
+            )
+        ]
+
+    def __str__(self):
+        return f"Alert for Stock #{self.stock_cycle_id} to {self.recipient_type} #{self.recipient_id} on {self.alert_date} ({self.status})"
+
+
+class CustomerNotification(models.Model):
+    NOTIFICATION_TYPES = [
+        ('low_stock', 'Low Stock Alert'),
+        ('order_update', 'Order Update'),
+        ('service_status', 'Service Status Changed'),
+        ('general', 'General'),
+    ]
+
+    customer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='customer_notifications'
+    )
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    notification_type = models.CharField(
+        max_length=40,
+        choices=NOTIFICATION_TYPES,
+        default='general'
+    )
+    stock_cycle = models.ForeignKey(
+        CustomerStockCycle,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='customer_notifications'
+    )
+    reference_id = models.PositiveIntegerField(null=True, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.customer.email}] {self.title} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"
+
+

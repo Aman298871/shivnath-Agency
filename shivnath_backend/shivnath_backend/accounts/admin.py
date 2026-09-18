@@ -4,6 +4,18 @@ from django.utils import timezone
 from .models import (
     UserProfile,
     FranchiseProfile,
+    ServiceDistrict,
+    ServiceZone,
+    ServiceArea,
+    FranchiseTerritoryAssignment,
+    CustomerFranchiseRelationship,
+    CustomerStockCycle,
+    ServiceHoldHistory,
+    CustomerBulkOrder,
+    FranchiseNotification,
+    StockAlertLog,
+    CustomerNotification,
+    AdminNotification,
 )
 
 
@@ -97,3 +109,204 @@ class FranchiseProfileAdmin(admin.ModelAdmin):
             status='rejected',
             approved_at=None,
         )
+
+
+@admin.register(ServiceDistrict)
+class ServiceDistrictAdmin(admin.ModelAdmin):
+    list_display = ('name', 'state', 'is_active', 'created_at')
+    list_filter = ('state', 'is_active')
+    search_fields = ('name', 'state')
+
+
+@admin.register(ServiceZone)
+class ServiceZoneAdmin(admin.ModelAdmin):
+    list_display = ('name', 'code', 'district', 'is_active', 'created_at')
+    list_filter = ('district', 'is_active')
+    search_fields = ('name', 'code', 'district__name')
+
+
+@admin.register(ServiceArea)
+class ServiceAreaAdmin(admin.ModelAdmin):
+    list_display = ('pincode', 'locality_name', 'zone', 'district', 'is_active', 'created_at')
+    list_filter = ('district', 'zone', 'is_active')
+    search_fields = ('pincode', 'locality_name', 'zone__name', 'district__name')
+
+
+@admin.register(FranchiseTerritoryAssignment)
+class FranchiseTerritoryAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('franchise', 'zone', 'is_primary', 'is_active', 'assigned_at')
+    list_filter = ('is_primary', 'is_active', 'zone__district', 'zone')
+    search_fields = ('franchise__business_name', 'zone__name', 'zone__district__name')
+
+
+@admin.register(CustomerFranchiseRelationship)
+class CustomerFranchiseRelationshipAdmin(admin.ModelAdmin):
+    list_display = (
+        'customer',
+        'registered_franchise',
+        'current_serving_franchise',
+        'district',
+        'zone',
+        'pincode',
+        'service_status',
+        'updated_at',
+    )
+    list_filter = ('service_status', 'district', 'zone')
+    search_fields = (
+        'customer__email',
+        'customer__first_name',
+        'customer__last_name',
+        'registered_franchise__business_name',
+        'current_serving_franchise__business_name',
+        'pincode',
+        'locality',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+
+
+class ServiceHoldHistoryInline(admin.TabularInline):
+    model = ServiceHoldHistory
+    extra = 0
+    readonly_fields = ('action', 'actor', 'actor_role', 'remaining_days', 'notes', 'created_at')
+    can_delete = False
+
+
+@admin.register(CustomerStockCycle)
+class CustomerStockCycleAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'customer',
+        'order',
+        'product_name',
+        'quantity',
+        'serving_franchise',
+        'duration_choice',
+        'start_date',
+        'expected_end_date',
+        'get_days_remaining',
+        'get_status',
+    )
+    list_filter = ('service_status', 'duration_choice', 'serving_franchise', 'district', 'zone')
+    search_fields = (
+        'customer__email',
+        'customer__first_name',
+        'serving_franchise__business_name',
+        'registered_franchise__business_name',
+        'order__id',
+        'product_name',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+    inlines = [ServiceHoldHistoryInline]
+
+    @admin.display(description='Days Left')
+    def get_days_remaining(self, obj):
+        return obj.days_remaining
+
+    @admin.display(description='Status')
+    def get_status(self, obj):
+        return obj.computed_status
+
+
+@admin.register(ServiceHoldHistory)
+class ServiceHoldHistoryAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'customer',
+        'stock_cycle',
+        'action',
+        'actor',
+        'actor_role',
+        'remaining_days',
+        'created_at',
+    )
+    list_filter = ('action', 'actor_role', 'created_at')
+    search_fields = ('customer__email', 'actor__email', 'notes')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(CustomerBulkOrder)
+class CustomerBulkOrderAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'customer',
+        'product_name',
+        'quantity',
+        'duration_choice',
+        'serving_franchise',
+        'district',
+        'zone_name',
+        'required_date',
+        'status',
+        'created_at',
+    )
+    list_filter = ('status', 'duration_choice', 'district', 'serving_franchise')
+    search_fields = (
+        'customer__email',
+        'product_name',
+        'serving_franchise__business_name',
+        'district',
+        'zone_name',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(FranchiseNotification)
+class FranchiseNotificationAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'franchise',
+        'title',
+        'notification_type',
+        'is_read',
+        'created_at',
+    )
+    list_filter = ('notification_type', 'is_read', 'franchise')
+    search_fields = ('franchise__business_name', 'title', 'message')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(StockAlertLog)
+class StockAlertLogAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'stock_cycle',
+        'alert_date',
+        'recipient_type',
+        'recipient_id',
+        'days_remaining',
+        'status',
+        'created_at',
+    )
+    list_filter = ('recipient_type', 'status', 'alert_date')
+    search_fields = ('stock_cycle__id', 'stock_cycle__customer__email', 'error_message')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(CustomerNotification)
+class CustomerNotificationAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'customer',
+        'title',
+        'notification_type',
+        'is_read',
+        'created_at',
+    )
+    list_filter = ('notification_type', 'is_read')
+    search_fields = ('customer__email', 'title', 'message')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(AdminNotification)
+class AdminNotificationAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'title',
+        'notification_type',
+        'is_read',
+        'created_at',
+    )
+    list_filter = ('notification_type', 'is_read')
+    search_fields = ('title', 'message')
+    readonly_fields = ('created_at',)
+

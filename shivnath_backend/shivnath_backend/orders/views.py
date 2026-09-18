@@ -190,15 +190,14 @@ class OrderListCreateView(APIView):
             if 'payment' in order_data and not order_data.get('payment_status'):
                 order_data['payment_status'] = 'pending' if str(order_data.get('payment')).lower() == 'pending' else 'paid'
 
-            # Dynamic Stock Duration Calculation
-            from datetime import date, timedelta
+            # Dynamic Stock Duration Calculation with Exact Calendar Months & Custom Days
+            from datetime import date
+            from accounts.services import calculate_stock_end_date, send_order_placed_notifications
             today = date.today()
             duration_choice = str(request.data.get('duration_choice', '1 Month')).strip() or '1 Month'
-            try:
-                duration_days = int(request.data.get('duration_days') or (60 if '2' in duration_choice else (90 if '3' in duration_choice else 30)))
-            except (ValueError, TypeError):
-                duration_days = 30
-            expected_end_date = today + timedelta(days=duration_days)
+            custom_days = request.data.get('custom_days') or request.data.get('duration_days')
+            expected_end_date = calculate_stock_end_date(today, duration_choice, custom_days=custom_days)
+            duration_days = (expected_end_date - today).days
 
             serializer = OrderSerializer(data=order_data)
             if not serializer.is_valid():
@@ -234,57 +233,47 @@ class OrderListCreateView(APIView):
                     total_price=float(price) * qty,
                 )
 
-            # Start/Renew Active Stock Cycle with permanent serving franchise association
+            # Start/Renew Active Stock Cycle with permanent serving franchise association and snapshots
+            stock_cycle = None
             if creator and serving_franchise:
                 from accounts.models import CustomerStockCycle
-                # Mark previous active cycles as completed
+                # Mark previous active cycles as completed (preserves complete history)
                 CustomerStockCycle.objects.filter(customer=creator, service_status='active').update(service_status='completed')
-                CustomerStockCycle.objects.create(
+
+                first_item = order.items.first()
+                p_obj = first_item.product if first_item else None
+                p_name = first_item.product_name if first_item else (order_data.get('product_name') or 'Water Stock')
+                v_size = first_item.size if first_item else ''
+                qty = first_item.quantity if first_item else order.items_count
+
+                rel = getattr(creator, 'customer_relationship', None)
+                stock_cycle = CustomerStockCycle.objects.create(
                     customer=creator,
                     order=order,
+                    product=p_obj,
+                    product_name=p_name,
+                    variant_size=v_size,
+                    quantity=qty,
                     serving_franchise=serving_franchise,
+                    registered_franchise=registered_franchise,
+                    district=rel.district if rel else None,
+                    zone=rel.zone if rel else None,
+                    service_area=rel.service_area if rel else None,
+                    pincode=rel.pincode if rel else '',
                     start_date=today,
                     duration_choice=duration_choice,
                     duration_days=duration_days,
                     expected_end_date=expected_end_date,
                     service_status='active',
                 )
-                if hasattr(creator, 'customer_relationship'):
-                    creator.customer_relationship.current_serving_franchise = serving_franchise
-                    creator.customer_relationship.service_status = 'active'
-                    creator.customer_relationship.save(update_fields=['current_serving_franchise', 'service_status'])
+                if rel:
+                    rel.current_serving_franchise = serving_franchise
+                    rel.service_status = 'active'
+                    rel.save(update_fields=['current_serving_franchise', 'service_status'])
 
-            # Targeted Notifications
+            # Targeted Notifications to Actual Serving Franchise and Admin
             try:
-                from accounts.models import FranchiseNotification, AdminNotification
-                cust_name = (creator.get_full_name() or creator.username) if creator else 'Valued Customer'
-                
-                # 1. Notify Serving Franchise for this order
-                if serving_franchise:
-                    FranchiseNotification.objects.create(
-                        franchise=serving_franchise,
-                        title=f'New Order Placed: #{order.order_code}',
-                        message=(
-                            f"New order received for your franchise!\n\n"
-                            f"Customer: {cust_name}\n"
-                            f"Order ID: #{order.order_code}\n"
-                            f"Items: {order.items_count}\n"
-                            f"Amount: ₹{order.amount}\n"
-                            f"Duration: {duration_choice} ({duration_days} days)\n"
-                            f"District: {order.city}\n"
-                            f"Zone: {zone.name if zone else 'N/A'}"
-                        ),
-                        notification_type='order_placed',
-                        reference_id=order.id,
-                    )
-
-                # 2. Notify Admin
-                AdminNotification.objects.create(
-                    title='New Order Placed',
-                    message=f'Customer {cust_name} placed Order #{order.order_code} for ₹{order.amount} with {serving_franchise.business_name if serving_franchise else order.franchise_name} (Duration: {duration_choice}).',
-                    notification_type='order_placed',
-                    reference_id=order.id,
-                )
+                send_order_placed_notifications(order, stock_cycle)
             except Exception:
                 pass
 

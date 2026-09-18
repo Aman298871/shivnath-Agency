@@ -24,6 +24,7 @@ from accounts.models import (
     CustomerBulkOrder,
     FranchiseNotification,
     AdminNotification,
+    StockAlertLog,
 )
 from accounts.views import (
     CustomerRegisterView,
@@ -174,9 +175,11 @@ def run_all_tests():
 
     # Verify duration and expected end date
     today = date.today()
-    expected_end = today + timedelta(days=60)
+    from accounts.services import calculate_stock_end_date
+    expected_end = calculate_stock_end_date(today, '2 Months')
+    expected_days = (expected_end - today).days
     assert placed_order.duration_choice == '2 Months'
-    assert placed_order.duration_days == 60
+    assert placed_order.duration_days == expected_days
     assert placed_order.expected_end_date == expected_end
     assert placed_order.serving_franchise == pureflow_east
     assert placed_order.registered_franchise.business_name == "Shivnath Water Raipur East"
@@ -204,13 +207,13 @@ def run_all_tests():
     assert res_hold.status_code == 200, f"Expected 200, got {res_hold.status_code}"
     cycle.refresh_from_db()
     assert cycle.service_status == 'hold'
-    assert cycle.remaining_days_at_hold == 60
+    assert cycle.remaining_days_at_hold == expected_days
     print(f"  [PASS] Service placed on HOLD: {cycle.remaining_days_at_hold} days preserved safely.")
 
     # Verify Hold log
     hold_log = ServiceHoldHistory.objects.filter(stock_cycle=cycle, action='hold').latest('created_at')
     assert hold_log.actor == rahul_user
-    assert hold_log.remaining_days == 60
+    assert hold_log.remaining_days == expected_days
     print("  [PASS] ServiceHoldHistory logged hold action and remaining days.")
 
     # 2. RESUME Cycle 1
@@ -220,7 +223,7 @@ def run_all_tests():
     assert res_resume.status_code == 200
     cycle.refresh_from_db()
     assert cycle.service_status == 'active'
-    assert cycle.expected_end_date == today + timedelta(days=60)
+    assert cycle.expected_end_date == today + timedelta(days=expected_days)
     print(f"  [PASS] Service RESUMED: new expected end date recalculated to {cycle.expected_end_date}.")
 
     # 3. HOLD Cycle 2 (simulate remaining days decrementing)
@@ -250,13 +253,11 @@ def run_all_tests():
     print("\n--- Scenario 5: 7-Day Low-Stock Alert Engine ---")
     # Simulate cycle reaching 5 days remaining
     cycle.expected_end_date = today + timedelta(days=5)
-    cycle.low_stock_alert_sent = False
-    cycle.save(update_fields=['expected_end_date', 'low_stock_alert_sent'])
+    cycle.save(update_fields=['expected_end_date', 'updated_at'])
 
     alerts = check_and_dispatch_stock_alerts()
     assert len(alerts) >= 1
-    cycle.refresh_from_db()
-    assert cycle.low_stock_alert_sent is True
+    assert StockAlertLog.objects.filter(stock_cycle=cycle, alert_date=today, status='sent').exists()
 
     # Check that Serving Franchise received alert
     alert_notif = FranchiseNotification.objects.filter(franchise=cycle.serving_franchise, notification_type='stock_alert', reference_id=cycle.id).first()

@@ -21,6 +21,10 @@ from .views import (
     FranchiseCustomerListView,
     FranchiseNotificationListView,
     SupportContactView,
+    CustomerStockListView,
+    FranchiseCustomerStockListView,
+    AdminStockManagementListView,
+    CustomerNotificationListView,
 )
 
 
@@ -79,6 +83,28 @@ urlpatterns = [
         'support-contact/',
         SupportContactView.as_view(),
         name='support-contact'
+    ),
+
+    # Role-Based Stock Management & Notifications
+    path(
+        'customer/stock/',
+        CustomerStockListView.as_view(),
+        name='customer-stock'
+    ),
+    path(
+        'customer/notifications/',
+        CustomerNotificationListView.as_view(),
+        name='customer-notifications'
+    ),
+    path(
+        'franchise/customer-stocks/',
+        FranchiseCustomerStockListView.as_view(),
+        name='franchise-customer-stocks'
+    ),
+    path(
+        'admin/stocks/',
+        AdminStockManagementListView.as_view(),
+        name='admin-stocks'
     ),
 
     # Authentication

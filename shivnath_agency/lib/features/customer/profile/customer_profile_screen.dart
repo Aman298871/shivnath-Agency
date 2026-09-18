@@ -7,6 +7,7 @@ import '../../../core/services/whatsapp_service.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
 import '../notifications/customer_notifications_screen.dart';
+import '../stock/customer_stock_screen.dart';
 import '../wallet/customer_wallet_screen.dart';
 
 class CustomerProfileScreen extends StatefulWidget {
@@ -578,6 +579,32 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               ),
             ),
           ],
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CustomerStockScreen()),
+              );
+            },
+            child: const Padding(
+              padding: EdgeInsets.only(top: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'View Stock Cycles & History',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0284C7),
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF0284C7)),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -739,6 +766,17 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                             },
                           ),
                           _ProfileTile(
+                            icon: Icons.water_drop_outlined,
+                            title: 'My Water Stock',
+                            subtitle: 'Active stock cycles, countdown & refills',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const CustomerStockScreen()),
+                              );
+                            },
+                          ),
+                          _ProfileTile(
                             icon: Icons.notifications_none,
                             title: 'Notifications',
                             subtitle: 'View order and delivery updates',
@@ -850,6 +888,17 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CustomerWalletScreen()),
+            );
+          },
+        ),
+        _ProfileTile(
+          icon: Icons.water_drop_outlined,
+          title: 'My Water Stock',
+          subtitle: 'Active stock cycles, countdown & refills',
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CustomerStockScreen()),
             );
           },
         ),

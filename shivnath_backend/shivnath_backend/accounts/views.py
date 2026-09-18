@@ -1629,8 +1629,7 @@ class CustomerServiceStatusView(APIView):
             cycle.expected_end_date = new_expected_end_date
             cycle.service_status = 'active'
             cycle.remaining_days_at_hold = None
-            cycle.low_stock_alert_sent = False
-            cycle.save(update_fields=['expected_end_date', 'service_status', 'remaining_days_at_hold', 'low_stock_alert_sent'])
+            cycle.save(update_fields=['expected_end_date', 'service_status', 'remaining_days_at_hold', 'updated_at'])
 
             rel.service_status = 'active'
             rel.save(update_fields=['service_status'])
@@ -1878,4 +1877,375 @@ class SupportContactView(APIView):
             'email': central_email,
             'message_template': "Namaste Shivnath Support,\nI would like to inquire about your pure drinking water products and delivery service."
         })
+
+
+# =====================================================================
+# STOCK MANAGEMENT VIEWS (CUSTOMER, FRANCHISE, ADMIN)
+# =====================================================================
+
+class CustomerStockListView(APIView):
+    """
+    Customer-facing stock management API:
+    Returns customer's active and historical stock cycles.
+    Includes low-stock alerts, days remaining countdown, and serving franchise contact info.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        from .models import CustomerStockCycle
+        from django.utils import timezone
+        today = timezone.now().date()
+
+        cycles = CustomerStockCycle.objects.filter(
+            customer=user
+        ).select_related(
+            'order', 'product', 'serving_franchise', 'serving_franchise__user',
+            'serving_franchise__user__profile', 'registered_franchise', 'district',
+            'zone', 'service_area'
+        ).order_by('-created_at')
+
+        active_stocks = []
+        history_stocks = []
+
+        for cycle in cycles:
+            sf = cycle.serving_franchise
+            rf = cycle.registered_franchise
+            order = cycle.order
+
+            sf_phone = sf.user.profile.phone if sf and hasattr(sf.user, 'profile') else ''
+            sf_data = {
+                'id': sf.id if sf else None,
+                'business_name': sf.business_name if sf else 'Shivnath Agency',
+                'owner_name': sf.user.get_full_name() if sf else 'Manager',
+                'phone': sf_phone,
+                'city': sf.city if sf else '',
+                'address': sf.address if sf else '',
+            } if sf else None
+
+            rf_data = {
+                'id': rf.id if rf else None,
+                'business_name': rf.business_name if rf else 'Shivnath Agency',
+                'city': rf.city if rf else '',
+            } if rf else None
+
+            days_rem = cycle.days_remaining
+            comp_status = cycle.computed_status
+            is_low = cycle.is_low_stock
+
+            item_data = {
+                'id': cycle.id,
+                'order_id': order.id if order else None,
+                'order_code': order.order_code if order else f"ORD-{cycle.id}",
+                'order_date': order.order_date.isoformat() if order else cycle.start_date.isoformat(),
+                'product_name': cycle.product_name or (order.items.first().product_name if order and order.items.exists() else 'Pure Mineral Water'),
+                'variant_size': cycle.variant_size or (order.items.first().size if order and order.items.exists() else 'Standard'),
+                'quantity': cycle.quantity,
+                'duration_choice': cycle.duration_choice,
+                'duration_days': cycle.duration_days,
+                'start_date': cycle.start_date.isoformat(),
+                'expected_end_date': cycle.expected_end_date.isoformat(),
+                'days_remaining': days_rem,
+                'service_status': cycle.service_status,
+                'computed_status': comp_status,
+                'is_low_stock': is_low,
+                'low_stock_warning': is_low,
+                'low_stock_message': f"Your stock will finish in {days_rem} day{'s' if days_rem != 1 else ''}." if is_low else None,
+                'serving_franchise': sf_data,
+                'registered_franchise': rf_data,
+                'district': cycle.district.name if cycle.district else '',
+                'zone': cycle.zone.name if cycle.zone else '',
+                'service_area': cycle.service_area.locality_name if cycle.service_area else '',
+                'pincode': cycle.pincode,
+                'created_at': cycle.created_at.strftime('%Y-%m-%d %H:%M'),
+            }
+
+            if comp_status == 'Active' or comp_status == 'On Hold':
+                active_stocks.append(item_data)
+            else:
+                history_stocks.append(item_data)
+
+        return Response({
+            'success': True,
+            'active_count': len(active_stocks),
+            'history_count': len(history_stocks),
+            'active_stocks': active_stocks,
+            'history_stocks': history_stocks,
+        }, status=status.HTTP_200_OK)
+
+
+class FranchiseCustomerStockListView(APIView):
+    """
+    Franchise-facing customer stock management:
+    Shows all stock cycles where the authenticated franchise is the serving franchise.
+    Supports filtering by low-stock (<= 7 days), on-hold, expired, and search.
+    Provides customer phone and direct follow-up details.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsApprovedFranchise]
+
+    def get(self, request):
+        franchise = getattr(request.user, 'franchise_profile', None)
+        if not franchise:
+            return Response({'success': False, 'message': 'Franchise profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        from .models import CustomerStockCycle
+        from django.utils import timezone
+        today = timezone.now().date()
+
+        # Strict isolation: Serving franchise ownership
+        query = CustomerStockCycle.objects.filter(
+            serving_franchise=franchise
+        ).select_related(
+            'customer', 'customer__profile', 'order', 'product',
+            'registered_franchise', 'district', 'zone', 'service_area'
+        ).order_by('-created_at')
+
+        filter_type = request.query_params.get('filter', 'all').strip().lower()
+        search = request.query_params.get('search', '').strip().lower()
+
+        if search:
+            query = query.filter(
+                Q(customer__first_name__icontains=search)
+                | Q(customer__email__icontains=search)
+                | Q(customer__profile__phone__icontains=search)
+                | Q(product_name__icontains=search)
+                | Q(pincode__icontains=search)
+            )
+
+        stocks_data = []
+        low_stock_count = 0
+        on_hold_count = 0
+
+        for cycle in query:
+            days_rem = cycle.days_remaining
+            comp_status = cycle.computed_status
+            is_low = cycle.is_low_stock
+
+            if is_low:
+                low_stock_count += 1
+            if cycle.service_status == 'hold':
+                on_hold_count += 1
+
+            if filter_type == 'low_stock' and not is_low:
+                continue
+            if filter_type == 'on_hold' and cycle.service_status != 'hold':
+                continue
+            if filter_type == 'expired' and comp_status != 'Expired':
+                continue
+            if filter_type == 'active' and comp_status != 'Active':
+                continue
+
+            cust = cycle.customer
+            prof = getattr(cust, 'profile', None)
+            order = cycle.order
+
+            stocks_data.append({
+                'id': cycle.id,
+                'customer_id': cust.id,
+                'customer_name': cust.get_full_name() or (prof.name if prof else cust.username),
+                'customer_phone': prof.phone if prof else '',
+                'customer_email': cust.email,
+                'customer_address': prof.address if prof else '',
+                'order_id': order.id if order else None,
+                'order_code': order.order_code if order else f"ORD-{cycle.id}",
+                'order_date': order.order_date.isoformat() if order else cycle.start_date.isoformat(),
+                'product_name': cycle.product_name or 'Pure Mineral Water',
+                'variant_size': cycle.variant_size or 'Standard',
+                'quantity': cycle.quantity,
+                'duration_choice': cycle.duration_choice,
+                'duration_days': cycle.duration_days,
+                'start_date': cycle.start_date.isoformat(),
+                'expected_end_date': cycle.expected_end_date.isoformat(),
+                'days_remaining': days_rem,
+                'service_status': cycle.service_status,
+                'computed_status': comp_status,
+                'is_low_stock': is_low,
+                'district': cycle.district.name if cycle.district else '',
+                'zone': cycle.zone.name if cycle.zone else '',
+                'service_area': cycle.service_area.locality_name if cycle.service_area else '',
+                'pincode': cycle.pincode,
+                'registered_franchise_name': cycle.registered_franchise.business_name if cycle.registered_franchise else 'Shivnath Agency',
+                'serving_franchise_name': franchise.business_name,
+                'created_at': cycle.created_at.strftime('%Y-%m-%d %H:%M'),
+            })
+
+        return Response({
+            'success': True,
+            'count': len(stocks_data),
+            'low_stock_count': low_stock_count,
+            'on_hold_count': on_hold_count,
+            'stocks': stocks_data,
+        }, status=status.HTTP_200_OK)
+
+
+class AdminStockManagementListView(APIView):
+    """
+    Central administrative stock management API:
+    View all active, low-stock, held, expired stock cycles across all territories.
+    Audit hold/resume history.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        from .models import CustomerStockCycle, ServiceHoldHistory
+        from django.utils import timezone
+        today = timezone.now().date()
+
+        filter_type = request.query_params.get('filter', 'all').strip().lower()
+        search = request.query_params.get('search', '').strip().lower()
+
+        query = CustomerStockCycle.objects.all().select_related(
+            'customer', 'customer__profile', 'order', 'product',
+            'serving_franchise', 'registered_franchise', 'district',
+            'zone', 'service_area'
+        ).order_by('-created_at')
+
+        if search:
+            query = query.filter(
+                Q(customer__first_name__icontains=search)
+                | Q(customer__email__icontains=search)
+                | Q(customer__profile__phone__icontains=search)
+                | Q(serving_franchise__business_name__icontains=search)
+                | Q(zone__name__icontains=search)
+                | Q(product_name__icontains=search)
+            )
+
+        stocks_data = []
+        metrics = {
+            'total_all': CustomerStockCycle.objects.count(),
+            'total_active': 0,
+            'total_low_stock': 0,
+            'total_on_hold': 0,
+            'total_expired': 0,
+        }
+
+        # Calculate metrics accurately
+        for c in CustomerStockCycle.objects.all():
+            if c.service_status == 'hold':
+                metrics['total_on_hold'] += 1
+            elif c.computed_status == 'Expired':
+                metrics['total_expired'] += 1
+            elif c.computed_status == 'Active':
+                metrics['total_active'] += 1
+                if c.is_low_stock:
+                    metrics['total_low_stock'] += 1
+
+        for cycle in query:
+            days_rem = cycle.days_remaining
+            comp_status = cycle.computed_status
+            is_low = cycle.is_low_stock
+
+            if filter_type == 'low_stock' and not is_low:
+                continue
+            if filter_type == 'expiring_7_days' and not is_low:
+                continue
+            if filter_type == 'held' and cycle.service_status != 'hold':
+                continue
+            if filter_type == 'expired' and comp_status != 'Expired':
+                continue
+            if filter_type == 'active' and comp_status != 'Active':
+                continue
+
+            cust = cycle.customer
+            prof = getattr(cust, 'profile', None)
+            order = cycle.order
+            sf = cycle.serving_franchise
+            rf = cycle.registered_franchise
+
+            # Hold logs
+            hold_logs = [
+                {
+                    'action': h.action,
+                    'actor_name': h.actor.get_full_name() or h.actor.username if h.actor else 'System',
+                    'actor_role': h.actor_role,
+                    'remaining_days': h.remaining_days,
+                    'notes': h.notes,
+                    'timestamp': h.created_at.strftime('%Y-%m-%d %H:%M'),
+                }
+                for h in cycle.hold_logs.all()[:5]
+            ]
+
+            stocks_data.append({
+                'id': cycle.id,
+                'customer_id': cust.id,
+                'customer_name': cust.get_full_name() or (prof.name if prof else cust.username),
+                'customer_phone': prof.phone if prof else '',
+                'customer_email': cust.email,
+                'order_id': order.id if order else None,
+                'order_code': order.order_code if order else f"ORD-{cycle.id}",
+                'order_date': order.order_date.isoformat() if order else cycle.start_date.isoformat(),
+                'product_name': cycle.product_name or 'Pure Mineral Water',
+                'variant_size': cycle.variant_size or 'Standard',
+                'quantity': cycle.quantity,
+                'duration_choice': cycle.duration_choice,
+                'duration_days': cycle.duration_days,
+                'start_date': cycle.start_date.isoformat(),
+                'expected_end_date': cycle.expected_end_date.isoformat(),
+                'days_remaining': days_rem,
+                'service_status': cycle.service_status,
+                'computed_status': comp_status,
+                'is_low_stock': is_low,
+                'serving_franchise_id': sf.id if sf else None,
+                'serving_franchise_name': sf.business_name if sf else 'Shivnath Agency',
+                'registered_franchise_id': rf.id if rf else None,
+                'registered_franchise_name': rf.business_name if rf else 'Shivnath Agency',
+                'district': cycle.district.name if cycle.district else '',
+                'zone': cycle.zone.name if cycle.zone else '',
+                'service_area': cycle.service_area.locality_name if cycle.service_area else '',
+                'pincode': cycle.pincode,
+                'hold_history': hold_logs,
+                'created_at': cycle.created_at.strftime('%Y-%m-%d %H:%M'),
+            })
+
+        return Response({
+            'success': True,
+            'count': len(stocks_data),
+            'metrics': metrics,
+            'stocks': stocks_data,
+        }, status=status.HTTP_200_OK)
+
+
+class CustomerNotificationListView(APIView):
+    """
+    Customer in-app notification inbox.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import CustomerNotification
+        notifs = CustomerNotification.objects.filter(customer=request.user)[:50]
+        unread = CustomerNotification.objects.filter(customer=request.user, is_read=False).count()
+
+        data = [
+            {
+                'id': n.id,
+                'title': n.title,
+                'message': n.message,
+                'notification_type': n.notification_type,
+                'reference_id': n.reference_id,
+                'is_read': n.is_read,
+                'created_at': n.created_at.strftime('%Y-%m-%d %H:%M'),
+            }
+            for n in notifs
+        ]
+
+        return Response({
+            'success': True,
+            'unread_count': unread,
+            'notifications': data,
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        from .models import CustomerNotification
+        notif_id = request.data.get('id')
+        if notif_id:
+            CustomerNotification.objects.filter(customer=request.user, id=notif_id).update(is_read=True)
+        else:
+            CustomerNotification.objects.filter(customer=request.user, is_read=False).update(is_read=True)
+        return Response({'success': True, 'message': 'Notifications marked as read.'})
+
 

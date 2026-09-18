@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/auth_service.dart';
+import 'franchise_customer_stocks_screen.dart';
 
 class FranchiseCustomersScreen extends StatefulWidget {
   const FranchiseCustomersScreen({super.key});
@@ -344,6 +345,16 @@ class _FranchiseCustomersScreenState extends State<FranchiseCustomersScreen> {
         title: const Text('My Customers', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.water_drop_outlined),
+            tooltip: 'Customer Stock Cycles',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FranchiseCustomerStocksScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchCustomers,
           ),
@@ -351,6 +362,36 @@ class _FranchiseCustomersScreenState extends State<FranchiseCustomersScreen> {
       ),
       body: Column(
         children: [
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FranchiseCustomerStocksScreen()),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0F2FE),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBAE6FD)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.water_drop_rounded, color: Color(0xFF0284C7), size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Track customer supply countdowns & low stock alerts',
+                      style: TextStyle(color: Color(0xFF0369A1), fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF0284C7), size: 12),
+                ],
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/services/InventoryService.dart';
+import 'admin_stock_management_screen.dart';
 
 class AdminInventoryScreen extends StatefulWidget {
   const AdminInventoryScreen({super.key});
@@ -222,9 +223,49 @@ class _AdminInventoryScreenState
             ],
           ),
         ),
+        if (!desktop)
+          IconButton(
+            tooltip: 'Customer Stock Monitoring',
+            icon: const Icon(Icons.water_drop_outlined, color: Color(0xFF0284C7)),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AdminStockManagementScreen(),
+                ),
+              );
+            },
+          ),
         if (desktop)
           Row(
             children: [
+              SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminStockManagementScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.water_drop_outlined,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'Customer Stocks',
+                    maxLines: 1,
+                    softWrap: false,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
               SizedBox(
                 width: 145,
                 height: 44,

@@ -1,64 +1,326 @@
+import calendar
 from datetime import date, timedelta
-from .models import CustomerStockCycle, FranchiseNotification, AdminNotification
+from django.utils import timezone
+from .models import (
+    CustomerStockCycle,
+    FranchiseNotification,
+    AdminNotification,
+    CustomerNotification,
+    StockAlertLog,
+)
 
 
-def check_and_dispatch_stock_alerts():
+def add_calendar_months(sourcedate, months):
     """
-    Checks all active customer stock cycles and triggers targeted 7-day low-stock alerts:
-    - To the actual Serving Franchise for that order/cycle
-    - To Admin
-    - Flags cycle.low_stock_alert_sent = True
+    Safely adds exact calendar months to a given date,
+    handling variable month lengths (28, 29, 30, 31) and leap years accurately.
+    Example: 18 Sep + 1 month = 18 Oct; 31 Jan + 1 month = 28 Feb (or 29 Feb).
     """
-    today = date.today()
-    threshold_date = today + timedelta(days=7)
-    cycles = CustomerStockCycle.objects.filter(
-        service_status='active',
-        expected_end_date__lte=threshold_date,
-        low_stock_alert_sent=False
-    ).select_related('customer', 'customer__profile', 'serving_franchise')
+    month = sourcedate.month - 1 + months
+    year = sourcedate.year + month // 12
+    month = month % 12 + 1
+    day = min(sourcedate.day, calendar.monthrange(year, month)[1])
+    return sourcedate.replace(year=year, month=month, day=day)
 
-    dispatched = []
-    for cycle in cycles:
-        rem = max((cycle.expected_end_date - today).days, 0)
-        cust = cycle.customer
-        cust_name = cust.get_full_name() or cust.username
 
-        # 1. Franchise Notification
-        if cycle.serving_franchise:
-            FranchiseNotification.objects.create(
-                franchise=cycle.serving_franchise,
-                title=f"Low Stock Alert: {cust_name} ({rem} days left)",
-                message=(
-                    f"Customer {cust_name} ({cust.profile.phone if hasattr(cust, 'profile') else ''}) "
-                    f"has only {rem} days remaining on their {cycle.duration_choice} water stock cycle "
-                    f"(Ends: {cycle.expected_end_date.strftime('%d %b %Y')}). Please arrange refill or delivery."
-                ),
-                notification_type='stock_alert',
-                reference_id=cycle.id,
-            )
+def calculate_stock_end_date(start_date, duration_choice, custom_days=None):
+    """
+    Authoritative duration calculator:
+    - 1 Month -> 1 calendar month
+    - 2 Months -> 2 calendar months
+    - 3 Months -> 3 calendar months
+    - Custom -> exact configured number of days
+    """
+    choice = str(duration_choice or '').strip().lower()
+    if '3' in choice and 'month' in choice:
+        return add_calendar_months(start_date, 3)
+    elif '2' in choice and 'month' in choice:
+        return add_calendar_months(start_date, 2)
+    elif '1' in choice and 'month' in choice:
+        return add_calendar_months(start_date, 1)
+    elif custom_days and int(custom_days) > 0:
+        return start_date + timedelta(days=int(custom_days))
+    elif 'custom' in choice and custom_days:
+        return start_date + timedelta(days=int(custom_days))
+    else:
+        # Default to 1 calendar month
+        return add_calendar_months(start_date, 1)
 
-        # 2. Admin Notification
-        AdminNotification.objects.create(
-            title=f"Low Stock Alert: {cust_name}",
+
+def trigger_daily_low_stock_alerts(target_date=None):
+    """
+    Daily background / scheduled job:
+    1. Finds all active stock cycles.
+    2. Ignores HOLD cycles.
+    3. Calculates actual remaining days from expected_end_date.
+    4. If days_remaining <= 0 -> Transitions to 'expired' state (no 7-day alert).
+    5. If 1 <= days_remaining <= 7:
+       Sends de-duplicated low-stock notifications to exactly 3 targets:
+       a) Customer (CustomerNotification)
+       b) Serving Franchise (FranchiseNotification)
+       c) Admin (AdminNotification)
+       Tracks each recipient in StockAlertLog with DB-level uniqueness constraint.
+       Supports partial retry safely without duplicate dispatches.
+    6. If days_remaining > 7 -> Does not send alerts.
+    """
+    today = target_date or timezone.now().date()
+
+    active_cycles = CustomerStockCycle.objects.filter(
+        service_status='active'
+    ).select_related('customer', 'customer__profile', 'serving_franchise', 'zone')
+
+    dispatched_summary = []
+
+    for cycle in active_cycles:
+        days_remaining = (cycle.expected_end_date - today).days
+
+        # Rule 5: days_remaining <= 0 -> Expired
+        if days_remaining <= 0:
+            cycle.service_status = 'expired'
+            cycle.save(update_fields=['service_status', 'updated_at'])
+            continue
+
+        # Rule 4 & 5: Only trigger when 1 <= days_remaining <= 7
+        if 1 <= days_remaining <= 7:
+            cust = cycle.customer
+            cust_name = cust.get_full_name() or cust.username
+            cust_phone = getattr(getattr(cust, 'profile', None), 'phone', '')
+            serving_f = cycle.serving_franchise
+            zone_name = cycle.zone.name if cycle.zone else 'General Zone'
+            p_name = cycle.product_name or 'Water Stock'
+            any_dispatched = False
+
+            # 1. Target 1: Customer
+            if not StockAlertLog.objects.filter(
+                stock_cycle=cycle,
+                alert_date=today,
+                recipient_type='customer',
+                recipient_id=cust.id,
+                status='sent'
+            ).exists():
+                try:
+                    CustomerNotification.objects.create(
+                        customer=cust,
+                        title="⚠️ Low Stock Alert",
+                        message=(
+                            f"Your stock is going to finish in {days_remaining} day{'s' if days_remaining != 1 else ''}. "
+                            f"Please refill your stock by placing a new order or contact your serving franchise for assistance."
+                        ),
+                        notification_type='low_stock',
+                        stock_cycle=cycle,
+                        reference_id=cycle.id,
+                    )
+                    StockAlertLog.objects.create(
+                        stock_cycle=cycle,
+                        alert_date=today,
+                        recipient_type='customer',
+                        recipient_id=cust.id,
+                        days_remaining=days_remaining,
+                        status='sent'
+                    )
+                    any_dispatched = True
+                except Exception as e:
+                    StockAlertLog.objects.create(
+                        stock_cycle=cycle,
+                        alert_date=today,
+                        recipient_type='customer',
+                        recipient_id=cust.id,
+                        days_remaining=days_remaining,
+                        status='failed',
+                        error_message=str(e)
+                    )
+
+            # 2. Target 2: Actual Serving Franchise
+            if serving_f and not StockAlertLog.objects.filter(
+                stock_cycle=cycle,
+                alert_date=today,
+                recipient_type='franchise',
+                recipient_id=serving_f.id,
+                status='sent'
+            ).exists():
+                try:
+                    FranchiseNotification.objects.create(
+                        franchise=serving_f,
+                        title=f"Low Stock Alert: {cust_name} ({days_remaining}d left)",
+                        message=(
+                            f"Customer {cust_name}'s stock is going to finish in {days_remaining} day{'s' if days_remaining != 1 else ''}. "
+                            f"Please contact the customer for refill/order follow-up."
+                        ),
+                        notification_type='stock_alert',
+                        reference_id=cycle.id,
+                    )
+                    StockAlertLog.objects.create(
+                        stock_cycle=cycle,
+                        alert_date=today,
+                        recipient_type='franchise',
+                        recipient_id=serving_f.id,
+                        days_remaining=days_remaining,
+                        status='sent'
+                    )
+                    any_dispatched = True
+                except Exception as e:
+                    StockAlertLog.objects.create(
+                        stock_cycle=cycle,
+                        alert_date=today,
+                        recipient_type='franchise',
+                        recipient_id=serving_f.id,
+                        days_remaining=days_remaining,
+                        status='failed',
+                        error_message=str(e)
+                    )
+
+            # 3. Target 3: Admin
+            if not StockAlertLog.objects.filter(
+                stock_cycle=cycle,
+                alert_date=today,
+                recipient_type='admin',
+                recipient_id=0,
+                status='sent'
+            ).exists():
+                try:
+                    AdminNotification.objects.create(
+                        title=f"Low Stock Alert: {cust_name}",
+                        message=(
+                            f"Customer {cust_name} ({cust_phone}) has stock ending in {days_remaining} day{'s' if days_remaining != 1 else ''} "
+                            f"through {serving_f.business_name if serving_f else 'Serving Franchise'} in Zone {zone_name}."
+                        ),
+                        notification_type='stock_alert',
+                        reference_id=cycle.id,
+                    )
+                    StockAlertLog.objects.create(
+                        stock_cycle=cycle,
+                        alert_date=today,
+                        recipient_type='admin',
+                        recipient_id=0,
+                        days_remaining=days_remaining,
+                        status='sent'
+                    )
+                    any_dispatched = True
+                except Exception as e:
+                    StockAlertLog.objects.create(
+                        stock_cycle=cycle,
+                        alert_date=today,
+                        recipient_type='admin',
+                        recipient_id=0,
+                        days_remaining=days_remaining,
+                        status='failed',
+                        error_message=str(e)
+                    )
+
+            if any_dispatched:
+                dispatched_summary.append({
+                    'cycle_id': cycle.id,
+                    'customer': cust_name,
+                    'days_remaining': days_remaining,
+                    'serving_franchise': serving_f.business_name if serving_f else 'N/A'
+                })
+
+    return dispatched_summary
+
+
+# Backward compatibility alias
+check_and_dispatch_stock_alerts = trigger_daily_low_stock_alerts
+
+
+
+def send_customer_registration_notifications(customer_user, rel):
+    """
+    Sends registration notifications to:
+    1. Assigned/Registered Franchise
+    2. Admin
+    """
+    cust_name = customer_user.get_full_name() or customer_user.username
+    phone = getattr(getattr(customer_user, 'profile', None), 'phone', '')
+    email = customer_user.email
+    district_name = rel.district.name if rel.district else 'N/A'
+    zone_name = rel.zone.name if rel.zone else 'N/A'
+    pin = rel.pincode or 'N/A'
+    registered_f = rel.registered_franchise
+
+    # 1. Franchise Notification
+    if registered_f:
+        FranchiseNotification.objects.create(
+            franchise=registered_f,
+            title="New Customer Registered",
             message=(
-                f"Customer {cust_name} served by {cycle.serving_franchise.business_name if cycle.serving_franchise else 'Shivnath Agency'} "
-                f"has {rem} days remaining on their stock cycle."
+                f"New customer registered in your franchise/service area.\n"
+                f"Name: {cust_name}\n"
+                f"Mobile: {phone}\n"
+                f"Email: {email}\n"
+                f"District: {district_name}\n"
+                f"Zone: {zone_name}\n"
+                f"Service Area/PIN: {pin}\n"
+                f"Registered/Assigned Franchise: {registered_f.business_name}"
             ),
-            notification_type='stock_alert',
-            reference_id=cycle.id,
+            notification_type='new_customer',
+            reference_id=customer_user.id,
         )
 
-        cycle.low_stock_alert_sent = True
-        cycle.save(update_fields=['low_stock_alert_sent'])
+    # 2. Admin Notification
+    AdminNotification.objects.create(
+        title="New Customer Registered",
+        message=(
+            f"New customer registered.\n"
+            f"Name: {cust_name}\n"
+            f"Mobile: {phone}\n"
+            f"Email: {email}\n"
+            f"District: {district_name}\n"
+            f"Zone: {zone_name}\n"
+            f"Service Area/PIN: {pin}\n"
+            f"Registered/Assigned Franchise: {registered_f.business_name if registered_f else 'N/A'}"
+        ),
+        notification_type='customer_registration',
+        reference_id=customer_user.id,
+    )
 
-        dispatched.append({
-            'cycle_id': cycle.id,
-            'customer': cust_name,
-            'remaining_days': rem,
-            'serving_franchise': cycle.serving_franchise.business_name if cycle.serving_franchise else 'N/A'
-        })
 
-    return dispatched
+def send_order_placed_notifications(order, stock_cycle=None):
+    """
+    Sends order notifications to:
+    1. Actual Serving/Ordering Franchise
+    2. Admin
+    """
+    cust = order.created_by
+    cust_name = cust.get_full_name() if cust else order.franchise_name
+    cust_phone = getattr(getattr(cust, 'profile', None), 'phone', '') if cust else ''
+    serving_f = order.serving_franchise
+    zone_name = order.zone.name if order.zone else (stock_cycle.zone.name if stock_cycle and stock_cycle.zone else 'N/A')
+    p_name = stock_cycle.product_name if stock_cycle else 'Water Stock'
+    v_size = stock_cycle.variant_size if stock_cycle else ''
+    qty = stock_cycle.quantity if stock_cycle else order.items_count
+    duration = order.duration_choice
+    reg_f_name = order.registered_franchise.business_name if order.registered_franchise else 'N/A'
+    serving_f_name = serving_f.business_name if serving_f else 'N/A'
+
+    body = (
+        f"New order received from {cust_name}.\n"
+        f"Order: #{order.order_code}\n"
+        f"Product: {p_name} ({v_size})\n"
+        f"Quantity: {qty}\n"
+        f"Stock Duration: {duration}\n"
+        f"Zone: {zone_name}\n"
+        f"Serving Franchise: {serving_f_name}\n"
+        f"Registered Franchise: {reg_f_name}"
+    )
+
+    # 1. Serving Franchise Notification
+    if serving_f:
+        FranchiseNotification.objects.create(
+            franchise=serving_f,
+            title=f"New Order #{order.order_code}",
+            message=body,
+            notification_type='order_placed',
+            reference_id=order.id,
+        )
+
+    # 2. Admin Notification
+    AdminNotification.objects.create(
+        title=f"New Order #{order.order_code} Placed",
+        message=body,
+        notification_type='order_placed',
+        reference_id=order.id,
+    )
+
 
 
 def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True):

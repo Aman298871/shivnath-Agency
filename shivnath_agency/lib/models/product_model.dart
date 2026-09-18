@@ -9,10 +9,15 @@ class ProductModel {
   final int stock;
   final String description;
 
+  final int? categoryRefId;
+  final String? categoryHierarchy;
+
   const ProductModel({
     required this.id,
     required this.name,
     required this.category,
+    this.categoryRefId,
+    this.categoryHierarchy,
     required this.size,
     required this.price,
     required this.unit,
@@ -26,6 +31,10 @@ class ProductModel {
       id: json["id"]?.toString() ?? "",
       name: json["name"]?.toString() ?? "",
       category: json["category"]?.toString() ?? "Water",
+      categoryRefId: json["category_ref_id"] is int
+          ? json["category_ref_id"]
+          : int.tryParse(json["category_ref_id"]?.toString() ?? ""),
+      categoryHierarchy: json["category_hierarchy"]?.toString(),
       size: json["size"]?.toString() ?? "",
       price: double.tryParse(json["price"]?.toString() ?? "0") ?? 0.0,
       unit: json["unit"]?.toString() ?? json["size"]?.toString() ?? "Bottle",

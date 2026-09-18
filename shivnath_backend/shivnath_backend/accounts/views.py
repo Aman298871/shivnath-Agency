@@ -1056,59 +1056,68 @@ class FranchiseRegisterView(APIView):
     authentication_classes = []
 
     def post(self, request):
+        with transaction.atomic():
+            serializer = FranchiseRegisterSerializer(
+                data=request.data
+            )
 
-        serializer = FranchiseRegisterSerializer(
-            data=request.data
-        )
+            if serializer.is_valid():
+                user = serializer.save()
 
-        if serializer.is_valid():
+                phone = ''
+                if hasattr(user, 'profile'):
+                    phone = user.profile.phone
 
-            user = serializer.save()
-            refresh = RefreshToken.for_user(user)
+                business_name = ''
+                city = ''
+                territory = ''
+                if hasattr(user, 'franchise_profile'):
+                    business_name = user.franchise_profile.business_name
+                    city = user.franchise_profile.city
+                    territory = user.franchise_profile.territory
 
-            phone = ''
-            if hasattr(user, 'profile'):
-                phone = user.profile.phone
+                return Response(
+                    {
+                        'success': True,
+                        'status': 'Pending Admin Approval',
+                        'message':
+                            'Franchise account created successfully! Please wait for administrator approval before logging in.',
+                        'user': {
+                            'id': user.id,
+                            'name': user.get_full_name() or user.username,
+                            'email': user.email,
+                            'phone': phone,
+                            'role': 'franchise',
+                            'status': 'pending',
+                            'rejection_reason': '',
+                            'business_name': business_name,
+                            'city': city,
+                            'territory': territory,
+                        }
+                    },
+                    status=status.HTTP_201_CREATED
+                )
 
-            business_name = ''
-            city = ''
-            territory = ''
-            if hasattr(user, 'franchise_profile'):
-                business_name = user.franchise_profile.business_name
-                city = user.franchise_profile.city
-                territory = user.franchise_profile.territory
+            first_err = ""
+            if serializer.errors:
+                if isinstance(serializer.errors, dict):
+                    for k, v in serializer.errors.items():
+                        if isinstance(v, list) and len(v) > 0:
+                            first_err = str(v[0])
+                            break
+                        first_err = str(v)
+                        break
+                else:
+                    first_err = str(serializer.errors)
 
             return Response(
                 {
-                    'success': True,
-                    'message':
-                        'Franchise application submitted successfully. Please wait for admin approval.',
-                    'access': str(refresh.access_token),
-                    'refresh': str(refresh),
-                    'user': {
-                        'id': user.id,
-                        'name':
-                            user.get_full_name(),
-                        'email': user.email,
-                        'phone': phone,
-                        'role': 'franchise',
-                        'status': 'pending',
-                        'rejection_reason': '',
-                        'business_name': business_name,
-                        'city': city,
-                        'territory': territory,
-                    }
+                    'success': False,
+                    'message': first_err or 'Registration failed. Please check the provided information.',
+                    'errors': serializer.errors,
                 },
-                status=status.HTTP_201_CREATED
+                status=status.HTTP_400_BAD_REQUEST
             )
-
-        return Response(
-            {
-                'success': False,
-                'errors': serializer.errors,
-            },
-            status=status.HTTP_400_BAD_REQUEST
-        )
 
 
 class LoginView(APIView):
@@ -1424,12 +1433,36 @@ class ZoneResolutionView(APIView):
 class TerritoryMasterView(APIView):
     """
     Returns hierarchical master territory data: Districts, Zones, and Service Areas.
+    Supports ?district=<name> to return active territories (zones) for a specific district.
     """
     permission_classes = [AllowAny]
     authentication_classes = []
 
     def get(self, request):
-        from .models import ServiceDistrict
+        from .models import ServiceDistrict, ServiceZone
+        district_name = request.query_params.get('district', '').strip()
+
+        if district_name:
+            zones = ServiceZone.objects.filter(
+                district__name__iexact=district_name,
+                is_active=True
+            ).order_by('name')
+            territories = [
+                {
+                    'id': z.id,
+                    'name': z.name,
+                    'code': z.code,
+                    'district_name': z.district.name,
+                }
+                for z in zones
+            ]
+            return Response({
+                'success': True,
+                'district': district_name,
+                'count': len(territories),
+                'territories': territories,
+            }, status=status.HTTP_200_OK)
+
         from .serializers import ServiceDistrictSerializer
         districts = ServiceDistrict.objects.filter(is_active=True).prefetch_related('zones__areas')
         serializer = ServiceDistrictSerializer(districts, many=True)
@@ -1826,6 +1859,29 @@ class FranchiseNotificationListView(APIView):
 # DYNAMIC CONTEXTUAL SUPPORT CONTACT VIEW
 # =====================================================================
 
+def _get_support_contact(role_key):
+    from django.conf import settings
+    from .models import SupportContact
+    try:
+        contact = SupportContact.objects.get(role=role_key)
+        return {
+            'name': contact.name,
+            'phone': contact.phone,
+            'email': contact.email,
+            'message_template': contact.message_template,
+        }
+    except SupportContact.DoesNotExist:
+        fallback_phone = getattr(settings, 'SUPPORT_FALLBACK_PHONE', None)
+        if fallback_phone:
+            return {
+                'name': 'Shivnath Support Desk',
+                'phone': fallback_phone,
+                'email': getattr(settings, 'SUPPORT_FALLBACK_EMAIL', 'support@shivnath.com'),
+                'message_template': '',
+            }
+        return None
+
+
 class SupportContactView(APIView):
     """
     Dynamic support contact resolution from backend configuration:
@@ -1838,26 +1894,29 @@ class SupportContactView(APIView):
     def get(self, request):
         user = request.user if request.user and request.user.is_authenticated else None
         role = getattr(getattr(user, 'profile', None), 'role', 'public') if user else 'public'
-
-        from .models import FranchiseProfile
-
-        central_phone = "9806247194"
-        central_email = "support@shivnath.com"
+        inquiry_type = request.query_params.get('inquiry_type', '').strip().lower()
 
         if role == 'franchise':
+            contact = _get_support_contact('franchise') or _get_support_contact('admin')
+            if not contact:
+                return Response({
+                    'success': False,
+                    'error': 'support_not_configured',
+                    'message': 'Support contact not configured. Please contact the system administrator.'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             return Response({
                 'success': True,
                 'target': 'admin',
-                'name': 'Shivnath Agency Admin Desk',
-                'phone': central_phone,
-                'email': central_email,
-                'message_template': f"Namaste Admin Support,\nI am reaching out regarding franchise account {user.get_full_name() or user.username}."
+                'name': contact['name'],
+                'phone': contact['phone'],
+                'email': contact['email'],
+                'message_template': contact['message_template'] or f"Namaste Admin Support,\nI am reaching out regarding franchise account {user.get_full_name() or user.username}."
             })
         elif role == 'customer':
             rel = getattr(user, 'customer_relationship', None)
             target_f = (rel.current_serving_franchise if rel and rel.current_serving_franchise else (rel.registered_franchise if rel else None))
-            if target_f:
-                f_phone = target_f.user.profile.phone if hasattr(target_f.user, 'profile') and target_f.user.profile.phone else central_phone
+            f_phone = target_f.user.profile.phone if target_f and hasattr(target_f.user, 'profile') and target_f.user.profile.phone else None
+            if target_f and f_phone:
                 return Response({
                     'success': True,
                     'target': 'franchise',
@@ -1868,14 +1927,40 @@ class SupportContactView(APIView):
                     'email': target_f.user.email,
                     'message_template': f"Namaste {target_f.business_name},\nI am customer {user.get_full_name() or user.username} (Phone: {user.profile.phone if hasattr(user, 'profile') else ''}). I need assistance with my drinking water supply."
                 })
+            else:
+                contact = _get_support_contact('customer') or _get_support_contact('public_customer') or _get_support_contact('admin')
+                if not contact:
+                    return Response({
+                        'success': False,
+                        'error': 'support_not_configured',
+                        'message': 'Support contact not configured. Please contact the system administrator.'
+                    }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                return Response({
+                    'success': True,
+                    'target': 'central',
+                    'name': contact['name'],
+                    'phone': contact['phone'],
+                    'email': contact['email'],
+                    'message_template': contact['message_template'] or f"Namaste Shivnath Support,\nI am customer {user.get_full_name() or user.username}. I need assistance with my drinking water supply."
+                })
+
+        # Public / Anonymous
+        role_key = 'public_franchise' if inquiry_type == 'franchise' else 'public_customer'
+        contact = _get_support_contact(role_key) or _get_support_contact('admin')
+        if not contact:
+            return Response({
+                'success': False,
+                'error': 'support_not_configured',
+                'message': 'Support contact not configured. Please contact the system administrator.'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         return Response({
             'success': True,
             'target': 'central',
-            'name': 'Shivnath Agency Central Helpline',
-            'phone': central_phone,
-            'email': central_email,
-            'message_template': "Namaste Shivnath Support,\nI would like to inquire about your pure drinking water products and delivery service."
+            'name': contact['name'],
+            'phone': contact['phone'],
+            'email': contact['email'],
+            'message_template': contact['message_template'] or "Namaste Shivnath Support,\nI would like to inquire about your pure drinking water products and delivery service."
         })
 
 
@@ -2247,5 +2332,244 @@ class CustomerNotificationListView(APIView):
         else:
             CustomerNotification.objects.filter(customer=request.user, is_read=False).update(is_read=True)
         return Response({'success': True, 'message': 'Notifications marked as read.'})
+
+
+# =====================================================================
+# FRANCHISE DASHBOARD STATS (SERVER-SIDE DATABASE AGGREGATION)
+# =====================================================================
+
+class FranchiseDashboardStatsView(APIView):
+    """
+    Franchise Dashboard Statistics computed directly from PostgreSQL.
+    Strictly isolated to the authenticated franchise.
+    """
+    permission_classes = [IsApprovedFranchise]
+
+    def get(self, request):
+        import datetime
+        from django.utils import timezone
+        from orders.models import Order
+        from .models import (
+            CustomerFranchiseRelationship,
+            CustomerStockCycle,
+        )
+
+        franchise = getattr(request.user, 'franchise_profile', None)
+        if not franchise:
+            return Response({'success': False, 'message': 'Franchise profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        today = timezone.now().date()
+        low_stock_cutoff = today + datetime.timedelta(days=7)
+
+        # 1. Customers Served: customers whose current serving franchise is this franchise
+        customers_served = (
+            CustomerFranchiseRelationship.objects
+            .filter(current_serving_franchise=franchise)
+            .values('customer')
+            .distinct()
+            .count()
+        )
+
+        # 2. Registered Customers: customers whose registered franchise is this franchise
+        registered_customers = (
+            CustomerFranchiseRelationship.objects
+            .filter(registered_franchise=franchise)
+            .values('customer')
+            .distinct()
+            .count()
+        )
+
+        # 3. Active Stock: stock cycles with serving_franchise=franchise, service_status='active'
+        active_stock = CustomerStockCycle.objects.filter(
+            serving_franchise=franchise,
+            service_status='active',
+        ).count()
+
+        # 4. Low Stock: serving_franchise=franchise, service_status='active', expected_end_date between today and today+7
+        # Note: Cycles on hold are EXCLUDED (service_status='active' required)
+        low_stock = CustomerStockCycle.objects.filter(
+            serving_franchise=franchise,
+            service_status='active',
+            expected_end_date__gte=today,
+            expected_end_date__lte=low_stock_cutoff,
+        ).count()
+
+        # 5. On Hold: serving_franchise=franchise, service_status='hold'
+        on_hold = CustomerStockCycle.objects.filter(
+            serving_franchise=franchise,
+            service_status='hold',
+        ).count()
+
+        # 6. Expired Stock: serving_franchise=franchise, service_status='active', expected_end_date < today
+        expired_stock = CustomerStockCycle.objects.filter(
+            serving_franchise=franchise,
+            service_status='active',
+            expected_end_date__lt=today,
+        ).count()
+
+        # 7. Pending / Relevant Orders: serving_franchise=franchise, status in pending states
+        pending_orders = Order.objects.filter(
+            serving_franchise=franchise,
+            status__in=['order_placement', 'plant_approval', 'invoice_generated', 'dispatch'],
+        ).count()
+
+        # 8. Total Orders
+        total_orders = Order.objects.filter(
+            serving_franchise=franchise,
+        ).count()
+
+        return Response({
+            'success': True,
+            'franchise_id': franchise.id,
+            'franchise_name': franchise.business_name,
+            'stats': {
+                'customers_served': customers_served,
+                'registered_customers': registered_customers,
+                'active_stock': active_stock,
+                'low_stock': low_stock,
+                'on_hold': on_hold,
+                'expired_stock': expired_stock,
+                'pending_orders': pending_orders,
+                'total_orders': total_orders,
+            }
+        }, status=status.HTTP_200_OK)
+
+
+# =====================================================================
+# ADMIN FRANCHISE DETAIL & CUSTOMER HIERARCHY VIEW
+# =====================================================================
+
+class AdminFranchiseDetailView(APIView):
+    """
+    Admin-only view for detailed franchise inspection.
+    Includes explicit separation between registered customers and customers currently being served,
+    along with their per-customer orders and stock cycles.
+    """
+    permission_classes = [IsAdminRole]
+
+    def get(self, request, franchise_id):
+        from orders.models import Order
+        from .models import (
+            FranchiseProfile,
+            CustomerFranchiseRelationship,
+            CustomerStockCycle,
+        )
+
+        franchise = get_object_or_404(FranchiseProfile, id=franchise_id)
+
+        # Customers connected to this franchise either as registered or currently served
+        relationships = (
+            CustomerFranchiseRelationship.objects
+            .filter(Q(registered_franchise=franchise) | Q(current_serving_franchise=franchise))
+            .select_related('customer', 'customer__profile', 'district', 'zone', 'registered_franchise', 'current_serving_franchise')
+            .order_by('-customer__date_joined')
+        )
+
+        registered_count = relationships.filter(registered_franchise=franchise).values('customer').distinct().count()
+        served_count = relationships.filter(current_serving_franchise=franchise).values('customer').distinct().count()
+
+        customer_list = []
+        for rel in relationships:
+            cust = rel.customer
+            prof = getattr(cust, 'profile', None)
+
+            # Customer stock cycles
+            cycles = CustomerStockCycle.objects.filter(customer=cust).select_related('product', 'registered_franchise', 'serving_franchise').order_by('-created_at')
+            cycles_data = []
+            for c in cycles:
+                cycles_data.append({
+                    'id': c.id,
+                    'product_name': c.product.name if c.product else 'Drinking Water',
+                    'quantity': c.quantity,
+                    'duration_choice': c.duration_choice,
+                    'duration_days': c.duration_days,
+                    'start_date': c.start_date.isoformat(),
+                    'expected_end_date': c.expected_end_date.isoformat(),
+                    'service_status': c.service_status,
+                    'days_remaining': c.days_remaining,
+                    'is_low_stock': c.is_low_stock,
+                    'registered_franchise': {
+                        'id': c.registered_franchise.id,
+                        'name': c.registered_franchise.business_name,
+                    } if c.registered_franchise else None,
+                    'serving_franchise': {
+                        'id': c.serving_franchise.id,
+                        'name': c.serving_franchise.business_name,
+                    } if c.serving_franchise else None,
+                })
+
+            # Customer orders (latest 10)
+            orders = Order.objects.filter(created_by=cust).select_related('serving_franchise', 'registered_franchise').order_by('-order_date')[:10]
+            orders_data = []
+            for o in orders:
+                orders_data.append({
+                    'id': o.id,
+                    'order_code': getattr(o, 'order_code', f'ORD-{o.id}'),
+                    'order_date': o.order_date.isoformat() if o.order_date else '',
+                    'status': o.status,
+                    'status_display': o.get_status_display() if hasattr(o, 'get_status_display') else o.status,
+                    'amount': str(o.amount),
+                    'items_count': o.items_count,
+                    'serving_franchise': {
+                        'id': o.serving_franchise.id,
+                        'name': o.serving_franchise.business_name,
+                    } if o.serving_franchise else None,
+                    'registered_franchise': {
+                        'id': o.registered_franchise.id,
+                        'name': o.registered_franchise.business_name,
+                    } if o.registered_franchise else None,
+                })
+
+            customer_list.append({
+                'id': cust.id,
+                'customer_code': f'CUST-{1000 + cust.id}',
+                'name': cust.get_full_name() or (prof.name if prof else cust.username),
+                'email': cust.email,
+                'phone': prof.phone if prof else '',
+                'city': prof.city if prof else '',
+                'district': rel.district.name if rel.district else (prof.district if prof else ''),
+                'zone': rel.zone.name if rel.zone else (prof.zone.name if prof and prof.zone else ''),
+                'pincode': rel.pincode or (prof.pincode if prof else ''),
+                'locality': rel.locality or (prof.locality if prof else ''),
+                'address': prof.address if prof else '',
+                'service_status': rel.service_status,
+                'registered_franchise': {
+                    'id': rel.registered_franchise.id,
+                    'name': rel.registered_franchise.business_name,
+                } if rel.registered_franchise else None,
+                'current_serving_franchise': {
+                    'id': rel.current_serving_franchise.id,
+                    'name': rel.current_serving_franchise.business_name,
+                } if rel.current_serving_franchise else None,
+                'is_registered_here': (rel.registered_franchise_id == franchise.id),
+                'is_served_here': (rel.current_serving_franchise_id == franchise.id),
+                'stock_cycles': cycles_data,
+                'orders': orders_data,
+            })
+
+        return Response({
+            'success': True,
+            'franchise': {
+                'id': franchise.id,
+                'business_name': franchise.business_name,
+                'owner_name': franchise.user.get_full_name() or franchise.user.username,
+                'email': franchise.user.email,
+                'phone': franchise.user.profile.phone if hasattr(franchise.user, 'profile') else '',
+                'city': franchise.city,
+                'address': franchise.address,
+                'territory': franchise.territory,
+                'status': franchise.status,
+                'is_headquarters': franchise.is_headquarters,
+                'security_deposit': str(franchise.security_deposit),
+                'commission': str(franchise.commission),
+                'created_at': franchise.created_at.strftime('%Y-%m-%d') if franchise.created_at else '',
+            },
+            'summary': {
+                'registered_customers_count': registered_count,
+                'customers_served_count': served_count,
+            },
+            'customers': customer_list,
+        }, status=status.HTTP_200_OK)
+
 
 

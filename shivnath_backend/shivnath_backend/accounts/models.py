@@ -687,4 +687,27 @@ class CustomerNotification(models.Model):
     def __str__(self):
         return f"[{self.customer.email}] {self.title} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"
 
+
+class SupportContact(models.Model):
+    ROLE_CHOICES = [
+        ('public_customer',  'Public / Anonymous Customer Inquiry'),
+        ('public_franchise', 'Public / Anonymous Franchise Inquiry'),
+        ('customer',         'Authenticated Customer'),
+        ('franchise',        'Authenticated Franchise'),
+        ('admin',            'Admin'),
+    ]
+    role             = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
+    name             = models.CharField(max_length=150)
+    phone            = models.CharField(max_length=20)
+    email            = models.EmailField(blank=True, default='')
+    message_template = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Support Contact'
+        verbose_name_plural = 'Support Contacts'
+
+    def __str__(self):
+        return f'{self.get_role_display()} -> {self.name} ({self.phone})'
+
+
 

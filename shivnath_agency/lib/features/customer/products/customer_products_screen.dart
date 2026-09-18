@@ -18,8 +18,11 @@ class CustomerProductsScreen extends StatefulWidget {
 class _CustomerProductsScreenState
     extends State<CustomerProductsScreen> {
   String search = '';
-  String category = 'All';
-  List<String> _categories = ['All'];
+  int? selectedCategoryId;
+  String selectedCategoryName = 'All';
+  List<Map<String, dynamic>> _categoryItems = [
+    {'id': null, 'name': 'All', 'full_path': 'All'}
+  ];
   bool _loadingCategories = false;
 
   @override
@@ -30,7 +33,10 @@ class _CustomerProductsScreenState
   }
 
   Future<void> _fetchProducts() async {
-    await ProductService().getProducts();
+    await ProductService().getProducts(
+      categoryId: selectedCategoryId,
+      category: selectedCategoryId == null && selectedCategoryName != 'All' ? selectedCategoryName : null,
+    );
     if (mounted) setState(() {});
   }
 
@@ -40,17 +46,29 @@ class _CustomerProductsScreenState
     if (res['success'] == true && res['data'] is Map) {
       final list = res['data']['categories'];
       if (list is List) {
-        final names = <String>['All'];
-        for (var item in list) {
-          if (item is Map && item['name'] != null) {
-            final name = item['name'].toString();
-            if (!names.contains(name)) names.add(name);
+        final items = <Map<String, dynamic>>[
+          {'id': null, 'name': 'All', 'full_path': 'All'}
+        ];
+        void extract(List<dynamic> nodes) {
+          for (var item in nodes) {
+            if (item is Map) {
+              final map = Map<String, dynamic>.from(item);
+              items.add({
+                'id': map['id'],
+                'name': map['name'] ?? '',
+                'full_path': map['full_path'] ?? map['name'] ?? '',
+              });
+              final children = map['children'] ?? map['subcategories'];
+              if (children is List && children.isNotEmpty) {
+                extract(children);
+              }
+            }
           }
         }
+        extract(list);
         if (mounted) {
           setState(() {
-            _categories = names;
-            _loadingCategories = false;
+            _categoryItems = items;
           });
           return;
         }
@@ -62,14 +80,9 @@ class _CustomerProductsScreenState
   @override
   Widget build(BuildContext context) {
     final products = ProductService.products.where((product) {
-      final matchesSearch = product.name
-          .toLowerCase()
-          .contains(search.toLowerCase());
-
-      final matchesCategory =
-          category == 'All' || product.category.toLowerCase() == category.toLowerCase();
-
-      return matchesSearch && matchesCategory;
+      final matchesSearch = search.trim().isEmpty ||
+          product.name.toLowerCase().contains(search.toLowerCase());
+      return matchesSearch;
     }).toList();
 
     return LayoutBuilder(
@@ -296,20 +309,38 @@ class _CustomerProductsScreenState
   }
 
   Widget _filters() {
+    if (_loadingCategories && _categoryItems.length <= 1) {
+      return const SizedBox(
+        height: 45,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
     return SizedBox(
       height: 45,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: _categories.length,
+        itemCount: _categoryItems.length,
         itemBuilder: (context, index) {
-          final cat = _categories[index];
+          final cat = _categoryItems[index];
+          final catId = cat['id'] as int?;
+          final isSelected = selectedCategoryId == catId;
+          final title = cat['name']?.toString() ?? 'All';
+
           return _FilterChip(
-            title: cat,
-            selected: category == cat,
-            onTap: () {
+            title: title,
+            selected: isSelected,
+            onTap: () async {
               setState(() {
-                category = cat;
+                selectedCategoryId = catId;
+                selectedCategoryName = title;
               });
+              await _fetchProducts();
             },
           );
         },

@@ -171,6 +171,7 @@ class PublicLeadCaptureView(APIView):
         space = str(request.data.get('space') or request.data.get('commercial_space', 'no')).strip().lower()
         experience = str(request.data.get('experience') or request.data.get('previous_experience', '')).strip()
         location = str(request.data.get('location') or request.data.get('preferred_location', '')).strip()
+        territory = str(request.data.get('territory') or location).strip()
         inquiry_type = str(request.data.get('inquiry_type', 'customer')).strip().lower()
         if inquiry_type not in ['customer', 'franchise']:
             inquiry_type = 'customer'
@@ -189,7 +190,13 @@ class PublicLeadCaptureView(APIView):
         norm_phone = _normalize_phone(phone)
         
         # 1. Check for existing Customer/UserProfile record
-        from accounts.models import UserProfile, AdminNotification
+        from accounts.models import (
+            UserProfile,
+            AdminNotification,
+            FranchiseProfile,
+            FranchiseTerritoryAssignment,
+            FranchiseNotification,
+        )
         existing_customer_profile = None
         if norm_phone:
             existing_customer_profile = UserProfile.objects.filter(phone__icontains=norm_phone).first()
@@ -207,6 +214,38 @@ class PublicLeadCaptureView(APIView):
         if '10 lakh' in budget.lower() or '20 lakh' in budget.lower() or 'yes' in space.lower() or 'bulk' in notes.lower():
             score = 'hot'
 
+        # Route to territory franchise
+        matched_franchise = None
+        if territory:
+            assignment = FranchiseTerritoryAssignment.objects.filter(
+                is_active=True,
+                zone__name__icontains=territory
+            ).select_related('franchise').first()
+            if assignment:
+                matched_franchise = assignment.franchise
+            else:
+                matched_franchise = FranchiseProfile.objects.filter(
+                    status='approved',
+                    territory__icontains=territory
+                ).first()
+        if not matched_franchise and city:
+            matched_franchise = FranchiseProfile.objects.filter(
+                status='approved',
+                city__icontains=city
+            ).first()
+        if not matched_franchise and district:
+            assignment = FranchiseTerritoryAssignment.objects.filter(
+                is_active=True,
+                zone__district__name__icontains=district
+            ).select_related('franchise').first()
+            if assignment:
+                matched_franchise = assignment.franchise
+            else:
+                matched_franchise = FranchiseProfile.objects.filter(
+                    status='approved',
+                    user__user_profile__district__icontains=district
+                ).first()
+
         # Build clean, structured note and inquiry details
         note_details = f"Inquiry Category: {inquiry_type.upper()}"
         if selected_options:
@@ -215,18 +254,20 @@ class PublicLeadCaptureView(APIView):
             else:
                 opts_str = str(selected_options)
             note_details += f"\nInquiry Navigation Path: {opts_str}"
-        if city:
-            note_details += f"\nCity: {city}"
         if district:
             note_details += f"\nDistrict: {district}"
+        if city:
+            note_details += f"\nCity / Location: {city}"
+        if territory:
+            note_details += f"\nTerritory / Area: {territory}"
+        if matched_franchise:
+            note_details += f"\nRouted Franchise: {matched_franchise.business_name} ({matched_franchise.territory or matched_franchise.city})"
         if budget:
             note_details += f"\nInvestment / Budget Tier: {budget}"
         if space and space != 'no':
             note_details += f"\nCommercial Space: {space}"
         if experience:
             note_details += f"\nExperience: {experience}"
-        if location:
-            note_details += f"\nPreferred Location: {location}"
         if notes:
             note_details += f"\nSpecific Inquiry Notes: {notes}"
 
@@ -243,6 +284,8 @@ class PublicLeadCaptureView(APIView):
             if conv_lines:
                 note_details += "\n\n=== CHATBOT CONVERSATION TRANSCRIPT ===\n" + "\n".join(conv_lines)
 
+        pref_loc = f"{territory}, {city}".strip(', ') if territory else (city or location)
+
         if existing_customer_profile and not existing_lead:
             # Existing registered customer opened the chatbot
             # Link to their customer profile without creating duplicate new lead records
@@ -252,18 +295,23 @@ class PublicLeadCaptureView(APIView):
             # Update existing lead without creating duplicate card in Admin
             if name and existing_lead.name in ['Public Prospect', 'Public Customer', 'Guest Customer', '', 'Prospect']:
                 existing_lead.name = name
-            if city and not existing_lead.city:
+            if city:
                 existing_lead.city = city
-            if district and not existing_lead.district:
+            if district:
                 existing_lead.district = district
+            if territory:
+                existing_lead.territory = territory
+            if pref_loc:
+                existing_lead.preferred_location = pref_loc
+            if matched_franchise:
+                existing_lead.assigned_franchise = matched_franchise
+                existing_lead.assigned_executive = matched_franchise.business_name
             if budget:
                 existing_lead.investment_budget = budget
             if 'available' in space or 'yes' in space or 'searching' in space:
                 existing_lead.commercial_space = 'available' if ('available' in space or 'yes' in space) else 'searching'
             if experience and not existing_lead.previous_experience:
                 existing_lead.previous_experience = experience
-            if location and not existing_lead.preferred_location:
-                existing_lead.preferred_location = location
             if score == 'hot':
                 existing_lead.score = 'hot'
             if existing_customer_profile and not existing_lead.converted_user:
@@ -289,6 +337,18 @@ class PublicLeadCaptureView(APIView):
             except Exception:
                 pass
 
+            if matched_franchise:
+                try:
+                    FranchiseNotification.objects.create(
+                        franchise=matched_franchise,
+                        title='Customer Inquiry Updated',
+                        message=f'Lead {existing_lead.name} ({existing_lead.phone}) updated inquiry in {territory or city}, District: {district}.',
+                        notification_type='new_customer',
+                        reference_id=existing_lead.id,
+                    )
+                except Exception:
+                    pass
+
             return Response(
                 {
                     'success': True,
@@ -306,11 +366,14 @@ class PublicLeadCaptureView(APIView):
             email=email,
             city=city or 'Raipur',
             district=district,
+            territory=territory,
+            assigned_franchise=matched_franchise,
+            assigned_executive=matched_franchise.business_name if matched_franchise else '',
             investment_budget=budget,
             existing_business='yes' if 'yes' in str(request.data.get('existing_business', '')).lower() else 'no',
             commercial_space='available' if ('available' in space or 'yes' in space) else ('searching' if 'searching' in space else 'no'),
             previous_experience=experience,
-            preferred_location=location or city,
+            preferred_location=pref_loc or city or 'Raipur',
             score=score,
             status='new_lead',
             source='Public AI Chatbot',
@@ -328,18 +391,30 @@ class PublicLeadCaptureView(APIView):
         try:
             AdminNotification.objects.create(
                 title='New Lead Received',
-                message=f'New {inquiry_type} lead received from {new_lead.name} ({new_lead.phone}) via Public Chatbot.',
+                message=f'New {inquiry_type} lead received from {new_lead.name} ({new_lead.phone}) in {territory or city}, District: {district}.',
                 notification_type='general',
                 reference_id=new_lead.id,
             )
         except Exception:
             pass
 
+        if matched_franchise:
+            try:
+                FranchiseNotification.objects.create(
+                    franchise=matched_franchise,
+                    title='New Customer Lead in Your Territory',
+                    message=f'New customer inquiry from {new_lead.name} ({new_lead.phone}) in {territory or city}, District: {district}.',
+                    notification_type='new_customer',
+                    reference_id=new_lead.id,
+                )
+            except Exception:
+                pass
+
         return Response(
             {
                 'success': True,
                 'is_duplicate': False,
-                'message': 'New lead captured successfully in Admin CRM.',
+                'message': 'New lead captured successfully in Admin CRM and routed to territory franchise.',
                 'lead': LeadSerializer(new_lead).data,
             },
             status=status.HTTP_201_CREATED,

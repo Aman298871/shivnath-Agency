@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/app_toast.dart';
 import 'features/customer/cart/cart_provider.dart';
 import 'routes/app_routes.dart';
 
@@ -24,6 +25,7 @@ class WaterBusinessApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: AppConstants.appName,
+        scaffoldMessengerKey: rootScaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         initialRoute: AppRoutes.splash,

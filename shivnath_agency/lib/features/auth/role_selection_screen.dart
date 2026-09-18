@@ -44,120 +44,124 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 30),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
 
-              const Icon(
-                Icons.water_drop_rounded,
-                size: 50,
-                color: Color(0xFF0284C7),
-              ),
-
-              const SizedBox(height: 22),
-
-              const Text(
-                'Welcome',
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              const Text(
-                'Select your account type to continue',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              _RoleCard(
-                title: 'Customer',
-                subtitle: 'Shop products and manage your orders',
-                icon: Icons.person_outline_rounded,
-                selected:
-                    selectedRole == AppConstants.customerRole,
-                onTap: () {
-                  setState(() {
-                    selectedRole = AppConstants.customerRole;
-                  });
-                },
-              ),
-
-              const SizedBox(height: 14),
-
-              _RoleCard(
-                title: 'Franchise',
-                subtitle:
-                    'Manage franchise orders, invoices and payments',
-                icon: Icons.storefront_outlined,
-                selected:
-                    selectedRole == AppConstants.franchiseRole,
-                onTap: () {
-                  setState(() {
-                    selectedRole = AppConstants.franchiseRole;
-                  });
-                },
-              ),
-
-              const SizedBox(height: 14),
-
-              _RoleCard(
-                title: 'Admin',
-                subtitle:
-                    'Manage business operations and reports',
-                icon: Icons.admin_panel_settings_outlined,
-                selected:
-                    selectedRole == AppConstants.adminRole,
-                onTap: () {
-                  setState(() {
-                    selectedRole = AppConstants.adminRole;
-                  });
-                },
-              ),
-
-              const Spacer(),
-
-              ElevatedButton(
-                onPressed: _continue,
-                child: const Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                  const Icon(
+                    Icons.water_drop_rounded,
+                    size: 46,
+                    color: Color(0xFF0284C7),
                   ),
-                ),
-              ),
 
-              const SizedBox(height: 16),
+                  const SizedBox(height: 18),
 
-              Center(
-                child: TextButton.icon(
-                  onPressed: () => AiChatbotModal.show(context, mode: ChatbotMode.public),
-                  icon: const Icon(Icons.smart_toy_rounded, color: Color(0xFF0284C7)),
-                  label: const Text(
-                    'Have questions? Ask Pure Water AI Assistant',
+                  const Text(
+                    'Welcome',
                     style: TextStyle(
-                      color: Color(0xFF0284C7),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
-                ),
-              ),
 
-              const SizedBox(height: 10),
-            ],
-          ),
+                  const SizedBox(height: 6),
+
+                  const Text(
+                    'Select your account type to continue',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  _RoleCard(
+                    title: 'Customer',
+                    subtitle: 'Shop products and manage your orders',
+                    icon: Icons.person_outline_rounded,
+                    selected: selectedRole == AppConstants.customerRole,
+                    onTap: () {
+                      setState(() {
+                        selectedRole = AppConstants.customerRole;
+                      });
+                    },
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  _RoleCard(
+                    title: 'Franchise',
+                    subtitle:
+                        'Manage franchise orders, invoices and payments',
+                    icon: Icons.storefront_outlined,
+                    selected: selectedRole == AppConstants.franchiseRole,
+                    onTap: () {
+                      setState(() {
+                        selectedRole = AppConstants.franchiseRole;
+                      });
+                    },
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  _RoleCard(
+                    title: 'Admin',
+                    subtitle: 'Manage business operations and reports',
+                    icon: Icons.admin_panel_settings_outlined,
+                    selected: selectedRole == AppConstants.adminRole,
+                    onTap: () {
+                      setState(() {
+                        selectedRole = AppConstants.adminRole;
+                      });
+                    },
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  ElevatedButton(
+                    onPressed: _continue,
+                    child: const Text(
+                      'Continue',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          AiChatbotModal.show(context, mode: ChatbotMode.public),
+                      icon: const Icon(
+                        Icons.smart_toy_rounded,
+                        color: Color(0xFF0284C7),
+                      ),
+                      label: const Text(
+                        'Have questions? Ask Pure Water AI Assistant',
+                        style: TextStyle(
+                          color: Color(0xFF0284C7),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

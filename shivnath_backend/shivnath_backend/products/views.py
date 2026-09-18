@@ -23,17 +23,18 @@ class CategoryListCreateView(APIView):
     def get(self, request):
         tree_only = request.query_params.get("tree", "").lower() in ["true", "1"]
         active_only = request.query_params.get("active_only", "").lower() in ["true", "1"]
+        include_inactive = request.query_params.get("include_inactive", "").lower() in ["true", "1"]
 
         queryset = ProductCategory.objects.all().order_by("order", "name")
-        if active_only:
+        if active_only or not include_inactive:
             queryset = queryset.filter(is_active=True)
 
         if tree_only:
             # Return top-level categories which nest their children
             root_categories = queryset.filter(parent__isnull=True)
-            serializer = ProductCategorySerializer(root_categories, many=True)
+            serializer = ProductCategorySerializer(root_categories, many=True, context={"request": request})
         else:
-            serializer = ProductCategorySerializer(queryset, many=True)
+            serializer = ProductCategorySerializer(queryset, many=True, context={"request": request})
 
         return Response({
             "success": True,
@@ -42,14 +43,14 @@ class CategoryListCreateView(APIView):
         })
 
     def post(self, request):
-        serializer = ProductCategorySerializer(data=request.data)
+        serializer = ProductCategorySerializer(data=request.data, context={"request": request})
         if not serializer.is_valid():
             return Response({"success": False, "errors": serializer.errors}, status=400)
         category = serializer.save()
         return Response({
             "success": True,
             "message": "Category created successfully.",
-            "category": ProductCategorySerializer(category).data,
+            "category": ProductCategorySerializer(category, context={"request": request}).data,
         }, status=201)
 
 
@@ -63,27 +64,44 @@ class CategoryDetailView(APIView):
         category = get_object_or_404(ProductCategory, pk=pk)
         return Response({
             "success": True,
-            "category": ProductCategorySerializer(category).data,
+            "category": ProductCategorySerializer(category, context={"request": request}).data,
         })
 
     def patch(self, request, pk):
         category = get_object_or_404(ProductCategory, pk=pk)
-        serializer = ProductCategorySerializer(category, data=request.data, partial=True)
+        serializer = ProductCategorySerializer(category, data=request.data, partial=True, context={"request": request})
         if not serializer.is_valid():
             return Response({"success": False, "errors": serializer.errors}, status=400)
         updated = serializer.save()
         return Response({
             "success": True,
             "message": "Category updated successfully.",
-            "category": ProductCategorySerializer(updated).data,
+            "category": ProductCategorySerializer(updated, context={"request": request}).data,
         })
 
     def delete(self, request, pk):
         category = get_object_or_404(ProductCategory, pk=pk)
-        category.delete()
+        has_children = category.children.filter(is_active=True).exists()
+        has_products = category.products.exists()
+
+        if has_children or has_products:
+            return Response({
+                "success": False,
+                "error": "cannot_delete_with_dependencies",
+                "message": (
+                    "This category has active children or assigned products. "
+                    "Archive it, reassign products, or delete children first."
+                ),
+                "children_count": category.children.count(),
+                "product_count": category.products.count(),
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Archive (soft-delete) instead of hard-delete
+        category.is_active = False
+        category.save(update_fields=["is_active", "updated_at"])
         return Response({
             "success": True,
-            "message": "Category deleted successfully.",
+            "message": "Category archived successfully.",
         })
 
 
@@ -114,10 +132,12 @@ class ProductListCreateView(APIView):
             )
 
         if category_id and category_id.isdigit():
-            # Match this category or any child category
             cat_id = int(category_id)
-            child_ids = list(ProductCategory.objects.filter(parent_id=cat_id).values_list('id', flat=True))
-            all_cat_ids = [cat_id] + child_ids
+            try:
+                cat = ProductCategory.objects.get(pk=cat_id)
+                all_cat_ids = cat.get_descendant_ids()
+            except ProductCategory.DoesNotExist:
+                all_cat_ids = [cat_id]
             queryset = queryset.filter(category_ref_id__in=all_cat_ids)
         elif category and category.lower() != "all":
             queryset = queryset.filter(

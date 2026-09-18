@@ -1134,75 +1134,123 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
   }
 
   // =========================================================
-  // CUSTOMER LEAD CAPTURE FLOW (Steps 101 - 105)
+  // CUSTOMER LEAD CAPTURE FLOW (Steps 101 - 106)
   // =========================================================
   void _startCustomerQualification() {
     _qualificationStep = 101;
     _leadData.clear();
     _respond(
-      '📝 *Customer Inquiry & Callback Desk*\n\nTo connect you with our Raipur sales desk, please share your details:\n\n👉 **Step 1/5: What is your Full Name?**\n*(Type your name below)*',
+      '📝 *Customer Inquiry & Delivery Desk*\n\nTo connect you with pure water supply and your territory franchise, please share your details:\n\n👉 **Step 1/6: What is your Full Name?**\n*(Please type your full name - 2 to 25 words)*',
     );
   }
 
   // =========================================================
-  // FRANCHISE LEAD QUALIFICATION FLOW (Steps 201 - 209)
+  // FRANCHISE LEAD QUALIFICATION FLOW (Steps 201 - 210)
   // =========================================================
   void _startFranchiseQualification() {
     _qualificationStep = 201;
     _leadData.clear();
     _respond(
-      '🏢 *Franchise Pre-Qualification & Territory Feasibility*\n\nTo evaluate territory availability and ROI margins, please answer these quick questions:\n\n👉 **Step 1/9: What is your Full Name?**\n*(Type your name below)*',
+      '🏢 *Franchise Pre-Qualification & Territory Feasibility*\n\nTo evaluate territory availability and ROI margins, please answer these quick questions:\n\n👉 **Step 1/9: What is your Full Name?**\n*(Please type your full name - 2 to 25 words)*',
     );
   }
 
   void _processQualificationAnswer(String answer) {
+    final trimmed = answer.trim();
+
     // --- CUSTOMER FLOW ---
-    if (_qualificationStep >= 101 && _qualificationStep <= 105) {
+    if (_qualificationStep >= 101 && _qualificationStep <= 106 || _qualificationStep == 1045) {
       switch (_qualificationStep) {
         case 101:
-          _leadData['name'] = answer;
+          final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+          if (words.length < 2 || words.length > 25 || trimmed.length < 2) {
+            _respond('⚠️ Please enter a valid Full Name with at least 2 words (between 2 and 25 words, e.g. Rahul Sharma):');
+            return;
+          }
+          _leadData['name'] = trimmed;
           _qualificationStep = 102;
-          _respond('Nice to meet you, $answer! 👋\n\n👉 **Step 2/5: Please enter your 10-digit Mobile Number:**\n*(Type your phone number below)*');
+          _respond('Nice to meet you, $trimmed! 👋\n\n👉 **Step 2/6: Please enter your 10-digit Mobile Number:**\n*(Must start with 6, 7, 8, or 9)*');
           break;
+
         case 102:
-          _leadData['phone'] = answer;
+          final cleanDigits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+          String tenDigits = cleanDigits;
+          if (cleanDigits.length == 12 && cleanDigits.startsWith('91')) {
+            tenDigits = cleanDigits.substring(2);
+          }
+          final phoneRegex = RegExp(r'^[6-9]\d{9}$');
+          if (!phoneRegex.hasMatch(tenDigits)) {
+            _respond('⚠️ Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9 (e.g. 9876543210):');
+            return;
+          }
+          _leadData['phone'] = tenDigits;
           _qualificationStep = 103;
           _respond(
-            '👉 **Step 3/5: What is your Email Address?** (Optional):',
+            '👉 **Step 3/6: What is your Email Address?** (Optional):',
             options: [_ChatOptionItem(title: 'Skip Email')],
           );
           break;
+
         case 103:
-          if (answer.toLowerCase() != 'skip' && answer.toLowerCase() != 'skip email') {
-            _leadData['email'] = answer;
+          if (trimmed.toLowerCase() != 'skip' && trimmed.toLowerCase() != 'skip email') {
+            _leadData['email'] = trimmed;
           }
           _qualificationStep = 104;
           _respond(
-            '👉 **Step 4/5: What is your City / Location?**',
+            '👉 **Step 4/6: What is your District?**\n*(Select your district or tap Others)*',
             options: [
               _ChatOptionItem(title: 'Raipur'),
               _ChatOptionItem(title: 'Durg'),
-              _ChatOptionItem(title: 'Bhilai'),
               _ChatOptionItem(title: 'Bilaspur'),
               _ChatOptionItem(title: 'Rajnandgaon'),
+              _ChatOptionItem(title: 'Others'),
             ],
           );
           break;
+
         case 104:
-          _leadData['city'] = answer;
+          if (trimmed.toLowerCase() == 'others' || trimmed.toLowerCase() == 'other') {
+            _qualificationStep = 1045;
+            _respond('👉 Please type the name of your District below:');
+            return;
+          }
+          _leadData['district'] = trimmed;
           _qualificationStep = 105;
           _respond(
-            '👉 **Step 5/5: What is your District?**',
-            options: [
-              _ChatOptionItem(title: 'Raipur'),
-              _ChatOptionItem(title: 'Durg'),
-              _ChatOptionItem(title: 'Bilaspur'),
-              _ChatOptionItem(title: 'Rajnandgaon'),
-            ],
+            '👉 **Step 5/6: What is your City / Location?**\n*(Please type your city, town or locality below)*',
           );
           break;
+
+        case 1045:
+          if (trimmed.isEmpty) {
+            _respond('⚠️ Please type your District name below:');
+            return;
+          }
+          _leadData['district'] = trimmed;
+          _qualificationStep = 105;
+          _respond(
+            '👉 **Step 5/6: What is your City / Location?**\n*(Please type your city, town or locality below)*',
+          );
+          break;
+
         case 105:
-          _leadData['district'] = answer;
+          if (trimmed.isEmpty) {
+            _respond('⚠️ Please enter your City or Location:');
+            return;
+          }
+          _leadData['city'] = trimmed;
+          _qualificationStep = 106;
+          _respond(
+            '👉 **Step 6/6: What is your Territory / Area?**\n*(e.g., North Raipur, Pandri, Shankar Nagar, Tatibandh)*\n*(Please type your territory or area below)*',
+          );
+          break;
+
+        case 106:
+          if (trimmed.isEmpty) {
+            _respond('⚠️ Please enter your Territory or Area (e.g., North Raipur, Pandri, Shankar Nagar):');
+            return;
+          }
+          _leadData['territory'] = trimmed;
           _qualificationStep = 0;
           _finalizeCustomerLead();
           break;
@@ -1211,55 +1259,102 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     }
 
     // --- FRANCHISE FLOW ---
-    if (_qualificationStep >= 201 && _qualificationStep <= 209) {
+    if ((_qualificationStep >= 201 && _qualificationStep <= 210) || _qualificationStep == 2045) {
       switch (_qualificationStep) {
         case 201:
-          _leadData['name'] = answer;
+          final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+          if (words.length < 2 || words.length > 25 || trimmed.length < 2) {
+            _respond('⚠️ Please enter a valid Full Name with at least 2 words (between 2 and 25 words, e.g. Rahul Sharma):');
+            return;
+          }
+          _leadData['name'] = trimmed;
           _qualificationStep = 202;
-          _respond('Nice to meet you, $answer! 👋\n\n👉 **Step 2/9: Please enter your 10-digit Mobile Number:**\n*(Type your phone number below)*');
+          _respond('Nice to meet you, $trimmed! 👋\n\n👉 **Step 2/9: Please enter your 10-digit Mobile Number:**\n*(Must start with 6, 7, 8, or 9)*');
           break;
+
         case 202:
-          _leadData['phone'] = answer;
+          final cleanDigits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+          String tenDigits = cleanDigits;
+          if (cleanDigits.length == 12 && cleanDigits.startsWith('91')) {
+            tenDigits = cleanDigits.substring(2);
+          }
+          final phoneRegex = RegExp(r'^[6-9]\d{9}$');
+          if (!phoneRegex.hasMatch(tenDigits)) {
+            _respond('⚠️ Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9 (e.g. 9876543210):');
+            return;
+          }
+          _leadData['phone'] = tenDigits;
           _qualificationStep = 203;
           _respond(
             '👉 **Step 3/9: What is your Email Address?** (Optional):',
             options: [_ChatOptionItem(title: 'Skip Email')],
           );
           break;
+
         case 203:
-          if (answer.toLowerCase() != 'skip' && answer.toLowerCase() != 'skip email') {
-            _leadData['email'] = answer;
+          if (trimmed.toLowerCase() != 'skip' && trimmed.toLowerCase() != 'skip email') {
+            _leadData['email'] = trimmed;
           }
           _qualificationStep = 204;
           _respond(
-            '👉 **Step 4/9: What is your City?**',
+            '👉 **Step 4/9: What is your District?**\n*(Select your district or tap Others)*',
             options: [
               _ChatOptionItem(title: 'Raipur'),
               _ChatOptionItem(title: 'Durg'),
-              _ChatOptionItem(title: 'Bhilai'),
               _ChatOptionItem(title: 'Bilaspur'),
               _ChatOptionItem(title: 'Rajnandgaon'),
+              _ChatOptionItem(title: 'Others'),
             ],
           );
           break;
+
         case 204:
-          _leadData['city'] = answer;
+          if (trimmed.toLowerCase() == 'others' || trimmed.toLowerCase() == 'other') {
+            _qualificationStep = 2045;
+            _respond('👉 Please type the name of your District below:');
+            return;
+          }
+          _leadData['district'] = trimmed;
           _qualificationStep = 205;
           _respond(
-            '👉 **Step 5/9: What is your District?**',
-            options: [
-              _ChatOptionItem(title: 'Raipur'),
-              _ChatOptionItem(title: 'Durg'),
-              _ChatOptionItem(title: 'Bilaspur'),
-              _ChatOptionItem(title: 'Rajnandgaon'),
-            ],
+            '👉 **Step 5/9: What is your City / Town?**\n*(Please type your city or town below)*',
           );
           break;
+
+        case 2045:
+          if (trimmed.isEmpty) {
+            _respond('⚠️ Please type your District name below:');
+            return;
+          }
+          _leadData['district'] = trimmed;
+          _qualificationStep = 205;
+          _respond(
+            '👉 **Step 5/9: What is your City / Town?**\n*(Please type your city or town below)*',
+          );
+          break;
+
         case 205:
-          _leadData['district'] = answer;
+          if (trimmed.isEmpty) {
+            _respond('⚠️ Please enter your City or Town:');
+            return;
+          }
+          _leadData['city'] = trimmed;
           _qualificationStep = 206;
           _respond(
-            '👉 **Step 6/9: What is your estimated Investment Budget?**',
+            '👉 **Step 6/9: What is your Preferred Territory / Area?**\n*(e.g., North Raipur, Pandri, Shankar Nagar, Tatibandh)*\n*(Please type your territory below)*',
+          );
+          break;
+
+        case 206:
+          if (trimmed.isEmpty) {
+            _respond('⚠️ Please enter your Preferred Territory (e.g., North Raipur, Pandri, Shankar Nagar):');
+            return;
+          }
+          _leadData['location'] = trimmed;
+          _leadData['territory'] = trimmed;
+          _qualificationStep = 207;
+          _respond(
+            '👉 **Step 7/9: What is your estimated Investment Budget?**',
             options: [
               _ChatOptionItem(title: '₹2 Lakh - ₹3 Lakh'),
               _ChatOptionItem(title: '₹3 Lakh - ₹5 Lakh'),
@@ -1269,11 +1364,12 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
             ],
           );
           break;
-        case 206:
-          _leadData['budget'] = answer;
-          _qualificationStep = 207;
+
+        case 207:
+          _leadData['budget'] = trimmed;
+          _qualificationStep = 208;
           _respond(
-            '👉 **Step 7/9: Do you already have commercial space or a shop available?**',
+            '👉 **Step 8/9: Do you already have commercial space or a shop available?**',
             options: [
               _ChatOptionItem(title: 'Yes (Ready to setup)'),
               _ChatOptionItem(title: 'No (Will rent on approval)'),
@@ -1281,11 +1377,12 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
             ],
           );
           break;
-        case 207:
-          _leadData['space'] = answer;
-          _qualificationStep = 208;
+
+        case 208:
+          _leadData['space'] = trimmed;
+          _qualificationStep = 209;
           _respond(
-            '👉 **Step 8/9: Do you have previous business or distribution experience?**',
+            '👉 **Step 9/9: Do you have previous business or distribution experience?**',
             options: [
               _ChatOptionItem(title: 'Yes (FMCG / Water distribution)'),
               _ChatOptionItem(title: 'Yes (Other business)'),
@@ -1293,23 +1390,9 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
             ],
           );
           break;
-        case 208:
-          _leadData['experience'] = answer;
-          _qualificationStep = 209;
-          _respond(
-            '👉 **Step 9/9: What is your Preferred Franchise Territory / Location?**',
-            options: [
-              _ChatOptionItem(title: 'Raipur Central / North'),
-              _ChatOptionItem(title: 'Raipur South / Naya Raipur'),
-              _ChatOptionItem(title: 'Durg-Bhilai'),
-              _ChatOptionItem(title: 'Bilaspur City'),
-              _ChatOptionItem(title: 'Korba'),
-              _ChatOptionItem(title: 'Rajnandgaon'),
-            ],
-          );
-          break;
+
         case 209:
-          _leadData['location'] = answer;
+          _leadData['experience'] = trimmed;
           _qualificationStep = 0;
           _finalizeFranchiseLead();
           break;
@@ -1321,8 +1404,9 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     final name = _leadData['name']?.toString() ?? 'Customer';
     final phone = _leadData['phone']?.toString() ?? '';
     final email = _leadData['email']?.toString() ?? '';
-    final city = _leadData['city']?.toString() ?? 'Raipur';
     final district = _leadData['district']?.toString() ?? 'Raipur';
+    final city = _leadData['city']?.toString() ?? 'Raipur';
+    final territory = _leadData['territory']?.toString() ?? '';
     final trailStr = _selectedOptionTrail.join(' -> ');
 
     setState(() => _isTyping = true);
@@ -1331,11 +1415,13 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       'name': name,
       'phone': phone,
       'email': email,
-      'city': city,
       'district': district,
+      'city': city,
+      'territory': territory,
+      'location': territory.isNotEmpty ? territory : city,
       'inquiry_type': 'customer',
       'selected_options': _selectedOptionTrail,
-      'notes': 'Customer Inquiry: $trailStr',
+      'notes': 'Customer Inquiry: $trailStr | Territory: $territory, City: $city, District: $district',
       'conversation_history': _getHistory(),
     });
 
@@ -1349,16 +1435,18 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     _navStack.clear();
     _navStack.add(rootList);
 
+    final locationDisplay = territory.isNotEmpty ? '$territory, $city (District: $district)' : '$city, $district';
+
     final summary = isExisting
         ? '✅ *Welcome back, $name!*\n\n'
             '• *Mobile*: $phone\n'
-            '• *Location*: $city, $district\n\n'
-            'Your customer inquiry has been linked in our Admin CRM. Please select from our products and pricing options below:'
+            '• *Area / Territory*: $locationDisplay\n\n'
+            'Your customer inquiry has been linked in our Admin CRM and routed to your territory franchise. Please select from our products and pricing options below:'
         : '🎉 *Customer Details Verified!*\n\n'
             '• *Name*: $name\n'
             '• *Mobile*: $phone\n'
-            '• *Location*: $city, $district\n\n'
-            'Your lead has been recorded in the Admin CRM. Please select from our packaged water products, pricing, and order support options below:';
+            '• *Area / Territory*: $locationDisplay\n\n'
+            'Your lead has been recorded in the Admin CRM and routed to your nearest territory franchise. Please select from our packaged water products, pricing, and order support options below:';
 
     _respond(
       summary,
@@ -1370,12 +1458,12 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     final name = _leadData['name']?.toString() ?? 'Franchise Prospect';
     final phone = _leadData['phone']?.toString() ?? '';
     final email = _leadData['email']?.toString() ?? '';
-    final city = _leadData['city']?.toString() ?? 'Raipur';
     final district = _leadData['district']?.toString() ?? 'Raipur';
+    final city = _leadData['city']?.toString() ?? 'Raipur';
+    final loc = _leadData['location']?.toString() ?? city;
     final budget = _leadData['budget']?.toString() ?? '₹5 Lakh';
     final space = _leadData['space']?.toString() ?? 'Yes';
     final exp = _leadData['experience']?.toString() ?? 'None';
-    final loc = _leadData['location']?.toString() ?? city;
     final trailStr = _selectedOptionTrail.join(' -> ');
 
     setState(() => _isTyping = true);
@@ -1384,15 +1472,16 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
       'name': name,
       'phone': phone,
       'email': email,
-      'city': city,
       'district': district,
+      'city': city,
+      'territory': loc,
       'budget': budget,
       'space': space,
       'experience': exp,
       'location': loc,
       'inquiry_type': 'franchise',
       'selected_options': _selectedOptionTrail,
-      'notes': 'Franchise Inquiry: $trailStr | Budget: $budget | Space: $space | Experience: $exp | Location: $loc',
+      'notes': 'Franchise Inquiry: $trailStr | Territory: $loc, City: $city, District: $district | Budget: $budget | Space: $space | Experience: $exp',
       'conversation_history': _getHistory(),
     });
 
@@ -1410,15 +1499,15 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         ? '✅ *Franchise Details Updated!*\n\n'
             '• *Prospect*: $name\n'
             '• *Mobile*: $phone\n'
-            '• *Territory*: $loc ($city)\n'
+            '• *Territory*: $loc, $city (District: $district)\n'
             '• *Budget*: $budget\n\n'
-            'Your inquiry is updated in our Admin CRM. Please explore our territory models, margins, and franchise investment options below:'
+            'Your inquiry is updated in our Admin CRM and routed to the territory team. Please explore our territory models, margins, and franchise investment options below:'
         : '🎉 *Franchise Pre-Qualification Submitted!*\n\n'
             '• *Prospect*: $name\n'
             '• *Mobile*: $phone\n'
-            '• *Territory*: $loc ($city)\n'
+            '• *Territory*: $loc, $city (District: $district)\n'
             '• *Budget*: $budget\n\n'
-            'Your franchise lead is now active in the Admin CRM. Please explore our territory models, margins, and franchise investment options below:';
+            'Your franchise inquiry has been logged in our Admin CRM and routed to the territory team. Please explore our models, margins, and investment details below:';
 
     _respond(
       summary,

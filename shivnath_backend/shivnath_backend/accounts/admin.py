@@ -16,6 +16,7 @@ from .models import (
     StockAlertLog,
     CustomerNotification,
     AdminNotification,
+    SupportContact,
 )
 
 
@@ -309,4 +310,17 @@ class AdminNotificationAdmin(admin.ModelAdmin):
     list_filter = ('notification_type', 'is_read')
     search_fields = ('title', 'message')
     readonly_fields = ('created_at',)
+
+
+@admin.register(SupportContact)
+class SupportContactAdmin(admin.ModelAdmin):
+    list_display = (
+        'role',
+        'name',
+        'phone',
+        'email',
+    )
+    list_filter = ('role',)
+    search_fields = ('name', 'phone', 'email')
+
 

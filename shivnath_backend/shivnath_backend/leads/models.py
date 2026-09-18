@@ -85,6 +85,20 @@ class Lead(models.Model):
         blank=True
     )
 
+    territory = models.CharField(
+        max_length=150,
+        blank=True,
+        default=''
+    )
+
+    assigned_franchise = models.ForeignKey(
+        'accounts.FranchiseProfile',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_leads'
+    )
+
     # =========================================
     # BUSINESS / FRANCHISE DETAILS
     # =========================================

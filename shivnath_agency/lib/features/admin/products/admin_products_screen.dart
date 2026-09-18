@@ -12,51 +12,96 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
   final ProductService _productService =
     ProductService();
 
-List<Map<String, dynamic>> products = [];
+  List<Map<String, dynamic>> products = [];
+  bool loading = true;
 
-bool loading = true;
-@override
-void initState() {
-  super.initState();
-  loadProducts();
-}
-Future<void> loadProducts() async {
+  // Category Tree State
+  List<Map<String, dynamic>> categoryTree = [];
+  List<Map<String, dynamic>> flatCategories = [];
+  bool loadingCategories = false;
+  bool categoriesExpanded = true;
+  Set<int> expandedCategoryIds = {};
+  int? selectedCategoryId;
 
-  setState(() {
-    loading = true;
-  });
+  @override
+  void initState() {
+    super.initState();
+    loadCategories();
+    loadProducts();
+  }
 
-  final result =
-      await _productService.getProducts(
-    search: search,
-    category: categoryFilter,
-  );
+  Future<void> loadCategories() async {
+    setState(() => loadingCategories = true);
+    final result = await _productService.getCategories(treeOnly: true);
+    if (result["success"] == true && result["data"] is Map) {
+      final rawList = result["data"]["categories"] as List? ?? [];
+      categoryTree = List<Map<String, dynamic>>.from(rawList);
+      flatCategories = [];
+      _flattenCategories(categoryTree, '');
+      _collectCategoryIds(categoryTree, expandedCategoryIds);
+    }
+    if (mounted) setState(() => loadingCategories = false);
+  }
 
-  if (result["success"] == true) {
-
-    final data =
-        result["data"]["products"] as List;
-
-    products =
-        List<Map<String, dynamic>>.from(data);
-
-  } else {
-
-    if (mounted) {
-      AppToast.error(
-        context,
-        result["message"] ??
-            "Unable to load products.",
-      );
+  void _flattenCategories(List<dynamic> list, String prefix) {
+    for (var item in list) {
+      if (item is Map<String, dynamic>) {
+        final path = prefix.isEmpty ? item['name'].toString() : '$prefix > ${item['name']}';
+        flatCategories.add({
+          'id': item['id'],
+          'name': item['name'],
+          'full_path': item['full_path'] ?? path,
+          'is_active': item['is_active'] ?? true,
+        });
+        final children = item['children'] ?? item['subcategories'];
+        if (children is List && children.isNotEmpty) {
+          _flattenCategories(children, path);
+        }
+      }
     }
   }
 
-  if (mounted) {
-    setState(() {
-      loading = false;
-    });
+  void _collectCategoryIds(List<dynamic> list, Set<int> target) {
+    for (var item in list) {
+      if (item is Map<String, dynamic> && item['id'] is int) {
+        target.add(item['id']);
+        final children = item['children'] ?? item['subcategories'];
+        if (children is List && children.isNotEmpty) {
+          _collectCategoryIds(children, target);
+        }
+      }
+    }
   }
-}
+
+  Future<void> loadProducts() async {
+    setState(() {
+      loading = true;
+    });
+
+    final result = await _productService.getProducts(
+      search: search,
+      categoryId: selectedCategoryId,
+      category: selectedCategoryId == null && categoryFilter != 'All' ? categoryFilter : null,
+    );
+
+    if (result["success"] == true) {
+      final data = result["data"]["products"] as List? ?? [];
+      products = List<Map<String, dynamic>>.from(data);
+    } else {
+      if (mounted) {
+        AppToast.error(
+          context,
+          result["message"] ?? "Unable to load products.",
+        );
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        loading = false;
+      });
+    }
+  }
 
   String search = '';
   String categoryFilter = 'All';
@@ -70,10 +115,7 @@ Future<void> loadProducts() async {
           product['name'].toString().toLowerCase().contains(keyword) ||
           product['sku'].toString().toLowerCase().contains(keyword);
 
-      final matchesCategory =
-          categoryFilter == 'All' || product['category'] == categoryFilter;
-
-      return matchesSearch && matchesCategory;
+      return matchesSearch;
     }).toList();
   }
 
@@ -107,6 +149,8 @@ Future<void> loadProducts() async {
                     _buildHeader(desktop),
                     const SizedBox(height: 22),
                     _buildStats(desktop),
+                    const SizedBox(height: 20),
+                    _buildCategoriesSection(desktop),
                     const SizedBox(height: 20),
                     _buildToolbar(desktop),
                     const SizedBox(height: 14),
@@ -218,6 +262,655 @@ Future<void> loadProducts() async {
     );
   }
 
+  Widget _buildCategoriesSection(bool desktop) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(desktop ? 20 : 14),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (desktop)
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.account_tree_outlined, color: Color(0xFF0284C7)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Product Categories',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Manage hierarchical category tree, unlimited subcategories, and assignments (${flatCategories.length} categories total)',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => _openCategoryDialog(),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('+ Add Category', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ],
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.account_tree_outlined, color: Color(0xFF0284C7), size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Product Categories',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF111827),
+                            ),
+                          ),
+                          Text(
+                            '${flatCategories.length} categories total',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => _openCategoryDialog(),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('+ Add Category', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 16),
+          if (loadingCategories)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (categoryTree.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.folder_open_outlined, size: 40, color: Color(0xFF94A3B8)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'No categories found. Click "+ Add Category" to create the first root category.',
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            _buildCategoryTreeWidget(categoryTree, 0, desktop: desktop),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryTreeWidget(List<dynamic> nodes, int depth, {bool desktop = false}) {
+    return Column(
+      children: nodes.map((node) {
+        if (node is! Map<String, dynamic>) return const SizedBox.shrink();
+        return _buildCategoryNode(node, depth, desktop: desktop);
+      }).toList(),
+    );
+  }
+
+  Widget _buildCategoryNode(Map<String, dynamic> cat, int depth, {bool desktop = false}) {
+    final catId = cat['id'] as int? ?? 0;
+    final name = cat['name']?.toString() ?? 'Unnamed';
+    final fullPath = cat['full_path']?.toString() ?? name;
+    final isActive = cat['is_active'] != false;
+    final productCount = cat['product_count'] ?? 0;
+    final rawChildren = cat['children'] ?? cat['subcategories'];
+    final children = (rawChildren is List) ? rawChildren : const [];
+    final hasChildren = children.isNotEmpty;
+    final isExpanded = expandedCategoryIds.contains(catId);
+
+    final leftIndent = desktop ? (12.0 + depth * 22.0) : (8.0 + depth * 12.0);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: depth == 0 ? Colors.white : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: depth == 0 ? const Color(0xFFE2E8F0) : const Color(0xFFEEF2F6),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              left: leftIndent,
+              right: desktop ? 12.0 : 8.0,
+              top: 8.0,
+              bottom: 8.0,
+            ),
+            child: desktop
+                ? Row(
+                    children: [
+                      if (hasChildren)
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              if (isExpanded) {
+                                expandedCategoryIds.remove(catId);
+                              } else {
+                                expandedCategoryIds.add(catId);
+                              }
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              isExpanded ? Icons.expand_more : Icons.chevron_right,
+                              size: 20,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        )
+                      else
+                        const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.circle, size: 6, color: Color(0xFFCBD5E1)),
+                        ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        depth == 0 ? Icons.folder_rounded : Icons.subdirectory_arrow_right_rounded,
+                        size: 18,
+                        color: depth == 0 ? const Color(0xFF0284C7) : const Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Tooltip(
+                          message: 'Full Path: $fullPath',
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: depth == 0 ? FontWeight.w700 : FontWeight.w600,
+                                    color: isActive ? const Color(0xFF1E293B) : const Color(0xFF94A3B8),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE2E8F0),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$productCount products',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  isActive ? 'Active' : 'Archived',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: isActive ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          foregroundColor: const Color(0xFF0284C7),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
+                        onPressed: () => _openCategoryDialog(parent: cat),
+                        icon: const Icon(Icons.add_circle_outline, size: 15),
+                        label: const Text('Add Child', style: TextStyle(fontSize: 12)),
+                      ),
+                      IconButton(
+                        tooltip: 'Edit Category',
+                        icon: const Icon(Icons.edit_outlined, size: 17, color: Color(0xFF64748B)),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: () => _openCategoryDialog(category: cat),
+                      ),
+                      IconButton(
+                        tooltip: 'Archive Category',
+                        icon: const Icon(Icons.archive_outlined, size: 17, color: Color(0xFFDC2626)),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: () => _archiveCategory(cat),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (hasChildren)
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  if (isExpanded) {
+                                    expandedCategoryIds.remove(catId);
+                                  } else {
+                                    expandedCategoryIds.add(catId);
+                                  }
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  isExpanded ? Icons.expand_more : Icons.chevron_right,
+                                  size: 20,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                            )
+                          else
+                            const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.circle, size: 6, color: Color(0xFFCBD5E1)),
+                            ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            depth == 0 ? Icons.folder_rounded : Icons.subdirectory_arrow_right_rounded,
+                            size: 16,
+                            color: depth == 0 ? const Color(0xFF0284C7) : const Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: depth == 0 ? FontWeight.w700 : FontWeight.w600,
+                                color: isActive ? const Color(0xFF1E293B) : const Color(0xFF94A3B8),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '$productCount',
+                              style: const TextStyle(fontSize: 10, color: Color(0xFF475569), fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              isActive ? 'Active' : 'Archived',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: isActive ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              foregroundColor: const Color(0xFF0284C7),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            ),
+                            onPressed: () => _openCategoryDialog(parent: cat),
+                            icon: const Icon(Icons.add_circle_outline, size: 14),
+                            label: const Text('Add Child', style: TextStyle(fontSize: 11)),
+                          ),
+                          IconButton(
+                            tooltip: 'Edit Category',
+                            icon: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF64748B)),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                            onPressed: () => _openCategoryDialog(category: cat),
+                          ),
+                          IconButton(
+                            tooltip: 'Archive Category',
+                            icon: const Icon(Icons.archive_outlined, size: 16, color: Color(0xFFDC2626)),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                            onPressed: () => _archiveCategory(cat),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+          ),
+          if (hasChildren && isExpanded)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: _buildCategoryTreeWidget(children, depth + 1, desktop: desktop),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openCategoryDialog({
+    Map<String, dynamic>? category,
+    Map<String, dynamic>? parent,
+  }) async {
+    final isEditing = category != null;
+    final nameController = TextEditingController(text: category?['name'] ?? '');
+    final descController = TextEditingController(text: category?['description'] ?? '');
+    final orderController = TextEditingController(text: category?['order']?.toString() ?? '0');
+    bool isActive = category?['is_active'] ?? true;
+    bool isSaving = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Icon(
+                    isEditing ? Icons.edit_outlined : Icons.add_circle_outline,
+                    color: const Color(0xFF0284C7),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    isEditing
+                        ? 'Edit Category'
+                        : (parent != null ? 'Add Subcategory' : 'Add Top-Level Category'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 450),
+                child: SizedBox(
+                  width: double.maxFinite,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (parent != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline, size: 16, color: Color(0xFF1D4ED8)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Parent: ${parent['full_path'] ?? parent['name']}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1E40AF),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        TextField(
+                          controller: nameController,
+                          autofocus: true,
+                          decoration: InputDecoration(
+                            labelText: 'Category Name *',
+                            hintText: 'e.g. 1 Litre, Sparkling, 20 Litre Jar',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            prefixIcon: const Icon(Icons.label_outline),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: descController,
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            labelText: 'Description (Optional)',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            prefixIcon: const Icon(Icons.description_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: orderController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Display Order',
+                            hintText: '0',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            prefixIcon: const Icon(Icons.sort_rounded),
+                          ),
+                        ),
+                        if (isEditing) ...[
+                          const SizedBox(height: 14),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Is Active', style: TextStyle(fontSize: 14)),
+                            value: isActive,
+                            onChanged: (val) => setDialogState(() => isActive = val),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final name = nameController.text.trim();
+                          if (name.isEmpty) {
+                            AppToast.error(context, 'Category name cannot be empty.');
+                            return;
+                          }
+                          setDialogState(() => isSaving = true);
+                          final payload = <String, dynamic>{
+                            'name': name,
+                            'description': descController.text.trim(),
+                            'order': int.tryParse(orderController.text.trim()) ?? 0,
+                            'is_active': isActive,
+                          };
+                          if (parent != null && parent['id'] != null) {
+                            payload['parent_id'] = parent['id'];
+                          }
+
+                          final res = isEditing
+                              ? await _productService.updateCategory(category['id'] as int, payload)
+                              : await _productService.createCategory(payload);
+
+                          if (res['success'] == true) {
+                            if (mounted) {
+                              AppToast.success(
+                                context,
+                                isEditing
+                                    ? 'Category "$name" updated successfully.'
+                                    : 'Category "$name" created successfully.',
+                              );
+                              Navigator.pop(dialogCtx);
+                              await loadCategories();
+                              await loadProducts();
+                            }
+                          } else {
+                            setDialogState(() => isSaving = false);
+                            if (mounted) {
+                              AppToast.error(context, res['message'] ?? 'Unable to save category.');
+                            }
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(isEditing ? 'Save Changes' : 'Create Category'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _archiveCategory(Map<String, dynamic> cat) async {
+    final catId = cat['id'] as int? ?? 0;
+    final name = cat['name']?.toString() ?? 'Category';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Archive Category?'),
+        content: Text(
+          'Are you sure you want to archive "$name"?\n\n'
+          'Categories with active subcategories or active products cannot be archived.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Archive', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final res = await _productService.deleteCategory(catId);
+    if (res['success'] == true) {
+      if (mounted) {
+        AppToast.success(context, 'Category "$name" archived successfully.');
+        await loadCategories();
+        await loadProducts();
+      }
+    } else {
+      if (mounted) {
+        AppToast.error(context, res['message'] ?? 'Unable to archive category.');
+      }
+    }
+  }
+
   Widget _buildToolbar(bool desktop) {
     return Container(
       padding: const EdgeInsets.all(15),
@@ -227,7 +920,7 @@ Future<void> loadProducts() async {
               children: [
                 Expanded(child: _searchField()),
                 const SizedBox(width: 14),
-                SizedBox(width: 190, child: _categoryDropdown()),
+                SizedBox(width: 220, child: _categoryDropdown()),
               ],
             )
           : Column(
@@ -255,12 +948,9 @@ Future<void> loadProducts() async {
       height: 44,
       child: TextField(
         onChanged: (value) async {
-
-  search = value;
-
-  await loadProducts();
-
-},
+          search = value;
+          await loadProducts();
+        },
         decoration: InputDecoration(
           hintText: 'Search product or SKU...',
           prefixIcon: const Icon(Icons.search_rounded, size: 19),
@@ -281,26 +971,43 @@ Future<void> loadProducts() async {
   }
 
   Widget _categoryDropdown() {
-    return DropdownButtonFormField<String>(
-      value: categoryFilter,
+    final List<DropdownMenuItem<dynamic>> dropdownItems = [
+      const DropdownMenuItem(value: 'All', child: Text('All Categories')),
+      ...flatCategories.map((cat) {
+        final id = cat['id'];
+        final fullPath = cat['full_path'] ?? cat['name'];
+        return DropdownMenuItem(
+          value: id,
+          child: Text(fullPath.toString(), overflow: TextOverflow.ellipsis),
+        );
+      }),
+    ];
+
+    dynamic safeValue = selectedCategoryId;
+    if (safeValue == null || !dropdownItems.any((item) => item.value == safeValue)) {
+      safeValue = 'All';
+    }
+
+    return DropdownButtonFormField<dynamic>(
+      value: safeValue,
       isExpanded: true,
       decoration: const InputDecoration(
         contentPadding: EdgeInsets.symmetric(horizontal: 12),
       ),
-      items: const [
-        DropdownMenuItem(value: 'All', child: Text('All Categories')),
-        DropdownMenuItem(value: 'Bottle', child: Text('Bottle')),
-        DropdownMenuItem(value: 'Jar', child: Text('Jar')),
-      ],
+      items: dropdownItems,
       onChanged: (value) async {
-
-  if (value == null) return;
-
-  categoryFilter = value;
-
-  await loadProducts();
-
-},
+        if (value == null || value == 'All') {
+          selectedCategoryId = null;
+          categoryFilter = 'All';
+        } else if (value is int) {
+          selectedCategoryId = value;
+          categoryFilter = value.toString();
+        } else {
+          selectedCategoryId = null;
+          categoryFilter = value.toString();
+        }
+        await loadProducts();
+      },
     );
   }
 
@@ -627,9 +1334,30 @@ if (filteredProducts.isEmpty) {
     final gstController =
         TextEditingController(text: product?['gst']?.toString() ?? '18');
     final stockController =
-        TextEditingController(text: product?['stock']?.toString() ?? '');
+        TextEditingController(text: product?['stock']?.toString() ?? '0');
+    int? categoryRefId;
+    if (product != null) {
+      if (product['category_ref_id'] is int) {
+        categoryRefId = product['category_ref_id'] as int;
+      } else if (product['category_ref'] is Map && product['category_ref']['id'] is int) {
+        categoryRefId = product['category_ref']['id'] as int;
+      } else if (product['category_id'] is int) {
+        categoryRefId = product['category_id'] as int;
+      }
+    }
 
-    String category = product?['category'] ?? 'Bottle';
+    if (categoryRefId == null && product?['category'] != null) {
+      final match = flatCategories.firstWhere(
+        (c) => c['name'].toString().toLowerCase() == product!['category'].toString().toLowerCase(),
+        orElse: () => {},
+      );
+      if (match.isNotEmpty && match['id'] is int) {
+        categoryRefId = match['id'] as int;
+      }
+    }
+
+    String category = product?['category'] ??
+        (flatCategories.isNotEmpty ? flatCategories.first['name'].toString() : 'Bottle');
     String status = product?['status'] ?? 'Active';
     bool saved = false;
     String savedName = '';
@@ -701,15 +1429,26 @@ if (filteredProducts.isEmpty) {
                                       hint: 'Example: 1 Litre',
                                       icon: Icons.straighten_outlined,
                                     ),
-                                    _professionalDropdown(
-                                      label: 'Category',
-                                      value: category,
-                                      icon: Icons.category_outlined,
-                                      items: const ['Bottle', 'Jar'],
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          updateDialog(() => category = value);
-                                        }
+                                    _professionalCategoryPicker(
+                                      label: 'Category *',
+                                      value: categoryRefId != null &&
+                                              flatCategories.any((c) => c['id'] == categoryRefId)
+                                          ? categoryRefId
+                                          : null,
+                                      items: flatCategories,
+                                      onChanged: (val) {
+                                        updateDialog(() {
+                                          categoryRefId = val;
+                                          if (val != null) {
+                                            final match = flatCategories.firstWhere(
+                                              (c) => c['id'] == val,
+                                              orElse: () => {},
+                                            );
+                                            if (match.isNotEmpty) {
+                                              category = match['name']?.toString() ?? category;
+                                            }
+                                          }
+                                        });
                                       },
                                     ),
                                   ],
@@ -817,6 +1556,7 @@ if (filteredProducts.isEmpty) {
     "sku": sku,
     "size": size,
     "category": category,
+    if (categoryRefId != null) "category_ref_id": categoryRefId,
     "price": price,
     "gst": gst,
     "stock": stock,
@@ -1107,11 +1847,19 @@ if(response["success"]){
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
+    final effectiveItems = items.toSet().toList();
+    if (value.isNotEmpty && !effectiveItems.contains(value)) {
+      effectiveItems.insert(0, value);
+    }
+    final safeValue = effectiveItems.contains(value)
+        ? value
+        : (effectiveItems.isNotEmpty ? effectiveItems.first : null);
+
     return DropdownButtonFormField<String>(
-      value: value,
+      value: safeValue,
       isExpanded: true,
       decoration: _formDecoration(label, icon),
-      items: items
+      items: effectiveItems
           .map(
             (item) => DropdownMenuItem(
               value: item,
@@ -1119,6 +1867,39 @@ if(response["success"]){
             ),
           )
           .toList(),
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _professionalCategoryPicker({
+    required String label,
+    required int? value,
+    required List<Map<String, dynamic>> items,
+    required ValueChanged<int?> onChanged,
+  }) {
+    final validIds = items.map((cat) => cat['id'] as int?).toSet();
+    final safeValue = (value != null && validIds.contains(value)) ? value : null;
+
+    return DropdownButtonFormField<int?>(
+      value: safeValue,
+      isExpanded: true,
+      decoration: _formDecoration(label, Icons.category_outlined),
+      hint: const Text('Select Category'),
+      items: [
+        const DropdownMenuItem<int?>(
+          value: null,
+          child: Text('None / Select Category'),
+        ),
+        ...items.map((cat) {
+          return DropdownMenuItem<int?>(
+            value: cat['id'] as int?,
+            child: Text(
+              cat['full_path']?.toString() ?? cat['name']?.toString() ?? '',
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }),
+      ],
       onChanged: onChanged,
     );
   }

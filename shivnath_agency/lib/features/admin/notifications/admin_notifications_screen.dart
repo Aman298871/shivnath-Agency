@@ -226,21 +226,57 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                 bottom: BorderSide(color: Color(0xFFE5E7EB)),
               ),
             ),
-            child: Row(
-              children: [
-                _tabButton('All', notifications.length),
-                const SizedBox(width: 8),
-                _tabButton('Unread', unreadCount),
-                const SizedBox(width: 8),
-                _tabButton('Read', readCount),
-                const Spacer(),
-                if (unreadCount > 0)
-                  TextButton.icon(
-                    onPressed: _markAllRead,
-                    icon: const Icon(Icons.done_all, size: 17),
-                    label: const Text('Mark All Read'),
-                  ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < 480;
+                if (isCompact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _tabButton('All', notifications.length),
+                            const SizedBox(width: 8),
+                            _tabButton('Unread', unreadCount),
+                            const SizedBox(width: 8),
+                            _tabButton('Read', readCount),
+                          ],
+                        ),
+                      ),
+                      if (unreadCount > 0) ...[
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: _markAllRead,
+                            icon: const Icon(Icons.done_all, size: 16),
+                            label: const Text('Mark All Read', style: TextStyle(fontSize: 12)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    _tabButton('All', notifications.length),
+                    const SizedBox(width: 8),
+                    _tabButton('Unread', unreadCount),
+                    const SizedBox(width: 8),
+                    _tabButton('Read', readCount),
+                    const Spacer(),
+                    if (unreadCount > 0)
+                      TextButton.icon(
+                        onPressed: _markAllRead,
+                        icon: const Icon(Icons.done_all, size: 17),
+                        label: const Text('Mark All Read'),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
           if (filtered.isEmpty)

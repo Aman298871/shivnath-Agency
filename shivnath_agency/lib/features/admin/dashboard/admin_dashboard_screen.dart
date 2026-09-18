@@ -355,7 +355,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: 1.10,
+        childAspectRatio: 1.02,
       ),
       itemCount: _stats.length,
       itemBuilder: (_, index) {

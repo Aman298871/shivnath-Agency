@@ -376,4 +376,38 @@ Future<Map<String, dynamic>> deleteFranchise(
     };
   }
 }
+
+  Future<Map<String, dynamic>> getDashboardStats() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.apiBaseUrl}/api/auth/franchise/dashboard-stats/'),
+        headers: await _headers(),
+      ).timeout(const Duration(seconds: 15));
+
+      final dynamic decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to fetch dashboard stats', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getFranchiseDetail(int franchiseId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.apiBaseUrl}/api/auth/admin/franchises/$franchiseId/detail/'),
+        headers: await _headers(),
+      ).timeout(const Duration(seconds: 15));
+
+      final dynamic decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to fetch franchise detail', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable.'};
+    }
+  }
 }

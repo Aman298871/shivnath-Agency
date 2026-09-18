@@ -332,7 +332,17 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
        Returns clear coverage info (e.g., 'Serves West Raipur (Raipur District)').
     3. Unavailable: If 0 franchises found, returns match_level='none' with central support contact info.
     """
-    from .models import FranchiseTerritoryAssignment, ServiceDistrict, ServiceZone
+    from .models import FranchiseTerritoryAssignment, ServiceDistrict, ServiceZone, FranchiseProfile, SupportContact
+    from django.conf import settings
+
+    # Helper for support contact
+    def _get_support_info():
+        try:
+            sc = SupportContact.objects.get(role='public_customer')
+            return {'phone': sc.phone, 'email': sc.email, 'name': sc.name}
+        except SupportContact.DoesNotExist:
+            fallback = getattr(settings, 'SUPPORT_FALLBACK_PHONE', None)
+            return {'phone': fallback or '', 'email': 'support@shivnath.com', 'name': 'Shivnath Central Support'}
 
     if not zone and not district:
         return {
@@ -340,11 +350,7 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
             'match_level': 'none',
             'is_fallback': False,
             'fallback_message': 'No territory or zone specified.',
-            'support_contact': {
-                'phone': '+91 98765 43210',
-                'email': 'support@shivnathagency.com',
-                'name': 'Shivnath Central Support',
-            },
+            'support_contact': _get_support_info(),
             'franchises': [],
             'count': 0,
         }
@@ -386,13 +392,16 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
                 'count': len(franchises),
             }
 
-    # 2. Configured Fallback within the same District
+    # 2. Configured Fallback within the same District or System-wide
     if allow_fallback:
         target_district = district
         if not target_district and zone and zone.district:
             target_district = zone.district
         elif isinstance(district, str):
             target_district = ServiceDistrict.objects.filter(name__iexact=district, is_active=True).first()
+
+        fallback_franchises = []
+        seen_franchise_ids = set()
 
         if target_district:
             fallback_query = FranchiseTerritoryAssignment.objects.filter(
@@ -407,8 +416,6 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
                 'franchise', 'franchise__user', 'franchise__user__profile', 'zone', 'zone__district'
             ).order_by('-is_primary', 'franchise__business_name')
 
-            seen_franchise_ids = set()
-            fallback_franchises = []
             for assign in fallback_assignments:
                 f = assign.franchise
                 if f.id in seen_franchise_ids:
@@ -427,37 +434,46 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
                     'serving_zone_id': assign.zone.id,
                     'serving_zone_name': assign.zone.name,
                     'serving_district_name': assign.zone.district.name,
-                    'service_coverage': f"Serves {assign.zone.name} ({assign.zone.district.name})",
+                    'service_coverage': f"Serves {assign.zone.name} (Alternate Territory)",
                 })
 
-            if fallback_franchises:
-                return {
-                    'success': True,
-                    'match_level': 'district_fallback',
-                    'is_fallback': True,
-                    'fallback_message': 'No franchise is currently available in your selected area. We found franchises serving nearby/alternate service areas.',
-                    'support_contact': {
-                        'phone': '+91 98765 43210',
-                        'email': 'support@shivnathagency.com',
-                        'name': 'Shivnath Central Support',
-                    },
-                    'franchises': fallback_franchises,
-                    'count': len(fallback_franchises),
-                }
+        # Also include any active approved franchise in system not yet in list
+        other_approved = FranchiseProfile.objects.filter(status='approved').exclude(id__in=seen_franchise_ids).select_related('user', 'user__profile')
+        for f in other_approved:
+            fallback_franchises.append({
+                'id': f.id,
+                'business_name': f.business_name,
+                'owner_name': f.user.get_full_name() or f.user.username,
+                'city': f.city,
+                'address': f.address,
+                'phone': f.user.profile.phone if hasattr(f.user, 'profile') else '',
+                'is_primary': False,
+                'is_headquarters': f.is_headquarters,
+                'is_fallback': True,
+                'serving_zone_id': None,
+                'serving_zone_name': 'Other',
+                'serving_district_name': f.city,
+                'service_coverage': f"{f.city} (Alternate / Outside Territory)",
+            })
 
-    # 3. No Serviceable Franchise Available Anywhere in Area
+        zone_label = f" ({zone.name})" if zone else ""
+        return {
+            'success': True,
+            'match_level': 'fallback',
+            'is_fallback': True,
+            'fallback_message': f'No franchise is currently available in your selected territory{zone_label}. You may select an alternate available franchise below.',
+            'support_contact': _get_support_info(),
+            'franchises': fallback_franchises,
+            'count': len(fallback_franchises),
+        }
+
+    # 3. No Serviceable Franchise Available
     return {
         'success': True,
         'match_level': 'none',
         'is_fallback': False,
-        'fallback_message': 'Service currently unavailable in your area.',
-        'support_contact': {
-            'phone': '+91 98765 43210',
-            'email': 'support@shivnathagency.com',
-            'name': 'Shivnath Central Support',
-            'address': 'Shivnath Central Fulfillment Plant, Raipur, Chhattisgarh',
-        },
+        'fallback_message': 'No franchises are currently available in the system. Please contact support.',
+        'support_contact': _get_support_info(),
         'franchises': [],
         'count': 0,
     }
-

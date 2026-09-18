@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/services/franchise_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
 import '../../../models/user_model.dart';
@@ -16,7 +17,19 @@ class FranchiseDashboardScreen extends StatefulWidget {
 
 class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
   final SessionService _sessionService = SessionService();
+  final FranchiseService _franchiseService = FranchiseService();
   UserModel? _currentUser;
+  Map<String, dynamic> _stats = {
+    'customers_served': 0,
+    'registered_customers': 0,
+    'active_stock': 0,
+    'low_stock': 0,
+    'on_hold': 0,
+    'expired_stock': 0,
+    'pending_orders': 0,
+    'total_orders': 0,
+  };
+  bool _loadingStats = true;
 
   @override
   void initState() {
@@ -30,6 +43,20 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
       setState(() {
         _currentUser = user;
       });
+    }
+    await _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    setState(() => _loadingStats = true);
+    final res = await _franchiseService.getDashboardStats();
+    if (mounted && res['success'] == true && res['data'] is Map) {
+      setState(() {
+        _stats = Map<String, dynamic>.from(res['data']);
+        _loadingStats = false;
+      });
+    } else if (mounted) {
+      setState(() => _loadingStats = false);
     }
   }
 
@@ -145,6 +172,15 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                       const SizedBox(height: 24),
                     ],
 
+                    if (_loadingStats)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 16),
+                        child: LinearProgressIndicator(
+                          backgroundColor: Color(0xFFE2E8F0),
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                        ),
+                      ),
+
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -152,26 +188,46 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                       crossAxisSpacing: 14,
                       mainAxisSpacing: 14,
                       childAspectRatio: desktop ? 2.1 : 1.15,
-                      children: const [
+                      children: [
                         _StatCard(
-                          title: 'Total Orders',
-                          value: '0',
-                          icon: Icons.shopping_bag_outlined,
+                          title: 'Customers Served',
+                          value: '${_stats['customers_served'] ?? 0}',
+                          icon: Icons.people_outline_rounded,
+                        ),
+                        _StatCard(
+                          title: 'Registered Cust.',
+                          value: '${_stats['registered_customers'] ?? 0}',
+                          icon: Icons.app_registration_rounded,
+                        ),
+                        _StatCard(
+                          title: 'Active Stock',
+                          value: '${_stats['active_stock'] ?? 0}',
+                          icon: Icons.water_drop_outlined,
+                        ),
+                        _StatCard(
+                          title: 'Low Stock Alerts',
+                          value: '${_stats['low_stock'] ?? 0}',
+                          icon: Icons.warning_amber_rounded,
+                        ),
+                        _StatCard(
+                          title: 'Stock On Hold',
+                          value: '${_stats['on_hold'] ?? 0}',
+                          icon: Icons.pause_circle_outline_rounded,
+                        ),
+                        _StatCard(
+                          title: 'Expired Stock',
+                          value: '${_stats['expired_stock'] ?? 0}',
+                          icon: Icons.history_toggle_off_rounded,
                         ),
                         _StatCard(
                           title: 'Pending Orders',
-                          value: '0',
+                          value: '${_stats['pending_orders'] ?? 0}',
                           icon: Icons.schedule_rounded,
                         ),
                         _StatCard(
-                          title: 'Outstanding',
-                          value: '₹0',
-                          icon: Icons.payments_outlined,
-                        ),
-                        _StatCard(
-                          title: 'This Month',
-                          value: '₹0',
-                          icon: Icons.trending_up_rounded,
+                          title: 'Total Orders',
+                          value: '${_stats['total_orders'] ?? 0}',
+                          icon: Icons.shopping_bag_outlined,
                         ),
                       ],
                     ),

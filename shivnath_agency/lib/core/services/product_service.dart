@@ -31,6 +31,7 @@ class ProductService {
   Future<Map<String, dynamic>> getProducts({
     String? search,
     String? category,
+    int? categoryId,
     String? status,
   }) async {
     try {
@@ -42,7 +43,9 @@ class ProductService {
         query['search'] = search.trim();
       }
 
-      if (category != null &&
+      if (categoryId != null) {
+        query['category_id'] = categoryId.toString();
+      } else if (category != null &&
           category != 'All') {
         query['category'] = category;
       }

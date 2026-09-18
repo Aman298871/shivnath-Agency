@@ -46,7 +46,9 @@ class CustomerRegisterSerializer(serializers.Serializer):
 
     pincode = serializers.CharField(
         max_length=10,
-        required=True
+        required=False,
+        allow_blank=True,
+        default=''
     )
 
     locality = serializers.CharField(
@@ -63,6 +65,10 @@ class CustomerRegisterSerializer(serializers.Serializer):
     )
 
     zone_id = serializers.IntegerField(
+        required=True
+    )
+
+    franchise_id = serializers.IntegerField(
         required=False,
         allow_null=True
     )
@@ -72,6 +78,17 @@ class CustomerRegisterSerializer(serializers.Serializer):
         allow_blank=True,
         default=''
     )
+
+    def validate_phone(self, value):
+        import re
+        cleaned = re.sub(r'[\s\-\+]', '', value)
+        if cleaned.startswith('91') and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        if not re.fullmatch(r'[6-9][0-9]{9}', cleaned):
+            raise serializers.ValidationError(
+                'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8 or 9.'
+            )
+        return cleaned
 
     def validate_email(self, value):
         value = value.strip().lower()
@@ -88,69 +105,45 @@ class CustomerRegisterSerializer(serializers.Serializer):
             })
 
         district_str = attrs.get('district', '').strip()
-        pincode_str = attrs.get('pincode', '').strip()
-        locality_str = attrs.get('locality', '').strip()
+        if not district_str:
+            raise serializers.ValidationError({'district': 'District is required.'})
+
         submitted_zone_id = attrs.get('zone_id')
+        from .models import ServiceDistrict, ServiceZone, FranchiseProfile, FranchiseTerritoryAssignment
 
-        from .models import ServiceArea, ServiceDistrict, ServiceZone
-
-        # Authoritative server-side zone resolution & validation
-        matching_areas = ServiceArea.objects.filter(
-            pincode=pincode_str,
-            district__name__iexact=district_str,
-            is_active=True
-        ).select_related('zone', 'district')
-
-        if not matching_areas.exists():
-            # If exact district name didn't match, check by pincode alone in active areas
-            matching_areas = ServiceArea.objects.filter(
-                pincode=pincode_str,
+        # Validate zone_id against master territories for the district
+        try:
+            resolved_zone = ServiceZone.objects.select_related('district').get(
+                id=submitted_zone_id,
+                district__name__iexact=district_str,
                 is_active=True
-            ).select_related('zone', 'district')
-
-        if not matching_areas.exists():
+            )
+        except ServiceZone.DoesNotExist:
             raise serializers.ValidationError({
-                'pincode': f'PIN code {pincode_str} is not currently registered in a recognized service zone. Please select a valid service area or contact support.'
+                'zone_id': f'Invalid territory selected for district "{district_str}". Please select an active territory from the list.'
             })
 
-        # Check unique zones
-        unique_zones = list({area.zone for area in matching_areas})
-        resolved_zone = None
-        matched_area = None
+        # Validate franchise_id if customer selected one
+        franchise_id = attrs.get('franchise_id')
+        chosen_franchise = None
+        is_fallback_franchise = False
 
-        if len(unique_zones) == 1:
-            resolved_zone = unique_zones[0]
-            matched_area = matching_areas.first()
-        else:
-            # Multiple zones for this PIN - resolve via locality if available
-            if locality_str:
-                for a in matching_areas:
-                    if a.locality_name.lower() in locality_str.lower() or locality_str.lower() in a.locality_name.lower():
-                        resolved_zone = a.zone
-                        matched_area = a
-                        break
-
-            if not resolved_zone and submitted_zone_id:
-                for a in matching_areas:
-                    if a.zone_id == submitted_zone_id:
-                        resolved_zone = a.zone
-                        matched_area = a
-                        break
-
-            if not resolved_zone:
-                raise serializers.ValidationError({
-                    'locality': 'Multiple service zones cover this PIN code. Please select your specific locality or delivery area from the valid options.'
-                })
-
-        # Critical Security Rule: Prevent arbitrary/tampered zone ID submission
-        if submitted_zone_id and resolved_zone.id != submitted_zone_id:
-            raise serializers.ValidationError({
-                'zone_id': 'Invalid or tampered zone ID for the provided district and PIN code.'
-            })
+        if franchise_id:
+            try:
+                chosen_franchise = FranchiseProfile.objects.get(id=franchise_id, status='approved')
+                is_assigned = FranchiseTerritoryAssignment.objects.filter(
+                    zone=resolved_zone,
+                    franchise=chosen_franchise,
+                    is_active=True
+                ).exists()
+                is_fallback_franchise = not is_assigned
+            except FranchiseProfile.DoesNotExist:
+                raise serializers.ValidationError({'franchise_id': 'Selected franchise does not exist or is not active.'})
 
         attrs['_resolved_zone'] = resolved_zone
-        attrs['_matched_area'] = matched_area
-        attrs['_matched_district'] = matched_area.district if matched_area else resolved_zone.district
+        attrs['_matched_district'] = resolved_zone.district
+        attrs['_chosen_franchise'] = chosen_franchise
+        attrs['_is_fallback_franchise'] = is_fallback_franchise
         return attrs
 
     @transaction.atomic
@@ -165,9 +158,11 @@ class CustomerRegisterSerializer(serializers.Serializer):
 
         validated_data.pop('confirm_password')
         resolved_zone = validated_data.pop('_resolved_zone')
-        matched_area = validated_data.pop('_matched_area', None)
         matched_district = validated_data.pop('_matched_district', None)
+        chosen_franchise = validated_data.pop('_chosen_franchise', None)
+        is_fallback = validated_data.pop('_is_fallback_franchise', False)
         zone_id = validated_data.pop('zone_id', None)
+        franchise_id = validated_data.pop('franchise_id', None)
         referral_code = validated_data.pop('referral_code', '').strip()
 
         name = validated_data.pop('name').strip()
@@ -177,21 +172,21 @@ class CustomerRegisterSerializer(serializers.Serializer):
         city = validated_data.pop('city', '').strip() or (matched_district.name if matched_district else 'Raipur')
         district = validated_data.pop('district', '').strip() or (matched_district.name if matched_district else 'Raipur')
         pincode = validated_data.pop('pincode', '').strip()
-        locality = validated_data.pop('locality', '').strip() or (matched_area.locality_name if matched_area else '')
+        locality = validated_data.pop('locality', '').strip()
         address = validated_data.pop('address', '').strip()
 
         # =====================================================================
-        # DETERMINISTIC REGISTERED FRANCHISE ASSIGNMENT HIERARCHY
-        # Priority:
-        # a) Valid franchise referral code
-        # b) Admin-designated primary franchise for District + Zone
-        # c) Configured Headquarters franchise
-        # d) Clear configuration error
+        # FRANCHISE ASSIGNMENT HIERARCHY
+        # 1. Customer selected franchise
+        # 2. Referral code franchise
+        # 3. Admin-designated primary franchise for Zone
+        # 4. Any approved franchise assigned to Zone
+        # 5. Headquarters fallback
+        # 6. Any active approved franchise
         # =====================================================================
-        assigned_franchise = None
+        assigned_franchise = chosen_franchise
 
-        # a) Referral check
-        if referral_code:
+        if not assigned_franchise and referral_code:
             assigned_franchise = FranchiseProfile.objects.filter(
                 Q(user__username__iexact=referral_code)
                 | Q(user__profile__phone=referral_code)
@@ -199,7 +194,6 @@ class CustomerRegisterSerializer(serializers.Serializer):
                 status='approved'
             ).first()
 
-        # b) Admin-designated primary franchise for Zone
         if not assigned_franchise:
             primary_assignment = FranchiseTerritoryAssignment.objects.filter(
                 zone=resolved_zone,
@@ -207,32 +201,32 @@ class CustomerRegisterSerializer(serializers.Serializer):
                 is_active=True,
                 franchise__status='approved'
             ).select_related('franchise').first()
-
             if primary_assignment:
                 assigned_franchise = primary_assignment.franchise
 
-        # c) Any approved active franchise assigned to this Zone
         if not assigned_franchise:
             zone_assignment = FranchiseTerritoryAssignment.objects.filter(
                 zone=resolved_zone,
                 is_active=True,
                 franchise__status='approved'
             ).select_related('franchise').first()
-
             if zone_assignment:
                 assigned_franchise = zone_assignment.franchise
 
-        # d) Headquarters Fallback
         if not assigned_franchise:
             assigned_franchise = FranchiseProfile.objects.filter(
                 is_headquarters=True,
                 status='approved'
             ).first()
 
-        # e) Strict failure if neither exists
+        if not assigned_franchise:
+            assigned_franchise = FranchiseProfile.objects.filter(
+                status='approved'
+            ).first()
+
         if not assigned_franchise:
             raise serializers.ValidationError({
-                'territory': 'Service unavailable: No active franchise or headquarters is configured to serve this territory. Please contact administration.'
+                'territory': 'Service unavailable: No active franchise is currently configured in the system. Please contact administration.'
             })
 
         user = User.objects.create_user(
@@ -256,6 +250,8 @@ class CustomerRegisterSerializer(serializers.Serializer):
         profile.status = 'active'
         profile.save()
 
+        matched_district = resolved_zone.district if resolved_zone else None
+
         # Create authoritative CustomerFranchiseRelationship
         rel = CustomerFranchiseRelationship.objects.create(
             customer=user,
@@ -263,7 +259,7 @@ class CustomerRegisterSerializer(serializers.Serializer):
             current_serving_franchise=assigned_franchise,
             district=matched_district,
             zone=resolved_zone,
-            service_area=matched_area,
+            service_area=None,
             pincode=pincode,
             locality=locality,
             service_status='active',
@@ -345,6 +341,22 @@ class FranchiseRegisterSerializer(serializers.Serializer):
         allow_blank=True
     )
 
+    def validate_phone(self, value):
+        import re
+        cleaned = re.sub(r'[\s\-\+]', '', value)
+        if cleaned.startswith('91') and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        if not re.fullmatch(r'[6-9][0-9]{9}', cleaned):
+            raise serializers.ValidationError(
+                'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8 or 9.'
+            )
+        from .models import UserProfile
+        if UserProfile.objects.filter(phone=cleaned).exists():
+            raise serializers.ValidationError(
+                'This franchise account is already registered. Please login instead.'
+            )
+        return cleaned
+
     def validate_email(self, value):
         value = value.strip().lower()
 
@@ -352,7 +364,7 @@ class FranchiseRegisterSerializer(serializers.Serializer):
             email__iexact=value
         ).exists():
             raise serializers.ValidationError(
-                'An account with this email already exists.'
+                'This franchise account is already registered. Please login instead.'
             )
 
         return value

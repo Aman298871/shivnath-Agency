@@ -6,10 +6,10 @@ class ProductCategory(models.Model):
     slug = models.SlugField(max_length=150, blank=True, default="")
     parent = models.ForeignKey(
         "self",
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name="subcategories",
+        related_name="children",
     )
     description = models.TextField(blank=True, default="")
     order = models.PositiveIntegerField(default=0)
@@ -31,6 +31,12 @@ class ProductCategory(models.Model):
         if self.parent:
             return f"{self.parent.full_path} > {self.name}"
         return self.name
+
+    def get_descendant_ids(self):
+        descendants = [self.id]
+        for child in self.children.all():
+            descendants.extend(child.get_descendant_ids())
+        return descendants
 
 
 class Product(models.Model):

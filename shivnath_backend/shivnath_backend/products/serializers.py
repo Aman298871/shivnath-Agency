@@ -4,8 +4,10 @@ from .models import Product, ProductCategory
 
 
 class ProductCategorySerializer(serializers.ModelSerializer):
+    children = serializers.SerializerMethodField()
     subcategories = serializers.SerializerMethodField()
     parent_name = serializers.CharField(source="parent.name", read_only=True)
+    full_path = serializers.CharField(read_only=True)
     product_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -16,22 +18,85 @@ class ProductCategorySerializer(serializers.ModelSerializer):
             "slug",
             "parent",
             "parent_name",
+            "full_path",
             "description",
             "order",
             "is_active",
+            "children",
             "subcategories",
             "product_count",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "parent_name", "full_path", "created_at", "updated_at"]
+
+    def get_children(self, obj):
+        request = self.context.get("request")
+        include_inactive = False
+        if request and hasattr(request, "query_params"):
+            include_inactive = request.query_params.get("include_inactive", "").lower() in ["true", "1"]
+
+        qs = obj.children.all()
+        if not include_inactive:
+            qs = qs.filter(is_active=True)
+        children = qs.order_by("order", "name")
+        return ProductCategorySerializer(children, many=True, context=self.context).data
 
     def get_subcategories(self, obj):
-        children = obj.subcategories.filter(is_active=True).order_by("order", "name")
-        return ProductCategorySerializer(children, many=True).data
+        return self.get_children(obj)
 
     def get_product_count(self, obj):
         return obj.products.count()
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Category name is required.")
+        if len(value) > 150:
+            raise serializers.ValidationError("Category name cannot exceed 150 characters.")
+        return value
+
+    def validate(self, attrs):
+        name = attrs.get("name")
+        if name is None and self.instance:
+            name = self.instance.name
+
+        parent = attrs.get("parent")
+        if "parent" not in attrs and self.instance:
+            parent = self.instance.parent
+
+        if name:
+            name_clean = name.strip()
+            # Sibling duplicate check (case-insensitive)
+            if parent:
+                qs = ProductCategory.objects.filter(parent=parent, name__iexact=name_clean)
+            else:
+                qs = ProductCategory.objects.filter(parent__isnull=True, name__iexact=name_clean)
+
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"name": f"A category named '{name_clean}' already exists at this level."}
+                )
+
+        # Self-parent and circular hierarchy check
+        if parent and self.instance:
+            if parent.id == self.instance.id:
+                raise serializers.ValidationError(
+                    {"parent": "A category cannot be its own parent."}
+                )
+
+            curr = parent
+            while curr is not None:
+                if curr.id == self.instance.id:
+                    raise serializers.ValidationError(
+                        {"parent": "Circular category hierarchy is not allowed."}
+                    )
+                curr = curr.parent
+
+        return attrs
 
 
 class ProductSerializer(serializers.ModelSerializer):

@@ -25,6 +25,8 @@ from .views import (
     FranchiseCustomerStockListView,
     AdminStockManagementListView,
     CustomerNotificationListView,
+    FranchiseDashboardStatsView,
+    AdminFranchiseDetailView,
 )
 
 
@@ -105,6 +107,17 @@ urlpatterns = [
         'admin/stocks/',
         AdminStockManagementListView.as_view(),
         name='admin-stocks'
+    ),
+
+    path(
+        'franchise/dashboard-stats/',
+        FranchiseDashboardStatsView.as_view(),
+        name='franchise-dashboard-stats'
+    ),
+    path(
+        'admin/franchises/<int:franchise_id>/detail/',
+        AdminFranchiseDetailView.as_view(),
+        name='admin-franchise-detail'
     ),
 
     # Authentication

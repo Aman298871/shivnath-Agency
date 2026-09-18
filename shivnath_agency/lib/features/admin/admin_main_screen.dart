@@ -107,10 +107,6 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       title: 'Settings',
       icon: Icons.settings_outlined,
     ),
-    _AdminMenuItem(
-      title: 'Customer Stocks',
-      icon: Icons.water_drop_outlined,
-    ),
   ];
 
   // =========================================================
@@ -433,6 +429,9 @@ Widget _currentScreen() {
         elevation: 0,
         title: Text(
           _currentTitle(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
         actions: [
           IconButton(

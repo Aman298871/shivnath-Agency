@@ -79,29 +79,57 @@ class _FranchiseRegisterScreenState
       return;
     }
 
-    final accessToken = result['access']?.toString() ?? '';
-    final refreshToken = result['refresh']?.toString() ?? '';
-    final userJson = result['user'];
-
-    if (accessToken.isNotEmpty) {
-      await SessionService().saveTokens(
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-      );
-    }
-
-    if (userJson is Map<String, dynamic>) {
-      final user = UserModel.fromJson(userJson);
-      await SessionService().saveUser(user);
-      await SessionService().saveRole(AppConstants.franchiseRole);
-    }
-
     if (!mounted) return;
 
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      AppRoutes.franchiseDashboard,
-      (_) => false,
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Application Submitted',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Your franchise registration request has been submitted successfully.\n\n'
+          'Your account is currently pending Admin verification and approval. '
+          'Once approved, you will be able to log in with your credentials.',
+          style: TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF334155)),
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.login,
+                  (_) => false,
+                );
+              },
+              child: const Text(
+                'Continue to Login',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

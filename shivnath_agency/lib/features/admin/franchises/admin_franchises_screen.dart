@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/services/franchise_service.dart';
+import 'admin_franchise_detail_screen.dart';
 class AdminFranchisesScreen extends StatefulWidget {
   const AdminFranchisesScreen({super.key});
 
@@ -740,6 +741,26 @@ Future<void> _loadFranchises() async {
     ],
 
     IconButton(
+      tooltip: 'View Details',
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AdminFranchiseDetailScreen(
+              franchiseId: _toInt(item['id']),
+              franchiseName: item['name']?.toString() ?? item['owner']?.toString() ?? 'Franchise',
+            ),
+          ),
+        );
+      },
+      icon: const Icon(
+        Icons.visibility_outlined,
+        color: Color(0xFF0284C7),
+        size: 17,
+      ),
+    ),
+
+    IconButton(
       tooltip: 'Edit Franchise',
       onPressed: () {
         _openForm(
@@ -875,6 +896,26 @@ Future<void> _loadFranchises() async {
         ),
       ),
     ],
+
+    IconButton(
+      tooltip: 'View Details',
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AdminFranchiseDetailScreen(
+              franchiseId: _toInt(item['id']),
+              franchiseName: item['name']?.toString() ?? item['owner']?.toString() ?? 'Franchise',
+            ),
+          ),
+        );
+      },
+      icon: const Icon(
+        Icons.visibility_outlined,
+        color: Color(0xFF0284C7),
+        size: 17,
+      ),
+    ),
 
     IconButton(
       tooltip: 'Edit',
@@ -2024,56 +2065,44 @@ confirmPassword.dispose();
     required String label,
     required String value,
     required List<String> items,
-    required ValueChanged<String?>
-        onChanged,
+    required ValueChanged<String?> onChanged,
   }) {
-    return DropdownButtonFormField<
-        String>(
-      value: value,
+    final effectiveItems = items.toSet().toList();
+    if (value.isNotEmpty && !effectiveItems.contains(value)) {
+      effectiveItems.insert(0, value);
+    } else if (value.isEmpty && !effectiveItems.contains('')) {
+      effectiveItems.insert(0, '');
+    }
+
+    final safeValue = effectiveItems.contains(value)
+        ? value
+        : (effectiveItems.isNotEmpty ? effectiveItems.first : null);
+
+    return DropdownButtonFormField<String>(
+      value: safeValue,
       isExpanded: true,
-      decoration:
-          InputDecoration(
+      decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor:
-            const Color(
-          0xFFF8FAFC,
-        ),
-        enabledBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            10,
-          ),
-          borderSide:
-              const BorderSide(
-            color:
-                Color(
-              0xFFE2E8F0,
-            ),
+        fillColor: const Color(0xFFF8FAFC),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: Color(0xFFE2E8F0),
           ),
         ),
-        focusedBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            10,
-          ),
-          borderSide:
-              const BorderSide(
-            color:
-                Color(
-              0xFF0284C7,
-            ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: Color(0xFF0284C7),
           ),
         ),
       ),
-      items: items
+      items: effectiveItems
           .map(
-            (e) =>
-                DropdownMenuItem(
+            (e) => DropdownMenuItem(
               value: e,
-              child: Text(e),
+              child: Text(e.isEmpty ? 'Select' : e),
             ),
           )
           .toList(),

@@ -231,11 +231,14 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                           children: [
                             const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFE11D48), size: 20),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Quotation PDF Document',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            const Expanded(
+                              child: Text(
+                                'Quotation PDF Document',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            const Spacer(),
+                            const SizedBox(width: 8),
                             if (hasExistingPdf && !removeExistingPdf && selectedPdfName == null)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

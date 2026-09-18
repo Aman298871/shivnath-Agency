@@ -565,120 +565,106 @@ Future<void> _loadLeads() async {
   }
 
   Widget _statusDropdown() {
-    return DropdownButtonFormField<
-        String>(
-      value: selectedStatus,
+    const items = [
+      DropdownMenuItem(
+        value: 'All',
+        child: Text('All Status'),
+      ),
+      DropdownMenuItem(
+        value: 'New Lead',
+        child: Text('New Lead'),
+      ),
+      DropdownMenuItem(
+        value: 'Contacted',
+        child: Text('Contacted'),
+      ),
+      DropdownMenuItem(
+        value: 'Follow-up 1',
+        child: Text('Follow-up 1'),
+      ),
+      DropdownMenuItem(
+        value: 'Follow-up 2',
+        child: Text('Follow-up 2'),
+      ),
+      DropdownMenuItem(
+        value: 'Interested',
+        child: Text('Interested'),
+      ),
+      DropdownMenuItem(
+        value: 'Site Visit Scheduled',
+        child: Text('Site Visit Scheduled'),
+      ),
+      DropdownMenuItem(
+        value: 'Agreement Pending',
+        child: Text('Agreement Pending'),
+      ),
+      DropdownMenuItem(
+        value: 'Franchise Confirmed',
+        child: Text('Franchise Confirmed'),
+      ),
+      DropdownMenuItem(
+        value: 'Lost',
+        child: Text('Lost'),
+      ),
+    ];
+    final validValues = items.map((e) => e.value).toSet();
+    final safeValue = validValues.contains(selectedStatus) ? selectedStatus : 'All';
+
+    return DropdownButtonFormField<String>(
+      value: safeValue,
       isExpanded: true,
-      decoration:
-          const InputDecoration(
-        contentPadding:
-            EdgeInsets.symmetric(
+      decoration: const InputDecoration(
+        contentPadding: EdgeInsets.symmetric(
           horizontal: 12,
         ),
       ),
-      items: const [
-        DropdownMenuItem(
-          value: 'All',
-          child:
-              Text('All Status'),
-        ),
-        DropdownMenuItem(
-          value: 'New Lead',
-          child: Text('New Lead'),
-        ),
-        DropdownMenuItem(
-          value: 'Contacted',
-          child: Text('Contacted'),
-        ),
-        DropdownMenuItem(
-          value: 'Follow-up 1',
-          child:
-              Text('Follow-up 1'),
-        ),
-        DropdownMenuItem(
-          value: 'Follow-up 2',
-          child:
-              Text('Follow-up 2'),
-        ),
-        DropdownMenuItem(
-          value: 'Interested',
-          child:
-              Text('Interested'),
-        ),
-        DropdownMenuItem(
-          value:
-              'Site Visit Scheduled',
-          child: Text(
-            'Site Visit Scheduled',
-          ),
-        ),
-        DropdownMenuItem(
-          value:
-              'Agreement Pending',
-          child: Text(
-            'Agreement Pending',
-          ),
-        ),
-        DropdownMenuItem(
-          value:
-              'Franchise Confirmed',
-          child: Text(
-            'Franchise Confirmed',
-          ),
-        ),
-        DropdownMenuItem(
-          value: 'Lost',
-          child: Text('Lost'),
-        ),
-      ],
+      items: items,
       onChanged: (value) {
         if (value == null) return;
 
         setState(() {
-          selectedStatus =
-              value;
+          selectedStatus = value;
         });
       },
     );
   }
 
   Widget _scoreDropdown() {
-    return DropdownButtonFormField<
-        String>(
-      value: selectedScore,
+    const items = [
+      DropdownMenuItem(
+        value: 'All',
+        child: Text('All Score'),
+      ),
+      DropdownMenuItem(
+        value: 'Hot',
+        child: Text('Hot'),
+      ),
+      DropdownMenuItem(
+        value: 'Warm',
+        child: Text('Warm'),
+      ),
+      DropdownMenuItem(
+        value: 'Cold',
+        child: Text('Cold'),
+      ),
+    ];
+    final validValues = items.map((e) => e.value).toSet();
+    final safeValue = validValues.contains(selectedScore) ? selectedScore : 'All';
+
+    return DropdownButtonFormField<String>(
+      value: safeValue,
       isExpanded: true,
-      decoration:
-          const InputDecoration(
-        contentPadding:
-            EdgeInsets.symmetric(
+      decoration: const InputDecoration(
+        contentPadding: EdgeInsets.symmetric(
           horizontal: 12,
         ),
       ),
-      items: const [
-        DropdownMenuItem(
-          value: 'All',
-          child:
-              Text('All Score'),
-        ),
-        DropdownMenuItem(
-          value: 'Hot',
-          child: Text('Hot'),
-        ),
-        DropdownMenuItem(
-          value: 'Warm',
-          child: Text('Warm'),
-        ),
-        DropdownMenuItem(
-          value: 'Cold',
-          child: Text('Cold'),
-        ),
-      ],
+      items: items,
       onChanged: (value) {
         if (value == null) return;
 
         setState(() {
-          selectedScore =
-              value;
+          selectedScore = value;
         });
       },
     );
@@ -1664,6 +1650,10 @@ Future<void> _loadLeads() async {
                                                           value: budget,
                                                           items: const [
                                                             '',
+                                                            '₹2 Lakh - ₹3 Lakh',
+                                                            '₹3 Lakh - ₹5 Lakh',
+                                                            '₹5 Lakh - ₹10 Lakh',
+                                                            '₹10 Lakh+',
                                                             '2-5 Lakh',
                                                             '5-8 Lakh',
                                                             '8-10 Lakh',
@@ -2437,68 +2427,55 @@ Future<void> _pickFollowupDate(
     required String label,
     required String value,
     required List<String> items,
-    required ValueChanged<String?>
-        onChanged,
+    required ValueChanged<String?> onChanged,
   }) {
-    return DropdownButtonFormField<
-        String>(
-      value: value,
+    // 1. Ensure distinct non-null strings
+    final List<String> effectiveItems = items.toSet().toList();
+
+    // 2. If current value is not empty and not in the items list, insert it at the top
+    // so DropdownButton never crashes with an assertion failure
+    if (value.isNotEmpty && !effectiveItems.contains(value)) {
+      effectiveItems.insert(0, value);
+    } else if (value.isEmpty && !effectiveItems.contains('')) {
+      effectiveItems.insert(0, '');
+    }
+
+    final safeValue = effectiveItems.contains(value)
+        ? value
+        : (effectiveItems.isNotEmpty ? effectiveItems.first : null);
+
+    return DropdownButtonFormField<String>(
+      value: safeValue,
       isExpanded: true,
-      decoration:
-          InputDecoration(
+      decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor:
-            const Color(
-          0xFFF8FAFC,
-        ),
-        contentPadding:
-            const EdgeInsets
-                .symmetric(
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 14,
         ),
-        enabledBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            10,
-          ),
-          borderSide:
-              const BorderSide(
-            color:
-                Color(
-              0xFFE2E8F0,
-            ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: Color(0xFFE2E8F0),
           ),
         ),
-        focusedBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            10,
-          ),
-          borderSide:
-              const BorderSide(
-            color:
-                Color(
-              0xFF0284C7,
-            ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: Color(0xFF0284C7),
             width: 1.2,
           ),
         ),
       ),
-      items: items.map(
+      items: effectiveItems.map(
         (item) {
-          return DropdownMenuItem(
+          return DropdownMenuItem<String>(
             value: item,
             child: Text(
-              item.isEmpty
-                  ? 'Select'
-                  : item,
-              overflow:
-                  TextOverflow
-                      .ellipsis,
+              item.isEmpty ? 'Select' : item,
+              overflow: TextOverflow.ellipsis,
             ),
           );
         },

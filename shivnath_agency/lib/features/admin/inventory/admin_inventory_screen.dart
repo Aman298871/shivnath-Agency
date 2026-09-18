@@ -3299,56 +3299,44 @@ class _AdminInventoryScreenState
     required String label,
     required String value,
     required List<String> items,
-    required ValueChanged<String?>
-        onChanged,
+    required ValueChanged<String?> onChanged,
   }) {
-    return DropdownButtonFormField<
-        String>(
-      value: value,
+    final effectiveItems = items.toSet().toList();
+    if (value.isNotEmpty && !effectiveItems.contains(value)) {
+      effectiveItems.insert(0, value);
+    } else if (value.isEmpty && !effectiveItems.contains('')) {
+      effectiveItems.insert(0, '');
+    }
+
+    final safeValue = effectiveItems.contains(value)
+        ? value
+        : (effectiveItems.isNotEmpty ? effectiveItems.first : null);
+
+    return DropdownButtonFormField<String>(
+      value: safeValue,
       isExpanded: true,
-      decoration:
-          InputDecoration(
+      decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor:
-            const Color(
-          0xFFF8FAFC,
-        ),
-        enabledBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            10,
-          ),
-          borderSide:
-              const BorderSide(
-            color:
-                Color(
-              0xFFE2E8F0,
-            ),
+        fillColor: const Color(0xFFF8FAFC),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: Color(0xFFE2E8F0),
           ),
         ),
-        focusedBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            10,
-          ),
-          borderSide:
-              const BorderSide(
-            color:
-                Color(
-              0xFF0284C7,
-            ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: Color(0xFF0284C7),
           ),
         ),
       ),
-      items: items
+      items: effectiveItems
           .map(
-            (e) =>
-                DropdownMenuItem(
+            (e) => DropdownMenuItem(
               value: e,
-              child: Text(e),
+              child: Text(e.isEmpty ? 'Select' : e),
             ),
           )
           .toList(),

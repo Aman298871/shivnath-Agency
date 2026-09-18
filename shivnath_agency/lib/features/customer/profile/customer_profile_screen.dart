@@ -31,23 +31,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadUserDataInstant();
   }
 
-  Future<void> _loadUserData() async {
+  /// Phase 1 – show UI immediately from local session cache (no network).
+  Future<void> _loadUserDataInstant() async {
     final user = await _sessionService.getCurrentUser();
     final prefs = await SharedPreferences.getInstance();
     final address = prefs.getString('customer_delivery_address');
-
-    Map<String, dynamic>? territory;
-    Map<String, dynamic>? stockCycle;
-
-    final res = await _authService.getCurrentUser();
-    if (res['success'] == true && res['data'] is Map<String, dynamic>) {
-      final d = res['data'] as Map<String, dynamic>;
-      territory = d['territory'] as Map<String, dynamic>?;
-      stockCycle = d['stock_cycle'] as Map<String, dynamic>?;
-    }
 
     if (mounted) {
       setState(() {
@@ -55,11 +46,33 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         if (address != null && address.isNotEmpty) {
           _savedAddress = address;
         }
-        _territoryData = territory;
-        _stockCycleData = stockCycle;
-        _isLoading = false;
+        _isLoading = false; // show the screen immediately
       });
     }
+
+    // Phase 2 – refresh territory/stock from network in the background.
+    _refreshFromNetwork();
+  }
+
+  /// Phase 2 – silent background network refresh; updates UI when data arrives.
+  Future<void> _refreshFromNetwork() async {
+    try {
+      final res = await _authService.getCurrentUser();
+      if (!mounted) return;
+      if (res['success'] == true && res['data'] is Map<String, dynamic>) {
+        final d = res['data'] as Map<String, dynamic>;
+        setState(() {
+          _territoryData = d['territory'] as Map<String, dynamic>?;
+          _stockCycleData = d['stock_cycle'] as Map<String, dynamic>?;
+        });
+      }
+    } catch (_) {
+      // Network unavailable – silently ignore; cached data is already shown.
+    }
+  }
+
+  Future<void> _loadUserData() async {
+    await _loadUserDataInstant();
   }
 
   Future<void> _logout() async {

@@ -51,18 +51,81 @@ class AuthService {
     );
   }
 
+  Future<Map<String, dynamic>> getTerritories({required String district}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/auth/territory-master/').replace(
+        queryParameters: {'district': district.trim()},
+      );
+      final response = await http.get(uri, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to load territories', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Network error loading territories'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getEligibleFranchises({
+    int? territoryId,
+    int? zoneId,
+    String? district,
+    String? city,
+  }) async {
+    try {
+      final effectiveId = territoryId ?? zoneId;
+      final params = <String, String>{};
+      if (effectiveId != null) {
+        params['territory_id'] = effectiveId.toString();
+        params['zone_id'] = effectiveId.toString();
+      }
+      if (district != null && district.isNotEmpty) params['district'] = district;
+      if (city != null && city.isNotEmpty) params['city'] = city;
+
+      final uri = Uri.parse('$baseUrl/api/auth/eligible-franchises/').replace(
+        queryParameters: params.isNotEmpty ? params : null,
+      );
+      final response = await http.get(uri, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to load franchises', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Network error loading franchises'};
+    }
+  }
+
   Future<Map<String, dynamic>> registerCustomer({
     required String name,
     required String phone,
     required String email,
     required String password,
     required String confirmPassword,
-    String city = '',
-    String district = '',
+    required String city,
+    required String district,
+    required int zoneId,
+    int? franchiseId,
     String address = '',
-    String pincode = '',
-    String locality = '',
-    int? zoneId,
   }) async {
     return _post(
       '/api/auth/register/customer/',
@@ -74,10 +137,9 @@ class AuthService {
         'confirm_password': confirmPassword,
         'city': city,
         'district': district,
-        'address': address,
-        if (pincode.isNotEmpty) 'pincode': pincode,
-        if (locality.isNotEmpty) 'locality': locality,
-        if (zoneId != null) 'zone_id': zoneId,
+        'zone_id': zoneId,
+        if (franchiseId != null) 'franchise_id': franchiseId,
+        if (address.isNotEmpty) 'address': address,
       },
     );
   }
@@ -374,47 +436,6 @@ class AuthService {
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': 'Failed to fetch territory master', 'data': decoded};
-    } catch (_) {
-      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
-    }
-  }
-
-  Future<Map<String, dynamic>> getEligibleFranchises({
-    String district = '',
-    int? zoneId,
-  }) async {
-    try {
-      final queryParams = <String, String>{};
-      if (district.trim().isNotEmpty) {
-        queryParams['district'] = district.trim();
-      }
-      if (zoneId != null) {
-        queryParams['zone_id'] = zoneId.toString();
-      }
-
-      final uri = Uri.parse('$baseUrl/api/accounts/eligible-franchises/').replace(
-        queryParameters: queryParams.isEmpty ? null : queryParams,
-      );
-
-      final response = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
-
-      dynamic decoded;
-      try {
-        decoded = jsonDecode(response.body);
-      } catch (_) {
-        decoded = {};
-      }
-
-      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
-        return {'success': true, 'data': decoded};
-      }
-      return {'success': false, 'message': 'Failed to fetch eligible franchises', 'data': decoded};
     } catch (_) {
       return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
     }

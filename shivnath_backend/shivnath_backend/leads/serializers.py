@@ -94,6 +94,8 @@ class LeadSerializer(serializers.ModelSerializer):
             'email',
             'city',
             'district',
+            'territory',
+            'assigned_franchise',
 
             'investment_budget',
             'existing_business',

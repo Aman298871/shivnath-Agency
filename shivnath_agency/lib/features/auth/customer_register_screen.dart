@@ -2,178 +2,140 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/auth_service.dart';
 
-class CustomerRegisterScreen
-    extends StatefulWidget {
-  const CustomerRegisterScreen({
-    super.key,
-  });
+class CustomerRegisterScreen extends StatefulWidget {
+  const CustomerRegisterScreen({super.key});
 
   @override
-  State<CustomerRegisterScreen>
-      createState() =>
-          _CustomerRegisterScreenState();
+  State<CustomerRegisterScreen> createState() => _CustomerRegisterScreenState();
 }
 
-class _CustomerRegisterScreenState
-    extends State<CustomerRegisterScreen> {
-  final formKey =
-      GlobalKey<FormState>();
+class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
+  final formKey = GlobalKey<FormState>();
 
-  final nameController =
-      TextEditingController();
+  final nameController = TextEditingController();
+  final phoneController = TextEditingController();
+  final emailController = TextEditingController();
+  final cityController = TextEditingController(text: 'Raipur');
+  final districtController = TextEditingController(text: 'Raipur');
+  final addressController = TextEditingController();
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
 
-  final phoneController =
-      TextEditingController();
-
-  final emailController =
-      TextEditingController();
-
-  final cityController =
-      TextEditingController(text: 'Raipur');
-
-  final districtController =
-      TextEditingController(text: 'Raipur');
-
-  final pincodeController =
-      TextEditingController();
-
-  final addressController =
-      TextEditingController();
-
-  final passwordController =
-      TextEditingController();
-
-  final confirmPasswordController =
-      TextEditingController();
-
-  final AuthService authService =
-      AuthService();
+  final AuthService authService = AuthService();
 
   bool isLoading = false;
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
 
-  // Zone Resolution State
-  bool isResolvingZone = false;
-  String? resolvedZoneName;
-  int? resolvedZoneId;
-  String? resolvedDistrict;
-  String? resolvedLocality;
-  bool isZoneConfirmed = false;
-  String? zoneResolutionMessage;
-  List<Map<String, dynamic>> ambiguousOptions = [];
+  // Territory and Franchise state
+  List<Map<String, dynamic>> territories = [];
+  bool isLoadingTerritories = false;
+  int? selectedTerritoryId;
+  String? selectedTerritoryName;
 
-  Future<void> _checkZone({String? locality}) async {
-    final pincode = pincodeController.text.trim();
-    final district = districtController.text.trim();
-    if (pincode.length != 6) {
-      setState(() {
-        resolvedZoneName = null;
-        resolvedZoneId = null;
-        isZoneConfirmed = false;
-        zoneResolutionMessage = null;
-      });
-      return;
+  bool isLoadingFranchises = false;
+  List<Map<String, dynamic>> exactFranchises = [];
+  List<Map<String, dynamic>> fallbackFranchises = [];
+  int? selectedFranchiseId;
+  String? selectedFranchiseName;
+  bool isFallbackFranchise = false;
+  bool showFallbackList = false;
+  String? supportContactPhone;
+
+  final List<String> availableDistricts = ['Raipur', 'Durg', 'Bilaspur', 'Rajnandgaon'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTerritories('Raipur');
+  }
+
+  Future<void> _loadTerritories(String district) async {
+    setState(() {
+      isLoadingTerritories = true;
+      territories = [];
+      selectedTerritoryId = null;
+      selectedTerritoryName = null;
+      exactFranchises = [];
+      fallbackFranchises = [];
+      selectedFranchiseId = null;
+      selectedFranchiseName = null;
+      isFallbackFranchise = false;
+      showFallbackList = false;
+    });
+
+    final res = await authService.getTerritories(district: district);
+    if (!mounted) return;
+
+    if (res['success'] == true && res['data'] is Map) {
+      final list = res['data']['territories'];
+      if (list is List) {
+        setState(() {
+          territories = List<Map<String, dynamic>>.from(list);
+          isLoadingTerritories = false;
+        });
+        return;
+      }
     }
 
     setState(() {
-      isResolvingZone = true;
-      zoneResolutionMessage = null;
+      isLoadingTerritories = false;
+    });
+  }
+
+  Future<void> _loadEligibleFranchises(int territoryId) async {
+    setState(() {
+      isLoadingFranchises = true;
+      exactFranchises = [];
+      fallbackFranchises = [];
+      selectedFranchiseId = null;
+      selectedFranchiseName = null;
+      isFallbackFranchise = false;
+      showFallbackList = false;
     });
 
-    final res = await authService.resolveZone(
-      district: district.isNotEmpty ? district : 'Raipur',
-      pincode: pincode,
-      locality: locality ?? resolvedLocality ?? '',
+    final res = await authService.getEligibleFranchises(
+      territoryId: territoryId,
+      district: districtController.text.trim(),
+      city: cityController.text.trim(),
     );
 
     if (!mounted) return;
 
-    setState(() {
-      isResolvingZone = false;
-      if (res['success'] == true && res['data'] != null) {
-        final data = res['data'];
-        final status = data['status'];
-        if (status == 'resolved') {
-          resolvedZoneName = data['zone_name'];
-          resolvedZoneId = data['zone_id'];
-          resolvedDistrict = data['district'];
-          resolvedLocality = locality ?? resolvedLocality;
-          isZoneConfirmed = false;
-          zoneResolutionMessage = data['message'];
-          ambiguousOptions = [];
-        } else if (status == 'ambiguous') {
-          ambiguousOptions = List<Map<String, dynamic>>.from(data['options'] ?? []);
-          _showLocalityPicker();
-        } else {
-          resolvedZoneName = null;
-          resolvedZoneId = null;
-          isZoneConfirmed = false;
-          zoneResolutionMessage = data['message'] ?? 'Service area not found in current master list.';
-        }
-      } else {
-        zoneResolutionMessage = res['message'] ?? 'Unable to resolve service zone.';
-      }
-    });
-  }
+    if (res['success'] == true && res['data'] is Map) {
+      final data = res['data'];
+      final exact = data['exact_matches'] as List? ?? [];
+      final fallbacks = data['available_franchises'] as List? ?? [];
+      final supportPhone = data['support_contact']?.toString();
 
-  void _showLocalityPicker() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Select Your Delivery Area / Locality',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Your PIN code covers multiple service zones. Please choose your specific locality:',
-                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-              ),
-              const SizedBox(height: 16),
-              ...ambiguousOptions.map((opt) {
-                final loc = opt['locality']?.toString() ?? '';
-                final zone = opt['zone_name']?.toString() ?? '';
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.location_on, color: Color(0xFF0284C7)),
-                  title: Text(loc, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text('Zone: $zone', style: const TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    setState(() {
-                      resolvedLocality = loc;
-                    });
-                    _checkZone(locality: loc);
-                  },
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
+      setState(() {
+        isLoadingFranchises = false;
+        exactFranchises = List<Map<String, dynamic>>.from(exact);
+        fallbackFranchises = List<Map<String, dynamic>>.from(fallbacks);
+        supportContactPhone = supportPhone;
+
+        if (exactFranchises.isNotEmpty) {
+          selectedFranchiseId = exactFranchises.first['id'] as int?;
+          selectedFranchiseName = exactFranchises.first['business_name']?.toString();
+          isFallbackFranchise = false;
+        } else {
+          isFallbackFranchise = true;
+        }
+      });
+    } else {
+      setState(() {
+        isLoadingFranchises = false;
+      });
+    }
   }
 
   Future<void> _register() async {
-    if (!(formKey.currentState
-            ?.validate() ??
-        false)) {
+    if (!(formKey.currentState?.validate() ?? false)) {
       return;
     }
 
-    if (pincodeController.text.trim().length == 6 && resolvedZoneName != null && !isZoneConfirmed) {
-      _showMessage('Please confirm your detected service zone before proceeding.');
+    if (selectedTerritoryId == null) {
+      _showMessage('Please select your delivery territory.');
       return;
     }
 
@@ -181,32 +143,17 @@ class _CustomerRegisterScreenState
       isLoading = true;
     });
 
-    final result =
-        await authService
-            .registerCustomer(
-      name:
-          nameController.text.trim(),
-      phone:
-          phoneController.text.trim(),
-      email:
-          emailController.text.trim(),
-      city:
-          cityController.text.trim(),
-      district:
-          districtController.text.trim(),
-      pincode:
-          pincodeController.text.trim(),
-      locality:
-          resolvedLocality ?? '',
-      zoneId:
-          resolvedZoneId,
-      address:
-          addressController.text.trim(),
-      password:
-          passwordController.text,
-      confirmPassword:
-          confirmPasswordController
-              .text,
+    final result = await authService.registerCustomer(
+      name: nameController.text.trim(),
+      phone: phoneController.text.trim(),
+      email: emailController.text.trim(),
+      city: cityController.text.trim(),
+      district: districtController.text.trim(),
+      zoneId: selectedTerritoryId!,
+      franchiseId: selectedFranchiseId,
+      address: addressController.text.trim(),
+      password: passwordController.text,
+      confirmPassword: confirmPasswordController.text,
     );
 
     if (!mounted) return;
@@ -217,38 +164,24 @@ class _CustomerRegisterScreenState
 
     if (result['success'] != true) {
       _showMessage(
-        result['message']
-                ?.toString() ??
-            'Registration failed.',
+        result['message']?.toString() ?? 'Registration failed.',
       );
-
       return;
     }
 
-    _showMessage(
-      'Account created successfully. Please login.',
-    );
+    _showMessage('Account created successfully. Please login.');
 
-    await Future.delayed(
-      const Duration(
-        milliseconds: 600,
-      ),
-    );
+    await Future.delayed(const Duration(milliseconds: 600));
 
     if (!mounted) return;
-
     Navigator.pop(context);
   }
 
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-        ),
+        SnackBar(content: Text(message)),
       );
   }
 
@@ -259,541 +192,521 @@ class _CustomerRegisterScreenState
     emailController.dispose();
     cityController.dispose();
     districtController.dispose();
-    pincodeController.dispose();
     addressController.dispose();
     passwordController.dispose();
-    confirmPasswordController
-        .dispose();
-
+    confirmPasswordController.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child:
-            SingleChildScrollView(
-          padding:
-              const EdgeInsets.all(
-            22,
-          ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
           child: Form(
             key: formKey,
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  onPressed:
-                      isLoading
-                          ? null
-                          : () =>
-                              Navigator.pop(
-                                context,
-                              ),
-                  icon: const Icon(
-                    Icons
-                        .arrow_back_rounded,
-                  ),
+                  onPressed: isLoading ? null : () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_rounded),
                 ),
-
-                const SizedBox(
-                  height: 20,
-                ),
-
+                const SizedBox(height: 16),
                 const CircleAvatar(
-                  radius: 34,
-                  backgroundColor:
-                      Color(
-                    0xFFE0F2FE,
-                  ),
+                  radius: 32,
+                  backgroundColor: Color(0xFFE0F2FE),
                   child: Icon(
-                    Icons
-                        .person_add_alt_1_rounded,
-                    size: 36,
-                    color:
-                        Color(
-                      0xFF0284C7,
-                    ),
+                    Icons.person_add_alt_1_rounded,
+                    size: 32,
+                    color: Color(0xFF0284C7),
                   ),
                 ),
-
-                const SizedBox(
-                  height: 24,
-                ),
-
+                const SizedBox(height: 20),
                 const Text(
                   'Create Customer Account',
                   style: TextStyle(
-                    fontSize: 27,
-                    fontWeight:
-                        FontWeight.w800,
-                    color:
-                        Color(
-                      0xFF0F172A,
-                    ),
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
-
-                const SizedBox(
-                  height: 7,
-                ),
-
+                const SizedBox(height: 6),
                 const Text(
-                  'Enter your details to create your account',
-                  style: TextStyle(
-                    color:
-                        Color(
-                      0xFF64748B,
-                    ),
-                  ),
+                  'Enter your details to register for pure water delivery',
+                  style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                 ),
+                const SizedBox(height: 26),
 
-                const SizedBox(
-                  height: 30,
-                ),
-
+                // Personal Details
                 _field(
-                  controller:
-                      nameController,
-                  label:
-                      'Full Name',
-                  icon:
-                      Icons.person_outline,
-                  validator: (value) {
-                    if (value == null ||
-                        value
-                            .trim()
-                            .isEmpty) {
-                      return 'Enter your name';
+                  controller: nameController,
+                  label: 'Full Name *',
+                  icon: Icons.person_outline,
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Enter your name' : null,
+                ),
+                const SizedBox(height: 14),
+                _field(
+                  controller: phoneController,
+                  label: 'Mobile Number *',
+                  icon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
+                  validator: (val) {
+                    if (val == null || val.trim().length < 10) {
+                      return 'Enter valid 10-digit mobile number';
                     }
-
                     return null;
                   },
                 ),
-
-                const SizedBox(
-                  height: 15,
-                ),
-
+                const SizedBox(height: 14),
                 _field(
-                  controller:
-                      phoneController,
-                  label:
-                      'Mobile Number',
-                  icon:
-                      Icons.phone_outlined,
-                  keyboardType:
-                      TextInputType.phone,
-                  validator: (value) {
-                    if (value == null ||
-                        value
-                            .trim()
-                            .length <
-                            10) {
-                      return 'Enter valid mobile number';
+                  controller: emailController,
+                  label: 'Email *',
+                  icon: Icons.email_outlined,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (val) {
+                    if (val == null || !val.trim().contains('@')) {
+                      return 'Enter valid email address';
                     }
-
                     return null;
                   },
                 ),
+                const SizedBox(height: 14),
 
-                const SizedBox(
-                  height: 15,
-                ),
-
-                _field(
-                  controller:
-                      emailController,
-                  label: 'Email',
-                  icon:
-                      Icons.email_outlined,
-                  keyboardType:
-                      TextInputType
-                          .emailAddress,
-                  validator: (value) {
-                    if (value == null ||
-                        !value
-                            .trim()
-                            .contains(
-                              '@',
-                            )) {
-                      return 'Enter valid email';
-                    }
-
-                    return null;
-                  },
-                ),
-
-                const SizedBox(
-                  height: 15,
-                ),
-
+                // Location Details (City & District)
                 Row(
                   children: [
                     Expanded(
                       child: _field(
-                        controller:
-                            cityController,
-                        label: 'City',
-                        icon:
-                            Icons.location_city_outlined,
-                        validator: (value) {
-                          if (value == null ||
-                              value
-                                  .trim()
-                                  .isEmpty) {
-                            return 'Enter city';
-                          }
-                          return null;
-                        },
+                        controller: cityController,
+                        label: 'City *',
+                        icon: Icons.location_city_outlined,
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Enter city' : null,
                       ),
                     ),
-                    const SizedBox(
-                      width: 12,
-                    ),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: _field(
-                        controller:
-                            districtController,
-                        label: 'District',
-                        icon:
-                            Icons.map_outlined,
+                      child: DropdownButtonFormField<String>(
+                        value: availableDistricts.contains(districtController.text.trim())
+                            ? districtController.text.trim()
+                            : availableDistricts.first,
+                        decoration: const InputDecoration(
+                          labelText: 'District *',
+                          prefixIcon: Icon(Icons.map_outlined),
+                        ),
+                        items: availableDistricts.map((d) {
+                          return DropdownMenuItem(value: d, child: Text(d));
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            districtController.text = val;
+                            _loadTerritories(val);
+                          }
+                        },
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 14),
 
-                const SizedBox(
-                  height: 15,
-                ),
-
-                TextFormField(
-                  controller: pincodeController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  decoration: InputDecoration(
-                    labelText: 'PIN Code / Delivery Area',
-                    prefixIcon: const Icon(Icons.pin_drop_outlined),
-                    counterText: '',
-                    suffixIcon: isResolvingZone
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          )
-                        : (pincodeController.text.length == 6
-                            ? IconButton(
-                                icon: const Icon(Icons.refresh, color: Color(0xFF0284C7)),
-                                onPressed: () => _checkZone(),
-                              )
-                            : null),
+                // Territory Selection (Backend-driven)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  onChanged: (val) {
-                    if (val.trim().length == 6) {
-                      _checkZone();
-                    } else if (resolvedZoneName != null) {
-                      setState(() {
-                        resolvedZoneName = null;
-                        resolvedZoneId = null;
-                        isZoneConfirmed = false;
-                      });
-                    }
-                  },
-                  validator: (value) {
-                    if (value == null || value.trim().length != 6) {
-                      return 'Enter 6-digit delivery PIN code';
-                    }
-                    return null;
-                  },
-                ),
-
-                if (isResolvingZone)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0284C7)),
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Detecting delivery service zone...',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (resolvedZoneName != null)
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: isZoneConfirmed ? const Color(0xFFF0FDF4) : const Color(0xFFE0F2FE),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isZoneConfirmed ? const Color(0xFF22C55E) : const Color(0xFF0284C7),
-                        width: 1.5,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.near_me_outlined, size: 20, color: Color(0xFF0284C7)),
+                          SizedBox(width: 8),
+                          Text(
+                            'Select Your Territory *',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                          ),
+                        ],
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              isZoneConfirmed ? Icons.check_circle_rounded : Icons.location_on_rounded,
-                              color: isZoneConfirmed ? const Color(0xFF16A34A) : const Color(0xFF0284C7),
-                              size: 20,
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Delivery zones are dynamically mapped by our franchise network.',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                      const SizedBox(height: 12),
+                      if (isLoadingTerritories)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                SizedBox(width: 10),
+                                Text('Loading territories...', style: TextStyle(fontSize: 12)),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                isZoneConfirmed
-                                    ? 'Service Zone Confirmed: $resolvedZoneName'
-                                    : '📍 Your service zone appears to be $resolvedZoneName.',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: isZoneConfirmed ? const Color(0xFF15803D) : const Color(0xFF0369A1),
+                          ),
+                        )
+                      else if (territories.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'No active territories found for this district. Please contact support.',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
                                 ),
                               ),
-                            ),
+                            ],
+                          ),
+                        )
+                      else
+                        DropdownButtonFormField<int>(
+                          value: selectedTerritoryId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            hintText: 'Choose territory / service zone',
+                            prefixIcon: Icon(Icons.explore_outlined),
+                          ),
+                          items: territories.map((t) {
+                            return DropdownMenuItem<int>(
+                              value: t['id'] as int,
+                              child: Text(t['name']?.toString() ?? ''),
+                            );
+                          }).toList(),
+                          onChanged: (id) {
+                            if (id != null) {
+                              final found = territories.firstWhere((t) => t['id'] == id, orElse: () => {});
+                              setState(() {
+                                selectedTerritoryId = id;
+                                selectedTerritoryName = found['name']?.toString();
+                              });
+                              _loadEligibleFranchises(id);
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Franchise Selection Section
+                if (selectedTerritoryId != null) ...[
+                  if (isLoadingFranchises)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                            SizedBox(width: 10),
+                            Text('Checking authorized franchises...', style: TextStyle(fontSize: 12)),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          resolvedLocality != null && resolvedLocality!.isNotEmpty
-                              ? 'Locality: $resolvedLocality ($resolvedDistrict)'
-                              : 'Pure water delivery will be coordinated through authorized local franchises in $resolvedZoneName.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isZoneConfirmed ? const Color(0xFF166534) : const Color(0xFF475569),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        if (!isZoneConfirmed)
-                          Row(
+                      ),
+                    )
+                  else if (exactFranchises.isNotEmpty) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
                             children: [
-                              Expanded(
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0284C7),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 10),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                  onPressed: () {
-                                    setState(() => isZoneConfirmed = true);
-                                  },
-                                  child: const Text('Confirm & Continue', style: TextStyle(fontWeight: FontWeight.w700)),
+                              Icon(Icons.verified_rounded, color: Color(0xFF16A34A), size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Authorized Territory Franchise',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF15803D),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              OutlinedButton(
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Your orders will be fulfilled by an authorized local franchise partner:',
+                            style: TextStyle(fontSize: 11, color: Color(0xFF166534)),
+                          ),
+                          const SizedBox(height: 10),
+                          ...exactFranchises.map((f) {
+                            final fId = f['id'] as int?;
+                            final isSelected = selectedFranchiseId == fId;
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSelected ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
+                                  width: isSelected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: RadioListTile<int?>(
+                                value: fId,
+                                groupValue: selectedFranchiseId,
+                                activeColor: const Color(0xFF16A34A),
+                                title: Text(
+                                  f['business_name']?.toString() ?? 'Franchise Partner',
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                subtitle: Text(
+                                  'Territory: ${f['territory'] ?? selectedTerritoryName} • Phone: ${f['phone'] ?? ''}',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                ),
+                                onChanged: (val) {
+                                  setState(() {
+                                    selectedFranchiseId = val;
+                                    selectedFranchiseName = f['business_name']?.toString();
+                                    isFallbackFranchise = false;
+                                  });
+                                },
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // NO FRANCHISE IN TERRITORY
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 22),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'No franchise is currently available in your selected territory',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF92400E),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            supportContactPhone != null
+                                ? 'Our central team is expanding coverage here. For custom assistance call: $supportContactPhone'
+                                : 'Our central team is expanding coverage in this territory.',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                          ),
+                          const SizedBox(height: 12),
+                          if (!showFallbackList)
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF64748B),
-                                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  foregroundColor: const Color(0xFF92400E),
+                                  side: const BorderSide(color: Color(0xFFD97706)),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                                 onPressed: () {
                                   setState(() {
-                                    pincodeController.clear();
-                                    resolvedZoneName = null;
-                                    resolvedZoneId = null;
-                                    resolvedLocality = null;
-                                    isZoneConfirmed = false;
+                                    showFallbackList = true;
+                                    if (fallbackFranchises.isNotEmpty && selectedFranchiseId == null) {
+                                      selectedFranchiseId = fallbackFranchises.first['id'] as int?;
+                                      selectedFranchiseName = fallbackFranchises.first['business_name']?.toString();
+                                      isFallbackFranchise = true;
+                                    }
                                   });
                                 },
-                                child: const Text('Change Location'),
+                                icon: const Icon(Icons.storefront_outlined, size: 16),
+                                label: const Text(
+                                  'View Other Available Franchises',
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                                ),
                               ),
-                            ],
-                          )
-                        else
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              onPressed: () {
-                                setState(() => isZoneConfirmed = false);
-                              },
-                              icon: const Icon(Icons.edit, size: 13),
-                              label: const Text('Change Zone', style: TextStyle(fontSize: 11)),
+                            )
+                          else ...[
+                            const Text(
+                              'Available Outside-Territory Franchises (Fallback Assignment):',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF92400E),
+                              ),
                             ),
-                          ),
-                      ],
+                            const SizedBox(height: 8),
+                            ...fallbackFranchises.map((f) {
+                              final fId = f['id'] as int?;
+                              final isSelected = selectedFranchiseId == fId;
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFFD97706) : const Color(0xFFE2E8F0),
+                                    width: isSelected ? 1.5 : 1,
+                                  ),
+                                ),
+                                child: RadioListTile<int?>(
+                                  value: fId,
+                                  groupValue: selectedFranchiseId,
+                                  activeColor: const Color(0xFFD97706),
+                                  title: Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          f['business_name']?.toString() ?? 'Franchise',
+                                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFEF3C7),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text(
+                                          'Fallback',
+                                          style: TextStyle(fontSize: 10, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  subtitle: Text(
+                                    'Serving: ${f['city'] ?? ''} • ${f['phone'] ?? ''}',
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                  ),
+                                  onChanged: (val) {
+                                    setState(() {
+                                      selectedFranchiseId = val;
+                                      selectedFranchiseName = f['business_name']?.toString();
+                                      isFallbackFranchise = true;
+                                    });
+                                  },
+                                ),
+                              );
+                            }),
+                          ],
+                        ],
+                      ),
                     ),
-                  )
-                else if (zoneResolutionMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(
-                      zoneResolutionMessage!,
-                      style: const TextStyle(fontSize: 12, color: Color(0xFFE11D48)),
-                    ),
-                  ),
+                  ],
+                  const SizedBox(height: 14),
+                ],
 
-                const SizedBox(
-                  height: 15,
-                ),
-
+                // Delivery Address (Optional)
                 _field(
-                  controller:
-                      addressController,
-                  label: 'Address / Landmark (Optional)',
-                  icon:
-                      Icons.home_outlined,
+                  controller: addressController,
+                  label: 'Delivery Address / Landmark (Optional)',
+                  icon: Icons.home_outlined,
                 ),
+                const SizedBox(height: 14),
 
-                const SizedBox(
-                  height: 15,
-                ),
-
+                // Password Fields
                 TextFormField(
-                  controller:
-                      passwordController,
-                  obscureText:
-                      obscurePassword,
-                  decoration:
-                      InputDecoration(
-                    labelText:
-                        'Password',
-                    prefixIcon:
-                        const Icon(
-                      Icons.lock_outline,
-                    ),
-                    suffixIcon:
-                        IconButton(
-                      onPressed: () {
-                        setState(() {
-                          obscurePassword =
-                              !obscurePassword;
-                        });
-                      },
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Password *',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(() => obscurePassword = !obscurePassword),
                       icon: Icon(
-                        obscurePassword
-                            ? Icons
-                                .visibility_outlined
-                            : Icons
-                                .visibility_off_outlined,
+                        obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                       ),
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null ||
-                        value.length < 6) {
+                  validator: (val) {
+                    if (val == null || val.length < 6) {
                       return 'Password must be at least 6 characters';
                     }
-
                     return null;
                   },
                 ),
-
-                const SizedBox(
-                  height: 15,
-                ),
-
+                const SizedBox(height: 14),
                 TextFormField(
-                  controller:
-                      confirmPasswordController,
-                  obscureText:
-                      obscureConfirmPassword,
-                  decoration:
-                      InputDecoration(
-                    labelText:
-                        'Confirm Password',
-                    prefixIcon:
-                        const Icon(
-                      Icons.lock_outline,
-                    ),
-                    suffixIcon:
-                        IconButton(
-                      onPressed: () {
-                        setState(() {
-                          obscureConfirmPassword =
-                              !obscureConfirmPassword;
-                        });
-                      },
+                  controller: confirmPasswordController,
+                  obscureText: obscureConfirmPassword,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password *',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(() => obscureConfirmPassword = !obscureConfirmPassword),
                       icon: Icon(
-                        obscureConfirmPassword
-                            ? Icons
-                                .visibility_outlined
-                            : Icons
-                                .visibility_off_outlined,
+                        obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                       ),
                     ),
                   ),
-                  validator: (value) {
-                    if (value !=
-                        passwordController
-                            .text) {
+                  validator: (val) {
+                    if (val != passwordController.text) {
                       return 'Passwords do not match';
                     }
-
                     return null;
                   },
                 ),
+                const SizedBox(height: 24),
 
-                const SizedBox(
-                  height: 26,
-                ),
-
+                // Submit Button
                 SizedBox(
-                  width:
-                      double.infinity,
-                  child:
-                      ElevatedButton(
-                    onPressed:
-                        isLoading
-                            ? null
-                            : _register,
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: isLoading ? null : _register,
                     child: isLoading
                         ? const SizedBox(
                             width: 22,
                             height: 22,
-                            child:
-                                CircularProgressIndicator(
-                              strokeWidth:
-                                  2,
-                              color:
-                                  Colors.white,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : const Text(
                             'Create Account',
-                            style:
-                                TextStyle(
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                           ),
                   ),
                 ),
-
-                const SizedBox(
-                  height: 15,
-                ),
-
+                const SizedBox(height: 16),
                 Center(
                   child: TextButton(
-                    onPressed: () {
-                      Navigator.pop(
-                        context,
-                      );
-                    },
-                    child: const Text(
-                      'Already have an account? Login',
-                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Already have an account? Login'),
                   ),
                 ),
               ],
@@ -805,20 +718,16 @@ class _CustomerRegisterScreenState
   }
 
   Widget _field({
-    required
-        TextEditingController
-            controller,
+    required TextEditingController controller,
     required String label,
     required IconData icon,
     TextInputType? keyboardType,
-    String? Function(String?)?
-        validator,
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      decoration:
-          InputDecoration(
+      decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
       ),

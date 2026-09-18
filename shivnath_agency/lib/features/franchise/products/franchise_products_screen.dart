@@ -16,16 +16,63 @@ class FranchiseProductsScreen extends StatefulWidget {
 class _FranchiseProductsScreenState
     extends State<FranchiseProductsScreen> {
   String search = '';
+  int? selectedCategoryId;
+  String selectedCategoryName = 'All';
+  List<Map<String, dynamic>> _categoryItems = [
+    {'id': null, 'name': 'All', 'full_path': 'All'}
+  ];
+  bool _loadingCategories = false;
 
   @override
   void initState() {
     super.initState();
     _fetchProducts();
+    _fetchCategories();
   }
 
   Future<void> _fetchProducts() async {
-    await ProductService().getProducts();
+    await ProductService().getProducts(
+      categoryId: selectedCategoryId,
+      category: selectedCategoryId == null && selectedCategoryName != 'All' ? selectedCategoryName : null,
+    );
     if (mounted) setState(() {});
+  }
+
+  Future<void> _fetchCategories() async {
+    setState(() => _loadingCategories = true);
+    final res = await ProductService().getCategories(activeOnly: true);
+    if (res['success'] == true && res['data'] is Map) {
+      final list = res['data']['categories'];
+      if (list is List) {
+        final items = <Map<String, dynamic>>[
+          {'id': null, 'name': 'All', 'full_path': 'All'}
+        ];
+        void extract(List<dynamic> nodes) {
+          for (var item in nodes) {
+            if (item is Map) {
+              final map = Map<String, dynamic>.from(item);
+              items.add({
+                'id': map['id'],
+                'name': map['name'] ?? '',
+                'full_path': map['full_path'] ?? map['name'] ?? '',
+              });
+              final children = map['children'] ?? map['subcategories'];
+              if (children is List && children.isNotEmpty) {
+                extract(children);
+              }
+            }
+          }
+        }
+        extract(list);
+        if (mounted) {
+          setState(() {
+            _categoryItems = items;
+          });
+          return;
+        }
+      }
+    }
+    if (mounted) setState(() => _loadingCategories = false);
   }
 
   Future<void> _openOrderDialog(ProductModel product) async {
@@ -269,7 +316,62 @@ class _FranchiseProductsScreenState
                   ),
                 ),
 
-                const SizedBox(height: 18),
+                const SizedBox(height: 12),
+                if (_loadingCategories && _categoryItems.length <= 1)
+                  const SizedBox(
+                    height: 40,
+                    child: Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 40,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _categoryItems.length,
+                    itemBuilder: (context, index) {
+                      final cat = _categoryItems[index];
+                      final catId = cat['id'] as int?;
+                      final isSelected = selectedCategoryId == catId;
+                      final title = cat['name']?.toString() ?? 'All';
+
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(title),
+                          selected: isSelected,
+                          selectedColor: const Color(0xFFE0F2FE),
+                          checkmarkColor: const Color(0xFF0284C7),
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? const Color(0xFF0284C7) : const Color(0xFF334155),
+                          ),
+                          backgroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(
+                              color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          onSelected: (_) async {
+                            setState(() {
+                              selectedCategoryId = catId;
+                              selectedCategoryName = title;
+                            });
+                            await _fetchProducts();
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 14),
 
                 Expanded(
                   child: GridView.builder(

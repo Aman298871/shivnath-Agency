@@ -639,6 +639,7 @@ class CurrentUserSerializer(
     city = serializers.SerializerMethodField()
     territory = serializers.SerializerMethodField()
     approved_at = serializers.SerializerMethodField()
+    address = serializers.SerializerMethodField()
 
     district = serializers.SerializerMethodField()
     pincode = serializers.SerializerMethodField()
@@ -663,6 +664,7 @@ class CurrentUserSerializer(
             'rejection_reason',
             'business_name',
             'city',
+            'address',
             'territory',
             'approved_at',
             'district',
@@ -703,10 +705,24 @@ class CurrentUserSerializer(
         prof = getattr(obj, 'profile', None)
         return prof.city if prof else ''
 
+    def get_address(self, obj):
+        if hasattr(obj, 'franchise_profile'):
+            return obj.franchise_profile.address
+        prof = getattr(obj, 'profile', None)
+        return prof.address if prof else ''
+
     def get_territory(self, obj):
         if hasattr(obj, 'franchise_profile'):
-            return obj.franchise_profile.territory
-        return ''
+            return {'territory': obj.franchise_profile.territory}
+        rel = getattr(obj, 'customer_relationship', None)
+        prof = getattr(obj, 'profile', None)
+        return {
+            'district': rel.district.name if rel and rel.district else (prof.district if prof else ''),
+            'zone_id': rel.zone.id if rel and rel.zone else None,
+            'zone_name': rel.zone.name if rel and rel.zone else '',
+            'locality': rel.locality if rel else (prof.locality if prof else ''),
+            'pincode': rel.pincode if rel else (prof.pincode if prof else ''),
+        }
 
     def get_approved_at(self, obj):
         if hasattr(obj, 'franchise_profile') and obj.franchise_profile.approved_at:

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/services/product_service.dart';
+import '../../../core/services/session_service.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
 import '../../../models/product_model.dart';
+import '../../../models/user_model.dart';
 import '../cart/cart_provider.dart';
 import '../cart/customer_cart_screen.dart';
 import '../notifications/customer_notifications_screen.dart';
@@ -19,11 +21,28 @@ class CustomerHomeScreen extends StatefulWidget {
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   String search = '';
+  UserModel? _currentUser;
 
   @override
   void initState() {
     super.initState();
     _fetchProducts();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final user = await SessionService().getUser();
+    if (mounted && user != null) {
+      setState(() {
+        _currentUser = user;
+      });
+    }
+  }
+
+  String get _userName {
+    final name = _currentUser?.name.trim();
+    if (name != null && name.isNotEmpty) return name;
+    return 'Valued Customer';
   }
 
   Future<void> _fetchProducts() async {
@@ -332,9 +351,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // WELCOME
-                const Text(
-                  'Welcome back, Demo Customer 👋',
-                  style: TextStyle(
+                Text(
+                  'Welcome back, $_userName 👋',
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF0F172A),

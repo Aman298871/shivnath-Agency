@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/OrderService.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/session_service.dart';
 import '../cart/cart_provider.dart';
 import 'order_success_screen.dart';
 
@@ -17,17 +19,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String paymentMethod = 'COD';
   bool _isSubmitting = false;
 
-  final nameController =
-      TextEditingController(text: 'Valued Customer');
-
-  final phoneController =
-      TextEditingController(text: '9876543210');
-
-  final addressController =
-      TextEditingController(text: 'Raipur, Chhattisgarh');
-
-  final customDaysController =
-      TextEditingController(text: '45');
+  final nameController = TextEditingController();
+  final phoneController = TextEditingController();
+  final addressController = TextEditingController();
+  final customDaysController = TextEditingController(text: '45');
 
   final formKey = GlobalKey<FormState>();
 
@@ -51,9 +46,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _loadCustomerAndFranchises() async {
-    final userRes = await AuthService().getCurrentUser();
-    int? zoneId;
     String district = 'Raipur';
+    int? zoneId;
+
+    // Instant local autofill from SessionService and SharedPreferences
+    final localUser = await SessionService().getUser();
+    if (localUser != null) {
+      if (localUser.name.isNotEmpty && nameController.text.isEmpty) {
+        nameController.text = localUser.name;
+      }
+      if (localUser.phone.isNotEmpty && phoneController.text.isEmpty) {
+        phoneController.text = localUser.phone;
+      }
+      if (localUser.city.isNotEmpty) {
+        district = localUser.city;
+      }
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedAddr = prefs.getString('customer_delivery_address');
+      if (savedAddr != null && savedAddr.isNotEmpty && addressController.text.isEmpty) {
+        addressController.text = savedAddr;
+      }
+    } catch (_) {}
+
+    final userRes = await AuthService().getCurrentUser();
     if (userRes['success'] == true && userRes['data'] is Map<String, dynamic>) {
       final data = userRes['data'] as Map<String, dynamic>;
       if (data['name'] != null && data['name'].toString().isNotEmpty) {
@@ -67,10 +85,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       final terr = data['territory'] as Map<String, dynamic>?;
       if (terr != null) {
-        userZoneName = terr['zone_name']?.toString();
-        zoneId = terr['zone_id'] as int?;
-        if (terr['district'] != null) {
+        userZoneName = terr['zone_name']?.toString() ?? data['zone_name']?.toString();
+        zoneId = (terr['zone_id'] as int?) ?? (data['zone_id'] as int?);
+        if (terr['district'] != null && terr['district'].toString().isNotEmpty) {
           district = terr['district'].toString();
+        } else if (data['district'] != null && data['district'].toString().isNotEmpty) {
+          district = data['district'].toString();
+        }
+      } else {
+        if (data['zone_name'] != null) {
+          userZoneName = data['zone_name']?.toString();
+        }
+        if (data['zone_id'] != null) {
+          zoneId = data['zone_id'] as int?;
+        }
+        if (data['district'] != null && data['district'].toString().isNotEmpty) {
+          district = data['district'].toString();
         }
       }
     }

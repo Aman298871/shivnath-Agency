@@ -76,8 +76,8 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
         builder: (context, setDlgState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(quotation == null ? 'Create Quotation' : 'Edit Quotation'),
-          content: SizedBox(
-            width: 520,
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -323,9 +323,11 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                             style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
                           ),
                           const SizedBox(height: 8),
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
                             children: [
-                              if (existingPdfUrl != null && existingPdfUrl.isNotEmpty) ...[
+                              if (existingPdfUrl != null && existingPdfUrl.isNotEmpty)
                                 ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF0284C7),
@@ -341,8 +343,6 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                     }
                                   },
                                 ),
-                                const SizedBox(width: 8),
-                              ],
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.upload_file, size: 14),
                                 label: const Text('Replace PDF', style: TextStyle(fontSize: 11)),
@@ -363,7 +363,6 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                   }
                                 },
                               ),
-                              const SizedBox(width: 8),
                               TextButton.icon(
                                 icon: const Icon(Icons.delete_outline, color: Colors.red, size: 14),
                                 label: const Text('Remove PDF', style: TextStyle(color: Colors.red, fontSize: 11)),
@@ -549,30 +548,36 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
       body: Column(
         children: [
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-            child: Row(
-              children: [
-                const Text('Audience Filter: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('All Quotations'),
-                  selected: _targetFilter == 'all',
-                  onSelected: (_) => setState(() => _targetFilter = 'all'),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Customer Tiers'),
-                  selected: _targetFilter == 'customer',
-                  onSelected: (_) => setState(() => _targetFilter = 'customer'),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Franchise Tiers'),
-                  selected: _targetFilter == 'franchise',
-                  onSelected: (_) => setState(() => _targetFilter = 'franchise'),
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Audience Filter: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('All Quotations'),
+                    selected: _targetFilter == 'all',
+                    onSelected: (_) => setState(() => _targetFilter = 'all'),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Customer Tiers'),
+                    selected: _targetFilter == 'customer',
+                    onSelected: (_) => setState(() => _targetFilter = 'customer'),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Franchise Tiers'),
+                    selected: _targetFilter == 'franchise',
+                    onSelected: (_) => setState(() => _targetFilter = 'franchise'),
+                  ),
+                ],
+              ),
             ),
           ),
           Expanded(

@@ -182,64 +182,43 @@ class _WhatsAppAIChatbotTabState
   }
 
   Widget _header() {
-    return Row(
-      children: [
-        const Expanded(
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              Text(
-                'AI Chatbot',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight:
-                      FontWeight.w800,
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 460;
+        final titleWidget = const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'AI Chatbot',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
               ),
-              SizedBox(height: 4),
-              Text(
-                'Configure AI responses and franchise enquiry handling.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color:
-                      Color(0xFF64748B),
-                ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Configure AI responses and franchise enquiry handling.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
               ),
-            ],
-          ),
-        ),
-        SizedBox(
-          width: 150,
+            ),
+          ],
+        );
+
+        final buttonWidget = SizedBox(
+          width: isNarrow ? double.infinity : 150,
           height: 42,
-          child:
-              ElevatedButton.icon(
-            style:
-                ElevatedButton.styleFrom(
-              minimumSize:
-                  const Size(
-                0,
-                42,
-              ),
-              maximumSize:
-                  const Size(
-                150,
-                42,
-              ),
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
               backgroundColor: enabled
-                  ? const Color(
-                      0xFF7C3AED,
-                    )
-                  : const Color(
-                      0xFF64748B,
-                    ),
-              foregroundColor:
-                  Colors.white,
+                  ? const Color(0xFF7C3AED)
+                  : const Color(0xFF64748B),
+              foregroundColor: Colors.white,
             ),
             onPressed: () {
               setState(() {
-                enabled =
-                    !enabled;
+                enabled = !enabled;
               });
             },
             icon: const Icon(
@@ -247,17 +226,34 @@ class _WhatsAppAIChatbotTabState
               size: 17,
             ),
             label: Text(
-              enabled
-                  ? 'AI Chatbot ON'
-                  : 'AI Chatbot OFF',
-              style:
-                  const TextStyle(
-                fontSize: 10,
+              enabled ? 'AI Chatbot ON' : 'AI Chatbot OFF',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-        ),
-      ],
+        );
+
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              titleWidget,
+              const SizedBox(height: 12),
+              buttonWidget,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: titleWidget),
+            const SizedBox(width: 12),
+            buttonWidget,
+          ],
+        );
+      },
     );
   }
 

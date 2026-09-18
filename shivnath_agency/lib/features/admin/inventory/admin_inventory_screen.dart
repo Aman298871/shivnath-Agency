@@ -988,7 +988,91 @@ class _AdminInventoryScreenState
   // =========================================================
 
   Future<void> _stockEntry() async {
-    if (inventory.isEmpty) return;
+    if (inventory.isEmpty) {
+      await showDialog(
+        context: context,
+        builder: (dialogCtx) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.inventory_2_outlined,
+                    color: Color(0xFF0284C7),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'No Inventory Items',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'What is "Stock Entry"?',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '• "Stock In": Record incoming goods, new stock, or raw materials received from suppliers into warehouse stock.\n'
+                  '• "Stock Out": Record goods issued, dispatched, or marked as damaged/expired.\n\n'
+                  'To log a Stock Entry, you must first add items to your inventory so stock can be added or deducted against them.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF64748B),
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Close'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(dialogCtx);
+                  _openItemForm();
+                },
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add First Item'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
 
     int selectedId =
         inventory.first['id'] as int;
@@ -997,6 +1081,8 @@ class _AdminInventoryScreenState
         'Stock In';
 
     final qtyController =
+        TextEditingController();
+    final reasonController =
         TextEditingController();
 
     await showDialog(
@@ -1213,6 +1299,51 @@ class _AdminInventoryScreenState
                               },
                             ),
 
+                            Builder(
+                              builder: (_) {
+                                final selItem = inventory.firstWhere(
+                                  (item) => item['id'] == selectedId,
+                                  orElse: () => inventory.first,
+                                );
+                                final stockVal =
+                                    (selItem['stock'] as num?)?.toInt() ?? 0;
+                                return Container(
+                                  margin: const EdgeInsets.only(top: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: const Color(0xFFE2E8F0),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.inventory_2_outlined,
+                                        size: 16,
+                                        color: Color(0xFF0284C7),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Current Stock: $stockVal units in warehouse',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF334155),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+
                             const SizedBox(
                               height: 14,
                             ),
@@ -1279,6 +1410,21 @@ class _AdminInventoryScreenState
                                 'Quantity',
                                 Icons
                                     .numbers_rounded,
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 14,
+                            ),
+
+                            TextField(
+                              controller:
+                                  reasonController,
+                              decoration:
+                                  _dialogInputDecoration(
+                                'Reason / Notes (Optional)',
+                                Icons
+                                    .edit_note_rounded,
                               ),
                             ),
                           ],
@@ -1415,6 +1561,20 @@ class _AdminInventoryScreenState
                                               ['name']
                                           .toString();
 
+                                  final customReason =
+                                      reasonController
+                                          .text
+                                          .trim();
+
+                                  final reasonText =
+                                      customReason
+                                              .isNotEmpty
+                                          ? customReason
+                                          : (action ==
+                                                  'Stock In'
+                                              ? 'Stock received / purchase entry'
+                                              : 'Stock issue / adjustment');
+
                                   final result =
                                       await _inventoryService
                                           .createStockRequest(
@@ -1422,10 +1582,8 @@ class _AdminInventoryScreenState
                                         selectedId,
                                     type: action,
                                     quantity: qty,
-                                    reason: action ==
-                                            'Stock In'
-                                        ? 'Stock received / purchase entry'
-                                        : 'Stock issue / adjustment',
+                                    reason:
+                                        reasonText,
                                   );
 
                                   if (result[

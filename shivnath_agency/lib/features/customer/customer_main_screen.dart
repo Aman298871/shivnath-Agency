@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/services/session_service.dart';
+import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
 
 import 'cart/customer_cart_screen.dart';
@@ -20,6 +21,22 @@ class CustomerMainScreen extends StatefulWidget {
 
 class _CustomerMainScreenState extends State<CustomerMainScreen> {
   int currentIndex = 0;
+  UserModel? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final user = await SessionService().getUser();
+    if (mounted && user != null) {
+      setState(() {
+        _currentUser = user;
+      });
+    }
+  }
 
   // 0 = Home
   // 1 = Products
@@ -714,22 +731,26 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              const Column(
+                              Column(
                                 mainAxisAlignment:
                                     MainAxisAlignment.center,
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Demo Customer',
-                                    style: TextStyle(
+                                    _currentUser?.name.trim().isNotEmpty == true
+                                        ? _currentUser!.name.trim()
+                                        : 'Customer',
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                       color: Color(0xFF0F172A),
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  SizedBox(height: 2),
-                                  Text(
+                                  const SizedBox(height: 2),
+                                  const Text(
                                     'Customer',
                                     style: TextStyle(
                                       fontSize: 9,

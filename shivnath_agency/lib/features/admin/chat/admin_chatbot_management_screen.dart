@@ -73,8 +73,8 @@ class _AdminChatbotManagementScreenState extends State<AdminChatbotManagementScr
         builder: (context, setDlgState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(option == null ? 'Create Chatbot Option' : 'Edit Chatbot Option'),
-          content: SizedBox(
-            width: 500,
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -300,30 +300,36 @@ class _AdminChatbotManagementScreenState extends State<AdminChatbotManagementScr
       body: Column(
         children: [
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-            child: Row(
-              children: [
-                const Text('Audience Filter: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('All Options'),
-                  selected: _selectedInquiryType == 'all',
-                  onSelected: (_) => setState(() => _selectedInquiryType = 'all'),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Customer / Product'),
-                  selected: _selectedInquiryType == 'customer',
-                  onSelected: (_) => setState(() => _selectedInquiryType = 'customer'),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Franchise'),
-                  selected: _selectedInquiryType == 'franchise',
-                  onSelected: (_) => setState(() => _selectedInquiryType = 'franchise'),
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Audience Filter: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('All Options'),
+                    selected: _selectedInquiryType == 'all',
+                    onSelected: (_) => setState(() => _selectedInquiryType = 'all'),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Customer / Product'),
+                    selected: _selectedInquiryType == 'customer',
+                    onSelected: (_) => setState(() => _selectedInquiryType = 'customer'),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Franchise'),
+                    selected: _selectedInquiryType == 'franchise',
+                    onSelected: (_) => setState(() => _selectedInquiryType = 'franchise'),
+                  ),
+                ],
+              ),
             ),
           ),
           Expanded(

@@ -2058,18 +2058,65 @@ def _get_support_contact(role_key):
 class SupportContactView(APIView):
     """
     Dynamic support contact resolution from backend configuration:
-    - Customer -> Assigned or Serving Franchise contact.
+    - Customer -> Assigned or Serving Franchise contact (or Central Customer Care).
     - Franchise -> Admin Central Support.
+    - Admin -> Central Admin / Company Support.
     - Public / Anonymous -> Central Shivnath Helpline.
     """
+    authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
 
     def get(self, request):
         user = request.user if request.user and request.user.is_authenticated else None
         role = getattr(getattr(user, 'profile', None), 'role', 'public') if user else 'public'
         inquiry_type = request.query_params.get('inquiry_type', '').strip().lower()
+        requested_role = request.query_params.get('role', '').strip().lower()
+        fetch_all = request.query_params.get('all', '').strip().lower() in ['true', '1']
 
-        if role == 'franchise':
+        from .models import SupportContact
+
+        if fetch_all and (role == 'admin' or (user and (user.is_staff or user.is_superuser))):
+            contacts = SupportContact.objects.all().order_by('id')
+            data = [{
+                'id': c.id,
+                'role': c.role,
+                'role_display': c.get_role_display(),
+                'name': c.name,
+                'phone': c.phone,
+                'email': c.email,
+                'message_template': c.message_template,
+            } for c in contacts]
+            return Response({'success': True, 'contacts': data})
+
+        if requested_role and (role == 'admin' or (user and (user.is_staff or user.is_superuser))):
+            contact = _get_support_contact(requested_role)
+            if contact:
+                return Response({
+                    'success': True,
+                    'target': requested_role,
+                    'name': contact['name'],
+                    'phone': contact['phone'],
+                    'email': contact['email'],
+                    'message_template': contact['message_template'],
+                })
+
+        if role == 'admin' or (user and (user.is_staff or user.is_superuser)):
+            contact = _get_support_contact('admin') or _get_support_contact('public_customer')
+            if not contact:
+                return Response({
+                    'success': False,
+                    'error': 'support_not_configured',
+                    'message': 'Support contact not configured. Please contact the system administrator.'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            return Response({
+                'success': True,
+                'target': 'admin',
+                'name': contact['name'],
+                'phone': contact['phone'],
+                'email': contact['email'],
+                'message_template': contact['message_template'] or "Namaste Shivnath Central Administration,\nI require system support."
+            })
+        elif role == 'franchise':
             contact = _get_support_contact('franchise') or _get_support_contact('admin')
             if not contact:
                 return Response({
@@ -2134,6 +2181,43 @@ class SupportContactView(APIView):
             'phone': contact['phone'],
             'email': contact['email'],
             'message_template': contact['message_template'] or "Namaste Shivnath Support,\nI would like to inquire about your pure drinking water products and delivery service."
+        })
+
+    def post(self, request):
+        user = request.user
+        if not user or not user.is_authenticated or not (user.is_staff or user.is_superuser or getattr(getattr(user, 'profile', None), 'role', '') == 'admin'):
+            return Response({'error': 'Unauthorized. Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+
+        from .models import SupportContact
+        role_key = request.data.get('role')
+        name = request.data.get('name')
+        phone = request.data.get('phone')
+        email = request.data.get('email', '')
+        message_template = request.data.get('message_template', '')
+
+        if not role_key or not name or not phone:
+            return Response({'error': 'role, name, and phone are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        contact, _ = SupportContact.objects.update_or_create(
+            role=role_key,
+            defaults={
+                'name': name,
+                'phone': phone,
+                'email': email,
+                'message_template': message_template,
+            }
+        )
+        return Response({
+            'success': True,
+            'message': f'Support contact for {contact.get_role_display()} updated successfully.',
+            'contact': {
+                'id': contact.id,
+                'role': contact.role,
+                'name': contact.name,
+                'phone': contact.phone,
+                'email': contact.email,
+                'message_template': contact.message_template,
+            }
         })
 
 

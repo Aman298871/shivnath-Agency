@@ -11,6 +11,10 @@ import '../cart/customer_cart_screen.dart';
 import '../notifications/customer_notifications_screen.dart';
 import '../products/category_products_screen.dart';
 import '../products/product_detail_screen.dart';
+import '../products/customer_products_screen.dart';
+import '../orders/customer_orders_screen.dart';
+import '../profile/customer_profile_screen.dart';
+import '../../../core/widgets/support_desk_modal.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   final VoidCallback? onOpenProducts;
@@ -31,15 +35,26 @@ class CustomerHomeScreen extends StatefulWidget {
       _CustomerHomeScreenState();
 }
 
-class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
-  String search = '';
+class _CustomerHomeScreenState
+    extends State<CustomerHomeScreen> {
+  int _currentBannerIndex = 0;
   UserModel? _currentUser;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchProducts();
-    _loadCurrentUser();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    final user = await SessionService().getUser();
+    if (mounted) {
+      setState(() {
+        _currentUser = user;
+        _isLoading = false;
+      });
+    }
   }
 
   void _handleOpenProducts() {
@@ -48,7 +63,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const CustomerProductsScreen()),
+        MaterialPageRoute(builder: (_) => CustomerProductsScreen()),
       );
     }
   }
@@ -59,7 +74,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const CustomerOrdersScreen()),
+        MaterialPageRoute(builder: (_) => CustomerOrdersScreen()),
       );
     }
   }
@@ -81,13 +96,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const CustomerProfileScreen()),
+        MaterialPageRoute(builder: (_) => CustomerProfileScreen()),
       );
     }
   }
 
   void _handleOpenSupport() {
-    AiChatbotModal.show(context, mode: ChatbotMode.customer);
+    SupportDeskModal.show(context);
   }
 
   void _showQualityDialog() {

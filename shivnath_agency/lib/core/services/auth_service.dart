@@ -631,14 +631,69 @@ class AuthService {
   // SUPPORT CONTACT
   // =========================================================
 
-  Future<Map<String, dynamic>> getSupportContact() async {
+  Future<Map<String, dynamic>> getSupportContact({
+    String? role,
+    String? inquiryType,
+    bool fetchAll = false,
+  }) async {
     try {
-      final response = await http.get(
+      final token = await SessionService().getAccessToken();
+      final queryParams = <String, String>{};
+      if (role != null && role.isNotEmpty) queryParams['role'] = role;
+      if (inquiryType != null && inquiryType.isNotEmpty) queryParams['inquiry_type'] = inquiryType;
+      if (fetchAll) queryParams['all'] = 'true';
+
+      final uri = Uri.parse('$baseUrl/api/accounts/support-contact/').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      final headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      };
+
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': decoded['message'] ?? 'Failed to fetch support contact', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSupportContact({
+    required String role,
+    required String name,
+    required String phone,
+    String email = '',
+    String messageTemplate = '',
+  }) async {
+    try {
+      final token = await SessionService().getAccessToken();
+      final response = await http.post(
         Uri.parse('$baseUrl/api/accounts/support-contact/'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
         },
+        body: jsonEncode({
+          'role': role,
+          'name': name,
+          'phone': phone,
+          'email': email,
+          'message_template': messageTemplate,
+        }),
       ).timeout(const Duration(seconds: 10));
 
       dynamic decoded;
@@ -651,9 +706,9 @@ class AuthService {
       if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
         return {'success': true, 'data': decoded};
       }
-      return {'success': false, 'message': 'Failed to fetch support contact', 'data': decoded};
+      return {'success': false, 'message': decoded['message'] ?? decoded['error'] ?? 'Failed to update support contact'};
     } catch (_) {
-      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+      return {'success': false, 'message': 'Server unavailable. Please try again.'};
     }
   }
 }

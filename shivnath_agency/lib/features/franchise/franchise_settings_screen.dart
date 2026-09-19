@@ -3,9 +3,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/services/session_service.dart';
 import '../../core/widgets/ai_chatbot_modal.dart';
+import '../../core/widgets/support_desk_modal.dart';
 import '../../models/user_model.dart';
-import '../profile/franchise_profile_screen.dart';
-import '../territory/franchise_territory_screen.dart';
+import 'profile/franchise_profile_screen.dart';
 
 class FranchiseSettingsScreen extends StatefulWidget {
   const FranchiseSettingsScreen({super.key});
@@ -611,33 +611,19 @@ class _FranchiseSettingsScreenState
                             ),
                           ),
                           title: const Text(
-                            'Call Master Franchise Support',
+                            'Franchise Support Desk',
                             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                           ),
                           subtitle: const Text(
-                            '+91 98765 43210 (Toll-Free 9 AM - 8 PM)',
+                            'Call or Chat with official support desk',
                             style: TextStyle(fontSize: 11),
                           ),
                           trailing: const Icon(
-                            Icons.call_made_rounded,
-                            size: 18,
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
                             color: Color(0xFF16A34A),
                           ),
-                          onTap: () async {
-                            final uri = Uri.parse('tel:+919876543210');
-                            try {
-                              await launchUrl(uri);
-                            } catch (_) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Support line: +91 98765 43210'),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              }
-                            }
-                          },
+                          onTap: () => SupportDeskModal.show(context),
                         ),
                         const Divider(),
                         ListTile(

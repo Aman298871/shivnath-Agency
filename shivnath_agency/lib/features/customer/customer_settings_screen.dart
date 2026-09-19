@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/support_desk_modal.dart';
 
 class CustomerSettingsScreen extends StatefulWidget {
   const CustomerSettingsScreen({super.key});
@@ -324,9 +325,7 @@ class _CustomerSettingsScreenState
               subtitle:
                   'Contact Shivnath Agency support team',
               onTap: () {
-                _showComingSoon(
-                  'Help & Support',
-                );
+                SupportDeskModal.show(context);
               },
             ),
           ],

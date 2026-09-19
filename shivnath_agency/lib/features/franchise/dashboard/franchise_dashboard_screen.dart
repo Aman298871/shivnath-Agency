@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/franchise_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
+import '../../../core/widgets/support_desk_modal.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
 import '../profile/franchise_profile_screen.dart';
@@ -143,7 +144,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
       {'title': 'Territory', 'icon': Icons.location_on_outlined, 'color': const Color(0xFF14B8A6), 'action': widget.onOpenTerritory},
       {'title': 'Documents', 'icon': Icons.description_outlined, 'color': const Color(0xFF6366F1), 'action': widget.onOpenDocuments},
       {'title': 'Invoices & Reports', 'icon': Icons.receipt_long_outlined, 'color': const Color(0xFFF97316), 'action': widget.onOpenReports},
-      {'title': 'Support Desk', 'icon': Icons.headset_mic_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenSupport ?? () => AiChatbotModal.show(context, mode: ChatbotMode.franchise)},
+      {'title': 'Support Desk', 'icon': Icons.headset_mic_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenSupport ?? () => SupportDeskModal.show(context)},
       {'title': 'Settings', 'icon': Icons.settings_outlined, 'color': const Color(0xFF64748B), 'action': widget.onOpenSettings},
     ];
 
@@ -615,17 +616,51 @@ class _AccountSummary extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         child: Column(
           children: [
-            _Info('Franchise ID', franchiseId),
+            _InfoRow('Franchise ID', franchiseId),
             const Divider(),
-            _Info('Owner', ownerName),
+            _InfoRow('Owner', ownerName),
             const Divider(),
-            _Info('Email', email),
+            _InfoRow('Email', email),
             const Divider(),
-            _Info('Status', status),
+            _InfoRow('Status', status),
             const Divider(),
-            const _Info('Commission', '12%'),
+            const _InfoRow('Commission', '12%'),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _InfoRow(this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF0F172A),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

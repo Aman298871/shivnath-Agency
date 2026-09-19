@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/services/whatsapp_service.dart';
+import '../../../core/widgets/support_desk_modal.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
 import '../notifications/customer_notifications_screen.dart';
@@ -572,53 +573,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 
   void _showHelpSupportDialog() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.support_agent, size: 48, color: Color(0xFF0284C7)),
-            const SizedBox(height: 12),
-            const Text(
-              'Shivnath Customer Support',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Need help with an order, water delivery, or bulk enquiry? We are here to help!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await WhatsAppService.openWhatsApp(
-                    phone: WhatsAppService.officialSupportPhone,
-                    message: 'Namaste Shivnath Support Team,\nI have a question regarding drinking water supply.',
-                  );
-                },
-                icon: const Icon(Icons.chat_outlined),
-                label: const Text('Chat on WhatsApp Support'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    SupportDeskModal.show(context);
   }
 
   Future<void> _handleCustomerServiceStatusChange(String currentStatus) async {

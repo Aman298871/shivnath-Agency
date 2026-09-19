@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/session_service.dart';
 import '../../core/services/whatsapp_service.dart';
+import '../../core/widgets/support_desk_modal.dart';
 import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
 
@@ -254,66 +255,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
   }
 
   void _openSupportDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.headset_mic_rounded, color: Color(0xFF0284C7)),
-            SizedBox(width: 10),
-            Text('Franchise Support Desk', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Need assistance with your franchise operations, stock dispatch, or territory?',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              dense: true,
-              leading: const CircleAvatar(backgroundColor: Color(0xFFE0F2FE), child: Icon(Icons.phone, color: Color(0xFF0284C7), size: 18)),
-              title: const Text('Call Operations Desk', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-              subtitle: const Text('+91 98062 47194 (Mon-Sat, 9am-7pm)'),
-              onTap: () {
-                Navigator.pop(ctx);
-                launchUrl(Uri.parse('tel:+919806247194'));
-              },
-            ),
-            ListTile(
-              dense: true,
-              leading: const CircleAvatar(backgroundColor: Color(0xFFDCFCE7), child: Icon(Icons.chat_rounded, color: Color(0xFF16A34A), size: 18)),
-              title: const Text('WhatsApp Operations', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-              subtitle: const Text('Direct chat with Plant Dispatcher'),
-              onTap: () {
-                Navigator.pop(ctx);
-                WhatsAppService.openWhatsApp(
-                  phone: WhatsAppService.officialSupportPhone,
-                  message: 'Namaste Shivnath Operations Team,\nInquiry from Franchise Partner (${_currentUser?.name ?? "Partner"}).',
-                );
-              },
-            ),
-            ListTile(
-              dense: true,
-              leading: const CircleAvatar(backgroundColor: Color(0xFFFEF3C7), child: Icon(Icons.email_outlined, color: Color(0xFFD97706), size: 18)),
-              title: const Text('Email Support', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-              subtitle: const Text('franchise@shivnathagency.com'),
-              onTap: () {
-                Navigator.pop(ctx);
-                launchUrl(Uri.parse('mailto:franchise@shivnathagency.com'));
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-        ],
-      ),
-    );
+    SupportDeskModal.show(context);
   }
 
   @override

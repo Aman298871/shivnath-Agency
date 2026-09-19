@@ -55,6 +55,21 @@ class CartProvider extends ChangeNotifier {
   int get itemCount =>
       _items.fold(0, (total, item) => total + item.quantity);
 
+  int get totalItems => itemCount;
+
+  int getQuantity(String id) {
+    final index = _items.indexWhere((item) => item.id == id);
+    return index >= 0 ? _items[index].quantity : 0;
+  }
+
+  void add(dynamic product) {
+    addProduct(product);
+  }
+
+  void decrement(String id) {
+    decreaseQuantity(id);
+  }
+
   double get subtotal =>
       _items.fold(0, (total, item) => total + item.total);
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/api_service.dart';
-import '../../../core/constants/app_constants.dart';
+import '../../../core/services/InventoryService.dart';
 
 class FranchiseInventoryScreen extends StatefulWidget {
   const FranchiseInventoryScreen({super.key});
@@ -40,11 +39,10 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
     });
 
     try {
-      final baseUrl = AppConstants.apiBaseUrl;
-      final api = ApiService();
+      final invService = InventoryService();
 
       // Fetch raw materials stock
-      final rawRes = await api.get('$baseUrl/api/inventory/franchise/raw-materials/');
+      final rawRes = await invService.getFranchiseRawMaterials();
       if (rawRes['success'] == true && rawRes['data'] is List) {
         _rawMaterials = List<Map<String, dynamic>>.from(rawRes['data']);
       } else if (rawRes['data'] is Map && rawRes['data']['results'] is List) {
@@ -52,7 +50,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       }
 
       // Fetch transactions
-      final txRes = await api.get('$baseUrl/api/inventory/franchise/transactions/');
+      final txRes = await invService.getFranchiseTransactions();
       if (txRes['success'] == true && txRes['data'] is List) {
         _transactions = List<Map<String, dynamic>>.from(txRes['data']);
       } else if (txRes['data'] is Map && txRes['data']['results'] is List) {
@@ -60,7 +58,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       }
 
       // Fetch production logs
-      final prodRes = await api.get('$baseUrl/api/inventory/franchise/production-logs/');
+      final prodRes = await invService.getFranchiseProductionLogs();
       if (prodRes['success'] == true && prodRes['data'] is List) {
         _productionLogs = List<Map<String, dynamic>>.from(prodRes['data']);
       } else if (prodRes['data'] is Map && prodRes['data']['results'] is List) {
@@ -404,9 +402,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
 
                       setDState(() => saving = true);
                       try {
-                        final api = ApiService();
-                        final baseUrl = AppConstants.apiBaseUrl;
-                        await api.post('$baseUrl/api/inventory/franchise/production-logs/', {
+                        await InventoryService().createFranchiseProductionLog({
                           'product_name': productName,
                           'quantity_produced': qty,
                           'notes': notesCtrl.text.trim(),

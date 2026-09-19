@@ -358,6 +358,54 @@ class InventoryService {
   }
 
   // =====================================================
+  // FRANCHISE INVENTORY METHODS
+  // =====================================================
+
+  Future<Map<String, dynamic>> getFranchiseRawMaterials() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/franchise/raw-materials/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getFranchiseTransactions() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/franchise/transactions/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getFranchiseProductionLogs() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/franchise/production-logs/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createFranchiseProductionLog(Map<String, dynamic> data) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/franchise/production-logs/');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // =====================================================
   // RESPONSE HANDLER
   // =====================================================
 

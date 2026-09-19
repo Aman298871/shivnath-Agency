@@ -319,7 +319,7 @@ class _ProductCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '₹${product.sellingPrice.toStringAsFixed(0)}',
+                      '₹${product.price.toStringAsFixed(0)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,

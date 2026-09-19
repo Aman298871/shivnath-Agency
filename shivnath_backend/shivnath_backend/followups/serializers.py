@@ -31,6 +31,7 @@ class FollowUpSerializer(serializers.ModelSerializer):
 
         fields = [
             "id",
+            "lead_id",
 
             "lead",
             "phone",
@@ -48,6 +49,7 @@ class FollowUpSerializer(serializers.ModelSerializer):
             "status",
 
             "followup_datetime",
+            "next_followup_date",
 
             "created_at",
             "updated_at",

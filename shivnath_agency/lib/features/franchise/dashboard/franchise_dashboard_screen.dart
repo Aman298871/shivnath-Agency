@@ -473,8 +473,10 @@ class _Info extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
+            flex: 2,
             child: Text(
               title,
               style: const TextStyle(
@@ -483,11 +485,18 @@ class _Info extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
             ),
           ),
         ],
@@ -718,12 +727,16 @@ class _TerritoryField extends StatelessWidget {
           children: [
             Icon(icon, size: 14, color: const Color(0xFF64748B)),
             const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w600,
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -731,6 +744,7 @@ class _TerritoryField extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           value,
+          maxLines: 2,
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,

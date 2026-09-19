@@ -23,7 +23,6 @@ class _CustomerProductsScreenState
   List<Map<String, dynamic>> _categoryItems = [
     {'id': null, 'name': 'All', 'full_path': 'All'}
   ];
-  bool _loadingCategories = false;
   bool _loadingProducts = false;
 
   @override
@@ -43,40 +42,41 @@ class _CustomerProductsScreenState
   }
 
   Future<void> _fetchCategories() async {
-    setState(() => _loadingCategories = true);
-    final res = await ProductService().getCategories(activeOnly: true);
-    if (res['success'] == true && res['data'] is Map) {
-      final list = res['data']['categories'];
-      if (list is List) {
-        final items = <Map<String, dynamic>>[
-          {'id': null, 'name': 'All', 'full_path': 'All'}
-        ];
-        void extract(List<dynamic> nodes) {
-          for (var item in nodes) {
-            if (item is Map) {
-              final map = Map<String, dynamic>.from(item);
-              items.add({
-                'id': map['id'],
-                'name': map['name'] ?? '',
-                'full_path': map['full_path'] ?? map['name'] ?? '',
-              });
-              final children = map['children'] ?? map['subcategories'];
-              if (children is List && children.isNotEmpty) {
-                extract(children);
+    try {
+      final res = await ProductService().getCategories(activeOnly: true);
+      if (res['success'] == true && res['data'] is Map) {
+        final list = res['data']['categories'];
+        if (list is List) {
+          final items = <Map<String, dynamic>>[
+            {'id': null, 'name': 'All', 'full_path': 'All'}
+          ];
+          void extract(List<dynamic> nodes) {
+            for (var item in nodes) {
+              if (item is Map) {
+                final map = Map<String, dynamic>.from(item);
+                items.add({
+                  'id': map['id'],
+                  'name': map['name'] ?? '',
+                  'full_path': map['full_path'] ?? map['name'] ?? '',
+                });
+                final children = map['children'] ?? map['subcategories'];
+                if (children is List && children.isNotEmpty) {
+                  extract(children);
+                }
               }
             }
           }
-        }
-        extract(list);
-        if (mounted) {
-          setState(() {
-            _categoryItems = items;
-          });
-          return;
+          extract(list);
+          if (mounted) {
+            setState(() {
+              _categoryItems = items;
+            });
+          }
         }
       }
+    } catch (_) {
+      // ignore
     }
-    if (mounted) setState(() => _loadingCategories = false);
   }
 
   @override
@@ -336,18 +336,6 @@ class _CustomerProductsScreenState
   }
 
   Widget _filters() {
-    if (_loadingCategories && _categoryItems.length <= 1) {
-      return const SizedBox(
-        height: 45,
-        child: Center(
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
     return SizedBox(
       height: 45,
       child: ListView.builder(

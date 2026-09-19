@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/services/lead_service.dart';
 import '../../../core/services/whatsapp_service.dart';
+import '../../../core/services/followup_service.dart';
 class AdminLeadsScreen extends StatefulWidget {
   const AdminLeadsScreen({super.key});
 
@@ -318,18 +319,34 @@ Future<void> _loadLeads() async {
       {
         'title': 'Total Leads',
         'value': '${leads.length}',
+        'onTap': () => setState(() {
+          selectedStatus = 'All';
+          selectedScore = 'All';
+        }),
       },
       {
         'title': 'Hot Leads',
         'value': '$hotLeads',
+        'onTap': () => setState(() {
+          selectedScore = 'Hot';
+          selectedStatus = 'All';
+        }),
       },
       {
         'title': 'Interested',
         'value': '$interestedLeads',
+        'onTap': () => setState(() {
+          selectedStatus = 'Interested';
+          selectedScore = 'All';
+        }),
       },
       {
         'title': 'Site Visits',
         'value': '$siteVisits',
+        'onTap': () => setState(() {
+          selectedStatus = 'Site Visit Scheduled';
+          selectedScore = 'All';
+        }),
       },
     ];
 
@@ -354,10 +371,11 @@ Future<void> _loadLeads() async {
                     _LeadStatCard(
                   title:
                       items[index]
-                          ['title']!,
+                          ['title']! as String,
                   value:
                       items[index]
-                          ['value']!,
+                          ['value']! as String,
+                  onTap: items[index]['onTap'] as VoidCallback?,
                 ),
               ),
             );
@@ -384,9 +402,10 @@ Future<void> _loadLeads() async {
       ) {
         return _LeadStatCard(
           title:
-              items[index]['title']!,
+              items[index]['title']! as String,
           value:
-              items[index]['value']!,
+              items[index]['value']! as String,
+          onTap: items[index]['onTap'] as VoidCallback?,
         );
       },
     );
@@ -804,7 +823,7 @@ Future<void> _loadLeads() async {
             ),
           ),
           SizedBox(
-            width: 170,
+            width: 205,
             child: Text(
               'ACTIONS',
               style:
@@ -971,9 +990,17 @@ Future<void> _loadLeads() async {
           ),
 
           SizedBox(
-            width: 170,
+            width: 205,
             child: Row(
               children: [
+                _actionButton(
+                  icon:
+                      Icons.published_with_changes_rounded,
+                  tooltip: 'Update CRM Status',
+                  onTap: () {
+                    _showUpdateLeadCrmDialog(lead);
+                  },
+                ),
                 _actionButton(
                   icon:
                       Icons.call_outlined,
@@ -1050,7 +1077,6 @@ Future<void> _loadLeads() async {
         ),
       );
     }
-
     return Column(
       children:
           filteredLeads.map(
@@ -1060,10 +1086,6 @@ Future<void> _loadLeads() async {
             margin:
                 const EdgeInsets.only(
               bottom: 12,
-            ),
-            padding:
-                const EdgeInsets.all(
-              15,
             ),
             decoration:
                 BoxDecoration(
@@ -1079,36 +1101,110 @@ Future<void> _loadLeads() async {
                 ),
               ),
             ),
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
-              children: [
-                Row(
-                  children: [
-                    _avatar(
-                      '${lead['name']}',
-                    ),
-                    const SizedBox(
-                      width: 10,
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => _viewLead(lead),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.all(
+                    15,
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment
+                            .start,
+                    children: [
+                      Row(
                         children: [
-                          Text(
+                          _avatar(
                             '${lead['name']}',
-                            style:
-                                const TextStyle(
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
+                          ),
+                          const SizedBox(
+                            width: 10,
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment
+                                      .start,
+                              children: [
+                                Text(
+                                  '${lead['name']}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style:
+                                      const TextStyle(
+                                    fontWeight:
+                                        FontWeight
+                                            .w700,
+                                  ),
+                                ),
+                                Text(
+                                  '${lead['phone']}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style:
+                                      const TextStyle(
+                                    fontSize: 11,
+                                    color:
+                                        Color(
+                                      0xFF64748B,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          _scoreBadge(
+                            '${lead['score']}',
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(
+                        height: 13,
+                      ),
+
+                      Text(
+                        '${lead['city']}, ${lead['district']}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            const TextStyle(
+                          fontSize: 12,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 5,
+                      ),
+
+                      Text(
+                        'Budget: ₹${lead['budget']}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            const TextStyle(
+                          fontSize: 12,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 10,
+                      ),
+
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _statusBadge(
+                            '${lead['status']}',
+                          ),
                           Text(
-                            '${lead['phone']}',
+                            'Executive: ${lead['executive']}',
                             style:
                                 const TextStyle(
                               fontSize: 11,
@@ -1120,109 +1216,416 @@ Future<void> _loadLeads() async {
                           ),
                         ],
                       ),
-                    ),
-                    _scoreBadge(
-                      '${lead['score']}',
-                    ),
-                  ],
-                ),
 
-                const SizedBox(
-                  height: 13,
-                ),
+                      const SizedBox(
+                        height: 12,
+                      ),
 
-                Text(
-                  '${lead['city']}, ${lead['district']}',
-                  style:
-                      const TextStyle(
-                    fontSize: 12,
+                      Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            tooltip: 'Update CRM',
+                            onPressed: () {
+                              _showUpdateLeadCrmDialog(lead);
+                            },
+                            icon: const Icon(
+                              Icons.published_with_changes_rounded,
+                              color: Color(0xFF0284C7),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'View Details',
+                            onPressed: () {
+                              _viewLead(lead);
+                            },
+                            icon:
+                                const Icon(
+                              Icons
+                                  .visibility_outlined,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Edit Lead',
+                            onPressed: () {
+                              _openLeadForm(
+                                lead: lead,
+                              );
+                            },
+                            icon:
+                                const Icon(
+                              Icons.edit_outlined,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Delete Lead',
+                            onPressed: () {
+                              _deleteLead(lead);
+                            },
+                            icon:
+                                const Icon(
+                              Icons.delete_outline,
+                              color:
+                                  Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-
-                const SizedBox(
-                  height: 5,
-                ),
-
-                Text(
-                  'Budget: ₹${lead['budget']}',
-                  style:
-                      const TextStyle(
-                    fontSize: 12,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 10,
-                ),
-
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _statusBadge(
-                      '${lead['status']}',
-                    ),
-                    Text(
-                      'Executive: ${lead['executive']}',
-                      style:
-                          const TextStyle(
-                        fontSize: 11,
-                        color:
-                            Color(
-                          0xFF64748B,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(
-                  height: 12,
-                ),
-
-                Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        _viewLead(lead);
-                      },
-                      icon:
-                          const Icon(
-                        Icons
-                            .visibility_outlined,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        _openLeadForm(
-                          lead: lead,
-                        );
-                      },
-                      icon:
-                          const Icon(
-                        Icons.edit_outlined,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        _deleteLead(lead);
-                      },
-                      icon:
-                          const Icon(
-                        Icons.delete_outline,
-                        color:
-                            Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           );
         },
       ).toList(),
+    );
+  }
+
+  // =========================================================
+  // CRM STATUS & FOLLOW-UP DIALOGS
+  // =========================================================
+
+  Future<void> _showUpdateLeadCrmDialog(Map<String, dynamic> lead) async {
+    final leadId = int.tryParse(lead['id']?.toString() ?? '');
+    if (leadId == null) return;
+
+    String currentStatus = lead['status']?.toString() ?? 'New Lead';
+    String currentScore = lead['score']?.toString() ?? 'Warm';
+    bool siteVisitPlanned = lead['site_visit_planned'] == true;
+    bool siteVisitCompleted = lead['site_visit_completed'] == true;
+    final siteVisitDateCtrl = TextEditingController(text: lead['site_visit_date']?.toString() ?? '');
+    final siteVisitNotesCtrl = TextEditingController(text: lead['site_visit_notes']?.toString() ?? '');
+    final notesCtrl = TextEditingController(text: lead['notes']?.toString() ?? '');
+    bool isSaving = false;
+
+    final statuses = [
+      'New Lead',
+      'Contacted',
+      'Interested',
+      'Hot Lead',
+      'Follow-up 1',
+      'Follow-up 2',
+      'Follow-up Required',
+      'Site Visit Scheduled',
+      'Site Visit Completed',
+      'Agreement Pending',
+      'Franchise Confirmed',
+      'Lost',
+      'Not Interested',
+    ];
+
+    final scores = ['Hot', 'Warm', 'Cold'];
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.published_with_changes_rounded, color: Color(0xFF0284C7)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Update CRM: ${lead['name']}',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Pipeline Status', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF475569))),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: statuses.contains(currentStatus) ? currentStatus : statuses.first,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: statuses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setModalState(() {
+                          currentStatus = val;
+                          if (val == 'Site Visit Scheduled') siteVisitPlanned = true;
+                          if (val == 'Site Visit Completed') {
+                            siteVisitPlanned = true;
+                            siteVisitCompleted = true;
+                          }
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Interest Level / Score', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF475569))),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: scores.contains(currentScore) ? currentScore : scores.first,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: scores.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => currentScore = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Site Visit Planned', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    value: siteVisitPlanned,
+                    onChanged: (v) => setModalState(() => siteVisitPlanned = v ?? false),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Site Visit Completed', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    value: siteVisitCompleted,
+                    onChanged: (v) => setModalState(() => siteVisitCompleted = v ?? false),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: siteVisitDateCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Site Visit Date (YYYY-MM-DD)',
+                      hintText: 'e.g. 2026-09-25',
+                      prefixIcon: const Icon(Icons.calendar_today_rounded, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: siteVisitNotesCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Site Visit / Location Notes',
+                      hintText: 'Road access, land size, water source...',
+                      prefixIcon: const Icon(Icons.pin_drop_outlined, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: notesCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'CRM & Discussion Notes',
+                      hintText: 'Summary of discussions, next steps...',
+                      prefixIcon: const Icon(Icons.notes_rounded, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      setModalState(() => isSaving = true);
+                      final payload = {
+                        'status': currentStatus,
+                        'score': currentScore,
+                        'interest_level': currentScore,
+                        'site_visit_planned': siteVisitPlanned,
+                        'site_visit_completed': siteVisitCompleted,
+                        'site_visit_date': siteVisitDateCtrl.text.trim(),
+                        'site_visit_notes': siteVisitNotesCtrl.text.trim(),
+                        'notes': notesCtrl.text.trim(),
+                      };
+                      final res = await _leadService.updateLead(leadId, payload);
+                      if (!dialogCtx.mounted) return;
+                      setModalState(() => isSaving = false);
+                      if (res['success'] == true) {
+                        Navigator.pop(dialogCtx);
+                        AppToast.success(context, 'Lead CRM status updated successfully');
+                        await _loadLeads();
+                      } else {
+                        AppToast.error(context, res['message'] ?? 'Failed to update CRM status');
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Save CRM Updates'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showScheduleFollowupDialog(Map<String, dynamic> lead) async {
+    final leadId = int.tryParse(lead['id']?.toString() ?? '');
+    if (leadId == null) return;
+
+    String followupType = 'Phone Call';
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    TimeOfDay selectedTime = const TimeOfDay(hour: 10, minute: 0);
+    final noteCtrl = TextEditingController();
+    bool isSaving = false;
+
+    final types = ['Phone Call', 'WhatsApp', 'Email', 'Meeting', 'Site Visit', 'Other'];
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.add_alarm_rounded, color: Color(0xFF0284C7)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Schedule Follow-up: ${lead['name']}',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Follow-up Method', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF475569))),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: followupType,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: types.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => followupType = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.calendar_month_rounded, size: 16),
+                          label: Text(selectedDate.toIso8601String().substring(0, 10)),
+                          onPressed: () async {
+                            final d = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDate,
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (d != null) setModalState(() => selectedDate = d);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.access_time_rounded, size: 16),
+                          label: Text(selectedTime.format(context)),
+                          onPressed: () async {
+                            final t = await showTimePicker(
+                              context: context,
+                              initialTime: selectedTime,
+                            );
+                            if (t != null) setModalState(() => selectedTime = t);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: noteCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Follow-up Agenda / Note',
+                      hintText: 'What needs to be discussed or checked...',
+                      prefixIcon: const Icon(Icons.note_alt_outlined, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      setModalState(() => isSaving = true);
+                      final dt = DateTime(
+                        selectedDate.year,
+                        selectedDate.month,
+                        selectedDate.day,
+                        selectedTime.hour,
+                        selectedTime.minute,
+                      );
+                      final res = await FollowupService().createFollowup(
+                        leadId: leadId,
+                        dateTime: dt,
+                        type: followupType,
+                        note: noteCtrl.text.trim().isEmpty ? 'Scheduled follow-up' : noteCtrl.text.trim(),
+                      );
+                      if (!dialogCtx.mounted) return;
+                      setModalState(() => isSaving = false);
+                      if (res['success'] == true) {
+                        Navigator.pop(dialogCtx);
+                        AppToast.success(context, 'Follow-up scheduled successfully');
+                      } else {
+                        AppToast.error(context, res['message'] ?? 'Failed to schedule follow-up');
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Schedule Follow-up'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2491,7 +2894,7 @@ Future<void> _pickFollowupDate(
 Future<void> _viewLead(
   Map<String, dynamic> lead,
 ) async {
-  final leadId = lead['id'];
+  final leadId = int.tryParse(lead['id']?.toString() ?? '');
 
   if (leadId == null) {
     return;
@@ -2499,7 +2902,7 @@ Future<void> _viewLead(
 
   final activities =
       await _loadLeadActivities(
-    leadId as int,
+    leadId,
   );
 
   if (!mounted) {
@@ -3048,11 +3451,46 @@ Future<void> _viewLead(
                       ),
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment
+                  child: Wrap(
+                    alignment:
+                        WrapAlignment
                             .end,
+                    crossAxisAlignment:
+                        WrapCrossAlignment
+                            .center,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0284C7),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _showUpdateLeadCrmDialog(lead);
+                        },
+                        icon: const Icon(Icons.published_with_changes_rounded, size: 18),
+                        label: const Text('Update Status & CRM'),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6366F1),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _showScheduleFollowupDialog(lead);
+                        },
+                        icon: const Icon(Icons.add_alarm_rounded, size: 18),
+                        label: const Text('+ Schedule Follow-up'),
+                      ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF25D366),
@@ -3072,38 +3510,14 @@ Future<void> _viewLead(
                         icon: const Icon(Icons.chat_outlined, size: 18),
                         label: const Text('Send WhatsApp Welcome'),
                       ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width:
-                            90,
-                        height:
-                            42,
-                        child:
-                            TextButton(
-                          style:
-                              TextButton
-                                  .styleFrom(
-                            minimumSize:
-                                const Size(
-                              0,
-                              42,
-                            ),
-                            maximumSize:
-                                const Size(
-                              90,
-                              42,
-                            ),
-                          ),
-                          onPressed:
-                              () {
-                            Navigator.pop(
-                              dialogContext,
-                            );
-                          },
-                          child:
-                              const Text(
-                            'Close',
-                          ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(
+                            dialogContext,
+                          );
+                        },
+                        child: const Text(
+                          'Close',
                         ),
                       ),
                     ],
@@ -3400,6 +3814,24 @@ Widget _activityTimelineItem(
         'Next Follow-up',
         '${lead['followup'] ?? '-'}',
       ],
+      [
+        'Site Visit Planned',
+        lead['site_visit_planned'] == true ? 'Yes' : 'No',
+      ],
+      [
+        'Site Visit Completed',
+        lead['site_visit_completed'] == true ? 'Yes' : 'No',
+      ],
+      if ((lead['site_visit_date'] ?? '').toString().isNotEmpty)
+        [
+          'Site Visit Date',
+          '${lead['site_visit_date']}',
+        ],
+      if ((lead['site_visit_notes'] ?? '').toString().isNotEmpty)
+        [
+          'Site Visit Notes',
+          '${lead['site_visit_notes']}',
+        ],
     ];
 
     return Wrap(
@@ -3841,17 +4273,19 @@ class _LeadStatCard
     extends StatelessWidget {
   final String title;
   final String value;
+  final VoidCallback? onTap;
 
   const _LeadStatCard({
     required this.title,
     required this.value,
+    this.onTap,
   });
 
   @override
   Widget build(
     BuildContext context,
   ) {
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -3889,6 +4323,18 @@ class _LeadStatCard
         ],
       ),
     );
+
+    if (onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: card,
+        ),
+      );
+    }
+    return card;
   }
 }
 

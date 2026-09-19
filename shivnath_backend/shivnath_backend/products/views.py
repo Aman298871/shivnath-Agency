@@ -113,7 +113,7 @@ class ProductListCreateView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
-        return [IsAdminRole()]
+        return [IsAdminOrApprovedFranchise()]
 
     def get(self, request):
         queryset = Product.objects.select_related("category_ref").all()
@@ -188,7 +188,7 @@ class ProductDetailView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
-        return [IsAdminRole()]
+        return [IsAdminOrApprovedFranchise()]
 
     def get(self, request, pk):
         product = get_object_or_404(Product.objects.select_related("category_ref"), pk=pk)

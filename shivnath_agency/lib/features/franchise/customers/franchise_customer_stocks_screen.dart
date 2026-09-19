@@ -418,15 +418,23 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(custName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                          Text(
+                            custName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                          ),
                           const SizedBox(height: 2),
                           Text(
                             '$custCode  •  $custPhone',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -470,18 +478,23 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                               children: [
                                 Text(
                                   productName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
                                 ),
                                 if (variantSize.isNotEmpty) ...[
                                   const SizedBox(height: 2),
                                   Text(
                                     'Size: $variantSize  •  Qty: $quantity',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ],
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
@@ -498,10 +511,23 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Order: $orderNumber', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                          Text(
-                            durationChoice.isNotEmpty ? durationChoice.toUpperCase() : '$durationDays Days Plan',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                          Expanded(
+                            child: Text(
+                              'Order: $orderNumber',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              durationChoice.isNotEmpty ? durationChoice.toUpperCase() : '$durationDays Days Plan',
+                              textAlign: TextAlign.end,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                            ),
                           ),
                         ],
                       ),
@@ -509,8 +535,24 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Started: $startDate', style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                          Text('Finishes: $expectedEndDate', style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                          Expanded(
+                            child: Text(
+                              'Started: $startDate',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Finishes: $expectedEndDate',
+                              textAlign: TextAlign.end,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                            ),
+                          ),
                         ],
                       ),
                     ],

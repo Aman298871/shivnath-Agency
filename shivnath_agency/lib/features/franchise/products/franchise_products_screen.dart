@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/services/OrderService.dart';
 import '../../../core/services/product_service.dart';
 import '../../../core/services/session_service.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../models/product_model.dart';
+import '../../customer/products/product_detail_screen.dart';
 
 class FranchiseProductsScreen extends StatefulWidget {
   const FranchiseProductsScreen({super.key});
@@ -21,7 +23,6 @@ class _FranchiseProductsScreenState
   List<Map<String, dynamic>> _categoryItems = [
     {'id': null, 'name': 'All', 'full_path': 'All'}
   ];
-  bool _loadingCategories = false;
   bool _loadingProducts = false;
 
   @override
@@ -41,40 +42,41 @@ class _FranchiseProductsScreenState
   }
 
   Future<void> _fetchCategories() async {
-    setState(() => _loadingCategories = true);
-    final res = await ProductService().getCategories(activeOnly: true);
-    if (res['success'] == true && res['data'] is Map) {
-      final list = res['data']['categories'];
-      if (list is List) {
-        final items = <Map<String, dynamic>>[
-          {'id': null, 'name': 'All', 'full_path': 'All'}
-        ];
-        void extract(List<dynamic> nodes) {
-          for (var item in nodes) {
-            if (item is Map) {
-              final map = Map<String, dynamic>.from(item);
-              items.add({
-                'id': map['id'],
-                'name': map['name'] ?? '',
-                'full_path': map['full_path'] ?? map['name'] ?? '',
-              });
-              final children = map['children'] ?? map['subcategories'];
-              if (children is List && children.isNotEmpty) {
-                extract(children);
+    try {
+      final res = await ProductService().getCategories(activeOnly: true);
+      if (res['success'] == true && res['data'] is Map) {
+        final list = res['data']['categories'];
+        if (list is List) {
+          final items = <Map<String, dynamic>>[
+            {'id': null, 'name': 'All', 'full_path': 'All'}
+          ];
+          void extract(List<dynamic> nodes) {
+            for (var item in nodes) {
+              if (item is Map) {
+                final map = Map<String, dynamic>.from(item);
+                items.add({
+                  'id': map['id'],
+                  'name': map['name'] ?? '',
+                  'full_path': map['full_path'] ?? map['name'] ?? '',
+                });
+                final children = map['children'] ?? map['subcategories'];
+                if (children is List && children.isNotEmpty) {
+                  extract(children);
+                }
               }
             }
           }
-        }
-        extract(list);
-        if (mounted) {
-          setState(() {
-            _categoryItems = items;
-          });
-          return;
+          extract(list);
+          if (mounted) {
+            setState(() {
+              _categoryItems = items;
+            });
+            return;
+          }
         }
       }
+    } catch (_) {
     }
-    if (mounted) setState(() => _loadingCategories = false);
   }
 
   Future<void> _openOrderDialog(ProductModel product) async {
@@ -261,6 +263,197 @@ class _FranchiseProductsScreenState
     notesController.dispose();
   }
 
+  Future<void> _openProductFormDialog({ProductModel? product}) async {
+    final bool editing = product != null;
+    final nameController = TextEditingController(text: product?.name ?? '');
+    final skuController = TextEditingController(text: 'SKU-${DateTime.now().millisecondsSinceEpoch % 10000}');
+    final sizeController = TextEditingController(text: product?.size ?? '20 Litre');
+    final priceController = TextEditingController(text: product != null ? product.price.toStringAsFixed(0) : '35');
+    final unitController = TextEditingController(text: product?.unit ?? 'Jar');
+    final stockController = TextEditingController(text: product?.stock.toString() ?? '50');
+    final descController = TextEditingController(text: product?.description ?? '');
+    int? catId = product?.categoryRefId;
+    String status = 'Active';
+    bool isSaving = false;
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(editing ? Icons.edit_note_rounded : Icons.add_box_rounded, color: const Color(0xFF0284C7)),
+              const SizedBox(width: 8),
+              Text(editing ? 'Edit Product' : 'Add Product', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(ctx).size.width * 0.9),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Product Name *', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: skuController,
+                          decoration: const InputDecoration(labelText: 'SKU *', border: OutlineInputBorder()),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: sizeController,
+                          decoration: const InputDecoration(labelText: 'Size / Volume *', border: OutlineInputBorder()),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int?>(
+                    value: catId,
+                    decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+                    items: _categoryItems.map((c) => DropdownMenuItem<int?>(
+                      value: c['id'] as int?,
+                      child: Text(c['name']?.toString() ?? 'All', overflow: TextOverflow.ellipsis),
+                    )).toList(),
+                    onChanged: (val) => setDlgState(() => catId = val),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: priceController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Price (₹) *', border: OutlineInputBorder()),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: unitController,
+                          decoration: const InputDecoration(labelText: 'Unit (Jar/Bottle) *', border: OutlineInputBorder()),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: stockController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Stock Qty', border: OutlineInputBorder()),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: status,
+                          decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
+                          items: const [
+                            DropdownMenuItem(value: 'Active', child: Text('Active')),
+                            DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) setDlgState(() => status = val);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: isSaving ? null : () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7), foregroundColor: Colors.white),
+              onPressed: isSaving ? null : () async {
+                final name = nameController.text.trim();
+                final sku = skuController.text.trim();
+                final size = sizeController.text.trim();
+                final price = double.tryParse(priceController.text.trim()) ?? 0.0;
+                final unit = unitController.text.trim().isEmpty ? 'Jar' : unitController.text.trim();
+                final stock = int.tryParse(stockController.text.trim()) ?? 0;
+                final desc = descController.text.trim();
+
+                if (name.isEmpty) {
+                  AppToast.error(ctx, 'Please enter product name');
+                  return;
+                }
+
+                setDlgState(() => isSaving = true);
+                final Map<String, dynamic> payload = {
+                  'name': name,
+                  'sku': sku.isEmpty ? 'SKU-${name.substring(0, 2).toUpperCase()}' : sku,
+                  'size': size.isEmpty ? '20 Litre' : size,
+                  'price': price,
+                  'unit': unit,
+                  'stock': stock,
+                  'description': desc,
+                  'status': status,
+                };
+                if (catId != null) {
+                  payload['category_ref_id'] = catId;
+                }
+
+                final prodIdInt = int.tryParse(product?.id ?? '') ?? 0;
+                Map<String, dynamic> res;
+                if (editing && prodIdInt > 0) {
+                  res = await ProductService().updateProduct(prodIdInt, payload);
+                } else {
+                  res = await ProductService().createProduct(payload);
+                }
+
+                if (!dialogCtx.mounted) return;
+                setDlgState(() => isSaving = false);
+
+                if (res['success'] == true) {
+                  Navigator.pop(dialogCtx);
+                  await _fetchProducts();
+                  if (mounted) {
+                    AppToast.success(context, editing ? 'Product updated successfully!' : 'Product added successfully!');
+                  }
+                } else {
+                  AppToast.error(dialogCtx, res['message'] ?? 'Failed to save product');
+                }
+              },
+              child: isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(editing ? 'Save Changes' : 'Create Product'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    nameController.dispose();
+    skuController.dispose();
+    sizeController.dispose();
+    priceController.dispose();
+    unitController.dispose();
+    stockController.dispose();
+    descController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final products = ProductService.products.where((product) {
@@ -279,6 +472,13 @@ class _FranchiseProductsScreenState
               ? null
               : AppBar(
                   title: const Text('Products'),
+                  actions: [
+                    IconButton(
+                      tooltip: 'Add Product',
+                      icon: const Icon(Icons.add_rounded),
+                      onPressed: () => _openProductFormDialog(),
+                    ),
+                  ],
                 ),
           body: Padding(
             padding: EdgeInsets.all(desktop ? 28 : 16),
@@ -286,19 +486,40 @@ class _FranchiseProductsScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (desktop) ...[
-                  const Text(
-                    'Products',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'View products and franchise pricing.',
-                    style: TextStyle(
-                      color: Color(0xFF64748B),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Products',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'View products and franchise pricing.',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0284C7),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => _openProductFormDialog(),
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Add Product'),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -319,20 +540,8 @@ class _FranchiseProductsScreenState
                 ),
 
                 const SizedBox(height: 12),
-                if (_loadingCategories && _categoryItems.length <= 1)
-                  const SizedBox(
-                    height: 40,
-                    child: Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  )
-                else
-                  SizedBox(
-                    height: 40,
+                SizedBox(
+                  height: 40,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: _categoryItems.length,
@@ -391,92 +600,160 @@ class _FranchiseProductsScreenState
                             )
                           : GridView.builder(
                               itemCount: products.length,
-                    gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: desktop ? 4 : 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: desktop ? .9 : .58,
-                    ),
-                    itemBuilder: (context, index) {
-                      final product = products[index];
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: desktop ? 4 : 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: desktop ? .82 : .52,
+                              ),
+                              itemBuilder: (context, index) {
+                                final product = products[index];
 
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(
-                            color: const Color(0xFFE5E7EB),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE0F2FE),
-                                  borderRadius:
-                                      BorderRadius.circular(13),
-                                ),
-                                child: const Icon(
-                                  Icons.local_drink_rounded,
-                                  size: 54,
-                                  color: Color(0xFF0284C7),
-                                ),
-                              ),
+                                return Card(
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ProductDetailScreen(product: product),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(10),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Container(
+                                              width: double.infinity,
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFE0F2FE),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Stack(
+                                                children: [
+                                                  Center(
+                                                    child: Icon(
+                                                      product.category == 'Water Jar'
+                                                          ? Icons.water_drop_rounded
+                                                          : Icons.local_drink_rounded,
+                                                      size: desktop ? 60 : 48,
+                                                      color: const Color(0xFF0284C7),
+                                                    ),
+                                                  ),
+                                                  Positioned(
+                                                    top: 4,
+                                                    right: 4,
+                                                    child: InkWell(
+                                                      onTap: () => _openProductFormDialog(product: product),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.all(4),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.white,
+                                                          shape: BoxShape.circle,
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: Colors.black.withOpacity(0.08),
+                                                              blurRadius: 4,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        child: const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF0284C7)),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            product.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            product.size,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: Color(0xFF64748B),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              Container(
+                                                width: 6,
+                                                height: 6,
+                                                decoration: BoxDecoration(
+                                                  color: product.stock > 0 ? const Color(0xFF22C55E) : Colors.red,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  'Stock: ${product.stock}',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: product.stock > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '₹${product.price.toStringAsFixed(0)} / ${product.unit}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 13,
+                                              color: Color(0xFF0284C7),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          SizedBox(
+                                            width: double.infinity,
+                                            height: 36,
+                                            child: ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                padding: EdgeInsets.zero,
+                                                backgroundColor: const Color(0xFF0284C7),
+                                                foregroundColor: Colors.white,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                              onPressed: () => _openOrderDialog(product),
+                                              icon: const Icon(Icons.add_shopping_cart, size: 15),
+                                              label: const Text('Order', style: TextStyle(fontSize: 12)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                            const SizedBox(height: 10),
-                            Text(
-                              product.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Text(
-                              product.size,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              'Stock: ${product.stock}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.green,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              '₹${product.price.toStringAsFixed(0)} / ${product.unit}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0284C7),
-                              ),
-                            ),
-                            const SizedBox(height: 9),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () => _openOrderDialog(product),
-                                icon: const Icon(
-                                  Icons.add_shopping_cart,
-                                  size: 18,
-                                ),
-                                label: const Text('Order'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
                 ),
               ],
             ),

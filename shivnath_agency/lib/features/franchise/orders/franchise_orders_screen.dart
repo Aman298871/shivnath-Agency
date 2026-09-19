@@ -42,15 +42,29 @@ class _FranchiseOrdersScreenState
           final rawId = mappedItem['orderId']?.toString();
           final fallbackId = rawDbId != null ? 'ORD-${1000 + rawDbId}' : '';
           final orderCode = (rawId != null && rawId.isNotEmpty) ? rawId : fallbackId;
+          final rawItems = item['items'];
+          final List<Map<String, dynamic>> itemsList = rawItems is List
+              ? rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList()
+              : (mappedItem['items_list'] is List ? List<Map<String, dynamic>>.from(mappedItem['items_list']) : []);
+
+          final productDisplay = itemsList.isNotEmpty
+              ? itemsList.map((e) => '${e['product_name'] ?? e['name']} x${e['quantity'] ?? 1}').join(', ')
+              : (mappedItem['franchise']?.toString().isNotEmpty == true ? mappedItem['franchise']!.toString() : 'Packaged Water');
+
           return {
             'db_id': rawDbId,
             'id': orderCode,
             'date': mappedItem['date']?.toString() ?? '',
-            'product': mappedItem['franchise']?.toString().isNotEmpty == true ? mappedItem['franchise']!.toString() : 'Packaged Water',
-            'qty': mappedItem['items'] ?? 1,
+            'customer_name': item['created_by_name']?.toString() ?? mappedItem['customer_name']?.toString() ?? '',
+            'delivery_address': item['delivery_address']?.toString() ?? mappedItem['delivery_address']?.toString() ?? '',
+            'product': productDisplay,
+            'items_list': itemsList,
+            'qty': mappedItem['items'] ?? (itemsList.isNotEmpty ? itemsList.length : 1),
             'amount': mappedItem['amount'] ?? 0,
             'status': mappedItem['status']?.toString() ?? 'Plant Approval',
             'payment': mappedItem['payment']?.toString() ?? 'Pending',
+            'city': item['city']?.toString() ?? mappedItem['city']?.toString() ?? '',
+            'raw': item,
           };
         }).toList();
 
@@ -1175,105 +1189,110 @@ class _FranchiseOrdersScreenState
   void _details(
     Map<String, dynamic> order,
   ) {
+    final rawItems = order['items_list'];
+    final List<Map<String, dynamic>> itemsList = rawItems is List
+        ? List<Map<String, dynamic>>.from(rawItems)
+        : [];
+
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text(
-            'Order Details',
+          title: Row(
+            children: [
+              const Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Order ${order['id']}', overflow: TextOverflow.ellipsis),
+              ),
+            ],
           ),
           content: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+              maxHeight: 650,
             ),
             child: SingleChildScrollView(
               child: Column(
-                mainAxisSize:
-                    MainAxisSize.min,
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _detailRow(
-                    'Order ID',
-                    '${order['id']}',
-                  ),
-                  _detailRow(
-                    'Date',
-                    '${order['date']}',
-                  ),
-                  _detailRow(
-                    'Product',
-                    '${order['product']}',
-                  ),
-                  _detailRow(
-                    'Quantity',
-                    '${order['qty']}',
-                  ),
-                  _detailRow(
-                    'Amount',
-                    '₹${_formatAmount(order['amount'])}',
-                  ),
-                  _detailRow(
-                    'Status',
-                    '${order['status']}',
-                  ),
-                  _detailRow(
-                    'Payment',
-                    '${order['payment']}',
-                  ),
+                  _detailRow('Order ID', '${order['id']}'),
+                  _detailRow('Date', '${order['date']}'),
+                  if ((order['customer_name'] ?? '').toString().isNotEmpty)
+                    _detailRow('Customer', '${order['customer_name']}'),
+                  if ((order['delivery_address'] ?? '').toString().isNotEmpty)
+                    _detailRow('Delivery Address', '${order['delivery_address']}'),
+                  if ((order['city'] ?? '').toString().isNotEmpty)
+                    _detailRow('City', '${order['city']}'),
+                  _detailRow('Status', '${order['status']}'),
+                  _detailRow('Payment', '${order['payment']}'),
+                  const SizedBox(height: 12),
+                  const Text('Ordered Products', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF1E293B))),
+                  const SizedBox(height: 8),
+                  if (itemsList.isEmpty)
+                    _detailRow('Items Summary', '${order['product']} (${order['qty']} items)')
+                  else
+                    ...itemsList.map((item) {
+                      final name = item['product_name'] ?? item['name'] ?? 'Packaged Water';
+                      final size = item['size'] ?? '';
+                      final qty = item['quantity'] ?? 1;
+                      final unitPrice = item['unit_price'] ?? item['price'] ?? 0;
+                      final totalPrice = item['total_price'] ?? (double.tryParse(unitPrice.toString()) ?? 0) * (int.tryParse(qty.toString()) ?? 1);
 
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.water_drop_rounded, size: 16, color: Color(0xFF0284C7)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name.toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                                  if (size.toString().isNotEmpty)
+                                    Text('Size: $size | Qty: $qty', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                                ],
+                              ),
+                            ),
+                            Text('₹$totalPrice', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF0284C7))),
+                          ],
+                        ),
+                      );
+                    }),
+                  const SizedBox(height: 10),
+                  _detailRow('Total Amount', '₹${_formatAmount(order['amount'])}'),
                   const SizedBox(height: 18),
-
-                  _orderProgress(
-                    '${order['status']}',
-                  ),
+                  _orderProgress('${order['status']}'),
                 ],
               ),
             ),
           ),
           actions: [
-            SizedBox(
-              width: 90,
-              height: 44,
-              child: TextButton(
-                style:
-                    TextButton.styleFrom(
-                  minimumSize:
-                      const Size(
-                    0,
-                    44,
-                  ),
-                  maximumSize:
-                      const Size(
-                    90,
-                    44,
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.pop(
-                    dialogContext,
-                  );
-                },
-                child:
-                    const Text('Close'),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _showUpdateStatusDialog(order);
+              },
+              icon: const Icon(Icons.edit_note_rounded, size: 18),
+              label: const Text('Update Status'),
             ),
             const SizedBox(width: 8),
-            SizedBox(
-              height: 44,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0284C7),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  _showUpdateStatusDialog(order);
-                },
-                icon: const Icon(Icons.edit_note_rounded, size: 18),
-                label: const Text('Update Status'),
-              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
             ),
           ],
         );

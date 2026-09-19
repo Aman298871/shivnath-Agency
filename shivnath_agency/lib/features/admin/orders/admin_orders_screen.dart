@@ -297,7 +297,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
             order['payment'],
           ];
 
-    return Container(
+    final row = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       decoration: BoxDecoration(
         color: header ? const Color(0xFFF8FAFC) : Colors.white,
@@ -333,6 +333,17 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         }),
       ),
     );
+
+    if (!header && order != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _viewOrderDetails(order),
+          child: row,
+        ),
+      );
+    }
+    return row;
   }
 
   Widget _mobile() {
@@ -353,42 +364,64 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         return Container(
           width: double.infinity,
           margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
           decoration: _orderCard(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      order['orderId'],
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => _viewOrderDetails(order),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            order['orderId'],
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        _statusBadge(order['status']),
+                      ],
                     ),
-                  ),
-                  _statusBadge(order['status']),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _info('Franchise', order['franchise']),
-              _info('City', order['city']),
-              _info('Date', order['date']),
-              _info('Items', '${order['items']}'),
-              _info('Amount', '₹${order['amount']}'),
-              _info('Payment', order['payment']),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                height: 42,
-                child: OutlinedButton(
-                  onPressed: () => _changeStatus(order),
-                  child: const Text('Update Order Status'),
+                    const SizedBox(height: 12),
+                    _info('Franchise', order['franchise']),
+                    _info('City', order['city']),
+                    _info('Date', order['date']),
+                    _info('Items', '${order['items']}'),
+                    _info('Amount', '₹${order['amount']}'),
+                    _info('Payment', order['payment']),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => _viewOrderDetails(order),
+                            child: const Text('View Items'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0284C7),
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => _changeStatus(order),
+                            child: const Text('Status'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         );
       }).toList(),
@@ -419,7 +452,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       child: Row(
         children: [
           SizedBox(
-            width: 90,
+            width: 100,
             child: Text(
               label,
               style: const TextStyle(color: Color(0xFF64748B)),
@@ -432,6 +465,183 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _viewOrderDetails(Map<String, dynamic> order) async {
+    final rawItems = order['items_list'];
+    final List<Map<String, dynamic>> itemsList = rawItems is List
+        ? List<Map<String, dynamic>>.from(rawItems)
+        : [];
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 580, maxHeight: 720),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7), size: 24),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Order ${order['orderId']}',
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    _statusBadge(order['status'].toString()),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Divider(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _info('Date', order['date']),
+                        if ((order['customer_name'] ?? '').toString().isNotEmpty)
+                          _info('Customer', order['customer_name']),
+                        _info('Franchise', order['franchise']),
+                        if ((order['delivery_address'] ?? '').toString().isNotEmpty)
+                          _info('Delivery Address', order['delivery_address']),
+                        _info('City', order['city']),
+                        if ((order['duration_choice'] ?? '').toString().isNotEmpty)
+                          _info('Plan Duration', order['duration_choice']),
+                        _info('Payment', order['payment']),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Ordered Products',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF1E293B)),
+                        ),
+                        const SizedBox(height: 8),
+                        if (itemsList.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.water_drop_outlined, color: Color(0xFF0284C7), size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text('${order['items']} Items (${order['franchise']})',
+                                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                                ),
+                                Text('₹${order['amount']}',
+                                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF0284C7))),
+                              ],
+                            ),
+                          )
+                        else
+                          ...itemsList.map((item) {
+                            final name = item['product_name'] ?? item['name'] ?? 'Packaged Water';
+                            final size = item['size'] ?? '';
+                            final qty = item['quantity'] ?? 1;
+                            final unitPrice = item['unit_price'] ?? item['price'] ?? 0;
+                            final totalPrice = item['total_price'] ?? (double.tryParse(unitPrice.toString()) ?? 0) * (int.tryParse(qty.toString()) ?? 1);
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE0F2FE),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Icon(Icons.water_drop_rounded, size: 18, color: Color(0xFF0284C7)),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(name.toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                        if (size.toString().isNotEmpty)
+                                          Text('Size: $size | Qty: $qty', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text('₹$totalPrice', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0284C7))),
+                                      Text('₹$unitPrice each', style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFBBF7D0)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total Order Amount', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                              Text('₹${order['amount']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF16A34A))),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                        _changeStatus(order);
+                      },
+                      icon: const Icon(Icons.published_with_changes_rounded, size: 18),
+                      label: const Text('Update Status'),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

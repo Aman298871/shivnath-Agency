@@ -116,6 +116,11 @@ class LeadSerializer(serializers.ModelSerializer):
 
             'source',
             'notes',
+            'interest_level',
+            'site_visit_planned',
+            'site_visit_completed',
+            'site_visit_date',
+            'site_visit_notes',
 
             'converted_user',
 

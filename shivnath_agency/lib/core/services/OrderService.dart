@@ -250,6 +250,11 @@ class OrderService {
   Map<String, dynamic> mapOrder(
     Map<String, dynamic> item,
   ) {
+    final rawItems = item['items'];
+    final List<Map<String, dynamic>> itemsList = rawItems is List
+        ? rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList()
+        : [];
+
     return {
       'id': item['id'],
 
@@ -257,11 +262,19 @@ class OrderService {
 
       'franchise': item['franchise_name']?.toString() ?? '',
 
+      'serving_franchise_name': item['serving_franchise_name']?.toString() ?? '',
+
+      'customer_name': item['created_by_name']?.toString() ?? '',
+
+      'delivery_address': item['delivery_address']?.toString() ?? '',
+
       'city': item['city']?.toString() ?? '',
 
       'date': _formatDate(item['order_date']),
 
-      'items': item['items_count'] ?? 0,
+      'items': item['items_count'] ?? (itemsList.isNotEmpty ? itemsList.length : 0),
+
+      'items_list': itemsList,
 
       'amount': double.tryParse(
             item['amount']?.toString() ?? '0',
@@ -275,6 +288,12 @@ class OrderService {
           _paymentDisplay(
             item['payment_status']?.toString() ?? '',
           ),
+
+      'duration_choice': item['duration_choice']?.toString() ?? '',
+
+      'order_source': item['order_source']?.toString() ?? '',
+
+      'raw': item,
     };
   }
 

@@ -435,49 +435,58 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Row(
-                                            children: [
-                                              CircleAvatar(
-                                                radius: 20,
-                                                backgroundColor:
-                                                    _getRoleColor(role)
-                                                        .withAlpha(38),
-                                                child: Icon(
-                                                  _getRoleIcon(role),
-                                                  color: _getRoleColor(role),
-                                                  size: 20,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    name,
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 16,
-                                                    ),
+                                          Expanded(
+                                            child: Row(
+                                              children: [
+                                                CircleAvatar(
+                                                  radius: 20,
+                                                  backgroundColor:
+                                                      _getRoleColor(role)
+                                                          .withAlpha(38),
+                                                  child: Icon(
+                                                    _getRoleIcon(role),
+                                                    color: _getRoleColor(role),
+                                                    size: 20,
                                                   ),
-                                                  if (franchiseName.isNotEmpty)
-                                                    Text(
-                                                      'Store: $franchiseName',
-                                                      style: const TextStyle(
-                                                        color: primaryBlue,
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.w600,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        name,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: const TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 16,
+                                                        ),
                                                       ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ],
+                                                      if (franchiseName.isNotEmpty)
+                                                        Text(
+                                                          'Store: $franchiseName',
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: const TextStyle(
+                                                            color: primaryBlue,
+                                                            fontSize: 12,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
+                                          const SizedBox(width: 8),
                                           Row(
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Container(
                                                 padding: const EdgeInsets.symmetric(
@@ -538,6 +547,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                             Expanded(
                                               child: Text(
                                                 email,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: TextStyle(
                                                   fontSize: 13,
                                                   color: isDark
@@ -560,13 +571,17 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                                   : Colors.black45,
                                             ),
                                             const SizedBox(width: 6),
-                                            Text(
-                                              phone,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: isDark
-                                                    ? Colors.white70
-                                                    : Colors.black87,
+                                            Expanded(
+                                              child: Text(
+                                                phone,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: isDark
+                                                      ? Colors.white70
+                                                      : Colors.black87,
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -584,13 +599,17 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                                   : Colors.black45,
                                             ),
                                             const SizedBox(width: 6),
-                                            Text(
-                                              district.isNotEmpty ? '$city, $district' : (city.isNotEmpty ? city : territory),
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: isDark
-                                                    ? Colors.white70
-                                                    : Colors.black87,
+                                            Expanded(
+                                              child: Text(
+                                                district.isNotEmpty ? '$city, $district' : (city.isNotEmpty ? city : territory),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: isDark
+                                                      ? Colors.white70
+                                                      : Colors.black87,
+                                                ),
                                               ),
                                             ),
                                           ],

@@ -20,22 +20,19 @@ class Lead(models.Model):
 
     STATUS_CHOICES = [
         ('new_lead', 'New Lead'),
+        ('new', 'New'),
         ('contacted', 'Contacted'),
+        ('interested', 'Interested'),
+        ('hot_lead', 'Hot Lead'),
+        ('followup_required', 'Follow-up Required'),
         ('followup_1', 'Follow-up 1'),
         ('followup_2', 'Follow-up 2'),
-        ('interested', 'Interested'),
-        (
-            'site_visit_scheduled',
-            'Site Visit Scheduled'
-        ),
-        (
-            'agreement_pending',
-            'Agreement Pending'
-        ),
-        (
-            'franchise_confirmed',
-            'Franchise Confirmed'
-        ),
+        ('site_visit_scheduled', 'Site Visit Scheduled'),
+        ('site_visit_completed', 'Site Visit Completed'),
+        ('converted', 'Converted'),
+        ('agreement_pending', 'Agreement Pending'),
+        ('franchise_confirmed', 'Franchise Confirmed'),
+        ('not_interested', 'Not Interested'),
         ('lost', 'Lost'),
     ]
 
@@ -161,6 +158,30 @@ class Lead(models.Model):
     # =========================================
     # EXTRA CRM FIELDS
     # =========================================
+
+    interest_level = models.CharField(
+        max_length=20,
+        blank=True,
+        default='Medium'
+    )
+
+    site_visit_planned = models.BooleanField(
+        default=False
+    )
+
+    site_visit_completed = models.BooleanField(
+        default=False
+    )
+
+    site_visit_date = models.DateField(
+        null=True,
+        blank=True
+    )
+
+    site_visit_notes = models.TextField(
+        blank=True,
+        default=''
+    )
 
     source = models.CharField(
         max_length=100,

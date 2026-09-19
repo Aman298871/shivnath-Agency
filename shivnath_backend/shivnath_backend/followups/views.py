@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from accounts.permissions import IsAdminRole
+from accounts.permissions import IsAdminRole, IsAdminOrApprovedFranchise
 
 from leads.models import Lead
 
@@ -21,7 +21,7 @@ from .serializers import FollowUpSerializer
 class FollowUpListCreateView(APIView):
 
     permission_classes = [
-        IsAdminRole
+        IsAdminOrApprovedFranchise
     ]
 
     def get(self, request):
@@ -98,7 +98,7 @@ class FollowUpListCreateView(APIView):
 class FollowUpDetailView(APIView):
 
     permission_classes = [
-        IsAdminRole
+        IsAdminOrApprovedFranchise
     ]
 
     def patch(self, request, pk):
@@ -154,7 +154,7 @@ class FollowUpDetailView(APIView):
 class CompleteFollowUpView(APIView):
 
     permission_classes = [
-        IsAdminRole
+        IsAdminOrApprovedFranchise
     ]
 
     def patch(self, request, pk):
@@ -184,7 +184,7 @@ class CompleteFollowUpView(APIView):
 class FollowUpStatsView(APIView):
 
     permission_classes = [
-        IsAdminRole
+        IsAdminOrApprovedFranchise
     ]
 
     def get(self, request):

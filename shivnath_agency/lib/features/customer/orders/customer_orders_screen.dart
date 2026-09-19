@@ -380,29 +380,37 @@ class _OrderStat
 
           const SizedBox(width: 12),
 
-          Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style:
-                    const TextStyle(
-                  fontSize: 10,
-                  color:
-                      Color(0xFF64748B),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(
+                    fontSize: 10,
+                    color:
+                        Color(0xFF64748B),
+                  ),
                 ),
-              ),
-              Text(
-                value,
-                style:
-                    const TextStyle(
-                  fontSize: 20,
-                  fontWeight:
-                      FontWeight.w800,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style:
+                        const TextStyle(
+                      fontSize: 20,
+                      fontWeight:
+                          FontWeight.w800,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

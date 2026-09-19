@@ -8,13 +8,20 @@ class FollowUp(models.Model):
 
     TYPE_CHOICES = [
         ("Call", "Call"),
+        ("Phone Call", "Phone Call"),
         ("WhatsApp", "WhatsApp"),
+        ("Email", "Email"),
         ("Meeting", "Meeting"),
+        ("Site Visit", "Site Visit"),
+        ("Other", "Other"),
     ]
 
     STATUS_CHOICES = [
         ("Pending", "Pending"),
         ("Completed", "Completed"),
+        ("Rescheduled", "Rescheduled"),
+        ("Cancelled", "Cancelled"),
+        ("Missed", "Missed"),
     ]
 
     lead = models.ForeignKey(
@@ -26,9 +33,9 @@ class FollowUp(models.Model):
     followup_datetime = models.DateTimeField()
 
     followup_type = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=TYPE_CHOICES,
-        default="Call",
+        default="Phone Call",
     )
 
     note = models.TextField(
@@ -36,7 +43,7 @@ class FollowUp(models.Model):
     )
 
     status = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=STATUS_CHOICES,
         default="Pending",
     )
@@ -49,7 +56,20 @@ class FollowUp(models.Model):
         related_name="created_followups",
     )
 
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_followups",
+    )
+
     completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    next_followup_date = models.DateTimeField(
         null=True,
         blank=True,
     )

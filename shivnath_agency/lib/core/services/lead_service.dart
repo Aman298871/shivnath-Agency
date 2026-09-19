@@ -390,6 +390,11 @@ class LeadService {
                   ?.toString()
                   .trim() ??
               '',
+      if (data.containsKey('interest_level')) 'interest_level': data['interest_level'],
+      if (data.containsKey('site_visit_planned')) 'site_visit_planned': data['site_visit_planned'],
+      if (data.containsKey('site_visit_completed')) 'site_visit_completed': data['site_visit_completed'],
+      if (data.containsKey('site_visit_date')) 'site_visit_date': data['site_visit_date'],
+      if (data.containsKey('site_visit_notes')) 'site_visit_notes': data['site_visit_notes'],
     };
   }
 
@@ -482,6 +487,21 @@ class LeadService {
 
       'notes':
           item['notes']?.toString() ?? '',
+
+      'interest_level':
+          item['interest_level']?.toString() ?? item['score_display'] ?? '',
+
+      'site_visit_planned':
+          item['site_visit_planned'] == true,
+
+      'site_visit_completed':
+          item['site_visit_completed'] == true,
+
+      'site_visit_date':
+          item['site_visit_date']?.toString() ?? '',
+
+      'site_visit_notes':
+          item['site_visit_notes']?.toString() ?? '',
 
       'activities':
           item['activities'] ?? [],
@@ -606,8 +626,20 @@ class LeadService {
       case 'Franchise Confirmed':
         return 'franchise_confirmed';
 
-      case 'Lost':
-        return 'lost';
+      case 'Hot Lead':
+        return 'hot_lead';
+
+      case 'Follow-up Required':
+        return 'followup_required';
+
+      case 'Site Visit Completed':
+        return 'site_visit_completed';
+
+      case 'Converted':
+        return 'converted';
+
+      case 'Not Interested':
+        return 'not_interested';
 
       default:
         return value
@@ -647,6 +679,21 @@ class LeadService {
 
       case 'lost':
         return 'Lost';
+
+      case 'hot_lead':
+        return 'Hot Lead';
+
+      case 'followup_required':
+        return 'Follow-up Required';
+
+      case 'site_visit_completed':
+        return 'Site Visit Completed';
+
+      case 'converted':
+        return 'Converted';
+
+      case 'not_interested':
+        return 'Not Interested';
 
       default:
         return value;

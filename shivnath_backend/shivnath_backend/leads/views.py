@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminRole
+from accounts.permissions import IsAdminRole, IsAdminOrApprovedFranchise
 
 from .models import (
     Lead,
@@ -471,15 +471,24 @@ class PublicLeadCaptureView(APIView):
 
 
 class LeadListCreateView(APIView):
-    permission_classes = [IsAdminRole]
+    permission_classes = [IsAdminOrApprovedFranchise]
 
     def get(self, request):
+        user = request.user
+        profile = getattr(user, 'profile', None)
+        role = profile.role if profile else 'admin'
+
         leads = (
             Lead.objects
-            .select_related('created_by')
+            .select_related('created_by', 'assigned_franchise')
             .prefetch_related('activities', 'activities__created_by')
             .all()
         )
+
+        if role == 'franchise' and not user.is_superuser:
+            fp = getattr(user, 'franchise_profile', None)
+            if fp:
+                leads = leads.filter(Q(assigned_franchise=fp) | Q(assigned_franchise__isnull=True))
 
         search = request.query_params.get('search', '').strip()
         if search:
@@ -584,7 +593,7 @@ class LeadListCreateView(APIView):
 class LeadDetailView(APIView):
 
     permission_classes = [
-        IsAdminRole
+        IsAdminOrApprovedFranchise
     ]
 
     def get(self, request, pk):

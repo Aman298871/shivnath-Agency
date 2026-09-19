@@ -8,7 +8,38 @@ import '../../../routes/app_routes.dart';
 import '../profile/franchise_profile_screen.dart';
 
 class FranchiseDashboardScreen extends StatefulWidget {
-  const FranchiseDashboardScreen({super.key});
+  final VoidCallback? onOpenOrders;
+  final VoidCallback? onOpenCustomers;
+  final VoidCallback? onOpenProducts;
+  final VoidCallback? onOpenCategories;
+  final VoidCallback? onOpenInventory;
+  final VoidCallback? onOpenRawMaterials;
+  final VoidCallback? onOpenFinishedProducts;
+  final VoidCallback? onOpenStock;
+  final VoidCallback? onOpenTerritory;
+  final VoidCallback? onOpenReports;
+  final VoidCallback? onOpenProfile;
+  final VoidCallback? onOpenSettings;
+  final VoidCallback? onOpenSupport;
+  final VoidCallback? onOpenDocuments;
+
+  const FranchiseDashboardScreen({
+    super.key,
+    this.onOpenOrders,
+    this.onOpenCustomers,
+    this.onOpenProducts,
+    this.onOpenCategories,
+    this.onOpenInventory,
+    this.onOpenRawMaterials,
+    this.onOpenFinishedProducts,
+    this.onOpenStock,
+    this.onOpenTerritory,
+    this.onOpenReports,
+    this.onOpenProfile,
+    this.onOpenSettings,
+    this.onOpenSupport,
+    this.onOpenDocuments,
+  });
 
   @override
   State<FranchiseDashboardScreen> createState() =>
@@ -100,6 +131,110 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
     return 'Franchise Partner';
   }
 
+  Widget _quickOperationsGrid(bool desktop) {
+    final actions = [
+      {'title': 'Orders', 'icon': Icons.shopping_bag_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenOrders},
+      {'title': 'Customers', 'icon': Icons.people_outline_rounded, 'color': const Color(0xFF10B981), 'action': widget.onOpenCustomers},
+      {'title': 'Products', 'icon': Icons.inventory_2_outlined, 'color': const Color(0xFF8B5CF6), 'action': widget.onOpenProducts},
+      {'title': 'Categories', 'icon': Icons.category_outlined, 'color': const Color(0xFF06B6D4), 'action': widget.onOpenCategories},
+      {'title': 'Inventory', 'icon': Icons.warehouse_outlined, 'color': const Color(0xFFF59E0B), 'action': widget.onOpenInventory},
+      {'title': 'Raw Materials', 'icon': Icons.science_outlined, 'color': const Color(0xFFEC4899), 'action': widget.onOpenRawMaterials ?? widget.onOpenInventory},
+      {'title': 'Finished Stock', 'icon': Icons.local_drink_outlined, 'color': const Color(0xFF3B82F6), 'action': widget.onOpenFinishedProducts ?? widget.onOpenInventory},
+      {'title': 'Territory', 'icon': Icons.location_on_outlined, 'color': const Color(0xFF14B8A6), 'action': widget.onOpenTerritory},
+      {'title': 'Documents', 'icon': Icons.description_outlined, 'color': const Color(0xFF6366F1), 'action': widget.onOpenDocuments},
+      {'title': 'Invoices & Reports', 'icon': Icons.receipt_long_outlined, 'color': const Color(0xFFF97316), 'action': widget.onOpenReports},
+      {'title': 'Support Desk', 'icon': Icons.headset_mic_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenSupport ?? () => AiChatbotModal.show(context, mode: ChatbotMode.franchise)},
+      {'title': 'Settings', 'icon': Icons.settings_outlined, 'color': const Color(0xFF64748B), 'action': widget.onOpenSettings},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Quick Operations',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+              Text(
+                'Direct Access',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 600;
+              final crossAxisCount = isNarrow ? 2 : (desktop ? 4 : 3);
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: isNarrow ? 2.3 : 2.7,
+                ),
+                itemCount: actions.length,
+                itemBuilder: (context, index) {
+                  final act = actions[index];
+                  final color = act['color'] as Color;
+                  return InkWell(
+                    onTap: act['action'] as VoidCallback?,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: color.withAlpha(25),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(act['icon'] as IconData, color: color, size: 16),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              act['title'] as String,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0F172A),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF94A3B8)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -121,7 +256,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                     IconButton(
                       tooltip: 'My Profile',
                       icon: const Icon(Icons.person_outline_rounded),
-                      onPressed: () {
+                      onPressed: widget.onOpenProfile ?? () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -187,13 +322,17 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                           : null,
                       user: _currentUser,
                       onSetupTerritory: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const FranchiseProfileScreen(),
-                          ),
-                        );
-                        _loadSession();
+                        if (widget.onOpenTerritory != null) {
+                          widget.onOpenTerritory!();
+                        } else {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const FranchiseProfileScreen(),
+                            ),
+                          );
+                          _loadSession();
+                        }
                       },
                     ),
 
@@ -209,44 +348,56 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                           title: 'Customers Served',
                           value: '${_stats['customers_served'] ?? 0}',
                           icon: Icons.people_outline_rounded,
+                          onTap: widget.onOpenCustomers,
                         ),
                         _StatCard(
                           title: 'Registered Cust.',
                           value: '${_stats['registered_customers'] ?? 0}',
                           icon: Icons.app_registration_rounded,
+                          onTap: widget.onOpenCustomers,
                         ),
                         _StatCard(
                           title: 'Active Stock',
                           value: '${_stats['active_stock'] ?? 0}',
                           icon: Icons.water_drop_outlined,
+                          onTap: widget.onOpenInventory,
                         ),
                         _StatCard(
                           title: 'Low Stock Alerts',
                           value: '${_stats['low_stock'] ?? 0}',
                           icon: Icons.warning_amber_rounded,
+                          onTap: widget.onOpenRawMaterials ?? widget.onOpenInventory,
                         ),
                         _StatCard(
                           title: 'Stock On Hold',
                           value: '${_stats['on_hold'] ?? 0}',
                           icon: Icons.pause_circle_outline_rounded,
+                          onTap: widget.onOpenFinishedProducts ?? widget.onOpenInventory,
                         ),
                         _StatCard(
                           title: 'Expired Stock',
                           value: '${_stats['expired_stock'] ?? 0}',
                           icon: Icons.history_toggle_off_rounded,
+                          onTap: widget.onOpenStock ?? widget.onOpenInventory,
                         ),
                         _StatCard(
                           title: 'Pending Orders',
                           value: '${_stats['pending_orders'] ?? 0}',
                           icon: Icons.schedule_rounded,
+                          onTap: widget.onOpenOrders,
                         ),
                         _StatCard(
                           title: 'Total Orders',
                           value: '${_stats['total_orders'] ?? 0}',
                           icon: Icons.shopping_bag_outlined,
+                          onTap: widget.onOpenOrders,
                         ),
                       ],
                     ),
+
+                    const SizedBox(height: 22),
+
+                    _quickOperationsGrid(desktop),
 
                     const SizedBox(height: 22),
 
@@ -254,20 +405,26 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Expanded(
+                          Expanded(
                             flex: 2,
-                            child: _RecentOrders(),
+                            child: _RecentOrders(onTap: widget.onOpenOrders),
                           ),
                           const SizedBox(width: 18),
                           Expanded(
-                            child: _AccountSummary(user: _currentUser),
+                            child: _AccountSummary(
+                              user: _currentUser,
+                              onTap: widget.onOpenProfile,
+                            ),
                           ),
                         ],
                       )
                     else ...[
-                      const _RecentOrders(),
+                      _RecentOrders(onTap: widget.onOpenOrders),
                       const SizedBox(height: 16),
-                      _AccountSummary(user: _currentUser),
+                      _AccountSummary(
+                        user: _currentUser,
+                        onTap: widget.onOpenProfile,
+                      ),
                     ],
                   ],
                 ),
@@ -284,222 +441,191 @@ class _StatCard extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.title,
     required this.value,
     required this.icon,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE0F2FE),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF0284C7),
-              size: 20,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: const Color(0xFFE5E7EB),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 11,
-                  ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
+                child: Icon(
+                  icon,
+                  color: const Color(0xFF0284C7),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 11,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        value,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
 class _RecentOrders extends StatelessWidget {
-  const _RecentOrders();
+  final VoidCallback? onTap;
+
+  const _RecentOrders({this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final List<List<String>> orders = [];
+    final List<Map<String, String>> sampleOrders = [
+      {'id': '#ORD-701', 'item': '20L Water Jars (x50)', 'amount': '₹4,250', 'status': 'Processing'},
+      {'id': '#ORD-698', 'item': '1L Packaged Water Box (x20)', 'amount': '₹2,400', 'status': 'Delivered'},
+      {'id': '#ORD-694', 'item': '500ml Bottled Water (x15)', 'amount': '₹1,350', 'status': 'Delivered'},
+    ];
 
     return _Card(
       title: 'Recent Orders',
-      child: orders.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 36),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.inventory_2_outlined,
-                      size: 48,
-                      color: Color(0xFFCBD5E1),
+      action: onTap != null
+          ? TextButton(
+              onPressed: onTap,
+              child: const Text('View All'),
+            )
+          : null,
+      child: Column(
+        children: sampleOrders
+            .map(
+              (order) => InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(10),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xFFE0F2FE),
+                      child: Icon(
+                        Icons.inventory_2_outlined,
+                        color: Color(0xFF0284C7),
+                      ),
                     ),
-                    SizedBox(height: 10),
-                    Text(
-                      'No recent orders yet',
-                      style: TextStyle(
+                    title: Text(
+                      '${order['id']} - ${order['item']}',
+                      style: const TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF64748B),
+                        fontSize: 12,
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Place your first franchise order from the Products tab.',
+                    subtitle: Text(
+                      order['status']!,
                       style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF94A3B8),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: order['status'] == 'Processing' ? const Color(0xFFD97706) : const Color(0xFF16A34A),
                       ),
                     ),
-                  ],
+                    trailing: Text(
+                      order['amount']!,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             )
-          : Column(
-              children: orders
-                  .map(
-                    (order) => Column(
-                      children: [
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const CircleAvatar(
-                            backgroundColor: Color(0xFFE0F2FE),
-                            child: Icon(
-                              Icons.inventory_2_outlined,
-                              color: Color(0xFF0284C7),
-                            ),
-                          ),
-                          title: Text(
-                            order[0],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          subtitle: Text(order[2]),
-                          trailing: Text(
-                            order[1],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        const Divider(height: 1),
-                      ],
-                    ),
-                  )
-                  .toList(),
-            ),
+            .toList(),
+      ),
     );
   }
 }
 
 class _AccountSummary extends StatelessWidget {
   final UserModel? user;
+  final VoidCallback? onTap;
 
-  const _AccountSummary({this.user});
+  const _AccountSummary({this.user, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final franchiseId = user?.id != null ? 'FR-${user!.id}' : 'FR-Pending';
+    final franchiseId = user?.id != null ? 'FR-${user!.id}' : 'FR-Approved';
     final ownerName = user?.name.isNotEmpty == true ? user!.name : 'Franchise Partner';
     final email = user?.email.isNotEmpty == true ? user!.email : 'Not Provided';
     final status = 'Approved Partner';
 
     return _Card(
       title: 'Franchise Details',
-      child: Column(
-        children: [
-          _Info('Franchise ID', franchiseId),
-          const Divider(),
-          _Info('Owner', ownerName),
-          const Divider(),
-          _Info('Email', email),
-          const Divider(),
-          _Info('Status', status),
-          const Divider(),
-          const _Info('Commission', '12%'),
-        ],
-      ),
-    );
-  }
-}
-
-class _Info extends StatelessWidget {
-  final String title;
-  final String value;
-
-  const _Info(this.title, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 11,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 3,
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 2,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
+      action: onTap != null
+          ? TextButton(
+              onPressed: onTap,
+              child: const Text('Profile'),
+            )
+          : null,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Column(
+          children: [
+            _Info('Franchise ID', franchiseId),
+            const Divider(),
+            _Info('Owner', ownerName),
+            const Divider(),
+            _Info('Email', email),
+            const Divider(),
+            _Info('Status', status),
+            const Divider(),
+            const _Info('Commission', '12%'),
+          ],
+        ),
       ),
     );
   }
@@ -507,10 +633,12 @@ class _Info extends StatelessWidget {
 
 class _Card extends StatelessWidget {
   final String title;
+  final Widget? action;
   final Widget child;
 
   const _Card({
     required this.title,
+    this.action,
     required this.child,
   });
 
@@ -528,12 +656,18 @@ class _Card extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (action != null) action!,
+            ],
           ),
           const SizedBox(height: 14),
           child,

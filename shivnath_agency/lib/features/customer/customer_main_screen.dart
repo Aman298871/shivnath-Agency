@@ -44,13 +44,18 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   // 3 = Orders
   // 4 = Profile
   // 5 = Settings
-  final List<Widget> screens = const [
-    CustomerHomeScreen(),
-    CustomerProductsScreen(),
-    CustomerCartScreen(),
-    CustomerOrdersScreen(),
-    CustomerProfileScreen(),
-    CustomerSettingsScreen(),
+  List<Widget> get screens => [
+    CustomerHomeScreen(
+      onOpenProducts: () => setState(() => currentIndex = 1),
+      onOpenCart: () => setState(() => currentIndex = 2),
+      onOpenOrders: () => setState(() => currentIndex = 3),
+      onOpenProfile: () => setState(() => currentIndex = 4),
+    ),
+    const CustomerProductsScreen(),
+    const CustomerCartScreen(),
+    const CustomerOrdersScreen(),
+    const CustomerProfileScreen(),
+    const CustomerSettingsScreen(),
   ];
 
   final List<_CustomerMenuItem> menuItems = const [

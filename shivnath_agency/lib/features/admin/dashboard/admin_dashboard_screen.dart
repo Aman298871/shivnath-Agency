@@ -401,70 +401,74 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 1.0,
               );
 
-              return Padding(
-                padding:
-                    const EdgeInsets
-                        .only(
-                  bottom: 15,
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child:
-                              Text(
-                            item['name']
-                                .toString(),
+              return InkWell(
+                onTap: widget.onOpenLeads,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding:
+                      const EdgeInsets
+                          .only(
+                    bottom: 15,
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child:
+                                Text(
+                              item['name']
+                                  .toString(),
+                              style:
+                                  const TextStyle(
+                                fontSize:
+                                    12,
+                                fontWeight:
+                                    FontWeight
+                                        .w600,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '$value',
                             style:
                                 const TextStyle(
-                              fontSize:
-                                  12,
                               fontWeight:
                                   FontWeight
-                                      .w600,
+                                      .w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(
+                        height: 7,
+                      ),
+                      ClipRRect(
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          10,
+                        ),
+                        child:
+                            LinearProgressIndicator(
+                          value:
+                              progress,
+                          minHeight:
+                              7,
+                          backgroundColor:
+                              const Color(
+                            0xFFEFF1F5,
+                          ),
+                          valueColor:
+                              const AlwaysStoppedAnimation(
+                            Color(
+                              0xFF0284C7,
                             ),
                           ),
                         ),
-                        Text(
-                          '$value',
-                          style:
-                              const TextStyle(
-                            fontWeight:
-                                FontWeight
-                                    .w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(
-                      height: 7,
-                    ),
-                    ClipRRect(
-                      borderRadius:
-                          BorderRadius
-                              .circular(
-                        10,
                       ),
-                      child:
-                          LinearProgressIndicator(
-                        value:
-                            progress,
-                        minHeight:
-                            7,
-                        backgroundColor:
-                            const Color(
-                          0xFFEFF1F5,
-                        ),
-                        valueColor:
-                            const AlwaysStoppedAnimation(
-                          Color(
-                            0xFF0284C7,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -508,83 +512,93 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           else
             ..._followups.map(
             (item) {
-              return Container(
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  vertical: 12,
-                ),
-                decoration:
-                    const BoxDecoration(
-                  border: Border(
-                    bottom:
-                        BorderSide(
-                      color:
-                          Color(
-                        0xFFF1F5F9,
-                      ),
-                    ),
+              return InkWell(
+                onTap: widget.onOpenFollowups,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
+                    vertical: 12,
+                    horizontal: 6,
                   ),
-                ),
-                child: Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
-                  children: [
-                    SizedBox(
-                      width: 72,
-                      child: Text(
-                        item['time']!,
-                        style:
-                            const TextStyle(
-                          fontSize:
-                              11,
-                          color:
-                              Color(
-                            0xFF0284C7,
-                          ),
-                          fontWeight:
-                              FontWeight
-                                  .w700,
+                  decoration:
+                      const BoxDecoration(
+                    border: Border(
+                      bottom:
+                          BorderSide(
+                        color:
+                            Color(
+                          0xFFF1F5F9,
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
-                        children: [
-                          Text(
-                            item['name']!,
-                            style:
-                                const TextStyle(
-                              fontSize:
-                                  12,
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
+                  ),
+                  child: Row(
+                    crossAxisAlignment:
+                        CrossAxisAlignment
+                            .start,
+                    children: [
+                      SizedBox(
+                        width: 72,
+                        child: Text(
+                          item['time']!,
+                          style:
+                              const TextStyle(
+                            fontSize:
+                                11,
+                            color:
+                                Color(
+                              0xFF0284C7,
                             ),
+                            fontWeight:
+                                FontWeight
+                                    .w700,
                           ),
-                          const SizedBox(
-                            height: 3,
-                          ),
-                          Text(
-                            item['text']!,
-                            style:
-                                const TextStyle(
-                              fontSize:
-                                  11,
-                              color:
-                                  Color(
-                                0xFF64748B,
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .start,
+                          children: [
+                            Text(
+                              item['name']!,
+                              style:
+                                  const TextStyle(
+                                fontSize:
+                                    12,
+                                fontWeight:
+                                    FontWeight
+                                        .w700,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(
+                              height: 3,
+                            ),
+                            Text(
+                              item['text']!,
+                              style:
+                                  const TextStyle(
+                                fontSize:
+                                    11,
+                                color:
+                                    Color(
+                                  0xFF64748B,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -787,113 +801,118 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
         ..._leads.map(
           (lead) {
-            return Container(
-              padding:
-                  const EdgeInsets
-                      .symmetric(
-                vertical: 14,
-              ),
-              decoration:
-                  const BoxDecoration(
-                border: Border(
-                  bottom:
-                      BorderSide(
-                    color:
-                        Color(
-                      0xFFF1F5F9,
+            return InkWell(
+              onTap: widget.onOpenLeads,
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding:
+                    const EdgeInsets
+                        .symmetric(
+                  vertical: 14,
+                  horizontal: 6,
+                ),
+                decoration:
+                    const BoxDecoration(
+                  border: Border(
+                    bottom:
+                        BorderSide(
+                      color:
+                          Color(
+                        0xFFF1F5F9,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child:
-                        Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
-                      children: [
-                        Text(
-                          lead[
-                              'name']!,
-                          style:
-                              const TextStyle(
-                            fontSize:
-                                12,
-                            fontWeight:
-                                FontWeight
-                                    .w700,
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 3,
-                        ),
-                        Text(
-                          lead[
-                              'phone']!,
-                          style:
-                              const TextStyle(
-                            fontSize:
-                                10,
-                            color:
-                                Color(
-                              0xFF94A3B8,
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child:
+                          Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment
+                                .start,
+                        children: [
+                          Text(
+                            lead[
+                                'name']!,
+                            style:
+                                const TextStyle(
+                              fontSize:
+                                  12,
+                              fontWeight:
+                                  FontWeight
+                                      .w700,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child:
-                        Text(
-                      lead[
-                          'city']!,
-                      style:
-                          const TextStyle(
-                        fontSize: 11,
+                          const SizedBox(
+                            height: 3,
+                          ),
+                          Text(
+                            lead[
+                                'phone']!,
+                            style:
+                                const TextStyle(
+                              fontSize:
+                                  10,
+                              color:
+                                  Color(
+                                0xFF94A3B8,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child:
-                        Text(
-                      lead[
-                          'budget']!,
-                      style:
-                          const TextStyle(
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child:
-                        Align(
-                      alignment:
-                          Alignment
-                              .centerLeft,
+                    Expanded(
                       child:
-                          _scoreBadge(
+                          Text(
                         lead[
-                            'score']!,
+                            'city']!,
+                        style:
+                            const TextStyle(
+                          fontSize: 11,
+                        ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child:
-                        Text(
-                      lead[
-                          'status']!,
-                      style:
-                          const TextStyle(
-                        fontSize: 11,
+                    Expanded(
+                      flex: 2,
+                      child:
+                          Text(
+                        lead[
+                            'budget']!,
+                        style:
+                            const TextStyle(
+                          fontSize: 11,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child:
+                          Align(
+                        alignment:
+                            Alignment
+                                .centerLeft,
+                        child:
+                            _scoreBadge(
+                          lead[
+                              'score']!,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child:
+                          Text(
+                        lead[
+                            'status']!,
+                        style:
+                            const TextStyle(
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -906,34 +925,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _mobileLeadCard(
     Map<String, String> lead,
   ) {
-    return Container(
-      margin:
-          const EdgeInsets.only(
-        bottom: 10,
-      ),
-      padding:
-          const EdgeInsets.all(
-        14,
-      ),
-      decoration:
-          BoxDecoration(
-        color:
-            const Color(
-          0xFFF8FAFC,
+    return InkWell(
+      onTap: widget.onOpenLeads,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        margin:
+            const EdgeInsets.only(
+          bottom: 10,
         ),
-        borderRadius:
-            BorderRadius.circular(
-          10,
+        padding:
+            const EdgeInsets.all(
+          14,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
+        decoration:
+            BoxDecoration(
+          color:
+              const Color(
+            0xFFF8FAFC,
+          ),
+          borderRadius:
+              BorderRadius.circular(
+            10,
+          ),
+          border: Border.all(
+            color: const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
                   lead['name']!,
                   style:
                       const TextStyle(

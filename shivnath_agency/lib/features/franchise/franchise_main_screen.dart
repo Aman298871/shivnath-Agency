@@ -202,7 +202,22 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
   Widget _currentScreen() {
     switch (currentIndex) {
       case 0:
-        return const FranchiseDashboardScreen();
+        return FranchiseDashboardScreen(
+          onOpenOrders: () => setState(() => currentIndex = 1),
+          onOpenCustomers: () => setState(() => currentIndex = 2),
+          onOpenProducts: () => setState(() => currentIndex = 3),
+          onOpenCategories: () => setState(() => currentIndex = 4),
+          onOpenInventory: () => setState(() => currentIndex = 5),
+          onOpenRawMaterials: () => setState(() => currentIndex = 6),
+          onOpenFinishedProducts: () => setState(() => currentIndex = 7),
+          onOpenStock: () => setState(() => currentIndex = 8),
+          onOpenSupport: () => _openSupportDialog(),
+          onOpenDocuments: () => setState(() => currentIndex = 11),
+          onOpenTerritory: () => setState(() => currentIndex = 12),
+          onOpenReports: () => setState(() => currentIndex = 13),
+          onOpenProfile: () => setState(() => currentIndex = 14),
+          onOpenSettings: () => setState(() => currentIndex = 15),
+        );
       case 1:
         return const FranchiseOrdersScreen();
       case 2:

@@ -15,6 +15,11 @@ class Order(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
+    ORDER_SOURCE_CHOICES = [
+        ('FRANCHISE', 'Franchise'),
+        ('DIRECT_COMPANY', 'Direct Company / Shivnath Agency'),
+    ]
+
     PAYMENT_CHOICES = [
         ('pending', 'Pending'),
         ('partial', 'Partial'),
@@ -103,6 +108,26 @@ class Order(models.Model):
         blank=True
     )
 
+    order_source = models.CharField(
+        max_length=30,
+        choices=ORDER_SOURCE_CHOICES,
+        default='FRANCHISE',
+        help_text="Whether this order is served by a Franchise or directly by Shivnath Agency."
+    )
+
+    territory = models.CharField(
+        max_length=150,
+        blank=True,
+        default='',
+        help_text="Customer's territory/zone at order time (snapshot)."
+    )
+
+    delivery_address = models.TextField(
+        blank=True,
+        default='',
+        help_text="Full delivery address for this order."
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -159,4 +184,32 @@ class OrderItem(models.Model):
     )
 
     def __str__(self):
-        return f"{self.quantity}x {self.product_name} in ORD-{self.order.id}"
+        return f"{self.quantity}x {self.product_name} in ORD-{self.order.id}"
+
+
+class OrderStatusHistory(models.Model):
+    """
+    Immutable audit log of every order status change.
+    """
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='status_history',
+    )
+    old_status = models.CharField(max_length=30, blank=True, default='')
+    new_status = models.CharField(max_length=30)
+    changed_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='order_status_changes',
+    )
+    notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'ORD-{self.order.id}: {self.old_status} -> {self.new_status}'

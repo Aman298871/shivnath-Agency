@@ -181,9 +181,48 @@ class PublicLeadCaptureView(APIView):
 
         if not name or name.strip() == '':
             name = "Public Customer" if inquiry_type == 'customer' else "Franchise Prospect"
+        else:
+            # Strict name validation: 2-30 chars, at least some alphabetic, not purely numeric/symbol
+            import re as _re
+            name_clean = name.strip()
+            if len(name_clean) < 2 or len(name_clean) > 30:
+                return Response(
+                    {'success': False, 'message': 'Name must be between 2 and 30 characters.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not _re.search(r'[a-zA-Z]', name_clean):
+                return Response(
+                    {'success': False, 'message': 'Name must contain at least some alphabetic characters.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if _re.fullmatch(r'[0-9\s!@#$%^&*()_+\-=\[\]{};:\'"\\|,.<>\/?`~]+', name_clean):
+                return Response(
+                    {'success': False, 'message': 'Name cannot be purely numeric or symbol-only.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         if not phone:
             return Response(
                 {'success': False, 'message': 'Mobile number is required to register inquiry.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Strict phone validation: exactly 10 digits starting with 6, 7, 8, or 9
+        import re as _re2
+        clean_ph = _re2.sub(r'\D', '', str(phone))
+        if clean_ph.startswith('91') and len(clean_ph) == 12:
+            clean_ph = clean_ph[2:]
+        phone_regex = _re2.compile(r'^[6-9]\d{9}$')
+        if not phone_regex.match(clean_ph):
+            return Response(
+                {'success': False, 'message': 'Mobile number must be exactly 10 digits and start with 6, 7, 8, or 9.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        phone = clean_ph
+
+        # Email validation if provided
+        if email and '@' not in email:
+            return Response(
+                {'success': False, 'message': 'Please provide a valid email address.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

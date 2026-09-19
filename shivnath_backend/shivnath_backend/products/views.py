@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
-from accounts.permissions import IsAdminRole
+from accounts.permissions import IsAdminRole, IsAdminOrApprovedFranchise
 
 from .models import Product, ProductCategory
 from .serializers import ProductSerializer, ProductCategorySerializer
@@ -18,7 +18,7 @@ class CategoryListCreateView(APIView):
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
-        return [IsAdminRole()]
+        return [IsAdminOrApprovedFranchise()]
 
     def get(self, request):
         tree_only = request.query_params.get("tree", "").lower() in ["true", "1"]
@@ -58,7 +58,7 @@ class CategoryDetailView(APIView):
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
-        return [IsAdminRole()]
+        return [IsAdminOrApprovedFranchise()]
 
     def get(self, request, pk):
         category = get_object_or_404(ProductCategory, pk=pk)

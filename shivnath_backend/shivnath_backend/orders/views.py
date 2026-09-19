@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.permissions import IsAdminRole, IsApprovedFranchise, IsAdminOrApprovedFranchise
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, OrderStatusHistory
 from .serializers import OrderSerializer
 from products.models import Product
 
@@ -39,12 +39,13 @@ class OrderListCreateView(APIView):
             if user.is_superuser or role == 'admin' or user.is_staff:
                 orders = Order.objects.select_related('created_by').prefetch_related('items').all()
             elif role == 'franchise':
-                business_name = getattr(getattr(user, 'franchise_profile', None), 'business_name', '')
-                orders = Order.objects.filter(
-                    Q(created_by=user)
-                    | (Q(franchise_name__iexact=business_name) if business_name else Q())
-                    | Q(franchise_name__icontains=user.email)
-                ).prefetch_related('items').distinct()
+                fp = getattr(user, 'franchise_profile', None)
+                if fp:
+                    orders = Order.objects.filter(
+                        Q(serving_franchise=fp)
+                    ).prefetch_related('items').distinct()
+                else:
+                    orders = Order.objects.none()
             else:
                 orders = Order.objects.filter(
                     Q(created_by=user)
@@ -140,7 +141,14 @@ class OrderListCreateView(APIView):
                     zone = rel.zone
 
             serving_franchise_id = request.data.get('serving_franchise_id') or request.data.get('serving_franchise')
-            if serving_franchise_id:
+            order_source = str(request.data.get('order_source', 'FRANCHISE')).strip().upper()
+            if order_source not in ('FRANCHISE', 'DIRECT_COMPANY'):
+                order_source = 'FRANCHISE'
+
+            if order_source == 'DIRECT_COMPANY':
+                # Direct company order - no franchise involvement
+                serving_franchise = None
+            elif serving_franchise_id:
                 from accounts.models import FranchiseProfile
                 from accounts.services import resolve_serviceable_franchises
                 try:
@@ -163,18 +171,31 @@ class OrderListCreateView(APIView):
             elif registered_franchise:
                 serving_franchise = registered_franchise
 
+            # Set franchise_name display
             if not order_data.get('franchise_name'):
-                order_data['franchise_name'] = (
-                    (serving_franchise.business_name if serving_franchise else None)
-                    or order_data.get('franchise')
-                    or order_data.get('customer_name')
-                    or (creator.get_full_name() if creator else None)
-                    or (creator.username if creator else 'Customer Order')
-                )
+                if order_source == 'DIRECT_COMPANY':
+                    order_data['franchise_name'] = 'Shivnath Agency (Direct)'
+                else:
+                    order_data['franchise_name'] = (
+                        (serving_franchise.business_name if serving_franchise else None)
+                        or order_data.get('franchise')
+                        or order_data.get('customer_name')
+                        or (creator.get_full_name() if creator else None)
+                        or (creator.username if creator else 'Customer Order')
+                    )
 
             if not order_data.get('city'):
                 user_city = getattr(getattr(creator, 'profile', None), 'city', '') if creator else ''
                 order_data['city'] = user_city or order_data.get('delivery_city') or 'Raipur'
+
+            # Capture territory snapshot
+            territory_snapshot = ''
+            if zone:
+                territory_snapshot = zone.name
+            elif creator:
+                territory_snapshot = getattr(getattr(creator, 'profile', None), 'territory', '') or ''
+
+            delivery_address_val = request.data.get('delivery_address', '') or request.data.get('address', '')
 
             calc_amount = sum(float(p) * q for _, q, p in validated_order_items)
             calc_count = sum(q for _, q, _ in validated_order_items)
@@ -217,6 +238,9 @@ class OrderListCreateView(APIView):
                 duration_choice=duration_choice,
                 duration_days=duration_days,
                 expected_end_date=expected_end_date,
+                order_source=order_source,
+                territory=territory_snapshot,
+                delivery_address=delivery_address_val,
             )
 
             # Deduct stock and create OrderItems
@@ -519,11 +543,25 @@ class OrderDetailView(APIView):
 # =========================================================
 
 class OrderStatusUpdateView(APIView):
-    permission_classes = [IsAdminRole]
+    permission_classes = [IsAdminOrApprovedFranchise]
 
     def patch(self, request, pk):
         order = get_object_or_404(Order, pk=pk)
+        user = request.user
+        profile = getattr(user, 'profile', None)
+        role = profile.role if profile else 'admin'
+
+        # Franchise must only update orders assigned to them
+        if role == 'franchise' and not user.is_superuser:
+            fp = getattr(user, 'franchise_profile', None)
+            if not fp or order.serving_franchise_id != fp.id:
+                return Response({
+                    'success': False,
+                    'message': 'You are not authorized to update this order.'
+                }, status=status.HTTP_403_FORBIDDEN)
+
         new_status = request.data.get('status', '').strip().lower()
+        notes = request.data.get('notes', '').strip()
 
         valid_statuses = dict(Order.STATUS_CHOICES).keys()
         if new_status not in valid_statuses:
@@ -554,6 +592,29 @@ class OrderStatusUpdateView(APIView):
                         Product.objects.filter(id=item.product.id).update(
                             stock=F('stock') - item.quantity
                         )
+
+            # Log status change
+            if old_status != new_status:
+                OrderStatusHistory.objects.create(
+                    order=order,
+                    old_status=old_status,
+                    new_status=new_status,
+                    changed_by=user,
+                    notes=notes,
+                )
+
+                # Notify customer & admin about status update (franchise updates)
+                try:
+                    from accounts.models import AdminNotification
+                    changed_by_name = user.get_full_name() or user.username
+                    AdminNotification.objects.create(
+                        title=f'Order {order.order_code} Status Updated',
+                        message=f'{order.order_code} status changed from {old_status} to {new_status} by {changed_by_name}.',
+                        notification_type='order_update',
+                        reference_id=order.id,
+                    )
+                except Exception:
+                    pass
 
         return Response(
             {

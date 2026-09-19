@@ -9,6 +9,7 @@ import '../../../models/user_model.dart';
 import '../cart/cart_provider.dart';
 import '../cart/customer_cart_screen.dart';
 import '../notifications/customer_notifications_screen.dart';
+import '../products/category_products_screen.dart';
 import '../products/product_detail_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -247,21 +248,41 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
             const SizedBox(height: 12),
 
-            const Row(
+            Row(
               children: [
                 Expanded(
                   child: _MobileCategoryCard(
                     title: 'Water Bottles',
                     subtitle: '250 ML - 2 Litre',
                     icon: Icons.local_drink_outlined,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CategoryProductsScreen(
+                            categoryName: 'Water Bottles',
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: _MobileCategoryCard(
                     title: 'Water Jars',
                     subtitle: '5L & 20L',
                     icon: Icons.water_drop_outlined,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CategoryProductsScreen(
+                            categoryName: 'Water Jars',
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -594,56 +615,64 @@ class _MobileCategoryCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
+  final VoidCallback? onTap;
 
   const _MobileCategoryCard({
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE2E8F0),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFE2E8F0),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: const Color(0xFF0284C7),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE0F2FE),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF0284C7),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 10,
-              color: Color(0xFF64748B),
-            ),
-          ),
-        ],
       ),
     );
   }

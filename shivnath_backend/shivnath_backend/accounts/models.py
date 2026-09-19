@@ -63,6 +63,12 @@ class UserProfile(models.Model):
         default=''
     )
 
+    territory = models.CharField(
+        max_length=150,
+        blank=True,
+        default=''
+    )
+
     zone = models.ForeignKey(
         'ServiceZone',
         null=True,

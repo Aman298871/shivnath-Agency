@@ -419,3 +419,144 @@ class InventoryStatsView(APIView):
                 },
             }
         )
+
+
+# =========================================================
+# FRANCHISE INVENTORY VIEWS
+# =========================================================
+
+class FranchiseRawMaterialListView(APIView):
+    """
+    GET  /api/inventory/franchise/raw-materials/
+    List raw material stocks for the authenticated franchise.
+    """
+    from accounts.permissions import IsApprovedFranchise
+
+    def get_permissions(self):
+        from accounts.permissions import IsApprovedFranchise
+        return [IsApprovedFranchise()]
+
+    def get(self, request):
+        fp = getattr(request.user, 'franchise_profile', None)
+        if not fp:
+            return Response({'success': False, 'message': 'No franchise profile found.'}, status=403)
+
+        from .models import FranchiseRawMaterial
+        stocks = FranchiseRawMaterial.objects.filter(franchise=fp).select_related('item')
+        data = [
+            {
+                'id': s.id,
+                'item': s.item.id,
+                'item_name': s.item.name,
+                'current_stock': s.current_stock,
+                'unit': s.unit,
+                'min_alert_level': s.min_alert_level,
+                'last_updated': s.last_updated.isoformat(),
+            }
+            for s in stocks
+        ]
+        return Response({'success': True, 'data': data})
+
+
+class FranchiseProductionLogView(APIView):
+    """
+    GET  /api/inventory/franchise/production-logs/
+    POST /api/inventory/franchise/production-logs/
+    """
+
+    def get_permissions(self):
+        from accounts.permissions import IsApprovedFranchise
+        return [IsApprovedFranchise()]
+
+    def get(self, request):
+        fp = getattr(request.user, 'franchise_profile', None)
+        if not fp:
+            return Response({'success': False, 'message': 'No franchise profile found.'}, status=403)
+
+        from .models import LocalProductionLog
+        logs = LocalProductionLog.objects.filter(franchise=fp).order_by('-created_at')[:50]
+        data = [
+            {
+                'id': l.id,
+                'product_name': l.product_name,
+                'quantity_produced': l.quantity_produced,
+                'production_date': l.production_date.isoformat(),
+                'notes': l.notes,
+            }
+            for l in logs
+        ]
+        return Response({'success': True, 'data': data})
+
+    def post(self, request):
+        fp = getattr(request.user, 'franchise_profile', None)
+        if not fp:
+            return Response({'success': False, 'message': 'No franchise profile found.'}, status=403)
+
+        from .models import LocalProductionLog
+        product_name = request.data.get('product_name', '').strip()
+        quantity_produced = request.data.get('quantity_produced', 0)
+        notes = request.data.get('notes', '').strip()
+
+        if not product_name:
+            return Response({'success': False, 'message': 'Product name is required.'}, status=400)
+        try:
+            quantity_produced = int(quantity_produced)
+            if quantity_produced <= 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            return Response({'success': False, 'message': 'Quantity must be a positive integer.'}, status=400)
+
+        log = LocalProductionLog.objects.create(
+            franchise=fp,
+            product_name=product_name,
+            quantity_produced=quantity_produced,
+            notes=notes,
+            logged_by=request.user,
+        )
+
+        # Create a transaction record
+        from .models import FranchiseInventoryTransaction
+        FranchiseInventoryTransaction.objects.create(
+            franchise=fp,
+            transaction_type='stock_in_production',
+            quantity=quantity_produced,
+            reference_id=log.id,
+            notes=f'Production batch: {product_name}',
+            created_by=request.user,
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Production batch logged.',
+            'id': log.id,
+        }, status=201)
+
+
+class FranchiseInventoryTransactionListView(APIView):
+    """
+    GET /api/inventory/franchise/transactions/
+    """
+
+    def get_permissions(self):
+        from accounts.permissions import IsApprovedFranchise
+        return [IsApprovedFranchise()]
+
+    def get(self, request):
+        fp = getattr(request.user, 'franchise_profile', None)
+        if not fp:
+            return Response({'success': False, 'message': 'No franchise profile found.'}, status=403)
+
+        from .models import FranchiseInventoryTransaction
+        txns = FranchiseInventoryTransaction.objects.filter(franchise=fp).select_related('item').order_by('-created_at')[:100]
+        data = [
+            {
+                'id': t.id,
+                'item_name': t.item.name if t.item else '',
+                'transaction_type': t.transaction_type,
+                'quantity': t.quantity,
+                'notes': t.notes,
+                'created_at': t.created_at.isoformat(),
+            }
+            for t in txns
+        ]
+        return Response({'success': True, 'data': data})

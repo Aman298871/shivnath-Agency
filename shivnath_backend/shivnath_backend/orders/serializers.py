@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, OrderStatusHistory
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -55,6 +55,9 @@ class OrderSerializer(serializers.ModelSerializer):
             'zone',
             'zone_name',
             'city',
+            'territory',
+            'delivery_address',
+            'order_source',
 
             'order_date',
             'duration_choice',

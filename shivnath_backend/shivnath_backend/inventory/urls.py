@@ -7,6 +7,9 @@ from .views import (
     StockRequestApproveView,
     StockRequestRejectView,
     InventoryStatsView,
+    FranchiseRawMaterialListView,
+    FranchiseProductionLogView,
+    FranchiseInventoryTransactionListView,
 )
 
 urlpatterns = [
@@ -17,4 +20,9 @@ urlpatterns = [
     path('requests/', StockRequestListCreateView.as_view()),
     path('requests/<int:pk>/approve/', StockRequestApproveView.as_view()),
     path('requests/<int:pk>/reject/', StockRequestRejectView.as_view()),
+
+    # Franchise inventory endpoints
+    path('franchise/raw-materials/', FranchiseRawMaterialListView.as_view()),
+    path('franchise/production-logs/', FranchiseProductionLogView.as_view()),
+    path('franchise/transactions/', FranchiseInventoryTransactionListView.as_view()),
 ]

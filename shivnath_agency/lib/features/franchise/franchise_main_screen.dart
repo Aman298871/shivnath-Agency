@@ -9,6 +9,7 @@ import 'customers/franchise_customers_screen.dart';
 import 'dashboard/franchise_dashboard_screen.dart';
 import 'documents/franchise_documents_screen.dart';
 import 'franchise_settings_screen.dart';
+import 'inventory/franchise_inventory_screen.dart';
 import 'invoices/franchise_invoices_screen.dart';
 import 'notifications/franchise_notifications_screen.dart';
 import 'orders/franchise_orders_screen.dart';
@@ -100,6 +101,16 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       icon: Icons.person_outline_rounded,
       selectedIcon: Icons.person_rounded,
     ),
+    _FranchiseMenuItem(
+      title: 'Inventory',
+      icon: Icons.warehouse_outlined,
+      selectedIcon: Icons.warehouse_rounded,
+    ),
+    _FranchiseMenuItem(
+      title: 'Settings',
+      icon: Icons.settings_outlined,
+      selectedIcon: Icons.settings_rounded,
+    ),
   ];
 
   // =========================================================
@@ -110,34 +121,26 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
     switch (currentIndex) {
       case 0:
         return const FranchiseDashboardScreen();
-
       case 1:
         return const FranchiseProductsScreen();
-
       case 2:
         return const FranchiseOrdersScreen();
-
       case 3:
         return const FranchiseCustomersScreen();
-
       case 4:
         return const FranchiseInvoicesScreen();
-
       case 5:
         return const FranchisePaymentsScreen();
-
       case 6:
         return const FranchiseDocumentsScreen();
-
       case 7:
         return const FranchiseTerritoryScreen();
-
       case 8:
         return const FranchiseProfileScreen();
-
       case 9:
+        return const FranchiseInventoryScreen();
+      case 10:
         return const FranchiseSettingsScreen();
-
       default:
         return const FranchiseDashboardScreen();
     }
@@ -150,8 +153,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       onRefreshStatus: _loadUser,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final bool desktop =
-              constraints.maxWidth >= 800;
+          final bool desktop = constraints.maxWidth >= 800;
 
           if (desktop) {
             return _buildDesktop();
@@ -718,13 +720,13 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                 switch (value) {
                   case 'profile':
                     setState(() {
-                      currentIndex = 7;
+                      currentIndex = 8;
                     });
                     break;
 
                   case 'settings':
                     setState(() {
-                      currentIndex = 8;
+                      currentIndex = 10;
                     });
                     break;
 
@@ -860,117 +862,235 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
   // =========================================================
 
   Widget _buildMobile() {
-    int mobileIndex = currentIndex;
-
-    if (mobileIndex < 0 ||
-        mobileIndex > 4) {
-      mobileIndex = 0;
-    }
-
-    Widget mobileScreen;
-
-    switch (mobileIndex) {
-      case 1:
-        mobileScreen =
-            const FranchiseProductsScreen();
-        break;
-
-      case 2:
-        mobileScreen =
-            const FranchiseOrdersScreen();
-        break;
-
-      case 3:
-        mobileScreen =
-            const FranchiseCustomersScreen();
-        break;
-
-      case 4:
-        mobileScreen =
-            const FranchiseInvoicesScreen();
-        break;
-
-      case 0:
-      default:
-        mobileScreen =
-            const FranchiseDashboardScreen();
-        break;
-    }
+    final menuTitles = menuItems.map((e) => e.title).toList();
+    final screenTitle = currentIndex < menuTitles.length
+        ? menuTitles[currentIndex]
+        : 'Dashboard';
 
     return Scaffold(
-      body: mobileScreen,
-      bottomNavigationBar:
-          NavigationBar(
-        selectedIndex: mobileIndex,
-        onDestinationSelected: (
-          index,
-        ) {
-          setState(() {
-            currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(
-              Icons.dashboard_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.dashboard_rounded,
-            ),
-            label: 'Home',
+      backgroundColor: const Color(0xFFF6F7FB),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        leading: Builder(builder: (ctx) {
+          return IconButton(
+            icon: const Icon(Icons.menu_rounded, color: Color(0xFF111827)),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+            tooltip: 'Menu',
+          );
+        }),
+        title: Text(
+          screenTitle,
+          style: const TextStyle(
+            color: Color(0xFF111827),
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
           ),
-
-          NavigationDestination(
-            icon: Icon(
-              Icons.inventory_2_outlined,
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF475569)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FranchiseNotificationsScreen()),
             ),
-            selectedIcon: Icon(
-              Icons.inventory_2_rounded,
-            ),
-            label: 'Products',
           ),
-
-          NavigationDestination(
-            icon: Icon(
-              Icons.shopping_bag_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.shopping_bag_rounded,
-            ),
-            label: 'Orders',
-          ),
-
-          NavigationDestination(
-            icon: Icon(
-              Icons.people_outline,
-            ),
-            selectedIcon: Icon(
-              Icons.people_rounded,
-            ),
-            label: 'Customers',
-          ),
-
-          NavigationDestination(
-            icon: Icon(
-              Icons.receipt_long_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.receipt_long_rounded,
-            ),
-            label: 'Invoices',
-          ),
-
-          NavigationDestination(
-            icon: Icon(
-              Icons.payments_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.payments_rounded,
-            ),
-            label: 'Payments',
-          ),
+          const SizedBox(width: 4),
         ],
       ),
+      drawer: Drawer(
+        backgroundColor: const Color(0xFF111827),
+        width: 270,
+        child: SafeArea(
+          right: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // LOGO + BRAND
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.water_drop_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Shivnath Agency',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Franchise Portal',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // USER INFO
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1F2937),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: const Color(0xFF0284C7),
+                      child: Text(
+                        _currentUser?.name.isNotEmpty == true
+                            ? _currentUser!.name.substring(0, 1).toUpperCase()
+                            : 'FP',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _currentUser?.name.isNotEmpty == true
+                                ? _currentUser!.name
+                                : 'Franchise Partner',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const Text(
+                            'Franchise',
+                            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // MENU ITEMS
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: menuItems.length,
+                  itemBuilder: (ctx, index) {
+                    final item = menuItems[index];
+                    final selected = currentIndex == index;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(9),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(9),
+                          onTap: () {
+                            setState(() => currentIndex = index);
+                            Navigator.pop(ctx); // close drawer
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            height: 44,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: selected ? const Color(0xFF0284C7) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  selected ? item.selectedIcon : item.icon,
+                                  size: 20,
+                                  color: selected ? Colors.white : const Color(0xFF9CA3AF),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    item.title,
+                                    style: TextStyle(
+                                      color: selected ? Colors.white : const Color(0xFF9CA3AF),
+                                      fontSize: 13,
+                                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              // LOGOUT
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: Color(0xFF1F2937))),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(9),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _logout();
+                    },
+                    child: const SizedBox(
+                      height: 44,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(Icons.logout_rounded, size: 20, color: Color(0xFFFCA5A5)),
+                            SizedBox(width: 12),
+                            Text(
+                              'Logout',
+                              style: TextStyle(color: Color(0xFFFCA5A5), fontSize: 13, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      body: ClipRect(child: _currentScreen()),
     );
   }
 

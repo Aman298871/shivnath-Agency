@@ -181,6 +181,22 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                         ),
                       ),
 
+                    _AuthoritativeTerritoryCard(
+                      territoryInfo: _stats['territory_info'] is Map
+                          ? Map<String, dynamic>.from(_stats['territory_info'])
+                          : null,
+                      user: _currentUser,
+                      onSetupTerritory: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const FranchiseProfileScreen(),
+                          ),
+                        );
+                        _loadSession();
+                      },
+                    ),
+
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -514,6 +530,215 @@ class _Card extends StatelessWidget {
           child,
         ],
       ),
+    );
+  }
+}
+
+class _AuthoritativeTerritoryCard extends StatelessWidget {
+  final Map<String, dynamic>? territoryInfo;
+  final UserModel? user;
+  final VoidCallback onSetupTerritory;
+
+  const _AuthoritativeTerritoryCard({
+    required this.territoryInfo,
+    required this.user,
+    required this.onSetupTerritory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isAssigned = territoryInfo?['is_assigned'] == true ||
+        (user?.isTerritoryAssigned == true) ||
+        ((territoryInfo?['territory'] != null && territoryInfo!['territory'].toString().isNotEmpty));
+
+    final String district = territoryInfo?['district']?.toString() ?? user?.district ?? user?.city ?? 'Unassigned';
+    final String territory = territoryInfo?['territory']?.toString() ?? user?.zoneName ?? user?.territory ?? 'Unassigned';
+    final String serviceArea = territoryInfo?['service_area']?.toString() ?? user?.locality ?? user?.serviceArea ?? 'All Assigned Localities';
+    final String address = territoryInfo?['address']?.toString() ?? user?.address ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isAssigned ? const Color(0xFFBAE6FD) : const Color(0xFFFDE68A),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isAssigned ? const Color(0xFFE0F2FE) : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.verified_user_rounded,
+                  color: isAssigned ? const Color(0xFF0284C7) : const Color(0xFFD97706),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Authoritative Assigned Territory',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      isAssigned ? 'Authoritative assignment managed by Admin' : 'Action Required: Initial territory unassigned',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isAssigned ? const Color(0xFF64748B) : const Color(0xFFB45309),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isAssigned ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  isAssigned ? 'ASSIGNED' : 'UNASSIGNED',
+                  style: TextStyle(
+                    color: isAssigned ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24, color: Color(0xFFF1F5F9)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _TerritoryField(
+                  label: 'District',
+                  value: district,
+                  icon: Icons.map_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _TerritoryField(
+                  label: 'Territory / Zone',
+                  value: territory,
+                  icon: Icons.location_city_outlined,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _TerritoryField(
+                  label: 'Service Area / Locality',
+                  value: serviceArea,
+                  icon: Icons.near_me_outlined,
+                ),
+              ),
+              if (address.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _TerritoryField(
+                    label: 'Registered Address',
+                    value: address,
+                    icon: Icons.home_work_outlined,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (!isAssigned) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                label: const Text('Complete Initial Territory Assignment'),
+                onPressed: onSetupTerritory,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TerritoryField extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _TerritoryField({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: const Color(0xFF64748B)),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1E293B),
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 }

@@ -1161,6 +1161,179 @@ class CurrentUserView(APIView):
             status=status.HTTP_200_OK
         )
 
+    def patch(self, request):
+        return self.update_profile(request)
+
+    def put(self, request):
+        return self.update_profile(request)
+
+    def update_profile(self, request):
+        from .models import (
+            ServiceDistrict,
+            ServiceZone,
+            ServiceArea,
+            FranchiseTerritoryAssignment,
+            CustomerFranchiseRelationship,
+        )
+        from .services import resolve_serviceable_franchises
+
+        user = request.user
+        data = request.data
+
+        # 1. Update general name if provided
+        name = str(data.get('name', '')).strip()
+        if name:
+            name_parts = name.split(' ', 1)
+            user.first_name = name_parts[0]
+            user.last_name = name_parts[1] if len(name_parts) > 1 else ''
+            user.save(update_fields=['first_name', 'last_name'])
+            if hasattr(user, 'profile'):
+                user.profile.name = name
+                user.profile.save(update_fields=['name'])
+
+        # 2. Role = Franchise profile update
+        if hasattr(user, 'franchise_profile'):
+            fp = user.franchise_profile
+            business_name = str(data.get('business_name', '')).strip()
+            if business_name:
+                fp.business_name = business_name
+            phone = str(data.get('phone', '')).strip()
+            if phone and hasattr(user, 'profile'):
+                user.profile.phone = phone
+                user.profile.save(update_fields=['phone'])
+            address = str(data.get('address', '')).strip()
+            if address:
+                fp.address = address
+
+            district_name = str(data.get('district', '')).strip()
+            zone_id = data.get('zone_id')
+            zone_name = str(data.get('territory', '')).strip()
+
+            active_assignment = (
+                FranchiseTerritoryAssignment.objects
+                .filter(franchise=fp, is_active=True)
+                .select_related('zone', 'zone__district')
+                .first()
+            )
+
+            if district_name or zone_id or zone_name:
+                if active_assignment:
+                    current_dist = active_assignment.zone.district.name.lower()
+                    current_zone = active_assignment.zone.name.lower()
+                    incoming_dist = district_name.lower() if district_name else current_dist
+                    incoming_zone = zone_name.lower() if zone_name else ''
+                    if (district_name and incoming_dist != current_dist) or (zone_name and incoming_zone != current_zone) or (zone_id and int(zone_id) != active_assignment.zone.id):
+                        return Response({
+                            'success': False,
+                            'message': 'Franchise territory has already been authoritatively assigned by Admin. Modification requires Admin review and cannot be changed directly.'
+                        }, status=status.HTTP_403_FORBIDDEN)
+                else:
+                    district_obj = None
+                    if district_name:
+                        district_obj = ServiceDistrict.objects.filter(name__iexact=district_name, is_active=True).first()
+                        if not district_obj:
+                            return Response({'success': False, 'message': f'District "{district_name}" not found in territory master.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                    zone_obj = None
+                    if zone_id:
+                        zone_obj = ServiceZone.objects.filter(id=zone_id, is_active=True).first()
+                    elif zone_name:
+                        zone_q = ServiceZone.objects.filter(name__iexact=zone_name, is_active=True)
+                        if district_obj:
+                            zone_q = zone_q.filter(district=district_obj)
+                        zone_obj = zone_q.first()
+
+                    if zone_obj and district_obj and zone_obj.district != district_obj:
+                        return Response({'success': False, 'message': f'Territory "{zone_obj.name}" does not belong to District "{district_obj.name}".'}, status=status.HTTP_400_BAD_REQUEST)
+
+                    if zone_obj:
+                        FranchiseTerritoryAssignment.objects.create(
+                            franchise=fp,
+                            zone=zone_obj,
+                            is_primary=True,
+                            is_active=True,
+                        )
+                        fp.city = zone_obj.district.name
+                        fp.territory = zone_obj.name
+                    elif district_obj:
+                        fp.city = district_obj.name
+
+            fp.save()
+            serializer = CurrentUserSerializer(user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # 3. Role = Customer (or normal user) profile update
+        prof = getattr(user, 'profile', None)
+        if prof:
+            phone = str(data.get('phone', '')).strip()
+            if phone:
+                prof.phone = phone
+            address = str(data.get('address', '')).strip()
+            if address:
+                prof.address = address
+            locality = str(data.get('locality', '')).strip()
+            if locality:
+                prof.locality = locality
+
+            district_name = str(data.get('district', '')).strip()
+            zone_id = data.get('zone_id')
+            zone_name = str(data.get('territory', '')).strip()
+
+            district_obj = None
+            if district_name:
+                district_obj = ServiceDistrict.objects.filter(name__iexact=district_name, is_active=True).first()
+                if not district_obj:
+                    return Response({'success': False, 'message': f'District "{district_name}" not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            zone_obj = None
+            if zone_id:
+                zone_obj = ServiceZone.objects.filter(id=zone_id, is_active=True).first()
+            elif zone_name:
+                zone_q = ServiceZone.objects.filter(name__iexact=zone_name, is_active=True)
+                if district_obj:
+                    zone_q = zone_q.filter(district=district_obj)
+                zone_obj = zone_q.first()
+
+            if zone_obj and district_obj and zone_obj.district != district_obj:
+                return Response({'success': False, 'message': f'Territory "{zone_obj.name}" does not belong to District "{district_obj.name}".'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if district_obj:
+                prof.district = district_obj.name
+                prof.city = district_obj.name
+            if zone_obj:
+                prof.zone = zone_obj
+                prof.territory = zone_obj.name
+
+            prof.save()
+
+            rel, _ = CustomerFranchiseRelationship.objects.get_or_create(
+                customer=user,
+                defaults={
+                    'registered_franchise': FranchiseProfile.objects.filter(status='approved').first(),
+                }
+            )
+            if district_obj:
+                rel.district = district_obj
+            if zone_obj:
+                rel.zone = zone_obj
+            if locality:
+                rel.locality = locality
+            if address:
+                rel.address = address
+
+            res = resolve_serviceable_franchises(zone=zone_obj or rel.zone, district=district_obj or rel.district)
+            if res.get('franchises'):
+                primary_f = next((f for f in res['franchises'] if f.get('is_primary')), res['franchises'][0])
+                if not rel.current_serving_franchise:
+                    rel.current_serving_franchise_id = primary_f['id']
+                if not rel.registered_franchise:
+                    rel.registered_franchise_id = primary_f['id']
+
+            rel.save()
+
+        serializer = CurrentUserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class AdminUserListView(APIView):
     """
@@ -2418,10 +2591,43 @@ class FranchiseDashboardStatsView(APIView):
             serving_franchise=franchise,
         ).count()
 
+        # 9. Authoritative Current Territory Info
+        from .models import FranchiseTerritoryAssignment
+        assignment = (
+            FranchiseTerritoryAssignment.objects
+            .filter(franchise=franchise, is_active=True)
+            .select_related('zone', 'zone__district')
+            .order_by('-is_primary', '-assigned_at')
+            .first()
+        )
+        if assignment:
+            district_name = assignment.zone.district.name
+            territory_name = assignment.zone.name
+            zone_id = assignment.zone.id
+            areas = list(assignment.zone.areas.filter(is_active=True).values_list('locality_name', flat=True)[:5])
+            service_area_str = ", ".join(areas) if areas else (franchise.city or "")
+            is_assigned = True
+        else:
+            district_name = franchise.city or ""
+            territory_name = franchise.territory or ""
+            zone_id = None
+            service_area_str = franchise.city or ""
+            is_assigned = bool(district_name or territory_name)
+
+        territory_info = {
+            'district': district_name,
+            'territory': territory_name,
+            'zone_id': zone_id,
+            'service_area': service_area_str,
+            'address': franchise.address or "",
+            'is_assigned': is_assigned,
+        }
+
         return Response({
             'success': True,
             'franchise_id': franchise.id,
             'franchise_name': franchise.business_name,
+            'territory_info': territory_info,
             'stats': {
                 'customers_served': customers_served,
                 'registered_customers': registered_customers,

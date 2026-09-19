@@ -316,6 +316,29 @@ class StockRequestApproveView(APIView):
         except Exception:
             pass
 
+        # If requested by a franchise user, deliver directly to FranchiseRawMaterial
+        if stock_request.request_type == 'stock_out':
+            req_user = stock_request.requested_by
+            if req_user and hasattr(req_user, 'franchise_profile'):
+                fp = req_user.franchise_profile
+                from .models import FranchiseRawMaterial, FranchiseInventoryTransaction
+                frm, _ = FranchiseRawMaterial.objects.get_or_create(
+                    franchise=fp,
+                    item=item,
+                    defaults={'unit': item.unit, 'current_stock': 0}
+                )
+                frm.current_stock += stock_request.quantity
+                frm.save()
+                FranchiseInventoryTransaction.objects.create(
+                    franchise=fp,
+                    item=item,
+                    transaction_type='stock_in_transfer',
+                    quantity=stock_request.quantity,
+                    reference_id=stock_request.id,
+                    notes=f"Approved raw material transfer from central inventory: {item.name}",
+                    created_by=request.user,
+                )
+
         return Response(
             {
                 'success': True,
@@ -506,28 +529,65 @@ class FranchiseProductionLogView(APIView):
         except (ValueError, TypeError):
             return Response({'success': False, 'message': 'Quantity must be a positive integer.'}, status=400)
 
+        raw_material_id = request.data.get('raw_material_id')
+        try:
+            raw_material_qty = int(request.data.get('raw_material_qty') or 0)
+        except (ValueError, TypeError):
+            raw_material_qty = 0
+
+        raw_materials_used = {}
+        from .models import FranchiseRawMaterial, FranchiseInventoryTransaction
+
         log = LocalProductionLog.objects.create(
             franchise=fp,
             product_name=product_name,
             quantity_produced=quantity_produced,
+            raw_materials_used=raw_materials_used,
             notes=notes,
             logged_by=request.user,
         )
 
-        # Create a transaction record
-        from .models import FranchiseInventoryTransaction
+        if raw_material_id and raw_material_qty > 0:
+            frm = FranchiseRawMaterial.objects.filter(franchise=fp, id=raw_material_id).first()
+            if frm:
+                raw_materials_used[str(frm.item_id)] = raw_material_qty
+                log.raw_materials_used = raw_materials_used
+                log.save(update_fields=['raw_materials_used'])
+                if frm.current_stock >= raw_material_qty:
+                    frm.current_stock -= raw_material_qty
+                else:
+                    frm.current_stock = 0
+                frm.save()
+                FranchiseInventoryTransaction.objects.create(
+                    franchise=fp,
+                    item=frm.item,
+                    transaction_type='stock_out_damage',
+                    quantity=-raw_material_qty,
+                    reference_id=log.id,
+                    notes=f"Consumed in production of {product_name} x{quantity_produced}",
+                    created_by=request.user,
+                )
+
+        # Sync matching Product stock if exists
+        try:
+            from products.models import Product
+            Product.objects.filter(name__iexact=product_name).update(stock=F('stock') + quantity_produced)
+        except Exception:
+            pass
+
+        # Create production transaction record
         FranchiseInventoryTransaction.objects.create(
             franchise=fp,
             transaction_type='stock_in_production',
             quantity=quantity_produced,
             reference_id=log.id,
-            notes=f'Production batch: {product_name}',
+            notes=f'Production batch: {product_name} x{quantity_produced}',
             created_by=request.user,
         )
 
         return Response({
             'success': True,
-            'message': 'Production batch logged.',
+            'message': 'Production batch logged and inventory updated.',
             'id': log.id,
         }, status=201)
 

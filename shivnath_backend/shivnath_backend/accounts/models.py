@@ -411,7 +411,9 @@ class CustomerStockCycle(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     serving_franchise = models.ForeignKey(
         FranchiseProfile,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='fulfilled_stock_cycles',
         help_text="The exact franchise fulfilling this cycle. Permanent ownership."
     )

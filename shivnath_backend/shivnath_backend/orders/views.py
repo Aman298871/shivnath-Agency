@@ -141,35 +141,49 @@ class OrderListCreateView(APIView):
                     zone = rel.zone
 
             serving_franchise_id = request.data.get('serving_franchise_id') or request.data.get('serving_franchise')
-            order_source = str(request.data.get('order_source', 'FRANCHISE')).strip().upper()
-            if order_source not in ('FRANCHISE', 'DIRECT_COMPANY'):
-                order_source = 'FRANCHISE'
+            order_source_raw = str(request.data.get('order_source', '')).strip().upper()
 
-            if order_source == 'DIRECT_COMPANY':
-                # Direct company order - no franchise involvement
+            if order_source_raw == 'DIRECT_COMPANY':
+                order_source = 'DIRECT_COMPANY'
                 serving_franchise = None
             elif serving_franchise_id:
                 from accounts.models import FranchiseProfile
                 from accounts.services import resolve_serviceable_franchises
                 try:
                     sf = FranchiseProfile.objects.get(id=serving_franchise_id, status='approved')
-                    # Server validate: must be an eligible exact or fallback franchise for customer's territory
                     if zone:
                         serv_res = resolve_serviceable_franchises(zone=zone, district=rel.district if rel else None, allow_fallback=True)
                         allowed_ids = {f['id'] for f in serv_res.get('franchises', [])}
-                        if sf.id not in allowed_ids:
+                        if allowed_ids and sf.id not in allowed_ids:
                             return Response({
                                 'success': False,
                                 'message': f'Franchise "{sf.business_name}" is not serviceable for your delivery area ({zone.name}).'
                             }, status=status.HTTP_400_BAD_REQUEST)
                     serving_franchise = sf
+                    order_source = 'FRANCHISE'
                 except FranchiseProfile.DoesNotExist:
                     return Response({
                         'success': False,
                         'message': 'Selected serving franchise does not exist or is not approved.'
                     }, status=status.HTTP_400_BAD_REQUEST)
-            elif registered_franchise:
-                serving_franchise = registered_franchise
+            elif zone:
+                from accounts.services import resolve_serviceable_franchises
+                # Exact zone matching only; no random or fallback franchise assigned
+                serv_res = resolve_serviceable_franchises(zone=zone, district=None, allow_fallback=False)
+                available = serv_res.get('franchises', [])
+                if available:
+                    from accounts.models import FranchiseProfile
+                    primary_f = next((f for f in available if f.get('is_primary')), available[0])
+                    serving_franchise = FranchiseProfile.objects.filter(id=primary_f['id'], status='approved').first()
+                    order_source = 'FRANCHISE'
+                else:
+                    # Case 2: Territory selected + NO eligible franchise available -> automatically route DIRECT_COMPANY
+                    order_source = 'DIRECT_COMPANY'
+                    serving_franchise = None
+            else:
+                # Case 3: Customer has NOT selected a territory/location -> automatically route DIRECT_COMPANY
+                order_source = 'DIRECT_COMPANY'
+                serving_franchise = None
 
             # Set franchise_name display
             if not order_data.get('franchise_name'):
@@ -259,7 +273,7 @@ class OrderListCreateView(APIView):
 
             # Start/Renew Active Stock Cycle with permanent serving franchise association and snapshots
             stock_cycle = None
-            if creator and serving_franchise:
+            if creator:
                 from accounts.models import CustomerStockCycle
                 # Mark previous active cycles as completed (preserves complete history)
                 CustomerStockCycle.objects.filter(customer=creator, service_status='active').update(service_status='completed')
@@ -290,10 +304,13 @@ class OrderListCreateView(APIView):
                     expected_end_date=expected_end_date,
                     service_status='active',
                 )
-                if rel:
+                if rel and serving_franchise:
                     rel.current_serving_franchise = serving_franchise
                     rel.service_status = 'active'
                     rel.save(update_fields=['current_serving_franchise', 'service_status'])
+                elif rel:
+                    rel.service_status = 'active'
+                    rel.save(update_fields=['service_status'])
 
             # Targeted Notifications to Actual Serving Franchise and Admin
             try:
@@ -544,6 +561,9 @@ class OrderDetailView(APIView):
 
 class OrderStatusUpdateView(APIView):
     permission_classes = [IsAdminOrApprovedFranchise]
+
+    def put(self, request, pk):
+        return self.patch(request, pk)
 
     def patch(self, request, pk):
         order = get_object_or_404(Order, pk=pk)

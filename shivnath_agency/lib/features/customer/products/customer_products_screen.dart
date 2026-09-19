@@ -24,6 +24,7 @@ class _CustomerProductsScreenState
     {'id': null, 'name': 'All', 'full_path': 'All'}
   ];
   bool _loadingCategories = false;
+  bool _loadingProducts = false;
 
   @override
   void initState() {
@@ -33,11 +34,12 @@ class _CustomerProductsScreenState
   }
 
   Future<void> _fetchProducts() async {
+    if (mounted) setState(() => _loadingProducts = true);
     await ProductService().getProducts(
       categoryId: selectedCategoryId,
       category: selectedCategoryId == null && selectedCategoryName != 'All' ? selectedCategoryName : null,
     );
-    if (mounted) setState(() {});
+    if (mounted) setState(() => _loadingProducts = false);
   }
 
   Future<void> _fetchCategories() async {
@@ -127,23 +129,36 @@ class _CustomerProductsScreenState
           _filters(),
 
           Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(18),
-              itemCount: products.length,
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.62,
-              ),
-              itemBuilder: (context, index) {
-                return _ProductCard(
-                  product: products[index],
-                  desktop: false,
-                );
-              },
-            ),
+            child: _loadingProducts
+                ? const Center(child: CircularProgressIndicator())
+                : products.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No products found',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(18),
+                        itemCount: products.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.62,
+                        ),
+                        itemBuilder: (context, index) {
+                          return _ProductCard(
+                            product: products[index],
+                            desktop: false,
+                          );
+                        },
+                      ),
           ),
         ],
       ),
@@ -241,12 +256,24 @@ class _CustomerProductsScreenState
 
                 const SizedBox(height: 24),
 
-                if (products.isEmpty)
+                if (_loadingProducts)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(60),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                else if (products.isEmpty)
                   const Center(
                     child: Padding(
                       padding: EdgeInsets.all(60),
                       child: Text(
                         'No products found',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   )

@@ -35,10 +35,15 @@ class _FranchiseOrdersScreenState
       if (rawOrders is List) {
         final mapped = rawOrders.whereType<Map>().map((item) {
           final mappedItem = OrderService().mapOrder(Map<String, dynamic>.from(item));
+          final rawDbId = item['id'] is int
+              ? item['id'] as int
+              : (int.tryParse(item['id']?.toString() ?? '') ??
+                  (mappedItem['id'] is int ? mappedItem['id'] as int : null));
           final rawId = mappedItem['orderId']?.toString();
-          final fallbackId = mappedItem['id'] != null ? 'ORD-${1000 + (int.tryParse(mappedItem['id'].toString()) ?? 0)}' : '';
+          final fallbackId = rawDbId != null ? 'ORD-${1000 + rawDbId}' : '';
           final orderCode = (rawId != null && rawId.isNotEmpty) ? rawId : fallbackId;
           return {
+            'db_id': rawDbId,
             'id': orderCode,
             'date': mappedItem['date']?.toString() ?? '',
             'product': mappedItem['franchise']?.toString().isNotEmpty == true ? mappedItem['franchise']!.toString() : 'Packaged Water',
@@ -577,16 +582,32 @@ class _FranchiseOrdersScreenState
           ),
 
           SizedBox(
-            width: 55,
-            child: IconButton(
-              tooltip: 'View Details',
-              onPressed: () {
-                _details(order);
-              },
-              icon: const Icon(
-                Icons.visibility_outlined,
-                size: 20,
-              ),
+            width: 80,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Update Status',
+                  onPressed: () {
+                    _showUpdateStatusDialog(order);
+                  },
+                  icon: const Icon(
+                    Icons.edit_note_rounded,
+                    size: 20,
+                    color: Color(0xFF0284C7),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'View Details',
+                  onPressed: () {
+                    _details(order);
+                  },
+                  icon: const Icon(
+                    Icons.visibility_outlined,
+                    size: 18,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -843,15 +864,33 @@ class _FranchiseOrdersScreenState
 
             const SizedBox(height: 12),
 
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
               children: [
-                _statusBadge(
-                  '${order['status']}',
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _statusBadge(
+                        '${order['status']}',
+                      ),
+                      _paymentBadge(
+                        '${order['payment']}',
+                      ),
+                    ],
+                  ),
                 ),
-                _paymentBadge(
-                  '${order['payment']}',
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: const Color(0xFF0284C7),
+                    side: const BorderSide(color: Color(0xFFBAE6FD)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.edit_note_rounded, size: 16),
+                  label: const Text('Update', style: TextStyle(fontSize: 12)),
+                  onPressed: () => _showUpdateStatusDialog(order),
                 ),
               ],
             ),
@@ -1219,9 +1258,108 @@ class _FranchiseOrdersScreenState
                     const Text('Close'),
               ),
             ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 44,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _showUpdateStatusDialog(order);
+                },
+                icon: const Icon(Icons.edit_note_rounded, size: 18),
+                label: const Text('Update Status'),
+              ),
+            ),
           ],
         );
       },
+    );
+  }
+
+  void _showUpdateStatusDialog(Map<String, dynamic> order) {
+    final int? dbId = order['db_id'] as int?;
+    if (dbId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot update status: missing order ID')),
+      );
+      return;
+    }
+
+    String selectedNewStatus = order['status']?.toString() ?? 'Plant Approval';
+    const statusOptions = [
+      'Order Placement',
+      'Plant Approval',
+      'Invoice Generated',
+      'Dispatched',
+      'Delivered',
+      'Cancelled',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Update Order Status (#${order['id']})', style: const TextStyle(fontWeight: FontWeight.w700)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Select the new fulfillment status for this order:', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: statusOptions.contains(selectedNewStatus) ? selectedNewStatus : statusOptions.first,
+                decoration: const InputDecoration(
+                  labelText: 'Fulfillment Status',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.local_shipping_outlined),
+                ),
+                items: statusOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                onChanged: (val) {
+                  if (val != null) setDlgState(() => selectedNewStatus = val);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final res = await OrderService().updateOrderStatus(dbId, selectedNewStatus);
+                if (!mounted) return;
+                if (res['success'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Order #${order['id']} status updated to $selectedNewStatus'),
+                      backgroundColor: const Color(0xFF16A34A),
+                    ),
+                  );
+                  _fetchOrders();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(res['message']?.toString() ?? 'Failed to update order status'),
+                      backgroundColor: Colors.red.shade700,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Confirm Status'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

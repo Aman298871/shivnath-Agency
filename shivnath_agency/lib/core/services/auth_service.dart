@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import '../../models/user_model.dart';
 import 'session_service.dart';
 
 class AuthService {
@@ -31,6 +32,45 @@ class AuthService {
       }
       return {'success': false, 'message': 'Failed to fetch user data', 'data': decoded};
     } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/accounts/me/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      ).timeout(const Duration(seconds: 15));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        try {
+          final user = UserModel.fromJson(decoded);
+          await SessionService().saveUser(user);
+        } catch (_) {}
+        return {'success': true, 'data': decoded};
+      }
+      return {
+        'success': false,
+        'message': decoded is Map && decoded['message'] != null
+            ? decoded['message'].toString()
+            : (decoded is Map && decoded['detail'] != null ? decoded['detail'].toString() : 'Failed to update profile'),
+        'data': decoded,
+      };
+    } catch (e) {
       return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
     }
   }

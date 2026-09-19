@@ -1191,22 +1191,13 @@ else if (filteredProducts.isEmpty)
 
   Widget _buildMobileList() {
     if (loading) {
-  return const Center(
-    child: Padding(
-      padding: EdgeInsets.all(40),
-      child: CircularProgressIndicator(),
-    ),
-  );
-}
-
-if (loading) {
-  return const Center(
-    child: Padding(
-      padding: EdgeInsets.all(40),
-      child: CircularProgressIndicator(),
-    ),
-  );
-}
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
 if (filteredProducts.isEmpty) {
   return const Center(

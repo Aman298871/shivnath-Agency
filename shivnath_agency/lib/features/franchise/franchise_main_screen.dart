@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../core/services/session_service.dart';
+import '../../core/services/whatsapp_service.dart';
 import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
 
+import 'categories/franchise_categories_screen.dart';
 import 'customers/franchise_customers_screen.dart';
 import 'dashboard/franchise_dashboard_screen.dart';
 import 'documents/franchise_documents_screen.dart';
@@ -13,7 +16,6 @@ import 'inventory/franchise_inventory_screen.dart';
 import 'invoices/franchise_invoices_screen.dart';
 import 'notifications/franchise_notifications_screen.dart';
 import 'orders/franchise_orders_screen.dart';
-import 'payments/franchise_payments_screen.dart';
 import 'products/franchise_products_screen.dart';
 import 'profile/franchise_profile_screen.dart';
 import 'territory/franchise_territory_screen.dart';
@@ -55,63 +57,143 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
     }
   }
 
-  final List<_FranchiseMenuItem> menuItems = const [
-    _FranchiseMenuItem(
-      title: 'Dashboard',
-      icon: Icons.dashboard_outlined,
-      selectedIcon: Icons.dashboard_rounded,
+  static const List<_FranchiseNavGroup> navGroups = [
+    _FranchiseNavGroup(
+      title: 'MAIN',
+      items: [
+        _FranchiseNavItem(
+          index: 0,
+          title: 'Dashboard',
+          icon: Icons.dashboard_outlined,
+          selectedIcon: Icons.dashboard_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 1,
+          title: 'Orders',
+          icon: Icons.shopping_bag_outlined,
+          selectedIcon: Icons.shopping_bag_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 2,
+          title: 'Customers',
+          icon: Icons.people_outline,
+          selectedIcon: Icons.people_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 3,
+          title: 'Products',
+          icon: Icons.inventory_2_outlined,
+          selectedIcon: Icons.inventory_2_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 4,
+          title: 'Product Categories',
+          icon: Icons.category_outlined,
+          selectedIcon: Icons.category_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 5,
+          title: 'Inventory',
+          icon: Icons.warehouse_outlined,
+          selectedIcon: Icons.warehouse_rounded,
+        ),
+      ],
     ),
-    _FranchiseMenuItem(
-      title: 'Products',
-      icon: Icons.inventory_2_outlined,
-      selectedIcon: Icons.inventory_2_rounded,
+    _FranchiseNavGroup(
+      title: 'OPERATIONS',
+      items: [
+        _FranchiseNavItem(
+          index: 6,
+          title: 'Raw Materials',
+          icon: Icons.science_outlined,
+          selectedIcon: Icons.science_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 7,
+          title: 'Finished Products',
+          icon: Icons.local_drink_outlined,
+          selectedIcon: Icons.local_drink_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 8,
+          title: 'Stock',
+          icon: Icons.receipt_long_outlined,
+          selectedIcon: Icons.receipt_long_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 9,
+          title: 'Follow-ups',
+          icon: Icons.phone_callback_outlined,
+          selectedIcon: Icons.phone_callback_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 10,
+          title: 'Support',
+          icon: Icons.headset_mic_outlined,
+          selectedIcon: Icons.headset_mic_rounded,
+          isSupport: true,
+        ),
+      ],
     ),
-    _FranchiseMenuItem(
-      title: 'Orders',
-      icon: Icons.shopping_bag_outlined,
-      selectedIcon: Icons.shopping_bag_rounded,
+    _FranchiseNavGroup(
+      title: 'BUSINESS',
+      items: [
+        _FranchiseNavItem(
+          index: 11,
+          title: 'Franchise Information',
+          icon: Icons.folder_outlined,
+          selectedIcon: Icons.folder_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 12,
+          title: 'Territory',
+          icon: Icons.location_on_outlined,
+          selectedIcon: Icons.location_on_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 13,
+          title: 'Reports',
+          icon: Icons.bar_chart_outlined,
+          selectedIcon: Icons.bar_chart_rounded,
+        ),
+      ],
     ),
-    _FranchiseMenuItem(
-      title: 'Customers',
-      icon: Icons.people_outline,
-      selectedIcon: Icons.people_rounded,
-    ),
-    _FranchiseMenuItem(
-      title: 'Invoices',
-      icon: Icons.receipt_long_outlined,
-      selectedIcon: Icons.receipt_long_rounded,
-    ),
-    _FranchiseMenuItem(
-      title: 'Payments',
-      icon: Icons.payments_outlined,
-      selectedIcon: Icons.payments_rounded,
-    ),
-    _FranchiseMenuItem(
-      title: 'Documents',
-      icon: Icons.folder_outlined,
-      selectedIcon: Icons.folder_rounded,
-    ),
-    _FranchiseMenuItem(
-      title: 'Territory',
-      icon: Icons.location_on_outlined,
-      selectedIcon: Icons.location_on_rounded,
-    ),
-    _FranchiseMenuItem(
-      title: 'Profile',
-      icon: Icons.person_outline_rounded,
-      selectedIcon: Icons.person_rounded,
-    ),
-    _FranchiseMenuItem(
-      title: 'Inventory',
-      icon: Icons.warehouse_outlined,
-      selectedIcon: Icons.warehouse_rounded,
-    ),
-    _FranchiseMenuItem(
-      title: 'Settings',
-      icon: Icons.settings_outlined,
-      selectedIcon: Icons.settings_rounded,
+    _FranchiseNavGroup(
+      title: 'ACCOUNT',
+      items: [
+        _FranchiseNavItem(
+          index: 14,
+          title: 'Profile',
+          icon: Icons.person_outline_rounded,
+          selectedIcon: Icons.person_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 15,
+          title: 'Settings',
+          icon: Icons.settings_outlined,
+          selectedIcon: Icons.settings_rounded,
+        ),
+        _FranchiseNavItem(
+          index: 99,
+          title: 'Logout',
+          icon: Icons.logout_rounded,
+          selectedIcon: Icons.logout_rounded,
+          isLogout: true,
+        ),
+      ],
     ),
   ];
+
+  String _getScreenTitle() {
+    for (final group in navGroups) {
+      for (final item in group.items) {
+        if (item.index == currentIndex) {
+          return item.title;
+        }
+      }
+    }
+    return 'Dashboard';
+  }
 
   // =========================================================
   // CURRENT SCREEN
@@ -122,28 +204,101 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       case 0:
         return const FranchiseDashboardScreen();
       case 1:
-        return const FranchiseProductsScreen();
-      case 2:
         return const FranchiseOrdersScreen();
-      case 3:
+      case 2:
         return const FranchiseCustomersScreen();
+      case 3:
+        return const FranchiseProductsScreen();
       case 4:
-        return const FranchiseInvoicesScreen();
+        return const FranchiseCategoriesScreen();
       case 5:
-        return const FranchisePaymentsScreen();
+        return const FranchiseInventoryScreen(initialTabIndex: 0);
       case 6:
-        return const FranchiseDocumentsScreen();
+        return const FranchiseInventoryScreen(initialTabIndex: 0); // Raw Materials
       case 7:
-        return const FranchiseTerritoryScreen();
+        return const FranchiseInventoryScreen(initialTabIndex: 1); // Finished Products
       case 8:
-        return const FranchiseProfileScreen();
+        return const FranchiseInventoryScreen(initialTabIndex: 3); // Stock Ledger
       case 9:
-        return const FranchiseInventoryScreen();
+        return const FranchiseCustomersScreen(); // Follow-ups
       case 10:
+        return const FranchiseDashboardScreen(); // Support fallback
+      case 11:
+        return const FranchiseDocumentsScreen(); // Franchise Information
+      case 12:
+        return const FranchiseTerritoryScreen();
+      case 13:
+        return const FranchiseInvoicesScreen(); // Reports / Invoices
+      case 14:
+        return const FranchiseProfileScreen();
+      case 15:
         return const FranchiseSettingsScreen();
       default:
         return const FranchiseDashboardScreen();
     }
+  }
+
+  void _openSupportDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.headset_mic_rounded, color: Color(0xFF0284C7)),
+            SizedBox(width: 10),
+            Text('Franchise Support Desk', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Need assistance with your franchise operations, stock dispatch, or territory?',
+              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              dense: true,
+              leading: const CircleAvatar(backgroundColor: Color(0xFFE0F2FE), child: Icon(Icons.phone, color: Color(0xFF0284C7), size: 18)),
+              title: const Text('Call Operations Desk', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              subtitle: const Text('+91 98062 47194 (Mon-Sat, 9am-7pm)'),
+              onTap: () {
+                Navigator.pop(ctx);
+                launchUrl(Uri.parse('tel:+919806247194'));
+              },
+            ),
+            ListTile(
+              dense: true,
+              leading: const CircleAvatar(backgroundColor: Color(0xFFDCFCE7), child: Icon(Icons.chat_rounded, color: Color(0xFF16A34A), size: 18)),
+              title: const Text('WhatsApp Operations', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              subtitle: const Text('Direct chat with Plant Dispatcher'),
+              onTap: () {
+                Navigator.pop(ctx);
+                WhatsAppService.openWhatsApp(
+                  phone: WhatsAppService.officialSupportPhone,
+                  message: 'Namaste Shivnath Operations Team,\nInquiry from Franchise Partner (${_currentUser?.name ?? "Partner"}).',
+                );
+              },
+            ),
+            ListTile(
+              dense: true,
+              leading: const CircleAvatar(backgroundColor: Color(0xFFFEF3C7), child: Icon(Icons.email_outlined, color: Color(0xFFD97706), size: 18)),
+              title: const Text('Email Support', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              subtitle: const Text('franchise@shivnathagency.com'),
+              onTap: () {
+                Navigator.pop(ctx);
+                launchUrl(Uri.parse('mailto:franchise@shivnathagency.com'));
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -380,199 +535,92 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
               ),
             ),
 
-            const Padding(
-              padding: EdgeInsets.fromLTRB(
-                21,
-                8,
-                21,
-                9,
-              ),
-              child: Text(
-                'FRANCHISE MENU',
-                style: TextStyle(
-                  color: Color(0xFF64748B),
-                  fontSize: 8,
-                  fontWeight:
-                      FontWeight.w700,
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ),
-
             // =========================
-            // MENU ITEMS
+            // MENU ITEMS IN 4 STRICT GROUPS
             // =========================
             Expanded(
-              child: ListView.builder(
-                padding:
-                    const EdgeInsets.symmetric(
-                  horizontal: 11,
-                ),
-                itemCount: menuItems.length,
-                itemBuilder: (
-                  context,
-                  index,
-                ) {
-                  final item =
-                      menuItems[index];
-
-                  final bool selected =
-                      currentIndex == index;
-
-                  return Padding(
-                    padding:
-                        const EdgeInsets.only(
-                      bottom: 4,
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      borderRadius:
-                          BorderRadius.circular(9),
-                      child: InkWell(
-                        borderRadius:
-                            BorderRadius.circular(
-                          9,
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+                children: [
+                  for (final group in navGroups) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 14, 12, 6),
+                      child: Text(
+                        group.title,
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
                         ),
-                        onTap: () {
-                          if (currentIndex ==
-                              index) {
-                            return;
-                          }
-
-                          setState(() {
-                            currentIndex = index;
-                          });
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(
-                            milliseconds: 150,
-                          ),
-                          height: 44,
-                          padding:
-                              const EdgeInsets
-                                  .symmetric(
-                            horizontal: 12,
-                          ),
-                          decoration:
-                              BoxDecoration(
-                            color: selected
-                                ? const Color(
-                                    0xFF0284C7,
-                                  )
-                                : Colors
-                                    .transparent,
-                            borderRadius:
-                                BorderRadius
-                                    .circular(
-                              9,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                selected
-                                    ? item
-                                        .selectedIcon
-                                    : item.icon,
-                                size: 20,
-                                color: selected
-                                    ? Colors.white
-                                    : const Color(
-                                        0xFF9CA3AF,
-                                      ),
+                      ),
+                    ),
+                    for (final item in group.items) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(9),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(9),
+                            onTap: () {
+                              if (item.isLogout) {
+                                _logout();
+                              } else if (item.isSupport) {
+                                _openSupportDialog();
+                              } else {
+                                setState(() => currentIndex = item.index);
+                              }
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              height: 40,
+                              padding: const EdgeInsets.symmetric(horizontal: 11),
+                              decoration: BoxDecoration(
+                                color: (!item.isLogout && currentIndex == item.index)
+                                    ? const Color(0xFF0284C7)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(9),
                               ),
-
-                              const SizedBox(
-                                width: 12,
-                              ),
-
-                              Expanded(
-                                child: Text(
-                                  item.title,
-                                  style:
-                                      TextStyle(
-                                    color: selected
-                                        ? Colors
-                                            .white
-                                        : const Color(
-                                            0xFF9CA3AF,
-                                          ),
-                                    fontSize: 11,
-                                    fontWeight:
-                                        selected
-                                            ? FontWeight
-                                                .w700
-                                            : FontWeight
-                                                .w500,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    (!item.isLogout && currentIndex == item.index)
+                                        ? item.selectedIcon
+                                        : item.icon,
+                                    size: 19,
+                                    color: item.isLogout
+                                        ? const Color(0xFFFCA5A5)
+                                        : ((!item.isLogout && currentIndex == item.index)
+                                            ? Colors.white
+                                            : const Color(0xFF9CA3AF)),
                                   ),
-                                ),
+                                  const SizedBox(width: 11),
+                                  Expanded(
+                                    child: Text(
+                                      item.title,
+                                      style: TextStyle(
+                                        color: item.isLogout
+                                            ? const Color(0xFFFCA5A5)
+                                            : ((!item.isLogout && currentIndex == item.index)
+                                                ? Colors.white
+                                                : const Color(0xFF9CA3AF)),
+                                        fontSize: 11,
+                                        fontWeight: (!item.isLogout && currentIndex == item.index)
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // =========================
-            // LOGOUT
-            // =========================
-            Container(
-              padding:
-                  const EdgeInsets.all(12),
-              decoration:
-                  const BoxDecoration(
-                border: Border(
-                  top: BorderSide(
-                    color:
-                        Color(0xFF1F2937),
-                  ),
-                ),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                borderRadius:
-                    BorderRadius.circular(9),
-                child: InkWell(
-                  borderRadius:
-                      BorderRadius.circular(9),
-                  onTap: _logout,
-                  child: const SizedBox(
-                    height: 44,
-                    child: Padding(
-                      padding:
-                          EdgeInsets.symmetric(
-                        horizontal: 12,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.logout_rounded,
-                            size: 20,
-                            color: Color(
-                              0xFFFCA5A5,
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Text(
-                            'Logout',
-                            style: TextStyle(
-                              color: Color(
-                                0xFFFCA5A5,
-                              ),
-                              fontSize: 11,
-                              fontWeight:
-                                  FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+                    ],
+                  ],
+                ],
               ),
             ),
           ],
@@ -720,13 +768,13 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                 switch (value) {
                   case 'profile':
                     setState(() {
-                      currentIndex = 8;
+                      currentIndex = 14;
                     });
                     break;
 
                   case 'settings':
                     setState(() {
-                      currentIndex = 10;
+                      currentIndex = 15;
                     });
                     break;
 
@@ -862,10 +910,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
   // =========================================================
 
   Widget _buildMobile() {
-    final menuTitles = menuItems.map((e) => e.title).toList();
-    final screenTitle = currentIndex < menuTitles.length
-        ? menuTitles[currentIndex]
-        : 'Dashboard';
+    final screenTitle = _getScreenTitle();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FB),
@@ -997,93 +1042,91 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
 
               const SizedBox(height: 12),
 
-              // MENU ITEMS
+              // MENU ITEMS IN 4 STRICT GROUPS
               Expanded(
-                child: ListView.builder(
+                child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: menuItems.length,
-                  itemBuilder: (ctx, index) {
-                    final item = menuItems[index];
-                    final selected = currentIndex == index;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Material(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(9),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(9),
-                          onTap: () {
-                            setState(() => currentIndex = index);
-                            Navigator.pop(ctx); // close drawer
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            height: 44,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: selected ? const Color(0xFF0284C7) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(9),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  selected ? item.selectedIcon : item.icon,
-                                  size: 20,
-                                  color: selected ? Colors.white : const Color(0xFF9CA3AF),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    item.title,
-                                    style: TextStyle(
-                                      color: selected ? Colors.white : const Color(0xFF9CA3AF),
-                                      fontSize: 13,
-                                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                  children: [
+                    for (final group in navGroups) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 14, 10, 6),
+                        child: Text(
+                          group.title,
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
                           ),
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
-
-              // LOGOUT
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: Color(0xFF1F2937))),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(9),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(9),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _logout();
-                    },
-                    child: const SizedBox(
-                      height: 44,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          children: [
-                            Icon(Icons.logout_rounded, size: 20, color: Color(0xFFFCA5A5)),
-                            SizedBox(width: 12),
-                            Text(
-                              'Logout',
-                              style: TextStyle(color: Color(0xFFFCA5A5), fontSize: 13, fontWeight: FontWeight.w700),
+                      for (final item in group.items) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(9),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(9),
+                              onTap: () {
+                                Navigator.pop(context);
+                                if (item.isLogout) {
+                                  _logout();
+                                } else if (item.isSupport) {
+                                  _openSupportDialog();
+                                } else {
+                                  setState(() => currentIndex = item.index);
+                                }
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                height: 42,
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                decoration: BoxDecoration(
+                                  color: (!item.isLogout && currentIndex == item.index)
+                                      ? const Color(0xFF0284C7)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(9),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      (!item.isLogout && currentIndex == item.index)
+                                          ? item.selectedIcon
+                                          : item.icon,
+                                      size: 19,
+                                      color: item.isLogout
+                                          ? const Color(0xFFFCA5A5)
+                                          : ((!item.isLogout && currentIndex == item.index)
+                                              ? Colors.white
+                                              : const Color(0xFF9CA3AF)),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        item.title,
+                                        style: TextStyle(
+                                          color: item.isLogout
+                                              ? const Color(0xFFFCA5A5)
+                                              : ((!item.isLogout && currentIndex == item.index)
+                                                  ? Colors.white
+                                                  : const Color(0xFF9CA3AF)),
+                                          fontSize: 13,
+                                          fontWeight: (!item.isLogout && currentIndex == item.index)
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
+                      ],
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -1159,14 +1202,30 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
 // MENU MODEL
 // =========================================================
 
-class _FranchiseMenuItem {
+class _FranchiseNavGroup {
+  final String title;
+  final List<_FranchiseNavItem> items;
+
+  const _FranchiseNavGroup({
+    required this.title,
+    required this.items,
+  });
+}
+
+class _FranchiseNavItem {
+  final int index;
   final String title;
   final IconData icon;
   final IconData selectedIcon;
+  final bool isLogout;
+  final bool isSupport;
 
-  const _FranchiseMenuItem({
+  const _FranchiseNavItem({
+    required this.index,
     required this.title,
     required this.icon,
     required this.selectedIcon,
+    this.isLogout = false,
+    this.isSupport = false,
   });
 }

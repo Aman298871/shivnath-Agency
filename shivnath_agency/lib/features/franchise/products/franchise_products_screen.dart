@@ -22,6 +22,7 @@ class _FranchiseProductsScreenState
     {'id': null, 'name': 'All', 'full_path': 'All'}
   ];
   bool _loadingCategories = false;
+  bool _loadingProducts = false;
 
   @override
   void initState() {
@@ -31,11 +32,12 @@ class _FranchiseProductsScreenState
   }
 
   Future<void> _fetchProducts() async {
+    if (mounted) setState(() => _loadingProducts = true);
     await ProductService().getProducts(
       categoryId: selectedCategoryId,
       category: selectedCategoryId == null && selectedCategoryName != 'All' ? selectedCategoryName : null,
     );
-    if (mounted) setState(() {});
+    if (mounted) setState(() => _loadingProducts = false);
   }
 
   Future<void> _fetchCategories() async {
@@ -374,8 +376,21 @@ class _FranchiseProductsScreenState
                 const SizedBox(height: 14),
 
                 Expanded(
-                  child: GridView.builder(
-                    itemCount: products.length,
+                  child: _loadingProducts
+                      ? const Center(child: CircularProgressIndicator())
+                      : products.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No products found',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )
+                          : GridView.builder(
+                              itemCount: products.length,
                     gridDelegate:
                         SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: desktop ? 4 : 2,

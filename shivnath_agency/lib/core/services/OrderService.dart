@@ -233,6 +233,7 @@ class OrderService {
 
     if (data.containsKey('order_items')) map['order_items'] = data['order_items'];
     if (data.containsKey('serving_franchise_id')) map['serving_franchise_id'] = data['serving_franchise_id'];
+    if (data.containsKey('order_source')) map['order_source'] = data['order_source'];
     if (data.containsKey('duration_choice')) map['duration_choice'] = data['duration_choice'];
     if (data.containsKey('duration_days')) map['duration_days'] = data['duration_days'];
     if (data.containsKey('customer_name')) map['customer_name'] = data['customer_name'];

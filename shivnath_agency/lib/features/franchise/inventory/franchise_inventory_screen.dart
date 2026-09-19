@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/InventoryService.dart';
+import '../../../core/services/product_service.dart';
+import '../../../models/product_model.dart';
 
 class FranchiseInventoryScreen extends StatefulWidget {
-  const FranchiseInventoryScreen({super.key});
+  final int initialTabIndex;
+  const FranchiseInventoryScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<FranchiseInventoryScreen> createState() => _FranchiseInventoryScreenState();
@@ -16,12 +19,17 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
   List<Map<String, dynamic>> _rawMaterials = [];
   List<Map<String, dynamic>> _transactions = [];
   List<Map<String, dynamic>> _productionLogs = [];
+  List<ProductModel> _finishedProducts = [];
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 3),
+    );
     _fetchData();
   }
 
@@ -64,6 +72,10 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       } else if (prodRes['data'] is Map && prodRes['data']['results'] is List) {
         _productionLogs = List<Map<String, dynamic>>.from(prodRes['data']['results']);
       }
+
+      // Fetch finished products
+      await ProductService().getProducts();
+      _finishedProducts = ProductService.products;
     } catch (e) {
       _error = 'Failed to load inventory data. Please check your connection.';
     }
@@ -112,7 +124,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
                             ),
                           ),
                           Text(
-                            'Raw materials, production & stock ledger',
+                            'Raw materials, finished goods, production & ledger',
                             style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
                           ),
                         ],
@@ -128,6 +140,8 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
                 const SizedBox(height: 14),
                 TabBar(
                   controller: _tabController,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
                   labelColor: const Color(0xFF0284C7),
                   unselectedLabelColor: const Color(0xFF9CA3AF),
                   indicatorColor: const Color(0xFF0284C7),
@@ -135,6 +149,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
                   unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
                   tabs: const [
                     Tab(text: 'Raw Materials'),
+                    Tab(text: 'Finished Products'),
                     Tab(text: 'Production'),
                     Tab(text: 'Transactions'),
                   ],
@@ -155,6 +170,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
                         controller: _tabController,
                         children: [
                           _buildRawMaterialsTab(),
+                          _buildFinishedProductsTab(),
                           _buildProductionTab(),
                           _buildTransactionsTab(),
                         ],
@@ -232,6 +248,45 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
   }
 
   // ─────────────────────────────────────────
+  // TAB 2: FINISHED PRODUCTS
+  // ─────────────────────────────────────────
+  Widget _buildFinishedProductsTab() {
+    if (_finishedProducts.isEmpty) {
+      return _buildEmpty(
+        icon: Icons.local_drink_outlined,
+        label: 'No finished products found.',
+        subtitle: 'Log production batches or order stock to populate finished products.',
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: _finishedProducts.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (ctx, i) {
+        final product = _finishedProducts[i];
+        final stock = product.stock;
+        final isLow = stock <= 10;
+        final isOutOfStock = stock <= 0;
+
+        return _InventoryCard(
+          icon: product.category == 'Water Jar' ? Icons.water_drop_rounded : Icons.local_drink_rounded,
+          iconColor: isOutOfStock
+              ? const Color(0xFFEF4444)
+              : (isLow ? const Color(0xFFF59E0B) : const Color(0xFF0284C7)),
+          title: product.name,
+          subtitle: 'Category: ${product.category}  |  Size: ${product.size}  |  Price: ₹${product.price.toStringAsFixed(0)} / ${product.unit}',
+          value: stock.toString(),
+          valueLabel: 'Units Available',
+          valueColor: isOutOfStock
+              ? const Color(0xFFEF4444)
+              : (isLow ? const Color(0xFFF59E0B) : const Color(0xFF059669)),
+          badge: isOutOfStock ? 'OUT OF STOCK' : (isLow ? 'LOW STOCK' : null),
+          badgeColor: isOutOfStock ? const Color(0xFFEF4444) : const Color(0xFFF59E0B),
+        );
+      },
+    );
+  }
   // TAB 2: PRODUCTION LOGS
   // ─────────────────────────────────────────
   Widget _buildProductionTab() {

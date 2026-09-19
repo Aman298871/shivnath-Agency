@@ -38,6 +38,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? fallbackMessage;
   String matchLevel = 'exact';
   Map<String, dynamic>? supportContact;
+  String orderSource = 'FRANCHISE'; // 'FRANCHISE' or 'DIRECT_COMPANY'
+  bool hasCustomerTerritory = false;
 
   @override
   void initState() {
@@ -46,8 +48,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _loadCustomerAndFranchises() async {
-    String district = 'Raipur';
+    String? district;
     int? zoneId;
+    bool hasTerritory = false;
 
     // Instant local autofill from SessionService and SharedPreferences
     final localUser = await SessionService().getUser();
@@ -83,32 +86,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (data['address'] != null && data['address'].toString().isNotEmpty) {
         addressController.text = data['address'].toString();
       }
+
+      final terrInfo = data['territory_info'] as Map<String, dynamic>?;
       final terr = data['territory'] as Map<String, dynamic>?;
-      if (terr != null) {
+
+      if (terrInfo != null && terrInfo['is_assigned'] == true) {
+        hasTerritory = true;
+        district = terrInfo['district']?.toString();
+        userZoneName = terrInfo['territory']?.toString();
+        zoneId = terrInfo['zone_id'] as int?;
+      } else if (terr != null && (terr['zone_id'] != null || terr['district'] != null)) {
+        hasTerritory = true;
         userZoneName = terr['zone_name']?.toString() ?? data['zone_name']?.toString();
         zoneId = (terr['zone_id'] as int?) ?? (data['zone_id'] as int?);
-        if (terr['district'] != null && terr['district'].toString().isNotEmpty) {
-          district = terr['district'].toString();
-        } else if (data['district'] != null && data['district'].toString().isNotEmpty) {
-          district = data['district'].toString();
-        }
-      } else {
-        if (data['zone_name'] != null) {
-          userZoneName = data['zone_name']?.toString();
-        }
-        if (data['zone_id'] != null) {
-          zoneId = data['zone_id'] as int?;
-        }
-        if (data['district'] != null && data['district'].toString().isNotEmpty) {
-          district = data['district'].toString();
-        }
+        district = terr['district']?.toString() ?? data['district']?.toString();
+      } else if (data['zone_id'] != null || (data['district'] != null && data['district'].toString().isNotEmpty)) {
+        hasTerritory = true;
+        zoneId = data['zone_id'] as int?;
+        district = data['district']?.toString();
+        userZoneName = data['zone_name']?.toString();
       }
     }
 
-    final fRes = await AuthService().getEligibleFranchises(
-      district: district,
-      zoneId: zoneId,
-    );
+    Map<String, dynamic> fRes = {'success': true, 'data': {'franchises': []}};
+    if (district != null && district.isNotEmpty) {
+      fRes = await AuthService().getEligibleFranchises(
+        district: district,
+        zoneId: zoneId,
+      );
+    }
 
     if (mounted) {
       List<Map<String, dynamic>> franchises = [];
@@ -132,6 +138,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
       }
       setState(() {
+        hasCustomerTerritory = hasTerritory;
         eligibleFranchises = franchises;
         isFallbackFranchise = isFallback;
         fallbackMessage = fallbackMsg;
@@ -140,8 +147,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         isLoadingFranchises = false;
         if (franchises.isNotEmpty) {
           selectedFranchiseId = franchises.first['id'] as int?;
+          orderSource = 'FRANCHISE';
         } else {
           selectedFranchiseId = null;
+          orderSource = 'DIRECT_COMPANY';
         }
       });
     }
@@ -175,16 +184,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
-    if (eligibleFranchises.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Service is currently unavailable in your delivery area. Please contact support.'),
-          backgroundColor: Color(0xFFDC2626),
-        ),
-      );
-      return;
-    }
-
     final cart = context.read<CartProvider>();
     if (cart.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -192,6 +191,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       return;
     }
+
+    final isDirect = orderSource == 'DIRECT_COMPANY' || eligibleFranchises.isEmpty || selectedFranchiseId == null;
+    final finalOrderSource = isDirect ? 'DIRECT_COMPANY' : 'FRANCHISE';
+    final finalServingFranchiseId = isDirect ? null : selectedFranchiseId;
 
     final amount = cart.totalAmount;
     final totalItems = cart.itemCount;
@@ -216,7 +219,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     try {
       final res = await OrderService().createOrder({
-        'franchise': nameController.text.trim(),
+        'franchise': isDirect ? 'Shivnath Agency (Direct Company Fulfillment)' : nameController.text.trim(),
         'city': addressController.text.trim(),
         'customer_name': nameController.text.trim(),
         'phone': phoneController.text.trim(),
@@ -227,7 +230,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'payment': paymentMethod == 'COD' ? 'Pending' : 'Paid',
         'duration_choice': durationChoice,
         'duration_days': durationDays,
-        if (selectedFranchiseId != null) 'serving_franchise_id': selectedFranchiseId,
+        'order_source': finalOrderSource,
+        if (finalServingFranchiseId != null) 'serving_franchise_id': finalServingFranchiseId,
         'order_items': orderItems,
       });
 
@@ -441,7 +445,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               children: [
                 const Expanded(
                   child: Text(
-                    'Serving Supply Franchise',
+                    'Order Fulfillment',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -467,11 +471,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Your order will be fulfilled and delivered by an authorized franchise in your service zone.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 10),
             if (isLoadingFranchises)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
@@ -479,116 +478,163 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   children: [
                     SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                     SizedBox(width: 10),
-                    Text('Loading authorized franchises...', style: TextStyle(fontSize: 12)),
+                    Text('Checking fulfillment availability...', style: TextStyle(fontSize: 12)),
                   ],
                 ),
               )
             else if (eligibleFranchises.isNotEmpty) ...[
-              if (isFallbackFranchise)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFFBEB),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          fallbackMessage ??
-                              'No franchise is currently available in your selected area. We found franchises serving nearby/alternate service areas.',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF92400E),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              DropdownButtonFormField<int>(
-                value: selectedFranchiseId,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.storefront_outlined),
-                  labelText: 'Selected Franchise Partner',
-                ),
-                items: eligibleFranchises.map((f) {
-                  final name = f['business_name']?.toString() ?? 'Franchise Partner';
-                  final isPrimary = f['is_primary'] == true;
-                  final coverage = f['service_coverage']?.toString();
-                  final label = (isFallbackFranchise && coverage != null && coverage.isNotEmpty)
-                      ? '$name ($coverage)'
-                      : (isPrimary ? '$name (Primary Partner)' : name);
-
-                  return DropdownMenuItem<int>(
-                    value: f['id'] as int?,
-                    child: Text(
-                      label,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: isPrimary ? FontWeight.w700 : FontWeight.normal,
-                        fontSize: 13,
-                      ),
-                    ),
-                  );
-                }).toList(),
+              const Text(
+                'Choose how you would like your order to be fulfilled:',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 12),
+              _PaymentTile(
+                title: 'Order from Franchise',
+                subtitle: 'Delivered by authorized supply franchise in your service zone',
+                icon: Icons.storefront_outlined,
+                value: 'FRANCHISE',
+                groupValue: orderSource,
                 onChanged: (val) {
-                  setState(() => selectedFranchiseId = val);
+                  setState(() => orderSource = val);
                 },
               ),
-            ] else
+              if (orderSource == 'FRANCHISE') ...[
+                const SizedBox(height: 10),
+                DropdownButtonFormField<int>(
+                  value: selectedFranchiseId,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.location_city_outlined),
+                    labelText: 'Select Serving Franchise Partner',
+                  ),
+                  items: eligibleFranchises.map((f) {
+                    final name = f['business_name']?.toString() ?? 'Franchise Partner';
+                    final isPrimary = f['is_primary'] == true;
+                    final coverage = f['service_coverage']?.toString();
+                    final label = (coverage != null && coverage.isNotEmpty)
+                        ? '$name ($coverage)'
+                        : (isPrimary ? '$name (Primary Partner)' : name);
+
+                    return DropdownMenuItem<int>(
+                      value: f['id'] as int?,
+                      child: Text(
+                        label,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: isPrimary ? FontWeight.w700 : FontWeight.normal,
+                          fontSize: 13,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() => selectedFranchiseId = val);
+                  },
+                ),
+              ],
+              const SizedBox(height: 10),
+              _PaymentTile(
+                title: 'Order Directly from Shivnath Agency',
+                subtitle: 'Central company fulfillment & dispatch',
+                icon: Icons.business_outlined,
+                value: 'DIRECT_COMPANY',
+                groupValue: orderSource,
+                onChanged: (val) {
+                  setState(() => orderSource = val);
+                },
+              ),
+            ] else if (hasCustomerTerritory) ...[
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFFECACA)),
+                  color: const Color(0xFFF0F9FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBAE6FD)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.location_off_outlined, color: Color(0xFFDC2626), size: 22),
-                        SizedBox(width: 10),
-                        Expanded(
+                        const Icon(Icons.business_outlined, color: Color(0xFF0284C7), size: 22),
+                        const SizedBox(width: 10),
+                        const Expanded(
                           child: Text(
-                            'Service currently unavailable in your area',
+                            'Direct Company Fulfillment',
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
-                              color: Color(0xFF991B1B),
+                              color: Color(0xFF0369A1),
                             ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0284C7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Shivnath Agency',
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'We do not currently have active fulfillment franchises covering your location. Please contact Shivnath central support for delivery availability or franchise inquiries.',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
+                      'No franchise is currently available in your territory. Your order will be handled directly by Shivnath Agency.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF075985), fontWeight: FontWeight.w500),
                     ),
-                    if (supportContact != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        'Central Helpline: ${supportContact!['phone'] ?? '+91 98765 43210'}',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF991B1B)),
-                      ),
-                      if (supportContact!['email'] != null)
-                        Text(
-                          'Email: ${supportContact!['email']}',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
-                        ),
-                    ],
                   ],
                 ),
               ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.business_outlined, color: Color(0xFF334155), size: 22),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Direct Company Fulfillment',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF475569),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Shivnath Agency',
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'No delivery territory selected. Your order will be handled directly by Shivnath Agency (you can complete your territory in Profile anytime).',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 28),
             const Text(
               'Payment Method',
@@ -663,7 +709,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             const SizedBox(height: 22),
             ElevatedButton(
-              onPressed: (_isSubmitting || eligibleFranchises.isEmpty) ? null : placeOrder,
+              onPressed: _isSubmitting ? null : placeOrder,
               child: _isSubmitting
                   ? const SizedBox(
                       width: 22,
@@ -673,7 +719,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : Text(eligibleFranchises.isEmpty ? 'Service Unavailable in Area' : 'Place Order'),
+                  : const Text('Place Order'),
             ),
           ],
         ),

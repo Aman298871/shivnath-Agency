@@ -1140,7 +1140,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     _qualificationStep = 101;
     _leadData.clear();
     _respond(
-      '📝 *Customer Inquiry & Delivery Desk*\n\nTo connect you with pure water supply and your territory franchise, please share your details:\n\n👉 **Step 1/6: What is your Full Name?**\n*(Please type your full name - 2 to 25 words)*',
+      '📝 *Customer Inquiry & Delivery Desk*\n\nTo connect you with pure water supply and your territory franchise, please share your details:\n\n👉 **Step 1/6: What is your Full Name?**\n*(2 to 30 characters, letters only)*',
     );
   }
 
@@ -1151,7 +1151,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     _qualificationStep = 201;
     _leadData.clear();
     _respond(
-      '🏢 *Franchise Pre-Qualification & Territory Feasibility*\n\nTo evaluate territory availability and ROI margins, please answer these quick questions:\n\n👉 **Step 1/9: What is your Full Name?**\n*(Please type your full name - 2 to 25 words)*',
+      '🏢 *Franchise Pre-Qualification & Territory Feasibility*\n\nTo evaluate territory availability and ROI margins, please answer these quick questions:\n\n👉 **Step 1/9: What is your Full Name?**\n*(2 to 30 characters, letters only)*',
     );
   }
 
@@ -1162,39 +1162,36 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     if (_qualificationStep >= 101 && _qualificationStep <= 106 || _qualificationStep == 1045) {
       switch (_qualificationStep) {
         case 101:
-          final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-          if (words.length < 2 || words.length > 25 || trimmed.length < 2) {
-            _respond('⚠️ Please enter a valid Full Name with at least 2 words (between 2 and 25 words, e.g. Rahul Sharma):');
+          final nameRegex = RegExp(r"^[a-zA-Z\s.']+$");
+          if (trimmed.length < 2 || trimmed.length > 30 || !nameRegex.hasMatch(trimmed)) {
+            _respond('⚠️ Please enter a valid name (2 to 30 characters, letters only, e.g. Rahul Sharma):');
             return;
           }
           _leadData['name'] = trimmed;
           _qualificationStep = 102;
-          _respond('Nice to meet you, $trimmed! 👋\n\n👉 **Step 2/6: Please enter your 10-digit Mobile Number:**\n*(Must start with 6, 7, 8, or 9)*');
+          _respond('Nice to meet you, $trimmed! 👋\n\n👉 **Step 2/6: Please enter your 10-digit Mobile Number:**\n*(Must be exactly 10 digits starting with 6, 7, 8, or 9)*');
           break;
 
         case 102:
-          final cleanDigits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
-          String tenDigits = cleanDigits;
-          if (cleanDigits.length == 12 && cleanDigits.startsWith('91')) {
-            tenDigits = cleanDigits.substring(2);
-          }
           final phoneRegex = RegExp(r'^[6-9]\d{9}$');
-          if (!phoneRegex.hasMatch(tenDigits)) {
+          if (!phoneRegex.hasMatch(trimmed)) {
             _respond('⚠️ Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9 (e.g. 9876543210):');
             return;
           }
-          _leadData['phone'] = tenDigits;
+          _leadData['phone'] = trimmed;
           _qualificationStep = 103;
           _respond(
-            '👉 **Step 3/6: What is your Email Address?** (Optional):',
-            options: [_ChatOptionItem(title: 'Skip Email')],
+            '👉 **Step 3/6: What is your Email Address?**\n*(Required for order confirmations and invoices)*',
           );
           break;
 
         case 103:
-          if (trimmed.toLowerCase() != 'skip' && trimmed.toLowerCase() != 'skip email') {
-            _leadData['email'] = trimmed;
+          final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+          if (!emailRegex.hasMatch(trimmed)) {
+            _respond('⚠️ Please enter a valid email address (e.g. name@example.com):');
+            return;
           }
+          _leadData['email'] = trimmed;
           _qualificationStep = 104;
           _respond(
             '👉 **Step 4/6: What is your District?**\n*(Select your district or tap Others)*',
@@ -1262,39 +1259,36 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     if ((_qualificationStep >= 201 && _qualificationStep <= 210) || _qualificationStep == 2045) {
       switch (_qualificationStep) {
         case 201:
-          final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-          if (words.length < 2 || words.length > 25 || trimmed.length < 2) {
-            _respond('⚠️ Please enter a valid Full Name with at least 2 words (between 2 and 25 words, e.g. Rahul Sharma):');
+          final nameRegex = RegExp(r"^[a-zA-Z\s.']+$");
+          if (trimmed.length < 2 || trimmed.length > 30 || !nameRegex.hasMatch(trimmed)) {
+            _respond('⚠️ Please enter a valid name (2 to 30 characters, letters only, e.g. Rahul Sharma):');
             return;
           }
           _leadData['name'] = trimmed;
           _qualificationStep = 202;
-          _respond('Nice to meet you, $trimmed! 👋\n\n👉 **Step 2/9: Please enter your 10-digit Mobile Number:**\n*(Must start with 6, 7, 8, or 9)*');
+          _respond('Nice to meet you, $trimmed! 👋\n\n👉 **Step 2/9: Please enter your 10-digit Mobile Number:**\n*(Must be exactly 10 digits starting with 6, 7, 8, or 9)*');
           break;
 
         case 202:
-          final cleanDigits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
-          String tenDigits = cleanDigits;
-          if (cleanDigits.length == 12 && cleanDigits.startsWith('91')) {
-            tenDigits = cleanDigits.substring(2);
-          }
           final phoneRegex = RegExp(r'^[6-9]\d{9}$');
-          if (!phoneRegex.hasMatch(tenDigits)) {
+          if (!phoneRegex.hasMatch(trimmed)) {
             _respond('⚠️ Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9 (e.g. 9876543210):');
             return;
           }
-          _leadData['phone'] = tenDigits;
+          _leadData['phone'] = trimmed;
           _qualificationStep = 203;
           _respond(
-            '👉 **Step 3/9: What is your Email Address?** (Optional):',
-            options: [_ChatOptionItem(title: 'Skip Email')],
+            '👉 **Step 3/9: What is your Email Address?**\n*(Required for franchise proposal and feasibility reports)*',
           );
           break;
 
         case 203:
-          if (trimmed.toLowerCase() != 'skip' && trimmed.toLowerCase() != 'skip email') {
-            _leadData['email'] = trimmed;
+          final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+          if (!emailRegex.hasMatch(trimmed)) {
+            _respond('⚠️ Please enter a valid email address (e.g. partner@example.com):');
+            return;
           }
+          _leadData['email'] = trimmed;
           _qualificationStep = 204;
           _respond(
             '👉 **Step 4/9: What is your District?**\n*(Select your district or tap Others)*',

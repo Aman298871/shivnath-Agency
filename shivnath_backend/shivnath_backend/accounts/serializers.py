@@ -662,6 +662,7 @@ class CurrentUserSerializer(
     current_serving_franchise = serializers.SerializerMethodField()
     service_status = serializers.SerializerMethodField()
     active_stock_cycle = serializers.SerializerMethodField()
+    territory_info = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -678,6 +679,7 @@ class CurrentUserSerializer(
             'city',
             'address',
             'territory',
+            'territory_info',
             'approved_at',
             'district',
             'pincode',
@@ -725,7 +727,24 @@ class CurrentUserSerializer(
 
     def get_territory(self, obj):
         if hasattr(obj, 'franchise_profile'):
-            return {'territory': obj.franchise_profile.territory}
+            fp = obj.franchise_profile
+            from .models import FranchiseTerritoryAssignment
+            assign = FranchiseTerritoryAssignment.objects.filter(franchise=fp, is_active=True).select_related('zone', 'zone__district').first()
+            if assign:
+                return {
+                    'district': assign.zone.district.name,
+                    'zone_id': assign.zone.id,
+                    'zone_name': assign.zone.name,
+                    'locality': fp.address,
+                    'territory': assign.zone.name,
+                }
+            return {
+                'district': fp.city,
+                'zone_id': None,
+                'zone_name': fp.territory,
+                'locality': fp.address,
+                'territory': fp.territory,
+            }
         rel = getattr(obj, 'customer_relationship', None)
         prof = getattr(obj, 'profile', None)
         return {
@@ -736,12 +755,59 @@ class CurrentUserSerializer(
             'pincode': rel.pincode if rel else (prof.pincode if prof else ''),
         }
 
+    def get_territory_info(self, obj):
+        if hasattr(obj, 'franchise_profile'):
+            fp = obj.franchise_profile
+            from .models import FranchiseTerritoryAssignment
+            assign = FranchiseTerritoryAssignment.objects.filter(franchise=fp, is_active=True).select_related('zone', 'zone__district').first()
+            if assign:
+                areas = list(assign.zone.areas.filter(is_active=True).values_list('locality_name', flat=True)[:5])
+                return {
+                    'district': assign.zone.district.name,
+                    'territory': assign.zone.name,
+                    'zone_id': assign.zone.id,
+                    'service_area': ", ".join(areas) if areas else (fp.city or ""),
+                    'address': fp.address or "",
+                    'is_assigned': True,
+                }
+            return {
+                'district': fp.city or "",
+                'territory': fp.territory or "",
+                'zone_id': None,
+                'service_area': fp.city or "",
+                'address': fp.address or "",
+                'is_assigned': bool(fp.city or fp.territory),
+            }
+
+        rel = getattr(obj, 'customer_relationship', None)
+        prof = getattr(obj, 'profile', None)
+        dist = rel.district.name if rel and rel.district else (prof.district if prof else '')
+        zone_name = rel.zone.name if rel and rel.zone else (prof.territory if prof else '')
+        zone_id = rel.zone.id if rel and rel.zone else (prof.zone.id if prof and prof.zone else None)
+        locality = rel.locality if rel and rel.locality else (prof.locality if prof else '')
+        address = prof.address if prof else ''
+        return {
+            'district': dist,
+            'territory': zone_name,
+            'zone_id': zone_id,
+            'service_area': locality,
+            'address': address,
+            'is_assigned': bool(dist or zone_id or zone_name),
+        }
+
     def get_approved_at(self, obj):
         if hasattr(obj, 'franchise_profile') and obj.franchise_profile.approved_at:
             return obj.franchise_profile.approved_at.isoformat()
         return None
 
     def get_district(self, obj):
+        if hasattr(obj, 'franchise_profile'):
+            fp = obj.franchise_profile
+            from .models import FranchiseTerritoryAssignment
+            assign = FranchiseTerritoryAssignment.objects.filter(franchise=fp, is_active=True).select_related('zone', 'zone__district').first()
+            if assign:
+                return assign.zone.district.name
+            return fp.city
         rel = getattr(obj, 'customer_relationship', None)
         if rel and rel.district:
             return rel.district.name
@@ -756,6 +822,8 @@ class CurrentUserSerializer(
         return prof.pincode if prof else ''
 
     def get_locality(self, obj):
+        if hasattr(obj, 'franchise_profile'):
+            return obj.franchise_profile.address
         rel = getattr(obj, 'customer_relationship', None)
         if rel and rel.locality:
             return rel.locality
@@ -763,6 +831,11 @@ class CurrentUserSerializer(
         return prof.locality if prof else ''
 
     def get_zone_id(self, obj):
+        if hasattr(obj, 'franchise_profile'):
+            fp = obj.franchise_profile
+            from .models import FranchiseTerritoryAssignment
+            assign = FranchiseTerritoryAssignment.objects.filter(franchise=fp, is_active=True).first()
+            return assign.zone_id if assign else None
         rel = getattr(obj, 'customer_relationship', None)
         if rel and rel.zone:
             return rel.zone.id
@@ -770,6 +843,13 @@ class CurrentUserSerializer(
         return prof.zone.id if prof and prof.zone else None
 
     def get_zone_name(self, obj):
+        if hasattr(obj, 'franchise_profile'):
+            fp = obj.franchise_profile
+            from .models import FranchiseTerritoryAssignment
+            assign = FranchiseTerritoryAssignment.objects.filter(franchise=fp, is_active=True).select_related('zone').first()
+            if assign:
+                return assign.zone.name
+            return fp.territory
         rel = getattr(obj, 'customer_relationship', None)
         if rel and rel.zone:
             return rel.zone.name
@@ -826,8 +906,8 @@ class CurrentUserSerializer(
             'service_status': cycle.service_status,
             'remaining_days': remaining,
             'is_low_stock': (remaining <= 7 and cycle.service_status == 'active'),
-            'serving_franchise_id': cycle.serving_franchise.id,
-            'serving_franchise_name': cycle.serving_franchise.business_name,
+            'serving_franchise_id': cycle.serving_franchise.id if cycle.serving_franchise else None,
+            'serving_franchise_name': cycle.serving_franchise.business_name if cycle.serving_franchise else 'Shivnath Agency (Direct)',
         }
 
 

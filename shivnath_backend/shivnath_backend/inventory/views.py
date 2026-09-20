@@ -620,3 +620,352 @@ class FranchiseInventoryTransactionListView(APIView):
             for t in txns
         ]
         return Response({'success': True, 'data': data})
+
+
+# =====================================================================
+# AUTHORITATIVE ENTERPRISE ERP VIEWS
+# =====================================================================
+
+from rest_framework import generics, permissions, views
+from .models import (
+    RawMaterial,
+    ProductionBatch,
+    DealerStockBatch,
+    DealerStockRequest,
+    DealerStockRequestAllocation,
+    InventoryTransactionLedger,
+    Expense,
+    DailyBusinessReport,
+    ExpiryAlertLog,
+)
+from .serializers import (
+    RawMaterialSerializer,
+    ProductionBatchSerializer,
+    DealerStockBatchSerializer,
+    DealerStockRequestSerializer,
+    DealerStockRequestAllocationSerializer,
+    InventoryTransactionLedgerSerializer,
+    ExpenseSerializer,
+    DailyBusinessReportSerializer,
+)
+from .services import (
+    create_production_batch_atomic,
+    allocate_and_dispatch_stock_request_atomic,
+    receive_stock_request_atomic,
+)
+
+
+class RawMaterialListCreateAPIView(generics.ListCreateAPIView):
+    queryset = RawMaterial.objects.all()
+    serializer_class = RawMaterialSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category)
+        return qs
+
+
+class ProductionBatchListCreateAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        batches = ProductionBatch.objects.select_related('product').all()
+        product_id = request.query_params.get('product_id')
+        if product_id:
+            batches = batches.filter(product_id=product_id)
+        serializer = ProductionBatchSerializer(batches, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        product_id = request.data.get('product') or request.data.get('product_id')
+        qty = request.data.get('quantity_produced_units') or request.data.get('quantity')
+        mfg_date = request.data.get('manufacture_date')
+        exp_date = request.data.get('expiry_date')
+        batch_number = request.data.get('batch_number')
+
+        if not product_id or not qty:
+            return Response({'error': 'Product and quantity_produced_units are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            batch = create_production_batch_atomic(
+                product_id=product_id,
+                quantity_produced_units=int(qty),
+                manufacture_date=mfg_date,
+                expiry_date=exp_date,
+                batch_number=batch_number,
+                actor=request.user
+            )
+            return Response(ProductionBatchSerializer(batch).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DealerStockBatchListAPIView(generics.ListAPIView):
+    serializer_class = DealerStockBatchSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = DealerStockBatch.objects.select_related('product', 'dealer').all()
+
+        if hasattr(user, 'profile') and user.profile.role == 'franchise':
+            dealer = getattr(user, 'franchise_profile', None)
+            if dealer:
+                qs = qs.filter(dealer=dealer)
+            else:
+                qs = qs.none()
+        else:
+            dealer_id = self.request.query_params.get('dealer_id')
+            if dealer_id:
+                qs = qs.filter(dealer_id=dealer_id)
+
+        product_id = self.request.query_params.get('product_id')
+        if product_id:
+            qs = qs.filter(product_id=product_id)
+
+        return qs
+
+
+class DealerStockRequestListCreateAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        qs = DealerStockRequest.objects.select_related('product', 'dealer').prefetch_related('allocations__production_batch').all()
+
+        if hasattr(user, 'profile') and user.profile.role == 'franchise':
+            dealer = getattr(user, 'franchise_profile', None)
+            if dealer:
+                qs = qs.filter(dealer=dealer)
+            else:
+                qs = qs.none()
+        else:
+            dealer_id = request.query_params.get('dealer_id')
+            if dealer_id:
+                qs = qs.filter(dealer_id=dealer_id)
+
+        status_param = request.query_params.get('status')
+        if status_param:
+            qs = qs.filter(status=status_param)
+
+        serializer = DealerStockRequestSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        user = request.user
+        dealer = getattr(user, 'franchise_profile', None)
+        if not dealer and 'dealer_id' in request.data:
+            from accounts.models import FranchiseProfile
+            dealer = get_object_or_404(FranchiseProfile, id=request.data['dealer_id'])
+
+        if not dealer:
+            return Response({'error': 'No dealer profile associated.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        product_id = request.data.get('product') or request.data.get('product_id')
+        qty = request.data.get('requested_quantity')
+        notes = request.data.get('dealer_notes', '')
+
+        if not product_id or not qty:
+            return Response({'error': 'Product and requested_quantity are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from products.models import Product
+        product = get_object_or_404(Product, id=product_id)
+
+        count = DealerStockRequest.objects.count() + 1
+        req_number = f"SR-{timezone.now().strftime('%Y%m')}-{count:04d}"
+
+        stock_req = DealerStockRequest.objects.create(
+            request_number=req_number,
+            dealer=dealer,
+            product=product,
+            requested_quantity=int(qty),
+            dealer_notes=notes,
+            status='REQUESTED'
+        )
+        return Response(DealerStockRequestSerializer(stock_req).data, status=status.HTTP_201_CREATED)
+
+
+class DealerStockRequestDispatchAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        stock_req = get_object_or_404(DealerStockRequest, pk=pk)
+        allocations_data = request.data.get('allocations', [])
+
+        if not allocations_data:
+            return Response({'error': 'allocations list is required [{"batch_id": int, "quantity": int}].'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            req_obj, invoice = allocate_and_dispatch_stock_request_atomic(
+                stock_request=stock_req,
+                allocations_list=allocations_data,
+                actor=request.user
+            )
+            return Response({
+                'stock_request': DealerStockRequestSerializer(req_obj).data,
+                'invoice_id': invoice.id,
+                'invoice_number': invoice.invoice_number,
+                'grand_total': invoice.grand_total
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DealerStockRequestReceiveAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        stock_req = get_object_or_404(DealerStockRequest, pk=pk)
+        receipt_items = request.data.get('receipt_items', [])
+
+        if not receipt_items:
+            # Fallback: if no detailed items passed, mark all allocations as received
+            receipt_items = [
+                {
+                    'allocation_id': alloc.id,
+                    'received_quantity': alloc.dispatched_quantity,
+                    'damaged_quantity': 0
+                }
+                for alloc in stock_req.allocations.all()
+            ]
+
+        try:
+            req_obj = receive_stock_request_atomic(
+                stock_request=stock_req,
+                receipt_items=receipt_items,
+                actor=request.user
+            )
+            return Response(DealerStockRequestSerializer(req_obj).data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class InventoryLedgerListAPIView(generics.ListAPIView):
+    serializer_class = InventoryTransactionLedgerSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = InventoryTransactionLedger.objects.select_related('product', 'raw_material', 'dealer', 'actor').all()
+
+        if hasattr(user, 'profile') and user.profile.role == 'franchise':
+            dealer = getattr(user, 'franchise_profile', None)
+            if dealer:
+                qs = qs.filter(dealer=dealer)
+            else:
+                qs = qs.none()
+        else:
+            dealer_id = self.request.query_params.get('dealer_id')
+            if dealer_id:
+                qs = qs.filter(dealer_id=dealer_id)
+
+        tx_type = self.request.query_params.get('transaction_type')
+        if tx_type:
+            qs = qs.filter(transaction_type=tx_type)
+
+        material_type = self.request.query_params.get('material_type')
+        if material_type:
+            qs = qs.filter(material_type=material_type)
+
+        return qs[:200]
+
+
+class ExpenseListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Expense.objects.all()
+    serializer_class = ExpenseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        count = Expense.objects.count() + 1
+        exp_number = f"EXP-{timezone.now().strftime('%Y%m')}-{count:04d}"
+        serializer.save(expense_number=exp_number, recorded_by=self.request.user)
+
+
+class DailyBusinessReportAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        date_str = request.query_params.get('date')
+        if date_str:
+            report = DailyBusinessReport.objects.filter(report_date=date_str).first()
+            if report:
+                return Response(DailyBusinessReportSerializer(report).data)
+
+        # Return latest reports
+        reports = DailyBusinessReport.objects.all()[:30]
+        return Response(DailyBusinessReportSerializer(reports, many=True).data)
+
+
+class ExpiryAlertListAPIView(generics.ListAPIView):
+    queryset = ExpiryAlertLog.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        qs = ExpiryAlertLog.objects.select_related('production_batch__product', 'dealer_batch__product', 'dealer').all()
+        if hasattr(user, 'profile') and user.profile.role == 'franchise':
+            dealer = getattr(user, 'franchise_profile', None)
+            if dealer:
+                qs = qs.filter(dealer=dealer)
+            else:
+                qs = qs.none()
+
+        data = [
+            {
+                'id': a.id,
+                'batch_type': a.batch_type,
+                'dealer_name': a.dealer.business_name if a.dealer else 'Company Central Plant',
+                'batch_number': a.production_batch.batch_number if a.production_batch else (a.dealer_batch.batch_number if a.dealer_batch else ''),
+                'product_name': a.production_batch.product.name if a.production_batch else (a.dealer_batch.product.name if a.dealer_batch else ''),
+                'alert_level': a.alert_level,
+                'alert_date': a.alert_date.isoformat(),
+                'deduplication_hash': a.deduplication_hash
+            }
+            for a in qs[:100]
+        ]
+        return Response({'success': True, 'count': len(data), 'alerts': data})
+
+
+class StockAdjustmentAPIView(views.APIView):
+    """
+    Authorized manual stock audit correction. Creates an ADJUSTMENT ledger transaction.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        if not (user.is_superuser or role in ['admin', 'super_admin', 'franchise']):
+            return Response({'error': 'Unauthorized to record stock adjustments.'}, status=status.HTTP_403_FORBIDDEN)
+
+        entity_type = request.data.get('entity_type')
+        entity_id = request.data.get('entity_id')
+        adjusted_quantity = request.data.get('adjusted_quantity')
+        reason = request.data.get('reason', 'Manual Stock Correction')
+
+        if not entity_type or not entity_id or adjusted_quantity is None:
+            return Response({'error': 'entity_type, entity_id, and adjusted_quantity are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .services import adjust_stock_atomic
+        try:
+            ledger_entry = adjust_stock_atomic(
+                entity_type=entity_type,
+                entity_id=entity_id,
+                adjusted_quantity=adjusted_quantity,
+                reason=reason,
+                actor=user
+            )
+            return Response({
+                'success': True,
+                'message': 'Stock adjustment successfully logged.',
+                'transaction_id': str(ledger_entry.transaction_id),
+                'transaction_type': ledger_entry.transaction_type,
+                'quantity': str(ledger_entry.quantity),
+                'balance_after': str(ledger_entry.balance_after)
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+

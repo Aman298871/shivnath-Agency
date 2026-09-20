@@ -40,6 +40,7 @@ class _CustomerHomeScreenState
   int _currentBannerIndex = 0;
   UserModel? _currentUser;
   bool _isLoading = true;
+  String search = '';
 
   @override
   void initState() {

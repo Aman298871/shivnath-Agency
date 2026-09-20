@@ -489,8 +489,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               const SizedBox(height: 12),
               _PaymentTile(
-                title: 'Order from Franchise',
-                subtitle: 'Delivered by authorized supply franchise in your service zone',
+                title: 'Order from Wholesale Dealer',
+                subtitle: 'Delivered by authorized local wholesale dealer in your zone',
                 icon: Icons.storefront_outlined,
                 value: 'FRANCHISE',
                 groupValue: orderSource,
@@ -504,15 +504,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   value: selectedFranchiseId,
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.location_city_outlined),
-                    labelText: 'Select Serving Franchise Partner',
+                    labelText: 'Select Serving Wholesale Dealer',
                   ),
                   items: eligibleFranchises.map((f) {
-                    final name = f['business_name']?.toString() ?? 'Franchise Partner';
+                    final name = f['business_name']?.toString() ?? 'Wholesale Dealer';
                     final isPrimary = f['is_primary'] == true;
                     final coverage = f['service_coverage']?.toString();
                     final label = (coverage != null && coverage.isNotEmpty)
                         ? '$name ($coverage)'
-                        : (isPrimary ? '$name (Primary Partner)' : name);
+                        : (isPrimary ? '$name (Primary Dealer)' : name);
 
                     return DropdownMenuItem<int>(
                       value: f['id'] as int?,
@@ -582,7 +582,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'No franchise is currently available in your territory. Your order will be handled directly by Shivnath Agency.',
+                      'No wholesale dealer is currently assigned to your territory. Your order will be fulfilled directly by Shivnath Agency central dispatch.',
                       style: TextStyle(fontSize: 12, color: Color(0xFF075985), fontWeight: FontWeight.w500),
                     ),
                   ],

@@ -372,7 +372,7 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
                         borderRadius: BorderRadius.circular(16),
-                        border: BorderSide(color: Colors.red.shade200),
+                        border: Border.all(color: Colors.red.shade200),
                       ),
                       child: Column(
                         children: [
@@ -444,7 +444,7 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: BorderSide(color: Colors.grey.shade200),
+                        border: Border.all(color: Colors.grey.shade200),
                       ),
                       child: Row(
                         children: [
@@ -508,7 +508,7 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: BorderSide(color: const Color(0xFF0284C7).withOpacity(0.2), width: 1.5),
+        border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.2), width: 1.5),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF0284C7).withOpacity(0.06),
@@ -609,7 +609,7 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF0284C7).withOpacity(0.06),
                         borderRadius: BorderRadius.circular(14),
-                        border: BorderSide(
+                        border: Border.all(
                           color: const Color(0xFF0284C7).withOpacity(0.3),
                           width: 1.2,
                         ),
@@ -728,7 +728,7 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: BorderSide(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

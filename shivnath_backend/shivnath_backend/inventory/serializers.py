@@ -161,3 +161,223 @@ class StockRequestSerializer(serializers.ModelSerializer):
                 'Quantity must be greater than zero.'
             )
         return value
+
+
+# =====================================================================
+# AUTHORITATIVE ERP SERIALIZERS
+# =====================================================================
+
+from .models import (
+    RawMaterial,
+    ProductionBatch,
+    DealerStockBatch,
+    DealerStockRequest,
+    DealerStockRequestAllocation,
+    InventoryTransactionLedger,
+    Expense,
+    DailyBusinessReport,
+    ExpiryAlertLog,
+)
+
+
+class RawMaterialSerializer(serializers.ModelSerializer):
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    is_low_stock = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RawMaterial
+        fields = [
+            'id',
+            'sku',
+            'name',
+            'category',
+            'category_display',
+            'unit_of_measure',
+            'unit_cost',
+            'current_stock',
+            'reorder_level',
+            'is_low_stock',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_is_low_stock(self, obj):
+        return obj.current_stock <= obj.reorder_level
+
+
+class ProductionBatchSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_sku = serializers.CharField(source='product.sku', read_only=True)
+    available_quantity = serializers.IntegerField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = ProductionBatch
+        fields = [
+            'id',
+            'batch_number',
+            'product',
+            'product_name',
+            'product_sku',
+            'manufacture_date',
+            'expiry_date',
+            'quantity_produced_units',
+            'quantity_remaining_company',
+            'reserved_quantity',
+            'available_quantity',
+            'unit_production_cost',
+            'status',
+            'is_expired',
+            'created_at',
+        ]
+
+
+class DealerStockBatchSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_sku = serializers.CharField(source='product.sku', read_only=True)
+    dealer_name = serializers.CharField(source='dealer.business_name', read_only=True)
+    available_quantity = serializers.IntegerField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = DealerStockBatch
+        fields = [
+            'id',
+            'dealer',
+            'dealer_name',
+            'product',
+            'product_name',
+            'product_sku',
+            'batch_number',
+            'manufacture_date',
+            'expiry_date',
+            'received_quantity',
+            'remaining_quantity',
+            'reserved_quantity',
+            'available_quantity',
+            'damaged_quantity',
+            'unit_transfer_price',
+            'is_active',
+            'is_expired',
+            'created_at',
+            'updated_at',
+        ]
+
+
+class DealerStockRequestAllocationSerializer(serializers.ModelSerializer):
+    batch_number = serializers.CharField(source='production_batch.batch_number', read_only=True)
+    expiry_date = serializers.DateField(source='production_batch.expiry_date', read_only=True)
+
+    class Meta:
+        model = DealerStockRequestAllocation
+        fields = [
+            'id',
+            'stock_request',
+            'production_batch',
+            'batch_number',
+            'expiry_date',
+            'allocated_quantity',
+            'prepared_quantity',
+            'dispatched_quantity',
+            'received_quantity',
+            'damaged_quantity',
+            'created_at',
+            'updated_at',
+        ]
+
+
+class DealerStockRequestSerializer(serializers.ModelSerializer):
+    dealer_name = serializers.CharField(source='dealer.business_name', read_only=True)
+    dealer_code = serializers.CharField(source='dealer.dealer_code', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_sku = serializers.CharField(source='product.sku', read_only=True)
+    allocations = DealerStockRequestAllocationSerializer(many=True, read_only=True)
+    pending_dispatch_quantity = serializers.IntegerField(read_only=True)
+    pending_approval_quantity = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = DealerStockRequest
+        fields = [
+            'id',
+            'request_number',
+            'dealer',
+            'dealer_name',
+            'dealer_code',
+            'product',
+            'product_name',
+            'product_sku',
+            'requested_quantity',
+            'approved_quantity',
+            'prepared_quantity',
+            'dispatched_quantity',
+            'received_quantity',
+            'damaged_in_transit_quantity',
+            'pending_dispatch_quantity',
+            'pending_approval_quantity',
+            'status',
+            'dealer_notes',
+            'admin_notes',
+            'received_at',
+            'created_at',
+            'allocations',
+        ]
+
+
+class InventoryTransactionLedgerSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    raw_material_name = serializers.CharField(source='raw_material.name', read_only=True)
+    dealer_name = serializers.CharField(source='dealer.business_name', read_only=True)
+    actor_name = serializers.CharField(source='actor.get_full_name', read_only=True)
+
+    class Meta:
+        model = InventoryTransactionLedger
+        fields = [
+            'transaction_id',
+            'transaction_type',
+            'material_type',
+            'location_type',
+            'dealer',
+            'dealer_name',
+            'product',
+            'product_name',
+            'raw_material',
+            'raw_material_name',
+            'production_batch',
+            'dealer_batch',
+            'quantity',
+            'balance_after',
+            'unit_cost_or_price',
+            'reference_type',
+            'reference_id',
+            'actor',
+            'actor_name',
+            'notes',
+            'timestamp',
+        ]
+
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    recorded_by_name = serializers.CharField(source='recorded_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = Expense
+        fields = [
+            'id',
+            'expense_number',
+            'category',
+            'description',
+            'amount',
+            'payment_method',
+            'receipt_image',
+            'paid_date',
+            'recorded_by',
+            'recorded_by_name',
+            'created_at',
+        ]
+
+
+class DailyBusinessReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DailyBusinessReport
+        fields = '__all__'

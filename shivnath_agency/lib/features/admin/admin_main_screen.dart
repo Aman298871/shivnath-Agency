@@ -11,11 +11,14 @@ import 'followups/admin_followups_screen.dart';
 import 'franchises/admin_franchises_screen.dart';
 import 'inventory/admin_inventory_screen.dart';
 import 'inventory/admin_stock_management_screen.dart';
+import 'inventory/central_plant_inventory_screen.dart';
 import 'products/admin_products_screen.dart';
+import 'products/bom_recipe_screen.dart';
 import 'suppliers/admin_suppliers_screen.dart';
 import 'orders/admin_orders_screen.dart';
 import 'billing/admin_billing_screen.dart';
 import 'reports/admin_reports_screen.dart';
+import 'reports/daily_pl_report_screen.dart';
 import 'whatsapp/admin_whatsapp_screen.dart';
 import 'chat/admin_chat_conversations_screen.dart';
 import 'chat/admin_chatbot_management_screen.dart';
@@ -24,6 +27,7 @@ import 'users/admin_users_screen.dart';
 import 'settings/admin_settings_screen.dart';
 import 'notifications/admin_notifications_screen.dart';
 import 'profile/admin_profile_screen.dart';
+import '../../models/user_model.dart';
 
 class AdminMainScreen extends StatefulWidget {
   const AdminMainScreen({super.key});
@@ -34,6 +38,20 @@ class AdminMainScreen extends StatefulWidget {
 
 class _AdminMainScreenState extends State<AdminMainScreen> {
   int currentIndex = 0;
+  UserModel? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final u = await SessionService().getCurrentUser();
+    if (mounted && u != null) {
+      setState(() => _currentUser = u);
+    }
+  }
 
   // =========================================================
   // MENU
@@ -53,16 +71,16 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       icon: Icons.calendar_month_outlined,
     ),
     _AdminMenuItem(
-      title: 'Franchises',
+      title: 'Wholesale Dealers',
       icon: Icons.storefront_outlined,
     ),
     _AdminMenuItem(
-      title: 'Inventory',
+      title: 'Plant Batches & Stock',
       icon: Icons.inventory_2_outlined,
     ),
     _AdminMenuItem(
-      title: 'Products',
-      icon: Icons.category_outlined,
+      title: 'BOM & Pricing Master',
+      icon: Icons.science_outlined,
     ),
     _AdminMenuItem(
       title: 'Suppliers',
@@ -77,7 +95,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       icon: Icons.receipt_long_outlined,
     ),
     _AdminMenuItem(
-      title: 'Reports',
+      title: 'Daily P&L Reports',
       icon: Icons.bar_chart_outlined,
     ),
     _AdminMenuItem(
@@ -140,10 +158,10 @@ Widget _currentScreen() {
       return const AdminFranchisesScreen();
 
     case 4:
-      return const AdminInventoryScreen();
+      return const CentralPlantInventoryScreen();
 
     case 5:
-      return const AdminProductsScreen();
+      return const BomRecipeScreen();
 
     case 6:
       return const AdminSuppliersScreen();
@@ -155,7 +173,7 @@ Widget _currentScreen() {
       return const AdminBillingScreen();
 
     case 9:
-      return const AdminReportsScreen();
+      return const DailyPlReportScreen();
 
     case 10:
       return const AdminChatbotManagementScreen();
@@ -334,15 +352,16 @@ Widget _currentScreen() {
 
   void _handleProfileMenu(String value) {
     if (value == 'profile') {
-      setState(() => currentIndex = 16);
+      setState(() => currentIndex = 18);
     } else if (value == 'settings') {
-      setState(() => currentIndex = 14);
+      setState(() => currentIndex = 16);
     } else if (value == 'support') {
       SupportDeskModal.show(context);
     } else if (value == 'logout') {
       _logout();
     }
   }
+
 
   // =========================================================
   // LOGOUT
@@ -536,8 +555,8 @@ Widget _currentScreen() {
             // LOGO
             // =================================================
 
-            const Padding(
-              padding: EdgeInsets.symmetric(
+            Padding(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 20,
               ),
               child: Row(
@@ -567,8 +586,10 @@ Widget _currentScreen() {
                         ),
                       ),
                       Text(
-                        'Admin Control Panel',
-                        style: TextStyle(
+                        _currentUser?.roleDisplay.isNotEmpty == true
+                            ? '${_currentUser!.roleDisplay} Panel'
+                            : 'Admin Control Panel',
+                        style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: 11,
                         ),
@@ -1081,23 +1102,6 @@ Widget _currentScreen() {
     );
   }
 
-  // =========================================================
-  // PROFILE MENU
-  // =========================================================
-
-  void _handleProfileMenu(String value) {
-    if (value == 'profile') {
-      setState(() {
-        currentIndex = 18;
-      });
-    } else if (value == 'settings') {
-      setState(() {
-        currentIndex = 16;
-      });
-    } else if (value == 'logout') {
-      _logout();
-    }
-  }
 
   // =========================================================
   // CURRENT TITLE

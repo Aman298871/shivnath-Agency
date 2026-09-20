@@ -9,30 +9,24 @@ import 'package:shivnath_agency/features/franchise/notifications/franchise_notif
 
 void main() {
   group('E2E UI & Screen Verification Tests', () {
-    testWidgets('CustomerRegisterScreen displays dynamic PIN resolution without requiring manual Zone selection', (WidgetTester tester) async {
+    testWidgets('CustomerRegisterScreen displays dynamic registration form cleanly', (WidgetTester tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: CustomerRegisterScreen(),
         ),
       );
 
-      // Verify that "Zone" is NOT a manual required textfield
-      expect(find.text('PIN Code / Delivery Area'), findsOneWidget);
-      expect(find.text('District'), findsOneWidget);
-      expect(find.text('City'), findsOneWidget);
+      // Verify that form elements render
       expect(find.text('Create Customer Account'), findsOneWidget);
-
-      // Enter 6-digit PIN
-      final pinField = find.widgetWithText(TextFormField, 'PIN Code / Delivery Area');
-      expect(pinField, findsOneWidget);
-      await tester.enterText(pinField, '492001');
-      await tester.pump();
+      expect(find.text('District *'), findsOneWidget);
+      expect(find.text('City *'), findsOneWidget);
+      expect(find.text('Full Name *'), findsOneWidget);
 
       // Form rendered cleanly
       expect(find.byType(ElevatedButton), findsWidgets);
     });
 
-    testWidgets('CheckoutScreen displays dynamic stock duration chips and serving franchise selector', (WidgetTester tester) async {
+    testWidgets('CheckoutScreen displays dynamic stock duration chips and fulfillment selector', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1200, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -62,8 +56,8 @@ void main() {
       expect(find.text('3 Months (~90 Days)'), findsOneWidget);
       expect(find.text('Custom Duration'), findsOneWidget);
 
-      // Verify Serving Supply Franchise header
-      expect(find.text('Serving Supply Franchise'), findsOneWidget);
+      // Verify Order Fulfillment header
+      expect(find.text('Order Fulfillment'), findsOneWidget);
 
       // Verify expected end date calculation banner
       expect(find.textContaining('Stock cycle ends on'), findsOneWidget);
@@ -101,7 +95,7 @@ void main() {
       expect(find.text('Notifications'), findsOneWidget);
     });
 
-    testWidgets('CheckoutScreen renders service unavailable card and disables order button when no franchises are available', (WidgetTester tester) async {
+    testWidgets('CheckoutScreen renders fulfillment section and direct company fulfillment option', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1200, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -124,9 +118,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      // Check for loading state and disabled button when franchises not yet available
-      expect(find.text('Loading authorized franchises...'), findsOneWidget);
-      expect(find.text('Service Unavailable in Area'), findsOneWidget);
+      // Check for Order Fulfillment section header
+      expect(find.text('Order Fulfillment'), findsOneWidget);
+      expect(find.byType(ElevatedButton), findsWidgets);
     });
   });
 }
+

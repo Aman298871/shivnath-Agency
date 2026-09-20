@@ -477,3 +477,105 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
         'franchises': [],
         'count': 0,
     }
+
+
+def apply_data_scope(user, queryset, model_type):
+    """
+    Enforces server-side Admin Data Scopes on querysets:
+    - ALL_DATA: Unrestricted global access (Super Admin or all_data scope).
+    - TERRITORY_SCOPED: Restricted to assigned zones, districts, or territories.
+    - DEALER_SCOPED: Restricted to specific authorized wholesale dealer IDs.
+    - PLANT_SCOPED: Restricted to Central Manufacturing Plant (Direct Company operations).
+    - SALES_EXECUTIVE: Permitted CRM and field sales boundary.
+    """
+    from django.db.models import Q
+    if not user or not user.is_authenticated:
+        return queryset
+
+    if user.is_superuser:
+        return queryset
+
+    profile = getattr(user, 'profile', None)
+    if not profile:
+        return queryset
+
+    role = profile.role
+    scope_type = profile.data_scope_type or 'all_data'
+    scope_ids = profile.assigned_scope_ids or []
+
+    if role == 'super_admin' or scope_type == 'all_data':
+        return queryset
+
+    if model_type == 'Order':
+        if scope_type == 'territory_scoped':
+            if not scope_ids:
+                return queryset.none()
+            return queryset.filter(
+                Q(snapshot_territory__in=scope_ids) |
+                Q(zone__code__in=scope_ids) |
+                Q(zone__id__in=[i for i in scope_ids if str(i).isdigit()]) |
+                Q(zone__district__name__in=scope_ids) |
+                Q(city__in=scope_ids)
+            )
+        elif scope_type == 'dealer_scoped':
+            if not scope_ids:
+                return queryset.none()
+            return queryset.filter(
+                Q(serving_franchise_id__in=[i for i in scope_ids if str(i).isdigit()]) |
+                Q(snapshot_serving_dealer_id__in=[i for i in scope_ids if str(i).isdigit()])
+            )
+        elif scope_type == 'plant_scoped':
+            return queryset.filter(order_source='DIRECT_COMPANY')
+        elif role == 'sales_executive':
+            if scope_ids:
+                return queryset.filter(
+                    Q(snapshot_territory__in=scope_ids) |
+                    Q(city__in=scope_ids) |
+                    Q(created_by=user)
+                )
+            return queryset.filter(created_by=user)
+
+    elif model_type == 'Lead':
+        if role == 'sales_executive':
+            return queryset.filter(
+                Q(assigned_executive_user=user) |
+                Q(assigned_executive__iexact=user.username) |
+                Q(assigned_executive__iexact=user.get_full_name()) |
+                Q(created_by=user)
+            )
+        if scope_type == 'territory_scoped':
+            if not scope_ids:
+                return queryset.none()
+            return queryset.filter(
+                Q(district__in=scope_ids) |
+                Q(territory__in=scope_ids) |
+                Q(city__in=scope_ids)
+            )
+        elif scope_type == 'dealer_scoped':
+            return queryset.none()
+        elif scope_type == 'plant_scoped':
+            return queryset
+
+    elif model_type == 'ProductionBatch':
+        if scope_type in ['dealer_scoped', 'territory_scoped']:
+            return queryset.none()
+        elif scope_type in ['plant_scoped', 'all_data']:
+            return queryset
+
+    elif model_type == 'DealerStockRequest':
+        if scope_type == 'dealer_scoped':
+            if not scope_ids:
+                return queryset.none()
+            return queryset.filter(dealer_id__in=[i for i in scope_ids if str(i).isdigit()])
+        elif scope_type == 'territory_scoped':
+            if not scope_ids:
+                return queryset.none()
+            return queryset.filter(
+                Q(dealer__territory__in=scope_ids) |
+                Q(dealer__city__in=scope_ids)
+            )
+        elif scope_type in ['plant_scoped', 'all_data']:
+            return queryset
+
+    return queryset
+

@@ -14,7 +14,9 @@ import 'dashboard/franchise_dashboard_screen.dart';
 import 'documents/franchise_documents_screen.dart';
 import 'franchise_settings_screen.dart';
 import 'inventory/franchise_inventory_screen.dart';
+import 'inventory/dealer_stock_screen.dart';
 import 'invoices/franchise_invoices_screen.dart';
+import 'invoices/dealer_credit_ledger_screen.dart';
 import 'notifications/franchise_notifications_screen.dart';
 import 'orders/franchise_orders_screen.dart';
 import 'products/franchise_products_screen.dart';
@@ -104,22 +106,28 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       title: 'OPERATIONS',
       items: [
         _FranchiseNavItem(
+          index: 5,
+          title: 'Dealer Inventory',
+          icon: Icons.warehouse_outlined,
+          selectedIcon: Icons.warehouse_rounded,
+        ),
+        _FranchiseNavItem(
           index: 6,
-          title: 'Raw Materials',
-          icon: Icons.science_outlined,
-          selectedIcon: Icons.science_rounded,
+          title: 'Stock Requests',
+          icon: Icons.add_shopping_cart_outlined,
+          selectedIcon: Icons.add_shopping_cart_rounded,
         ),
         _FranchiseNavItem(
           index: 7,
-          title: 'Finished Products',
+          title: '5 Official Variants',
           icon: Icons.local_drink_outlined,
           selectedIcon: Icons.local_drink_rounded,
         ),
         _FranchiseNavItem(
           index: 8,
-          title: 'Stock',
-          icon: Icons.receipt_long_outlined,
-          selectedIcon: Icons.receipt_long_rounded,
+          title: 'Credit & Ledger',
+          icon: Icons.account_balance_wallet_outlined,
+          selectedIcon: Icons.account_balance_wallet_rounded,
         ),
         _FranchiseNavItem(
           index: 9,
@@ -141,7 +149,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       items: [
         _FranchiseNavItem(
           index: 11,
-          title: 'Franchise Information',
+          title: 'Dealer Information',
           icon: Icons.folder_outlined,
           selectedIcon: Icons.folder_rounded,
         ),
@@ -228,23 +236,23 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       case 4:
         return const FranchiseCategoriesScreen();
       case 5:
-        return const FranchiseInventoryScreen(initialTabIndex: 0);
+        return const DealerStockScreen();
       case 6:
-        return const FranchiseInventoryScreen(initialTabIndex: 0); // Raw Materials
+        return const DealerStockScreen(); // Stock Requests
       case 7:
-        return const FranchiseInventoryScreen(initialTabIndex: 1); // Finished Products
+        return const DealerStockScreen(); // 5 Official Variants
       case 8:
-        return const FranchiseInventoryScreen(initialTabIndex: 3); // Stock Ledger
+        return const DealerCreditLedgerScreen(); // Credit & Ledger
       case 9:
         return const FranchiseCustomersScreen(); // Follow-ups
       case 10:
         return const FranchiseDashboardScreen(); // Support fallback
       case 11:
-        return const FranchiseDocumentsScreen(); // Franchise Information
+        return const FranchiseDocumentsScreen(); // Dealer Information
       case 12:
         return const FranchiseTerritoryScreen();
       case 13:
-        return const FranchiseInvoicesScreen(); // Reports / Invoices
+        return const DealerCreditLedgerScreen(); // Invoices & Aging
       case 14:
         return const FranchiseProfileScreen();
       case 15:
@@ -463,7 +471,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                         Text(
                           _currentUser?.name.isNotEmpty == true
                               ? _currentUser!.name
-                              : 'Franchise Partner',
+                              : 'Wholesale Dealer',
                           maxLines: 1,
                           overflow:
                               TextOverflow.ellipsis,
@@ -478,7 +486,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                         Text(
                           _currentUser?.phone.isNotEmpty == true
                               ? _currentUser!.phone
-                              : 'Authorized Partner',
+                              : 'Authorized Wholesale Dealer',
                           style: const TextStyle(
                             color:
                                 Color(0xFF94A3B8),

@@ -4,10 +4,17 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
-from accounts.permissions import IsAdminRole, IsAdminOrApprovedFranchise
+from accounts.permissions import IsAdminRole, IsSuperAdminRole, IsAdminOrApprovedFranchise
 
-from .models import Product, ProductCategory
-from .serializers import ProductSerializer, ProductCategorySerializer
+from .models import Product, ProductCategory, ProductionRecipeBOM, ProductionRecipeBOMItem, ProductStockThreshold
+from .serializers import (
+    ProductSerializer,
+    ProductCategorySerializer,
+    ProductionRecipeBOMSerializer,
+    ProductionRecipeBOMItemSerializer,
+    ProductStockThresholdSerializer,
+)
+from inventory.models import RawMaterial
 
 
 # =====================================================
@@ -254,3 +261,198 @@ class ProductStatsView(APIView):
                 "total_categories": categories_count,
             }
         })
+
+
+# =====================================================
+# BOM RECIPE MASTER EDITOR (SUPER ADMIN / ADMIN)
+# =====================================================
+
+class ProductBOMDetailView(APIView):
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAdminRole()]
+        return [IsSuperAdminRole()]
+
+    def get(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        bom, _ = ProductionRecipeBOM.objects.get_or_create(product=product)
+        serializer = ProductionRecipeBOMSerializer(bom)
+        return Response({
+            "success": True,
+            "bom": serializer.data,
+            "raw_materials_available": [
+                {
+                    "id": rm.id,
+                    "name": rm.name,
+                    "sku": rm.sku,
+                    "category": rm.category,
+                    "unit_of_measure": rm.unit_of_measure,
+                    "unit_cost": float(rm.unit_cost),
+                    "current_stock": float(rm.current_stock),
+                }
+                for rm in RawMaterial.objects.filter(is_active=True).order_by("name")
+            ],
+        })
+
+
+class ProductBOMItemManageView(APIView):
+    permission_classes = [IsSuperAdminRole]
+
+    def post(self, request, pk):
+        """Add or update a line item in product's recipe BOM."""
+        product = get_object_or_404(Product, pk=pk)
+        bom, _ = ProductionRecipeBOM.objects.get_or_create(product=product)
+
+        raw_material_id = request.data.get("raw_material_id")
+        quantity_required = request.data.get("quantity_required_per_unit")
+        unit_cost = request.data.get("unit_cost_snapshot")
+        notes = request.data.get("notes", "")
+
+        if not raw_material_id or quantity_required is None:
+            return Response({
+                "success": False,
+                "error": "missing_required_fields",
+                "message": "raw_material_id and quantity_required_per_unit are required.",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_material = get_object_or_404(RawMaterial, pk=raw_material_id)
+
+        try:
+            qty = float(quantity_required)
+            if qty <= 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            return Response({"success": False, "message": "quantity_required_per_unit must be a positive number."}, status=400)
+
+        cost = float(unit_cost) if unit_cost is not None else float(raw_material.unit_cost)
+
+        item, created = ProductionRecipeBOMItem.objects.update_or_create(
+            bom=bom,
+            raw_material=raw_material,
+            defaults={
+                "quantity_required_per_unit": qty,
+                "unit_cost_snapshot": cost,
+                "notes": notes,
+            }
+        )
+
+        bom.last_updated_by = request.user
+        bom.save(update_fields=["last_updated_by", "updated_at"])
+
+        return Response({
+            "success": True,
+            "message": "BOM item saved successfully.",
+            "item": ProductionRecipeBOMItemSerializer(item).data,
+            "total_production_cost_per_unit": float(bom.total_production_cost_per_unit),
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    def delete(self, request, pk, item_id):
+        """Remove a raw material item from the product's recipe BOM."""
+        product = get_object_or_404(Product, pk=pk)
+        bom = get_object_or_404(ProductionRecipeBOM, product=product)
+        item = get_object_or_404(ProductionRecipeBOMItem, bom=bom, pk=item_id)
+        item.delete()
+
+        bom.last_updated_by = request.user
+        bom.save(update_fields=["last_updated_by", "updated_at"])
+
+        return Response({
+            "success": True,
+            "message": "BOM item removed successfully.",
+            "total_production_cost_per_unit": float(bom.total_production_cost_per_unit),
+        })
+
+
+# =====================================================
+# MASTER PRICING CONFIGURATION (SUPER ADMIN)
+# =====================================================
+
+class ProductPricingUpdateView(APIView):
+    permission_classes = [IsSuperAdminRole]
+
+    def patch(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+
+        retail_price = request.data.get("price")
+        dealer_transfer_price = request.data.get("dealer_transfer_price")
+        mrp = request.data.get("mrp")
+        gst = request.data.get("gst")
+
+        update_fields = ["updated_at"]
+
+        if retail_price is not None:
+            try:
+                p = float(retail_price)
+                if p < 0:
+                    raise ValueError()
+                product.price = p
+                update_fields.append("price")
+            except (ValueError, TypeError):
+                return Response({"success": False, "message": "Invalid price value."}, status=400)
+
+        if dealer_transfer_price is not None:
+            try:
+                dtp = float(dealer_transfer_price)
+                if dtp < 0:
+                    raise ValueError()
+                product.dealer_transfer_price = dtp
+                update_fields.append("dealer_transfer_price")
+            except (ValueError, TypeError):
+                return Response({"success": False, "message": "Invalid dealer_transfer_price value."}, status=400)
+
+        if mrp is not None:
+            try:
+                m = float(mrp)
+                if m < 0:
+                    raise ValueError()
+                product.mrp = m
+                update_fields.append("mrp")
+            except (ValueError, TypeError):
+                return Response({"success": False, "message": "Invalid mrp value."}, status=400)
+
+        if gst is not None:
+            try:
+                g = int(gst)
+                if g < 0 or g > 100:
+                    raise ValueError()
+                product.gst = g
+                update_fields.append("gst")
+            except (ValueError, TypeError):
+                return Response({"success": False, "message": "GST must be between 0 and 100."}, status=400)
+
+        product.save(update_fields=update_fields)
+
+        return Response({
+            "success": True,
+            "message": "Product pricing updated successfully.",
+            "product": ProductSerializer(product).data,
+        })
+
+
+# =====================================================
+# PRODUCT STOCK THRESHOLDS
+# =====================================================
+
+class ProductStockThresholdView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        threshold, _ = ProductStockThreshold.objects.get_or_create(product=product)
+        return Response({
+            "success": True,
+            "threshold": ProductStockThresholdSerializer(threshold).data,
+        })
+
+    def patch(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        threshold, _ = ProductStockThreshold.objects.get_or_create(product=product)
+        serializer = ProductStockThresholdSerializer(threshold, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response({"success": False, "errors": serializer.errors}, status=400)
+        serializer.save()
+        return Response({
+            "success": True,
+            "message": "Stock threshold updated successfully.",
+            "threshold": serializer.data,
+        })

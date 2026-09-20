@@ -3,8 +3,62 @@ from rest_framework import serializers
 from .models import (
     Lead,
     LeadActivity,
+    MarketingSpend,
+    WhatsAppMessageLog,
+    LeadJourneyState,
+    CRMActivityLog,
 )
 from chat.serializers import ChatSessionSerializer
+
+
+class MarketingSpendSerializer(serializers.ModelSerializer):
+    campaign_source_display = serializers.CharField(source='get_campaign_source_display', read_only=True)
+    cpl = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MarketingSpend
+        fields = [
+            'id',
+            'campaign_name',
+            'campaign_source',
+            'campaign_source_display',
+            'period_start',
+            'period_end',
+            'total_spend_inr',
+            'notes',
+            'cpl',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'cpl', 'campaign_source_display']
+
+    def get_cpl(self, obj):
+        lead_count = Lead.objects.filter(
+            created_at__date__gte=obj.period_start,
+            created_at__date__lte=obj.period_end,
+        ).count()
+        if lead_count > 0:
+            return round(float(obj.total_spend_inr) / lead_count, 2)
+        return float(obj.total_spend_inr)
+
+
+class WhatsAppMessageLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WhatsAppMessageLog
+        fields = '__all__'
+
+
+class LeadJourneyStateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LeadJourneyState
+        fields = '__all__'
+
+
+class CRMActivityLogSerializer(serializers.ModelSerializer):
+    actor_name = serializers.CharField(source='actor.username', read_only=True)
+
+    class Meta:
+        model = CRMActivityLog
+        fields = '__all__'
 
 
 class LeadActivitySerializer(serializers.ModelSerializer):

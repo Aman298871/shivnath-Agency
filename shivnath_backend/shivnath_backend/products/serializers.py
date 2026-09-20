@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from .models import Product, ProductCategory
+from .models import Product, ProductCategory, ProductionRecipeBOM, ProductionRecipeBOMItem, ProductStockThreshold
+from inventory.models import RawMaterial
 
 
 class ProductCategorySerializer(serializers.ModelSerializer):
@@ -99,6 +100,62 @@ class ProductCategorySerializer(serializers.ModelSerializer):
         return attrs
 
 
+class ProductionRecipeBOMItemSerializer(serializers.ModelSerializer):
+    raw_material_name = serializers.CharField(source="raw_material.name", read_only=True)
+    raw_material_sku = serializers.CharField(source="raw_material.sku", read_only=True)
+    raw_material_unit = serializers.CharField(source="raw_material.unit_of_measure", read_only=True)
+    calculated_cost_per_unit = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = ProductionRecipeBOMItem
+        fields = [
+            "id",
+            "bom",
+            "raw_material",
+            "raw_material_name",
+            "raw_material_sku",
+            "raw_material_unit",
+            "quantity_required_per_unit",
+            "unit_cost_snapshot",
+            "calculated_cost_per_unit",
+            "notes",
+        ]
+        read_only_fields = ["id", "calculated_cost_per_unit"]
+
+
+class ProductionRecipeBOMSerializer(serializers.ModelSerializer):
+    items = ProductionRecipeBOMItemSerializer(many=True, read_only=True)
+    total_production_cost_per_unit = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    product_sku = serializers.CharField(source="product.sku", read_only=True)
+
+    class Meta:
+        model = ProductionRecipeBOM
+        fields = [
+            "id",
+            "product",
+            "product_name",
+            "product_sku",
+            "notes",
+            "total_production_cost_per_unit",
+            "items",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "updated_at", "total_production_cost_per_unit"]
+
+
+class ProductStockThresholdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductStockThreshold
+        fields = [
+            "id",
+            "product",
+            "company_low_stock_threshold",
+            "dealer_low_stock_threshold",
+            "alert_enabled",
+        ]
+
+
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category", read_only=True)
     category_ref_id = serializers.PrimaryKeyRelatedField(
@@ -108,6 +165,7 @@ class ProductSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     category_hierarchy = serializers.SerializerMethodField()
+    production_cost_per_unit = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -116,17 +174,25 @@ class ProductSerializer(serializers.ModelSerializer):
             "name",
             "sku",
             "size",
+            "volume_ml",
+            "package_type",
+            "units_per_case",
             "category",
             "category_ref",
             "category_ref_id",
             "category_name",
             "category_hierarchy",
             "price",
+            "dealer_transfer_price",
+            "mrp",
+            "shelf_life_days",
+            "production_cost_per_unit",
             "gst",
             "stock",
             "unit",
             "description",
             "status",
+            "image",
             "created_at",
             "updated_at",
         ]
@@ -134,6 +200,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "id",
             "category_name",
             "category_hierarchy",
+            "production_cost_per_unit",
             "created_at",
             "updated_at",
         ]
@@ -142,6 +209,12 @@ class ProductSerializer(serializers.ModelSerializer):
         if obj.category_ref:
             return obj.category_ref.full_path
         return obj.category or ""
+
+    def get_production_cost_per_unit(self, obj):
+        bom = getattr(obj, "recipe_bom", None)
+        if bom:
+            return float(bom.total_production_cost_per_unit)
+        return 0.0
 
     def validate_name(self, value):
         value = value.strip()
@@ -167,6 +240,11 @@ class ProductSerializer(serializers.ModelSerializer):
     def validate_price(self, value):
         if value < 0:
             raise serializers.ValidationError("Price cannot be negative.")
+        return value
+
+    def validate_dealer_transfer_price(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Dealer transfer price cannot be negative.")
         return value
 
     def validate_gst(self, value):

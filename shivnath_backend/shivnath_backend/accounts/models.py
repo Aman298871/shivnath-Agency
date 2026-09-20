@@ -5,16 +5,25 @@ from django.contrib.auth.models import User
 class UserProfile(models.Model):
 
     ROLE_CHOICES = [
+        ('super_admin', 'Super Admin'),
+        ('admin', 'Admin'),
+        ('sales_executive', 'Sales Executive'),
         ('customer', 'Customer'),
         ('franchise', 'Franchise'),
         ('staff', 'Staff'),
-        ('admin', 'Admin'),
     ]
 
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),
         ('pending', 'Pending'),
+    ]
+
+    DATA_SCOPE_CHOICES = [
+        ('all_data', 'All Data'),
+        ('territory_scoped', 'Territory Scoped'),
+        ('dealer_scoped', 'Dealer Scoped'),
+        ('plant_scoped', 'Plant Scoped'),
     ]
 
     user = models.OneToOneField(
@@ -89,6 +98,25 @@ class UserProfile(models.Model):
         default='customer'
     )
 
+    admin_permissions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of granular permissions for operational admins"
+    )
+
+    data_scope_type = models.CharField(
+        max_length=30,
+        choices=DATA_SCOPE_CHOICES,
+        default='all_data',
+        help_text="Backend data scope boundary for queries"
+    )
+
+    assigned_scope_ids = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Territory/Dealer/Plant IDs authorized for this user"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -128,6 +156,7 @@ class AdminNotification(models.Model):
 class FranchiseProfile(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
+        ('under_review', 'Under Review'),
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
         ('inactive', 'Inactive'),
@@ -145,6 +174,14 @@ class FranchiseProfile(models.Model):
         related_name='franchise_profile'
     )
 
+    dealer_code = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text="Authoritative unique dealer code (e.g. DLR-PAT-001)"
+    )
+
     business_name = models.CharField(max_length=200)
 
     city = models.CharField(max_length=100)
@@ -154,6 +191,12 @@ class FranchiseProfile(models.Model):
     territory = models.CharField(
         max_length=150,
         blank=True
+    )
+
+    assigned_territories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of assigned territory/zone codes"
     )
 
     is_headquarters = models.BooleanField(
@@ -186,7 +229,8 @@ class FranchiseProfile(models.Model):
     commission = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0
+        default=0,
+        help_text="Configurable dealer commission percentage"
     )
 
     renewal_date = models.DateField(
@@ -701,14 +745,18 @@ class SupportContact(models.Model):
         ('public_customer',  'Public / Anonymous Customer Inquiry'),
         ('public_franchise', 'Public / Anonymous Franchise Inquiry'),
         ('customer',         'Authenticated Customer'),
-        ('franchise',        'Authenticated Franchise'),
-        ('admin',            'Admin'),
+        ('franchise',        'Authenticated Wholesale Dealer'),
+        ('admin',            'Admin / Super Admin'),
+        ('sales_executive',  'Sales Executive'),
     ]
     role             = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
     name             = models.CharField(max_length=150)
     phone            = models.CharField(max_length=20)
+    whatsapp_number  = models.CharField(max_length=20, blank=True, default='')
     email            = models.EmailField(blank=True, default='')
     message_template = models.TextField(blank=True, default='')
+    available_hours  = models.CharField(max_length=100, blank=True, default='9:00 AM - 7:00 PM')
+    is_active        = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = 'Support Contact'
@@ -716,6 +764,153 @@ class SupportContact(models.Model):
 
     def __str__(self):
         return f'{self.get_role_display()} -> {self.name} ({self.phone})'
+
+
+class DealerDocument(models.Model):
+    DOCUMENT_TYPES = [
+        ('GST', 'GST Registration Certificate'),
+        ('PAN', 'PAN Card'),
+        ('AADHAAR', 'Aadhaar Card'),
+        ('AGREEMENT', 'Distributor / Wholesale Agreement'),
+        ('TRADE_LICENSE', 'Trade License'),
+        ('OTHER', 'Other KYC Document'),
+    ]
+
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending Review'),
+        ('VERIFIED', 'Verified / Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+
+    dealer = models.ForeignKey(
+        FranchiseProfile,
+        on_delete=models.CASCADE,
+        related_name='kyc_documents'
+    )
+    document_type = models.CharField(max_length=30, choices=DOCUMENT_TYPES)
+    document_number = models.CharField(max_length=100, blank=True, default='')
+    document_file = models.FileField(upload_to='dealer_documents/')
+    verification_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    rejection_reason = models.TextField(blank=True, default='')
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='uploaded_dealer_documents'
+    )
+    verified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='verified_dealer_documents'
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+        verbose_name = 'Dealer KYC Document'
+        verbose_name_plural = 'Dealer KYC Documents'
+
+    def __str__(self):
+        return f"{self.dealer.business_name} - {self.get_document_type_display()} [{self.verification_status}]"
+
+
+class Notification(models.Model):
+    NOTIFICATION_TYPES = [
+        ('EXPIRY_ALERT', 'Batch Expiry Alert'),
+        ('LOW_STOCK_ALERT', 'Low Stock Alert'),
+        ('PAYMENT_REMINDER', 'Payment Due / Overdue Reminder'),
+        ('STOCK_DISPATCHED', 'Stock Dispatched to Dealer'),
+        ('STOCK_RECEIVED', 'Stock Receipt Confirmed'),
+        ('LEAD_ASSIGNED', 'New CRM Lead Assigned'),
+        ('ORDER_UPDATE', 'Order Status Update'),
+        ('SYSTEM', 'System Alert'),
+    ]
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='user_notifications'
+    )
+    role_target = models.CharField(max_length=30, blank=True, default='')
+    notification_type = models.CharField(max_length=40, choices=NOTIFICATION_TYPES, default='SYSTEM')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    entity_type = models.CharField(max_length=50, blank=True, default='')
+    entity_id = models.PositiveIntegerField(null=True, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'System Notification'
+        verbose_name_plural = 'System Notifications'
+
+    def __str__(self):
+        return f"{self.title} -> {self.recipient or self.role_target} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+
+
+class AdminAuditLog(models.Model):
+    actor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='admin_audit_logs'
+    )
+    action = models.CharField(max_length=150)
+    resource_type = models.CharField(max_length=100)
+    resource_id = models.CharField(max_length=100, blank=True, default='')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    changes = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Admin Audit Log'
+        verbose_name_plural = 'Admin Audit Logs'
+
+    def __str__(self):
+        actor_name = self.actor.email if self.actor else 'System'
+        return f"[{self.created_at.strftime('%Y-%m-%d %H:%M')}] {actor_name} -> {self.action} on {self.resource_type}:{self.resource_id}"
+
+
+class SystemBackupLog(models.Model):
+    STATUS_CHOICES = [
+        ('IN_PROGRESS', 'In Progress'),
+        ('SUCCESS', 'Success'),
+        ('FAILED', 'Failed'),
+    ]
+
+    triggered_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='triggered_backups'
+    )
+    backup_filename = models.CharField(max_length=255)
+    file_size_bytes = models.BigIntegerField(default=0)
+    storage_path = models.TextField(blank=True, default='')
+    checksum_sha256 = models.CharField(max_length=64, blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='IN_PROGRESS')
+    error_message = models.TextField(blank=True, default='')
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-started_at']
+        verbose_name = 'System Backup Log'
+        verbose_name_plural = 'System Backup Logs'
+
+    def __str__(self):
+        return f"{self.backup_filename} [{self.status}] at {self.started_at.strftime('%Y-%m-%d %H:%M')}"
+
 
 
 

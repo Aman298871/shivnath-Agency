@@ -134,7 +134,7 @@ class SupportDeskService {
       if (currentUser.role.toLowerCase() == 'customer') {
         resolvedRole = 'Customer';
       } else if (currentUser.role.toLowerCase() == 'franchise') {
-        resolvedRole = 'Franchise Partner';
+        resolvedRole = 'Wholesale Dealer';
       } else if (currentUser.role.toLowerCase() == 'admin') {
         resolvedRole = 'Administrator';
       } else {

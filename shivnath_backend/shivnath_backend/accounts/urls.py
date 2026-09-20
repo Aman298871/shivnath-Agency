@@ -27,6 +27,14 @@ from .views import (
     CustomerNotificationListView,
     FranchiseDashboardStatsView,
     AdminFranchiseDetailView,
+    SuperAdminAdminManagementView,
+    DealerOnboardingApprovalView,
+    DatabaseBackupTriggerView,
+    RoleBasedChatbotMenuView,
+    RoleBasedChatbotActionView,
+    SupportContactListView,
+    DealerKYCDocumentView,
+    DealerKYCVerifyView,
 )
 
 
@@ -182,5 +190,52 @@ urlpatterns = [
         'notifications/',
         AdminNotificationListView.as_view(),
         name='admin-notifications'
+    ),
+
+    # Authoritative Super Admin, Dealer Onboarding, Backup, Support & Chatbot
+    path(
+        'super-admin/admins/',
+        SuperAdminAdminManagementView.as_view(),
+        name='super_admin_manage_admins'
+    ),
+    path(
+        'dealers/onboarding/',
+        DealerOnboardingApprovalView.as_view(),
+        name='dealer_onboarding_list'
+    ),
+    path(
+        'dealers/onboarding/<int:pk>/',
+        DealerOnboardingApprovalView.as_view(),
+        name='dealer_onboarding_action'
+    ),
+    path(
+        'backup/',
+        DatabaseBackupTriggerView.as_view(),
+        name='database_backup_manage'
+    ),
+    path(
+        'chatbot/menu/',
+        RoleBasedChatbotMenuView.as_view(),
+        name='role_based_chatbot_menu'
+    ),
+    path(
+        'chatbot/action/',
+        RoleBasedChatbotActionView.as_view(),
+        name='role_based_chatbot_action'
+    ),
+    path(
+        'support/contacts/',
+        SupportContactListView.as_view(),
+        name='support_contact_list'
+    ),
+    path(
+        'dealers/<int:dealer_id>/documents/',
+        DealerKYCDocumentView.as_view(),
+        name='dealer_kyc_documents'
+    ),
+    path(
+        'dealers/documents/<int:pk>/verify/',
+        DealerKYCVerifyView.as_view(),
+        name='dealer_kyc_verify'
     ),
 ]

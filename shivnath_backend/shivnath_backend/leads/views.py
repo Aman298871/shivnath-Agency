@@ -5,17 +5,32 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+from django.core.exceptions import ValidationError
 
-from accounts.permissions import IsAdminRole, IsAdminOrApprovedFranchise
+from accounts.permissions import IsAdminRole, IsAdminOrApprovedFranchise, IsAdminOrSalesExecutiveRole
+from accounts.services import apply_data_scope
 
 from .models import (
     Lead,
     LeadActivity,
+    MarketingSpend,
+    WhatsAppMessageLog,
+    LeadJourneyState,
+    CRMActivityLog,
 )
 
 from .serializers import (
     LeadSerializer,
     LeadActivitySerializer,
+    MarketingSpendSerializer,
+    WhatsAppMessageLogSerializer,
+    LeadJourneyStateSerializer,
+    CRMActivityLogSerializer,
+)
+from .services import (
+    validate_and_create_chatbot_inquiry,
+    handle_incoming_whatsapp_reply,
 )
 
 from followups.models import FollowUp
@@ -58,7 +73,7 @@ def _sync_followup(lead, user):
 class LeadListCreateView(APIView):
 
     permission_classes = [
-        IsAdminRole
+        IsAdminOrSalesExecutiveRole
     ]
 
     def get(self, request):
@@ -74,6 +89,7 @@ class LeadListCreateView(APIView):
             )
             .all()
         )
+        leads = apply_data_scope(request.user, leads, 'Lead')
 
         # ---------------------------------------------
         # SEARCH
@@ -995,3 +1011,126 @@ class LeadStatsView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+
+# =========================================================
+# PUBLIC CHATBOT LEAD CAPTURE (INBOUND CRM)
+# =========================================================
+
+class PublicChatbotInquiryView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """
+        Public endpoint for customer/dealer website or mobile chatbot inquiry.
+        Enforces required email, 10-digit phone, calculates score, and starts 15-day WhatsApp drip.
+        """
+        is_dealer = request.data.get('inquiry_type') in ['DEALER', 'FRANCHISE', 'WHOLESALE_DEALER'] or request.data.get('is_dealer_inquiry') is True
+        try:
+            lead = validate_and_create_chatbot_inquiry(request.data, is_dealer_inquiry=is_dealer)
+            return Response({
+                'success': True,
+                'message': 'Thank you! Your inquiry has been registered. Our representative will contact you shortly.',
+                'lead_id': lead.id,
+                'lead_score': lead.score,
+                'status': lead.status,
+            }, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response({
+                'success': False,
+                'error': 'validation_error',
+                'message': str(e.message if hasattr(e, 'message') else e),
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': 'server_error',
+                'message': str(e),
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# =========================================================
+# WHATSAPP WEBHOOK (INBOUND MESSAGES & REPLIES)
+# =========================================================
+
+class WhatsAppWebhookView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        """Webhook verification challenge handler (for Meta Cloud API / BSPs)."""
+        mode = request.query_params.get('hub.mode')
+        token = request.query_params.get('hub.verify_token')
+        challenge = request.query_params.get('hub.challenge')
+        if mode == 'subscribe' and challenge:
+            return Response(challenge, content_type='text/plain')
+        return Response({'status': 'active'}, status=200)
+
+    def post(self, request):
+        """Webhook event payload for incoming replies from leads/customers."""
+        sender_phone = request.data.get('from') or request.data.get('sender_phone', '')
+        message_text = request.data.get('text') or request.data.get('message', '')
+        button_payload = request.data.get('button_payload') or request.data.get('payload', '')
+
+        if not sender_phone:
+            return Response({'success': False, 'message': 'sender_phone is required.'}, status=400)
+
+        result = handle_incoming_whatsapp_reply(
+            sender_phone=sender_phone,
+            message_text=message_text,
+            button_payload=button_payload,
+        )
+
+        return Response({
+            'success': True,
+            'result': result,
+        })
+
+
+# =========================================================
+# MARKETING SPEND & CAC ANALYTICS
+# =========================================================
+
+class MarketingSpendListCreateView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        spends = MarketingSpend.objects.all()
+        serializer = MarketingSpendSerializer(spends, many=True)
+        return Response({
+            'success': True,
+            'count': spends.count(),
+            'spends': serializer.data,
+        })
+
+    def post(self, request):
+        serializer = MarketingSpendSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({'success': False, 'errors': serializer.errors}, status=400)
+        spend = serializer.save()
+        return Response({
+            'success': True,
+            'message': 'Marketing spend logged successfully.',
+            'spend': MarketingSpendSerializer(spend).data,
+        }, status=201)
+
+
+# =========================================================
+# LEAD SCORE RECALCULATION
+# =========================================================
+
+class LeadScoreRecalculateView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        lead = get_object_or_404(Lead, pk=pk)
+        old_score = lead.score
+        lead.calculate_lead_score()
+        lead.save(update_fields=['score', 'score_numeric', 'status', 'updated_at'])
+        return Response({
+            'success': True,
+            'lead_id': lead.id,
+            'previous_score': old_score,
+            'updated_score': lead.score,
+            'score_numeric': lead.score_numeric,
+            'status': lead.status,
+        })

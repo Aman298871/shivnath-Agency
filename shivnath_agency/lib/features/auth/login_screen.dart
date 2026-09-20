@@ -62,10 +62,10 @@ class _LoginScreenState
         return 'Customer Login';
 
       case AppConstants.franchiseRole:
-        return 'Franchise Login';
+        return 'Wholesale Dealer Login';
 
       case AppConstants.adminRole:
-        return 'Admin Login';
+        return 'Company Staff / Admin Login';
 
       default:
         return 'Login';
@@ -179,14 +179,25 @@ class _LoginScreenState
         userJson,
       );
 
-      // Extra frontend role check
-      if (user.role != role) {
+      // Flexible role validation supporting super_admin, admin, sales_executive
+      bool hasAccess = false;
+      if (role == AppConstants.adminRole) {
+        hasAccess = user.isStaffOrAdmin;
+      } else if (role == AppConstants.franchiseRole) {
+        hasAccess = user.isDealer;
+      } else if (role == AppConstants.customerRole) {
+        hasAccess = user.isCustomer;
+      } else {
+        hasAccess = user.role.toLowerCase() == role.toLowerCase();
+      }
+
+      if (!hasAccess) {
         setState(() {
           isLoading = false;
         });
 
         _showMessage(
-          'This account does not have access to $role.',
+          'This account does not have access to ${AppConstants.getRoleDisplayName(role)}.',
         );
 
         return;
@@ -214,7 +225,7 @@ class _LoginScreenState
         isLoading = false;
       });
 
-      // Open correct dashboard
+      // Open correct dashboard based on actual authenticated user role
       _openDashboard(
         user.role,
       );
@@ -236,10 +247,10 @@ class _LoginScreenState
   void _openDashboard(
     String userRole,
   ) {
-    if (userRole ==
-        AppConstants.customerRole) {
-      Navigator
-          .pushNamedAndRemoveUntil(
+    final r = userRole.toLowerCase();
+
+    if (r == AppConstants.customerRole) {
+      Navigator.pushNamedAndRemoveUntil(
         context,
         AppRoutes.customerDashboard,
         (_) => false,
@@ -248,10 +259,8 @@ class _LoginScreenState
       return;
     }
 
-    if (userRole ==
-        AppConstants.franchiseRole) {
-      Navigator
-          .pushNamedAndRemoveUntil(
+    if (r == AppConstants.franchiseRole) {
+      Navigator.pushNamedAndRemoveUntil(
         context,
         AppRoutes.franchiseDashboard,
         (_) => false,
@@ -260,10 +269,10 @@ class _LoginScreenState
       return;
     }
 
-    if (userRole ==
-        AppConstants.adminRole) {
-      Navigator
-          .pushNamedAndRemoveUntil(
+    if (r == AppConstants.adminRole ||
+        r == AppConstants.superAdminRole ||
+        r == AppConstants.salesExecutiveRole) {
+      Navigator.pushNamedAndRemoveUntil(
         context,
         AppRoutes.adminDashboard,
         (_) => false,
@@ -273,7 +282,7 @@ class _LoginScreenState
     }
 
     _showMessage(
-      'Unknown account role.',
+      'Unknown account role: $userRole',
     );
   }
 
@@ -640,7 +649,7 @@ class _LoginScreenState
                               .center,
                       children: [
                         const Text(
-                          'New Franchise?',
+                          'New Wholesale Dealer?',
                           style:
                               TextStyle(
                             color:
@@ -724,12 +733,12 @@ class _LoginScreenState
 
     if (role ==
         AppConstants.franchiseRole) {
-      return 'Franchise Account\nNew franchise applications require admin approval before login.';
+      return 'Wholesale Dealer Account\nNew dealership registrations require admin verification & approval.';
     }
 
     if (role ==
         AppConstants.adminRole) {
-      return 'Admin Account\nOnly authorized administrators can access the admin dashboard.';
+      return 'Company Staff / Admin Account\nAccess reserved for Super Admin, Plant Operations, and Sales Executives.';
     }
 
     return 'Use your registered email and password.';

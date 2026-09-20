@@ -89,6 +89,10 @@ urlpatterns = [
         include("orders.urls"),
     ),
     path(
+        "api/billing/",
+        include("billing.urls"),
+    ),
+    path(
         "api/chat/",
         include("chat.urls"),
     ),

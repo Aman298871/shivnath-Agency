@@ -36,8 +36,10 @@ class OrderListCreateView(APIView):
         else:
             profile = getattr(user, 'profile', None)
             role = profile.role if profile else 'customer'
-            if user.is_superuser or role == 'admin' or user.is_staff:
-                orders = Order.objects.select_related('created_by').prefetch_related('items').all()
+            if user.is_superuser or role in ['admin', 'super_admin'] or user.is_staff or role == 'sales_executive':
+                from accounts.services import apply_data_scope
+                orders = Order.objects.select_related('created_by', 'serving_franchise').prefetch_related('items').all()
+                orders = apply_data_scope(user, orders, 'Order')
             elif role == 'franchise':
                 fp = getattr(user, 'franchise_profile', None)
                 if fp:
@@ -595,23 +597,17 @@ class OrderStatusUpdateView(APIView):
 
         old_status = order.status
         with transaction.atomic():
-            order.status = new_status
-            order.save(update_fields=['status', 'updated_at'])
+            from inventory.services import dispatch_order_atomic, deliver_order_atomic, cancel_order_atomic
 
-            # Restore stock if cancelled
-            if new_status == 'cancelled' and old_status != 'cancelled':
-                for item in order.items.all():
-                    if item.product:
-                        Product.objects.filter(id=item.product.id).update(
-                            stock=F('stock') + item.quantity
-                        )
-            # Re-deduct stock if reactivated from cancelled
-            elif old_status == 'cancelled' and new_status != 'cancelled':
-                for item in order.items.all():
-                    if item.product:
-                        Product.objects.filter(id=item.product.id).update(
-                            stock=F('stock') - item.quantity
-                        )
+            if new_status == 'dispatch':
+                dispatch_order_atomic(order, user)
+            elif new_status == 'delivered':
+                deliver_order_atomic(order, user)
+            elif new_status == 'cancelled':
+                cancel_order_atomic(order, user)
+            else:
+                order.status = new_status
+                order.save(update_fields=['status', 'updated_at'])
 
             # Log status change
             if old_status != new_status:

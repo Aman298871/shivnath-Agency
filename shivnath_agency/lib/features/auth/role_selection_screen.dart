@@ -84,7 +84,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
                   _RoleCard(
                     title: 'Customer',
-                    subtitle: 'Shop products and manage your orders',
+                    subtitle: 'Shop packaged drinking water and manage orders',
                     icon: Icons.person_outline_rounded,
                     selected: selectedRole == AppConstants.customerRole,
                     onTap: () {
@@ -97,9 +97,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   const SizedBox(height: 12),
 
                   _RoleCard(
-                    title: 'Franchise',
+                    title: 'Wholesale Dealer',
                     subtitle:
-                        'Manage franchise orders, invoices and payments',
+                        'Authorized Wholesale Dealer portal for stock, invoices and payments',
                     icon: Icons.storefront_outlined,
                     selected: selectedRole == AppConstants.franchiseRole,
                     onTap: () {
@@ -112,8 +112,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   const SizedBox(height: 12),
 
                   _RoleCard(
-                    title: 'Admin',
-                    subtitle: 'Manage business operations and reports',
+                    title: 'Company Staff / Admin',
+                    subtitle: 'Super Admin, Plant Operations & Sales Executive portal',
                     icon: Icons.admin_panel_settings_outlined,
                     selected: selectedRole == AppConstants.adminRole,
                     onTap: () {

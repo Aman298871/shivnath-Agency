@@ -406,6 +406,288 @@ class InventoryService {
   }
 
   // =====================================================
+  // AUTHORITATIVE ENTERPRISE ERP METHODS
+  // =====================================================
+
+  /// Dealer finished goods stock batches (FEFO)
+  Future<Map<String, dynamic>> getDealerBatches({int? dealerId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/dealer-batches/').replace(
+        queryParameters: dealerId != null ? {'dealer_id': dealerId.toString()} : null,
+      );
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Dealer stock requests
+  Future<Map<String, dynamic>> getDealerStockRequests({int? dealerId, String? status}) async {
+    try {
+      final qp = <String, String>{};
+      if (dealerId != null) qp['dealer_id'] = dealerId.toString();
+      if (status != null && status.isNotEmpty) qp['status'] = status;
+      final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/').replace(
+        queryParameters: qp.isEmpty ? null : qp,
+      );
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Create dealer stock request
+  Future<Map<String, dynamic>> createDealerStockRequest(Map<String, dynamic> data) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Central Plant Admin multi-batch dispatch
+  Future<Map<String, dynamic>> dispatchDealerStockRequest(int id, Map<String, dynamic> data) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/$id/dispatch/');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Dealer receive stock with damaged count logging
+  Future<Map<String, dynamic>> receiveDealerStockRequest(int id, Map<String, dynamic> data) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/$id/receive/');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Central Plant Raw Materials
+  Future<Map<String, dynamic>> getRawMaterials() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/raw-materials/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createRawMaterial(Map<String, dynamic> data) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/raw-materials/');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Central Plant Production Batches
+  Future<Map<String, dynamic>> getProductionBatches() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/production-batches/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createProductionBatch(Map<String, dynamic> data) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/production-batches/');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Universal Inventory Transaction Ledger
+  Future<Map<String, dynamic>> getInventoryLedger({Map<String, String>? filters}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/ledger/').replace(
+        queryParameters: (filters != null && filters.isNotEmpty) ? filters : null,
+      );
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Daily Business Reports
+  Future<Map<String, dynamic>> getDailyBusinessReports() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/daily-reports/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Expiry Alerts
+  Future<Map<String, dynamic>> getExpiryAlerts() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/expiry-alerts/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // =====================================================
+  // BILLING & CREDIT METHODS
+  // =====================================================
+
+  Future<Map<String, dynamic>> getInvoices({String? invoiceType, String? status}) async {
+    try {
+      final qp = <String, String>{};
+      if (invoiceType != null && invoiceType.isNotEmpty) qp['type'] = invoiceType;
+      if (status != null && status.isNotEmpty) qp['status'] = status;
+      final uri = Uri.parse('$baseUrl/api/billing/invoices/').replace(
+        queryParameters: qp.isEmpty ? null : qp,
+      );
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> recordPayment(int invoiceId, Map<String, dynamic> data) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/billing/invoices/$invoiceId/payments/');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getDealerCreditProfile(int dealerId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/billing/dealers/$dealerId/credit-profile/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getDealerAgingReport(int dealerId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/billing/dealers/$dealerId/aging/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // =====================================================
+  // BOM RECIPE & MASTER PRICING METHODS
+  // =====================================================
+
+  Future<Map<String, dynamic>> getProductBOM(int productId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/products/$productId/bom/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> addProductBOMItem(int productId, Map<String, dynamic> data) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/products/$productId/bom-items/');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteProductBOMItem(int productId, int itemId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/products/$productId/bom-items/$itemId/');
+      final response = await http.delete(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProductPricing(int productId, Map<String, dynamic> data) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/products/$productId/pricing/');
+      final response = await http.patch(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProductStockThreshold(int productId, Map<String, dynamic> data) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/products/$productId/threshold/');
+      final response = await http.patch(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // =====================================================
   // RESPONSE HANDLER
   // =====================================================
 

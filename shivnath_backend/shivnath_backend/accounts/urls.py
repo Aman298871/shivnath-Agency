@@ -28,6 +28,8 @@ from .views import (
     FranchiseDashboardStatsView,
     AdminFranchiseDetailView,
     SuperAdminAdminManagementView,
+    SuperAdminAdminDetailView,
+    SuperAdminAdminPerformanceView,
     DealerOnboardingApprovalView,
     DatabaseBackupTriggerView,
     RoleBasedChatbotMenuView,
@@ -197,6 +199,16 @@ urlpatterns = [
         'super-admin/admins/',
         SuperAdminAdminManagementView.as_view(),
         name='super_admin_manage_admins'
+    ),
+    path(
+        'super-admin/admins/<int:pk>/',
+        SuperAdminAdminDetailView.as_view(),
+        name='super_admin_manage_admin_detail'
+    ),
+    path(
+        'super-admin/admin-performance/',
+        SuperAdminAdminPerformanceView.as_view(),
+        name='super_admin_admin_performance'
     ),
     path(
         'dealers/onboarding/',

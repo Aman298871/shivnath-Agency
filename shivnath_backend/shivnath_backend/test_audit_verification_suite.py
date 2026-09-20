@@ -920,3 +920,106 @@ class AuditVerificationSuite(TestCase):
             ('delivered', 'cancelled'),
         ]
         self.assertEqual(transitions, expected_transitions)
+
+    # 20. SUPER ADMIN ADMIN MANAGEMENT & PERFORMANCE REPORTING
+    def test_20_super_admin_admin_management_and_performance_reporting(self):
+        """
+        Verifies:
+        1. Super Admin full management of operational Admins (create, update, disable, password reset).
+        2. Non-Super Admin blocked with HTTP 403 Forbidden.
+        3. Real-time Admin Performance / Activity Reporting with date filters.
+        """
+        # Super Admin client
+        self.client.force_authenticate(user=self.super_admin)
+
+        # 1. Create new Admin
+        resp_create = self.client.post('/api/accounts/super-admin/admins/', {
+            'email': 'newops@shivnath.com',
+            'name': 'New Operations Lead',
+            'password': 'InitialSecret123!',
+            'role': 'admin',
+            'admin_permissions': ['orders', 'inventory', 'dealers'],
+            'data_scope_type': 'territory_scoped',
+            'assigned_scope_ids': ['Patna Central']
+        }, format='json')
+        self.assertEqual(resp_create.status_code, 201)
+        created_id = resp_create.data['id']
+
+        # Verify created admin in DB
+        new_admin = User.objects.get(id=created_id)
+        self.assertEqual(new_admin.profile.role, 'admin')
+        self.assertEqual(new_admin.profile.admin_permissions, ['orders', 'inventory', 'dealers'])
+        self.assertEqual(new_admin.profile.data_scope_type, 'territory_scoped')
+        self.assertTrue(new_admin.check_password('InitialSecret123!'))
+
+        # 2. Retrieve Admin Detail
+        resp_detail = self.client.get(f'/api/accounts/super-admin/admins/{created_id}/')
+        self.assertEqual(resp_detail.status_code, 200)
+        self.assertEqual(resp_detail.data['admin']['email'], 'newops@shivnath.com')
+
+        # 3. Update Admin (Update permissions, scope, and reset password)
+        resp_patch = self.client.patch(f'/api/accounts/super-admin/admins/{created_id}/', {
+            'name': 'Updated Ops Lead',
+            'admin_permissions': ['orders', 'inventory', 'dealers', 'production', 'reports'],
+            'data_scope_type': 'all_data',
+            'password': 'NewStrongSecret456!'
+        }, format='json')
+        self.assertEqual(resp_patch.status_code, 200)
+        new_admin.refresh_from_db()
+        self.assertEqual(new_admin.first_name, 'Updated Ops Lead')
+        self.assertEqual(new_admin.profile.data_scope_type, 'all_data')
+        self.assertIn('production', new_admin.profile.admin_permissions)
+        self.assertTrue(new_admin.check_password('NewStrongSecret456!'))
+
+        # 4. Disable Admin (Soft disable)
+        resp_del = self.client.delete(f'/api/accounts/super-admin/admins/{created_id}/')
+        self.assertEqual(resp_del.status_code, 200)
+        new_admin.refresh_from_db()
+        self.assertFalse(new_admin.is_active)
+
+        # 5. Non-Super Admin access blocked
+        self.client.force_authenticate(user=self.admin_user)
+        resp_blocked_manage = self.client.get('/api/accounts/super-admin/admins/')
+        self.assertEqual(resp_blocked_manage.status_code, 403)
+        resp_blocked_perf = self.client.get('/api/accounts/super-admin/admin-performance/')
+        self.assertEqual(resp_blocked_perf.status_code, 403)
+
+        # 6. Admin Performance / Activity Reporting for Super Admin
+        self.client.force_authenticate(user=self.super_admin)
+
+        # Record a test status transition by self.admin_user
+        order = Order.objects.create(
+            franchise_name='Patna Dealer',
+            city='Patna',
+            amount=Decimal('1000.00'),
+            tax_amount=Decimal('180.00'),
+            grand_total=Decimal('1180.00'),
+            status='order_placement',
+            created_by=self.admin_user
+        )
+        OrderStatusHistory.objects.create(
+            order=order,
+            old_status='order_placement',
+            new_status='plant_approval',
+            changed_by=self.admin_user,
+            notes='Admin test approval'
+        )
+
+        # Test Today filter
+        resp_perf_today = self.client.get('/api/accounts/super-admin/admin-performance/?date_filter=today')
+        self.assertEqual(resp_perf_today.status_code, 200)
+        self.assertTrue(resp_perf_today.data['success'])
+        admin_data = next((a for a in resp_perf_today.data['admin_performance'] if a['admin_id'] == self.admin_user.id), None)
+        self.assertIsNotNone(admin_data)
+        self.assertGreaterEqual(admin_data['metrics']['orders_approved'], 1)
+
+        # Test 7 Days filter
+        resp_perf_7d = self.client.get('/api/accounts/super-admin/admin-performance/?date_filter=last_7_days')
+        self.assertEqual(resp_perf_7d.status_code, 200)
+
+        # Test Custom Date filter
+        today_str = timezone.now().strftime('%Y-%m-%d')
+        resp_perf_custom = self.client.get(f'/api/accounts/super-admin/admin-performance/?date_filter=custom&start_date={today_str}&end_date={today_str}')
+        self.assertEqual(resp_perf_custom.status_code, 200)
+        self.assertEqual(resp_perf_custom.data['date_filter'], 'custom')
+

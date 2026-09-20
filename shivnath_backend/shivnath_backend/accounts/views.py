@@ -2917,8 +2917,29 @@ class SuperAdminAdminManagementView(APIView):
         name = request.data.get('name', '').strip()
         role = request.data.get('role', 'admin')
         admin_permissions = request.data.get('admin_permissions', [])
+        if isinstance(admin_permissions, str):
+            import json
+            try:
+                admin_permissions = json.loads(admin_permissions)
+            except Exception:
+                admin_permissions = [p.strip() for p in admin_permissions.split(',') if p.strip()]
+        elif hasattr(request.data, 'getlist'):
+            raw_list = request.data.getlist('admin_permissions')
+            if raw_list and len(raw_list) > 1:
+                admin_permissions = raw_list
+
         data_scope_type = request.data.get('data_scope_type', 'all_data')
         assigned_scope_ids = request.data.get('assigned_scope_ids', [])
+        if isinstance(assigned_scope_ids, str):
+            import json
+            try:
+                assigned_scope_ids = json.loads(assigned_scope_ids)
+            except Exception:
+                assigned_scope_ids = [s.strip() for s in assigned_scope_ids.split(',') if s.strip()]
+        elif hasattr(request.data, 'getlist'):
+            raw_scopes = request.data.getlist('assigned_scope_ids')
+            if raw_scopes and len(raw_scopes) > 1:
+                assigned_scope_ids = raw_scopes
 
         if not email or not password:
             return Response({'error': 'Email and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -2954,6 +2975,363 @@ class SuperAdminAdminManagementView(APIView):
             'message': f'Admin account created for {email}.',
             'id': user.id
         }, status=status.HTTP_201_CREATED)
+
+
+class SuperAdminAdminDetailView(APIView):
+    """
+    Super Admin management for individual admin accounts:
+    - GET: Detail, permissions, data scope, active status, recent audit history.
+    - PATCH / PUT: Update name, email, role, admin_permissions, data_scope_type, assigned_scope_ids, is_active, password reset.
+    - DELETE: Soft disable (is_active=False) preserving all historical records.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _check_super_admin(self, request):
+        if request.user.is_superuser:
+            return True
+        profile = getattr(request.user, 'profile', None)
+        return profile is not None and profile.role == 'super_admin'
+
+    def get(self, request, pk):
+        if not self._check_super_admin(request):
+            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+
+        target_user = get_object_or_404(User.objects.select_related('profile'), pk=pk)
+        profile = getattr(target_user, 'profile', None)
+
+        recent_logs = AdminAuditLog.objects.filter(actor=target_user)[:15]
+        logs_data = [
+            {
+                'id': log.id,
+                'action': log.action,
+                'resource_type': log.resource_type,
+                'resource_id': log.resource_id,
+                'created_at': log.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'changes': log.changes,
+            }
+            for log in recent_logs
+        ]
+
+        return Response({
+            'success': True,
+            'admin': {
+                'id': target_user.id,
+                'username': target_user.username,
+                'email': target_user.email,
+                'name': target_user.get_full_name() or (profile.name if profile else ''),
+                'role': profile.role if profile else 'admin',
+                'is_active': target_user.is_active,
+                'admin_permissions': profile.admin_permissions if profile else [],
+                'data_scope_type': profile.data_scope_type if profile else 'all_data',
+                'assigned_scope_ids': profile.assigned_scope_ids if profile else [],
+                'date_joined': target_user.date_joined.strftime('%Y-%m-%d %H:%M'),
+                'last_login': target_user.last_login.strftime('%Y-%m-%d %H:%M') if target_user.last_login else None,
+                'recent_activity': logs_data
+            }
+        })
+
+    def patch(self, request, pk):
+        if not self._check_super_admin(request):
+            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+
+        target_user = get_object_or_404(User.objects.select_related('profile'), pk=pk)
+        profile = getattr(target_user, 'profile', None)
+        changes = {}
+
+        with transaction.atomic():
+            if 'name' in request.data:
+                name = request.data['name'].strip()
+                target_user.first_name = name
+                if profile:
+                    profile.name = name
+                changes['name'] = name
+
+            if 'email' in request.data:
+                email = request.data['email'].strip().lower()
+                if email != target_user.email and User.objects.filter(email=email).exclude(pk=target_user.pk).exists():
+                    return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+                target_user.email = email
+                target_user.username = email
+                changes['email'] = email
+
+            if 'is_active' in request.data:
+                is_active = bool(request.data['is_active'])
+                target_user.is_active = is_active
+                changes['is_active'] = is_active
+
+            if 'role' in request.data and profile:
+                new_role = request.data['role'].strip()
+                if new_role in ['admin', 'sales_executive', 'super_admin']:
+                    profile.role = new_role
+                    changes['role'] = new_role
+
+            if 'admin_permissions' in request.data and profile:
+                perms = request.data['admin_permissions']
+                if isinstance(perms, str):
+                    import json
+                    try:
+                        perms = json.loads(perms)
+                    except Exception:
+                        perms = [p.strip() for p in perms.split(',') if p.strip()]
+                elif hasattr(request.data, 'getlist'):
+                    raw_p = request.data.getlist('admin_permissions')
+                    if raw_p and len(raw_p) > 1:
+                        perms = raw_p
+                profile.admin_permissions = perms
+                changes['admin_permissions'] = profile.admin_permissions
+
+            if 'data_scope_type' in request.data and profile:
+                profile.data_scope_type = request.data['data_scope_type']
+                changes['data_scope_type'] = profile.data_scope_type
+
+            if 'assigned_scope_ids' in request.data and profile:
+                scopes = request.data['assigned_scope_ids']
+                if isinstance(scopes, str):
+                    import json
+                    try:
+                        scopes = json.loads(scopes)
+                    except Exception:
+                        scopes = [s.strip() for s in scopes.split(',') if s.strip()]
+                elif hasattr(request.data, 'getlist'):
+                    raw_s = request.data.getlist('assigned_scope_ids')
+                    if raw_s and len(raw_s) > 1:
+                        scopes = raw_s
+                profile.assigned_scope_ids = scopes
+                changes['assigned_scope_ids'] = profile.assigned_scope_ids
+
+            if 'password' in request.data and request.data['password']:
+                target_user.password = make_password(request.data['password'])
+                changes['password'] = 'RESET_SECURELY'
+
+            target_user.save()
+            if profile:
+                profile.save()
+
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                action='UPDATE_ADMIN',
+                resource_type='UserProfile',
+                resource_id=str(target_user.id),
+                changes=changes
+            )
+
+        return Response({
+            'success': True,
+            'message': f'Admin account {target_user.email} updated successfully.',
+            'changes': changes
+        })
+
+    def delete(self, request, pk):
+        if not self._check_super_admin(request):
+            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+
+        target_user = get_object_or_404(User, pk=pk)
+        if target_user.pk == request.user.pk:
+            return Response({'error': 'Cannot disable your own Super Admin account.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target_user.is_active = False
+        target_user.save()
+
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            action='DISABLE_ADMIN',
+            resource_type='UserProfile',
+            resource_id=str(target_user.id),
+            changes={'is_active': False}
+        )
+
+        return Response({
+            'success': True,
+            'message': f'Admin account {target_user.email} disabled successfully. Historical records preserved.'
+        })
+
+
+class SuperAdminAdminPerformanceView(APIView):
+    """
+    Real-time Admin-Performance / Activity Reporting for Super Admin.
+    Calculates operational actions performed by individual admins using DB records.
+    Filters: today, yesterday, last_7_days, this_month, custom.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _check_super_admin(self, request):
+        if request.user.is_superuser:
+            return True
+        profile = getattr(request.user, 'profile', None)
+        return profile is not None and profile.role == 'super_admin'
+
+    def get(self, request):
+        if not self._check_super_admin(request):
+            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+
+        from django.utils import timezone
+        from datetime import timedelta, datetime
+        from orders.models import OrderStatusHistory
+        from inventory.models import DealerStockRequest, InventoryTransactionLedger
+        from leads.models import Lead, CRMActivityLog
+        from followups.models import FollowUp
+
+        now = timezone.now()
+        date_filter = request.query_params.get('date_filter', 'today').lower()
+
+        if date_filter == 'today':
+            start_dt = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_dt = now
+        elif date_filter == 'yesterday':
+            yesterday = now - timedelta(days=1)
+            start_dt = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_dt = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+        elif date_filter in ['last_7_days', '7_days']:
+            start_dt = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+            end_dt = now
+        elif date_filter == 'this_month':
+            start_dt = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_dt = now
+        elif date_filter == 'custom':
+            start_str = request.query_params.get('start_date')
+            end_str = request.query_params.get('end_date')
+            try:
+                start_dt = timezone.make_aware(datetime.strptime(start_str, '%Y-%m-%d'))
+                end_dt = timezone.make_aware(datetime.strptime(end_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999))
+            except Exception:
+                try:
+                    from datetime import timezone as dt_tz
+                    start_dt = datetime.strptime(start_str, '%Y-%m-%d').replace(tzinfo=dt_tz.utc)
+                    end_dt = datetime.strptime(end_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59, tzinfo=dt_tz.utc)
+                except Exception:
+                    return Response({'error': 'Invalid custom dates. Format YYYY-MM-DD required.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            start_dt = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_dt = now
+
+        admin_id = request.query_params.get('admin_id')
+        admins_qs = User.objects.filter(profile__role__in=['admin', 'super_admin', 'sales_executive']).select_related('profile')
+        if admin_id:
+            admins_qs = admins_qs.filter(id=admin_id)
+
+        performance_data = []
+
+        for admin in admins_qs:
+            order_transitions = OrderStatusHistory.objects.filter(
+                changed_by=admin,
+                created_at__range=(start_dt, end_dt)
+            )
+            orders_handled = order_transitions.values('order_id').distinct().count()
+            orders_approved = order_transitions.filter(new_status='plant_approval').count()
+            orders_prepared = order_transitions.filter(new_status='preparing').count()
+            orders_dispatched = order_transitions.filter(new_status='dispatch').count()
+            orders_delivered = order_transitions.filter(new_status='delivered').count()
+
+            stock_reqs_approved = DealerStockRequest.objects.filter(
+                approved_by=admin,
+                created_at__range=(start_dt, end_dt)
+            ).count()
+            stock_reqs_dispatched = DealerStockRequest.objects.filter(
+                dispatched_by=admin,
+                created_at__range=(start_dt, end_dt)
+            ).count()
+
+            dealer_onboarding_actions = AdminAuditLog.objects.filter(
+                actor=admin,
+                action__in=['APPROVE_DEALER', 'REJECT_DEALER', 'SUSPEND_DEALER'],
+                created_at__range=(start_dt, end_dt)
+            ).count()
+
+            customer_actions = AdminAuditLog.objects.filter(
+                actor=admin,
+                resource_type__in=['UserProfile', 'CustomerFranchiseRelationship'],
+                created_at__range=(start_dt, end_dt)
+            ).count()
+
+            leads_handled = Lead.objects.filter(
+                Q(created_by=admin) | Q(assigned_executive_user=admin),
+                created_at__range=(start_dt, end_dt)
+            ).count()
+            leads_converted = Lead.objects.filter(
+                converted_user__isnull=False,
+                created_by=admin,
+                updated_at__range=(start_dt, end_dt)
+            ).count()
+
+            followups_completed = FollowUp.objects.filter(
+                status='Completed',
+                updated_by=admin,
+                completed_at__range=(start_dt, end_dt)
+            ).count()
+
+            inventory_adjustments = InventoryTransactionLedger.objects.filter(
+                actor=admin,
+                transaction_type__in=['ADJUSTMENT', 'DAMAGE', 'EXPIRY'],
+                timestamp__range=(start_dt, end_dt)
+            ).count()
+
+            reports_generated = AdminAuditLog.objects.filter(
+                actor=admin,
+                action__icontains='REPORT',
+                created_at__range=(start_dt, end_dt)
+            ).count()
+
+            latest_audit = AdminAuditLog.objects.filter(actor=admin).first()
+            latest_transition = order_transitions.first()
+            last_active_time = None
+            if latest_audit and latest_transition:
+                last_active_time = max(latest_audit.created_at, latest_transition.created_at)
+            elif latest_audit:
+                last_active_time = latest_audit.created_at
+            elif latest_transition:
+                last_active_time = latest_transition.created_at
+
+            recent_audit = AdminAuditLog.objects.filter(
+                actor=admin,
+                created_at__range=(start_dt, end_dt)
+            )[:10]
+
+            performance_data.append({
+                'admin_id': admin.id,
+                'name': admin.get_full_name() or (admin.profile.name if hasattr(admin, 'profile') else admin.username),
+                'email': admin.email,
+                'role': admin.profile.role if hasattr(admin, 'profile') else 'admin',
+                'is_active': admin.is_active,
+                'last_login': admin.last_login.strftime('%Y-%m-%d %H:%M:%S') if admin.last_login else None,
+                'last_active_time': last_active_time.strftime('%Y-%m-%d %H:%M:%S') if last_active_time else None,
+                'metrics': {
+                    'orders_handled': orders_handled,
+                    'orders_approved': orders_approved,
+                    'orders_prepared': orders_prepared,
+                    'orders_dispatched': orders_dispatched,
+                    'orders_delivered': orders_delivered,
+                    'stock_requests_reviewed': stock_reqs_approved + stock_reqs_dispatched,
+                    'stock_requests_approved': stock_reqs_approved,
+                    'stock_requests_dispatched': stock_reqs_dispatched,
+                    'dealer_onboarding_actions': dealer_onboarding_actions,
+                    'customer_actions': customer_actions,
+                    'leads_handled': leads_handled,
+                    'leads_converted': leads_converted,
+                    'followups_completed': followups_completed,
+                    'inventory_adjustments': inventory_adjustments,
+                    'reports_generated': reports_generated,
+                },
+                'audit_trail': [
+                    {
+                        'id': a.id,
+                        'action': a.action,
+                        'resource_type': a.resource_type,
+                        'resource_id': a.resource_id,
+                        'created_at': a.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                        'changes': a.changes,
+                    }
+                    for a in recent_audit
+                ]
+            })
+
+        return Response({
+            'success': True,
+            'date_filter': date_filter,
+            'start_date': start_dt.strftime('%Y-%m-%d %H:%M:%S'),
+            'end_date': end_dt.strftime('%Y-%m-%d %H:%M:%S'),
+            'count': len(performance_data),
+            'admin_performance': performance_data
+        })
 
 
 class DealerOnboardingApprovalView(APIView):

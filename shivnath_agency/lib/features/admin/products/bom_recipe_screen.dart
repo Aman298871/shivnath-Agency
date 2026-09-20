@@ -219,24 +219,27 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Estimated Unit Production Cost',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'INR ${totalUnitCost.toStringAsFixed(2)} / unit',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Estimated Unit Production Cost',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'INR ${totalUnitCost.toStringAsFixed(2)} / unit',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
@@ -244,7 +247,7 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Raw Material', style: TextStyle(fontWeight: FontWeight.w700)),
+                label: const Text('Add Material', style: TextStyle(fontWeight: FontWeight.w700)),
                 onPressed: _openAddBOMItemDialog,
               ),
             ],

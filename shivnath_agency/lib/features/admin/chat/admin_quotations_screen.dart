@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -69,6 +70,78 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
     String? selectedPdfName;
     List<int>? selectedPdfBytes;
     bool removeExistingPdf = false;
+
+    Future<void> pickPdfFile(StateSetter setDlgState) async {
+      try {
+        FilePickerResult? result;
+        try {
+          result = await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: ['pdf'],
+            allowMultiple: false,
+          );
+        } catch (e) {
+          debugPrint('Custom PDF file picker failed: $e, trying FileType.any');
+          result = await FilePicker.platform.pickFiles(
+            type: FileType.any,
+            allowMultiple: false,
+          );
+        }
+
+        if (result != null && result.files.isNotEmpty) {
+          final file = result.files.first;
+          final fileName = file.name;
+
+          if (!fileName.toLowerCase().endsWith('.pdf')) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please select a valid PDF file (*.pdf)'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+            return;
+          }
+
+          List<int>? bytes = file.bytes;
+          if (bytes == null && file.path != null && file.path!.isNotEmpty) {
+            try {
+              bytes = await File(file.path!).readAsBytes();
+            } catch (e) {
+              debugPrint('Could not read bytes from path: $e');
+            }
+          }
+
+          setDlgState(() {
+            selectedPdfPath = file.path;
+            selectedPdfName = fileName;
+            selectedPdfBytes = bytes;
+            removeExistingPdf = false;
+          });
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Selected PDF: $fileName'),
+                backgroundColor: const Color(0xFF0284C7),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('File picker error: $e');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open file picker: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
 
     showDialog(
       context: context,
@@ -289,22 +362,7 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.refresh, size: 16),
                                 label: const Text('Change PDF', style: TextStyle(fontSize: 12)),
-                                onPressed: () async {
-                                  final result = await FilePicker.platform.pickFiles(
-                                    type: FileType.custom,
-                                    allowedExtensions: ['pdf'],
-                                    withData: true,
-                                  );
-                                  if (result != null && result.files.isNotEmpty) {
-                                    final file = result.files.first;
-                                    setDlgState(() {
-                                      selectedPdfPath = file.path;
-                                      selectedPdfName = file.name;
-                                      selectedPdfBytes = file.bytes;
-                                      removeExistingPdf = false;
-                                    });
-                                  }
-                                },
+                                onPressed: () => pickPdfFile(setDlgState),
                               ),
                               const SizedBox(width: 8),
                               TextButton.icon(
@@ -349,22 +407,7 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.upload_file, size: 14),
                                 label: const Text('Replace PDF', style: TextStyle(fontSize: 11)),
-                                onPressed: () async {
-                                  final result = await FilePicker.platform.pickFiles(
-                                    type: FileType.custom,
-                                    allowedExtensions: ['pdf'],
-                                    withData: true,
-                                  );
-                                  if (result != null && result.files.isNotEmpty) {
-                                    final file = result.files.first;
-                                    setDlgState(() {
-                                      selectedPdfPath = file.path;
-                                      selectedPdfName = file.name;
-                                      selectedPdfBytes = file.bytes;
-                                      removeExistingPdf = false;
-                                    });
-                                  }
-                                },
+                                onPressed: () => pickPdfFile(setDlgState),
                               ),
                               TextButton.icon(
                                 icon: const Icon(Icons.delete_outline, color: Colors.red, size: 14),
@@ -387,22 +430,7 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                 ),
                                 icon: const Icon(Icons.upload_file, size: 16),
                                 label: const Text('Upload Quotation PDF', style: TextStyle(fontSize: 12)),
-                                onPressed: () async {
-                                  final result = await FilePicker.platform.pickFiles(
-                                    type: FileType.custom,
-                                    allowedExtensions: ['pdf'],
-                                    withData: true,
-                                  );
-                                  if (result != null && result.files.isNotEmpty) {
-                                    final file = result.files.first;
-                                    setDlgState(() {
-                                      selectedPdfPath = file.path;
-                                      selectedPdfName = file.name;
-                                      selectedPdfBytes = file.bytes;
-                                      removeExistingPdf = false;
-                                    });
-                                  }
-                                },
+                                onPressed: () => pickPdfFile(setDlgState),
                               ),
                               if (removeExistingPdf) ...[
                                 const SizedBox(width: 8),

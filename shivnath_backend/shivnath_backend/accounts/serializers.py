@@ -535,10 +535,11 @@ class LoginSerializer(serializers.Serializer):
         )
 
         if user.is_superuser:
-            profile.role = 'admin'
+            profile.role = 'super_admin'
             profile.save()
 
-        if profile.role != selected_role:
+        is_role_match = (profile.role == selected_role) or (user.is_superuser and selected_role in ['admin', 'super_admin'])
+        if not is_role_match:
             raise serializers.ValidationError({
                 'role':
                     f'This account is registered as '

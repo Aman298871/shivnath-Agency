@@ -242,6 +242,11 @@ urlpatterns = [
         name='support_contact_list'
     ),
     path(
+        'dealers/documents/',
+        DealerKYCDocumentView.as_view(),
+        name='dealer_kyc_documents_self'
+    ),
+    path(
         'dealers/<int:dealer_id>/documents/',
         DealerKYCDocumentView.as_view(),
         name='dealer_kyc_documents'

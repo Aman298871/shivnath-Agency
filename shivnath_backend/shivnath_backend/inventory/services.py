@@ -705,19 +705,19 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
             continue
 
         days_left = (batch.expiry_date - today).days
-        if days_left > 30:
+        if days_left > 60:
             continue
 
         if days_left <= 0:
             level_key = '0_DAYS_EXPIRED'
-        elif days_left <= 3:
-            level_key = '3_DAYS'
         elif days_left <= 7:
             level_key = '7_DAYS'
         elif days_left <= 15:
             level_key = '15_DAYS'
-        else:
+        elif days_left <= 30:
             level_key = '30_DAYS'
+        else:
+            level_key = '60_DAYS'
 
         dealer_name = alloc.stock_request.dealer.business_name if alloc.stock_request.dealer else 'Franchise'
         product = alloc.stock_request.product or batch.product
@@ -769,19 +769,19 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
             continue
 
         days_left = (batch.expiry_date - today).days
-        if days_left > 30:
+        if days_left > 60:
             continue
 
         if days_left <= 0:
             level_key = '0_DAYS_EXPIRED'
-        elif days_left <= 3:
-            level_key = '3_DAYS'
         elif days_left <= 7:
             level_key = '7_DAYS'
         elif days_left <= 15:
             level_key = '15_DAYS'
-        else:
+        elif days_left <= 30:
             level_key = '30_DAYS'
+        else:
+            level_key = '60_DAYS'
 
         order = res.order_item.order
         customer_or_dealer = (

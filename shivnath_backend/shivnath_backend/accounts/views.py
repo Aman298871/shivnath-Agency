@@ -3882,14 +3882,25 @@ class DealerKYCDocumentView(APIView):
     def get_permissions(self):
         return [IsAdminOrApprovedFranchise()]
 
-    def get(self, request, dealer_id):
-        franchise = get_object_or_404(FranchiseProfile, pk=dealer_id)
+    def _get_franchise(self, request, dealer_id=None):
+        if dealer_id:
+            return get_object_or_404(FranchiseProfile, pk=dealer_id)
+        franchise = getattr(request.user, 'franchise_profile', None)
+        if not franchise:
+            franchise = FranchiseProfile.objects.filter(user=request.user).first()
+        return franchise
+
+    def get(self, request, dealer_id=None):
+        franchise = self._get_franchise(request, dealer_id)
+        if not franchise:
+            return Response({'success': False, 'message': 'Franchise profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
         # Authorization check: admin or the dealer itself
         if not (request.user.is_superuser or getattr(request.user, 'profile', None).role in ['admin', 'super_admin']):
             if getattr(request.user, 'franchise_profile', None) != franchise:
                 return Response({'success': False, 'message': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
 
-        docs = franchise.kyc_documents.all()
+        docs = franchise.kyc_documents.all().order_by('-uploaded_at')
         data = [
             {
                 'id': d.id,
@@ -3905,10 +3916,13 @@ class DealerKYCDocumentView(APIView):
             }
             for d in docs
         ]
-        return Response({'success': True, 'dealer_id': dealer_id, 'documents': data})
+        return Response({'success': True, 'dealer_id': franchise.id, 'documents': data})
 
-    def post(self, request, dealer_id):
-        franchise = get_object_or_404(FranchiseProfile, pk=dealer_id)
+    def post(self, request, dealer_id=None):
+        franchise = self._get_franchise(request, dealer_id)
+        if not franchise:
+            return Response({'success': False, 'message': 'Franchise profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
         # Authorization check
         if not (request.user.is_superuser or getattr(request.user, 'profile', None).role in ['admin', 'super_admin']):
             if getattr(request.user, 'franchise_profile', None) != franchise:
@@ -3935,7 +3949,25 @@ class DealerKYCDocumentView(APIView):
             'message': 'Document uploaded successfully.',
             'document_id': doc.id,
             'verification_status': doc.verification_status,
+            'document_url': request.build_absolute_uri(doc.document_file.url) if doc.document_file else '',
         }, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, dealer_id=None):
+        doc_id = request.data.get('document_id') or request.query_params.get('document_id')
+        if not doc_id:
+            return Response({'success': False, 'message': 'document_id is required.'}, status=400)
+        doc = get_object_or_404(DealerDocument, pk=doc_id)
+        franchise = self._get_franchise(request, dealer_id)
+        if not (request.user.is_superuser or getattr(request.user, 'profile', None).role in ['admin', 'super_admin']):
+            if doc.dealer != getattr(request.user, 'franchise_profile', None):
+                return Response({'success': False, 'message': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+        if doc.document_file:
+            try:
+                doc.document_file.delete(save=False)
+            except Exception:
+                pass
+        doc.delete()
+        return Response({'success': True, 'message': 'Document deleted successfully.'})
 
 
 class DealerKYCVerifyView(APIView):

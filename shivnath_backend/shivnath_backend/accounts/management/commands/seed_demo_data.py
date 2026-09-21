@@ -875,12 +875,12 @@ class Command(BaseCommand):
                 "status": "DEPLETED",
             },
             # CRITICAL EXPIRY ALERT BATCH (B-DEMO-EXPIRY-001 & B-DEMO-001):
-            # Produced: 5,000, Cleared/Sold: 2,000, Pending: 3,000, Expiry: 7 days
+            # Produced: 5,000, Cleared/Sold: 2,000, Pending: 3,000, Expiry: 45 days (1.5 Months)
             {
                 "batch_number": "B-DEMO-EXPIRY-001",
                 "product_sku": "SKU-BOT-500",
-                "mfg_date": today - datetime.timedelta(days=173),
-                "exp_date": today + datetime.timedelta(days=7),  # 7 days remaining
+                "mfg_date": today - datetime.timedelta(days=135),
+                "exp_date": today + datetime.timedelta(days=45),  # 45 days remaining (1.5 months)
                 "produced": 5000,
                 "remaining": 3000,
                 "reserved": 3000,
@@ -890,8 +890,8 @@ class Command(BaseCommand):
             {
                 "batch_number": "B-DEMO-001",
                 "product_sku": "SKU-BOT-500",
-                "mfg_date": today - datetime.timedelta(days=173),
-                "exp_date": today + datetime.timedelta(days=7),
+                "mfg_date": today - datetime.timedelta(days=135),
+                "exp_date": today + datetime.timedelta(days=45),
                 "produced": 5000,
                 "remaining": 3000,
                 "reserved": 3000,

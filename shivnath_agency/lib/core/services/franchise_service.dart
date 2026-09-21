@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../constants/app_constants.dart';
-import 'auth_service.dart';
 import 'session_service.dart';
 
 class FranchiseService {

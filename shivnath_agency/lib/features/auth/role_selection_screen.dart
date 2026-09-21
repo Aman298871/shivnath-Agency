@@ -97,9 +97,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   const SizedBox(height: 12),
 
                   _RoleCard(
-                    title: 'Franchise',
+                    title: 'Dealer / Wholesale Dealer',
                     subtitle:
-                        'Authorized Franchise portal for stock, invoices and payments',
+                        'Authorized Dealer portal for stock requests, invoices and payments',
                     icon: Icons.storefront_outlined,
                     selected: selectedRole == AppConstants.franchiseRole,
                     onTap: () {

@@ -915,31 +915,31 @@ class LeadStatsView(APIView):
         total_leads = Lead.objects.count()
 
         hot_leads = Lead.objects.filter(
-            score='hot'
-        ).count()
+            score_category='HOT'
+        ).count() or Lead.objects.filter(score__iexact='hot').count()
 
         warm_leads = Lead.objects.filter(
-            score='warm'
-        ).count()
+            score_category='WARM'
+        ).count() or Lead.objects.filter(score__iexact='warm').count()
 
         cold_leads = Lead.objects.filter(
-            score='cold'
-        ).count()
+            score_category='COLD'
+        ).count() or Lead.objects.filter(score__iexact='cold').count()
 
         interested = Lead.objects.filter(
-            status='interested'
+            status__iexact='interested'
         ).count()
 
         site_visits = Lead.objects.filter(
-            status='site_visit_scheduled'
+            status__iexact='site_visit_scheduled'
         ).count()
 
         confirmed = Lead.objects.filter(
-            status='franchise_confirmed'
+            status__iexact='franchise_confirmed'
         ).count()
 
         lost = Lead.objects.filter(
-            status='lost'
+            status__iexact='lost'
         ).count()
 
         pipeline_query = (
@@ -956,9 +956,9 @@ class LeadStatsView(APIView):
         pipeline = {}
 
         for item in pipeline_query:
-
+            # Normalize to lowercase key so Flutter can map consistently
             pipeline[
-                item['status']
+                item['status'].lower()
             ] = item['count']
 
         conversion_rate = 0

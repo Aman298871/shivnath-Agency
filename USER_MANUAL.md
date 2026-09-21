@@ -518,5 +518,30 @@ The alert runs on the scheduled daily maintenance cycle (`run_scheduled_tasks.py
 
 ---
 
+## 22. Cloud Production Architecture & Render.com Auto-Deployment
+
+### 22.1 Production Infrastructure Overview
+The Shivnath Agency platform is deployed across a cloud-native architecture:
+- **Backend**: Django 5 + Django REST Framework + SimpleJWT running on Render Cloud Web Services (`https://shivnath-agency.onrender.com`).
+- **Database**: Managed PostgreSQL instance on Render Cloud.
+- **Mobile Client**: Flutter 3.x Production Release APK (`Shivnath_Agency_Release.apk`) compiled with multi-platform ARM64/x86_64 native binaries and tree-shaken assets.
+
+### 22.2 Render Auto-Deployment Lifecycle
+- Render is configured to monitor the repository branch: `main` at `https://github.com/Aman298871/shivnath-Agency.git`.
+- Every git push to `main` initiates a Render build & deploy pipeline:
+  1. Clones repository at the latest commit.
+  2. Installs Python dependencies (`pip install -r shivnath_backend/requirements.txt`).
+  3. Executes database schema migrations (`python manage.py migrate`).
+  4. Collects static assets (`python manage.py collectstatic --noinput`).
+  5. Boots Gunicorn WSGI workers bound to the production web port.
+
+### 22.3 Free-Tier Cold Starts & Mobile Connectivity
+- **Container Spin Down**: On Render's free tier, inactive services enter sleep mode after 15 minutes of inactivity.
+- **Initial Spin-Up (Cold Start)**: The first request triggers container initialization, taking 30–50 seconds.
+- **Client Configuration**: The mobile app is hardwired to the production backend (`https://shivnath-agency.onrender.com`). If an app request times out during container spin-up, waiting a few seconds and retrying connects instantly once the container is active.
+
+---
+
 *Manual maintained by Shivnath Agency Engineering & Operations.*  
 *All rights reserved. Shivnath Agency Pure Drinking Water Enterprise Platform.*
+

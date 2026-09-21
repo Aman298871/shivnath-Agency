@@ -24,6 +24,8 @@ import 'chat/admin_chat_conversations_screen.dart';
 import 'chat/admin_chatbot_management_screen.dart';
 import 'chat/admin_quotations_screen.dart';
 import 'users/admin_users_screen.dart';
+import 'users/admin_management_tab.dart';
+import 'dashboard/admin_performance_screen.dart';
 import 'settings/admin_settings_screen.dart';
 import 'notifications/admin_notifications_screen.dart';
 import 'profile/admin_profile_screen.dart';
@@ -57,76 +59,108 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   // MENU
   // =========================================================
 
-  final List<_AdminMenuItem> menuItems = const [
-    _AdminMenuItem(
-      title: 'Dashboard',
-      icon: Icons.dashboard_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Leads',
-      icon: Icons.people_alt_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Follow-ups',
-      icon: Icons.calendar_month_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Wholesale Dealers',
-      icon: Icons.storefront_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Plant Batches & Stock',
-      icon: Icons.inventory_2_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'BOM & Pricing Master',
-      icon: Icons.science_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Suppliers',
-      icon: Icons.local_shipping_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Orders',
-      icon: Icons.shopping_cart_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Billing',
-      icon: Icons.receipt_long_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Daily P&L Reports',
-      icon: Icons.bar_chart_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Chatbot Builder',
-      icon: Icons.account_tree_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Quotations',
-      icon: Icons.request_quote_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'WhatsApp settings',
-      icon: Icons.chat_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Customer Inquiries',
-      icon: Icons.forum_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'User Directory',
-      icon: Icons.manage_accounts_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Notifications',
-      icon: Icons.notifications_none_outlined,
-    ),
-    _AdminMenuItem(
-      title: 'Settings',
-      icon: Icons.settings_outlined,
-    ),
-  ];
+  List<_AdminMenuItem> get menuItems {
+    final isSuperAdmin = _currentUser?.isSuperAdmin == true;
+    return [
+      const _AdminMenuItem(
+        index: 0,
+        title: 'Dashboard',
+        icon: Icons.dashboard_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 1,
+        title: 'Leads',
+        icon: Icons.people_alt_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 2,
+        title: 'Follow-ups',
+        icon: Icons.calendar_month_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 3,
+        title: 'Wholesale Dealers',
+        icon: Icons.storefront_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 4,
+        title: 'Plant Batches & Stock',
+        icon: Icons.inventory_2_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 5,
+        title: 'BOM & Pricing Master',
+        icon: Icons.science_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 6,
+        title: 'Suppliers',
+        icon: Icons.local_shipping_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 7,
+        title: 'Orders',
+        icon: Icons.shopping_cart_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 8,
+        title: 'Billing',
+        icon: Icons.receipt_long_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 9,
+        title: 'Daily P&L Reports',
+        icon: Icons.bar_chart_outlined,
+      ),
+      if (isSuperAdmin) ...[
+        const _AdminMenuItem(
+          index: 19,
+          title: 'Admin Management',
+          icon: Icons.admin_panel_settings_outlined,
+        ),
+        const _AdminMenuItem(
+          index: 20,
+          title: 'Staff Performance',
+          icon: Icons.insights_outlined,
+        ),
+      ],
+      const _AdminMenuItem(
+        index: 10,
+        title: 'Chatbot Builder',
+        icon: Icons.account_tree_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 11,
+        title: 'Quotations',
+        icon: Icons.request_quote_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 12,
+        title: 'WhatsApp settings',
+        icon: Icons.chat_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 13,
+        title: 'Customer Inquiries',
+        icon: Icons.forum_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 14,
+        title: 'User Directory',
+        icon: Icons.manage_accounts_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 15,
+        title: 'Notifications',
+        icon: Icons.notifications_none_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 16,
+        title: 'Settings',
+        icon: Icons.settings_outlined,
+      ),
+    ];
+  }
 
   // =========================================================
   // CURRENT SCREEN
@@ -201,6 +235,12 @@ Widget _currentScreen() {
 
     case 18:
       return const AdminProfileScreen();
+
+    case 19:
+      return const AdminManagementTab();
+
+    case 20:
+      return const AdminPerformanceScreen();
 
     default:
       return AdminDashboardScreen(
@@ -329,6 +369,13 @@ Widget _currentScreen() {
       // Profile
       'profile': 18,
       'admin': 18,
+
+      // Admin Management & Performance
+      'admins': 19,
+      'admin management': 19,
+      'admin accounts': 19,
+      'performance': 20,
+      'staff performance': 20,
     };
 
     for (final entry in searchMap.entries) {
@@ -638,7 +685,7 @@ Widget _currentScreen() {
                 ) {
                   final item = menuItems[index];
 
-                  final selected = currentIndex == index;
+                  final selected = currentIndex == item.index;
 
                   return Padding(
                     padding: const EdgeInsets.only(
@@ -649,7 +696,7 @@ Widget _currentScreen() {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(9),
                         onTap: () {
-                          _selectMenu(index);
+                          _selectMenu(item.index);
 
                           if (isMobile) {
                             Navigator.pop(context);
@@ -1166,6 +1213,12 @@ Widget _currentScreen() {
     case 18:
       return 'Profile';
 
+    case 19:
+      return 'Admin Management';
+
+    case 20:
+      return 'Staff Performance';
+
     default:
       return 'Admin';
   }
@@ -1177,10 +1230,12 @@ Widget _currentScreen() {
 // ===========================================================
 
 class _AdminMenuItem {
+  final int index;
   final String title;
   final IconData icon;
 
   const _AdminMenuItem({
+    required this.index,
     required this.title,
     required this.icon,
   });

@@ -22,6 +22,7 @@ from .views import (
     DailyBusinessReportAPIView,
     ExpiryAlertListAPIView,
     StockAdjustmentAPIView,
+    PendingStockExpiryAlertView,
 )
 
 urlpatterns = [
@@ -51,4 +52,5 @@ urlpatterns = [
     path('daily-reports/', DailyBusinessReportAPIView.as_view(), name='erp_daily_reports'),
     path('expiry-alerts/', ExpiryAlertListAPIView.as_view(), name='erp_expiry_alerts'),
     path('stock/adjust/', StockAdjustmentAPIView.as_view(), name='erp_stock_adjust'),
+    path('pending-stock-expiry-alerts/', PendingStockExpiryAlertView.as_view(), name='pending_stock_expiry_alerts'),
 ]

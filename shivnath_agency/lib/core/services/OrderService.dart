@@ -293,6 +293,8 @@ class OrderService {
 
       'order_source': item['order_source']?.toString() ?? '',
 
+      'status_history': item['status_history'] is List ? item['status_history'] : [],
+
       'raw': item,
     };
   }
@@ -374,6 +376,8 @@ class OrderService {
         return 'order_placement';
       case 'Plant Approval':
         return 'plant_approval';
+      case 'Preparing':
+        return 'preparing';
       case 'Invoice Generated':
         return 'invoice_generated';
       case 'Dispatch':
@@ -382,6 +386,8 @@ class OrderService {
         return 'delivered';
       case 'Payment Collection':
         return 'payment_collection';
+      case 'Cancelled':
+        return 'cancelled';
       default:
         return value.trim().toLowerCase().replaceAll(' ', '_');
     }
@@ -393,6 +399,8 @@ class OrderService {
         return 'Order Placement';
       case 'plant_approval':
         return 'Plant Approval';
+      case 'preparing':
+        return 'Preparing';
       case 'invoice_generated':
         return 'Invoice Generated';
       case 'dispatch':
@@ -401,6 +409,8 @@ class OrderService {
         return 'Delivered';
       case 'payment_collection':
         return 'Payment Collection';
+      case 'cancelled':
+        return 'Cancelled';
       default:
         return value;
     }

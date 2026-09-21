@@ -711,4 +711,146 @@ class AuthService {
       return {'success': false, 'message': 'Server unavailable. Please try again.'};
     }
   }
+
+  // =========================================================
+  // SUPER ADMIN: ADMIN ACCOUNT MANAGEMENT
+  // =========================================================
+
+  Future<Map<String, dynamic>> getSuperAdminAdmins() async {
+    try {
+      final token = await SessionService().getAccessToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/accounts/super-admin/admins/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': decoded['message'] ?? decoded['error'] ?? 'Failed to fetch admin accounts'};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createSuperAdminAdmin(Map<String, dynamic> data) async {
+    try {
+      final token = await SessionService().getAccessToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/accounts/super-admin/admins/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': decoded['message'] ?? decoded['error'] ?? 'Failed to create admin account'};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSuperAdminAdmin(int adminId, Map<String, dynamic> data) async {
+    try {
+      final token = await SessionService().getAccessToken();
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/accounts/super-admin/admins/$adminId/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': decoded['message'] ?? decoded['error'] ?? 'Failed to update admin account'};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> toggleSuperAdminAdminActive(int adminId, bool isActive) async {
+    return updateSuperAdminAdmin(adminId, {'is_active': isActive});
+  }
+
+  Future<Map<String, dynamic>> resetSuperAdminAdminPassword(int adminId, String newPassword) async {
+    return updateSuperAdminAdmin(adminId, {'password': newPassword});
+  }
+
+  // =========================================================
+  // SUPER ADMIN: ADMIN PERFORMANCE & ACTIVITY REPORTING
+  // =========================================================
+
+  Future<Map<String, dynamic>> getSuperAdminAdminPerformance({
+    String dateFilter = 'today',
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final token = await SessionService().getAccessToken();
+      final queryParams = <String, String>{'date_filter': dateFilter};
+      if (startDate != null && startDate.isNotEmpty) queryParams['start_date'] = startDate;
+      if (endDate != null && endDate.isNotEmpty) queryParams['end_date'] = endDate;
+
+      final uri = Uri.parse('$baseUrl/api/accounts/super-admin/admin-performance/').replace(
+        queryParameters: queryParams,
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': decoded['message'] ?? decoded['error'] ?? 'Failed to fetch admin performance reporting'};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please try again.'};
+    }
+  }
 }

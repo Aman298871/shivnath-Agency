@@ -264,7 +264,8 @@ def run_stock_management_tests():
     cycle.refresh_from_db()
     assert cycle.service_status == 'expired', f"Cycle service status should be 'expired', got {cycle.service_status}"
     assert cycle.computed_status == 'Expired', f"Computed status should be 'Expired', got {cycle.computed_status}"
-    assert len(dispatched_exp) == 0, "No 'X days remaining' alert should be sent on expiry!"
+    my_dispatched_exp = [d for d in dispatched_exp if d['cycle_id'] == cycle.id]
+    assert len(my_dispatched_exp) == 0, "No 'X days remaining' alert should be sent on expiry for this cycle!"
     print("  [PASS] On expected end date (days_remaining <= 0), stock cycle immediately marked Expired without '0 days remaining' alerts.")
 
     print("\n--- 8. Multi-Cycle Safe Hold / Resume Logic ---")

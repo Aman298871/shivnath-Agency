@@ -245,10 +245,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         'All',
         'Order Placement',
         'Plant Approval',
+        'Preparing',
         'Invoice Generated',
         'Dispatch',
         'Delivered',
         'Payment Collection',
+        'Cancelled',
       ]
           .map(
             (e) => DropdownMenuItem(
@@ -518,6 +520,13 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                         if ((order['duration_choice'] ?? '').toString().isNotEmpty)
                           _info('Plan Duration', order['duration_choice']),
                         _info('Payment', order['payment']),
+                        if ((order['order_source'] ?? '').toString().isNotEmpty)
+                          _info(
+                            'Order Source',
+                            order['order_source'] == 'DIRECT_COMPANY'
+                                ? 'Direct Company (Plant Fulfilled)'
+                                : 'Wholesale Dealer Fulfilled',
+                          ),
                         const SizedBox(height: 14),
                         const Text(
                           'Ordered Products',
@@ -609,6 +618,76 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Lifecycle & Status History',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF1E293B)),
+                        ),
+                        const SizedBox(height: 8),
+                        Builder(
+                          builder: (context) {
+                            final rawHistory = order['status_history'];
+                            final List history = rawHistory is List ? rawHistory : [];
+                            if (history.isEmpty) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  'No status transitions recorded yet.',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                                ),
+                              );
+                            }
+                            return Column(
+                              children: history.map<Widget>((h) {
+                                final oldS = h['old_status'] ?? '-';
+                                final newS = h['new_status'] ?? '-';
+                                final byUser = h['changed_by_name'] ?? 'System';
+                                final changedAt = h['created_at']?.toString() ?? '';
+                                final notes = h['notes']?.toString() ?? '';
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(Icons.history_rounded, size: 16, color: Color(0xFF0284C7)),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '$oldS → $newS',
+                                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'By: $byUser ${changedAt.isNotEmpty ? '• ${changedAt.substring(0, changedAt.length > 19 ? 19 : changedAt.length).replaceAll('T', ' ')}' : ''}',
+                                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                            ),
+                                            if (notes.isNotEmpty) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                notes,
+                                                style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFF475569)),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -650,10 +729,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     final statuses = [
       'Order Placement',
       'Plant Approval',
+      'Preparing',
       'Invoice Generated',
       'Dispatch',
       'Delivered',
       'Payment Collection',
+      'Cancelled',
     ];
 
     String selected = order['status'];

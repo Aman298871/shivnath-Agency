@@ -466,6 +466,55 @@ Every single requirement has been cross-verified across Django models, APIs, per
 | 36 | **10 Inventory Transaction Types** | **YES** | `InventoryTransactionLedger.TRANSACTION_TYPES` | Authoritative single source of truth for raw materials and finished goods. |
 | 37 | **Customer Dual Validation** | **YES** | `CustomerRegisterSerializer` & `customer_register_screen.dart` | Validated for 2–30 char name, 10-digit mobile starting with 6/7/8/9, unique email. |
 | 38 | **Automated Verification Suite** | **YES** | `test_audit_verification_suite.py` (22 tests) | 22 comprehensive automated tests passing with 100% success rate. |
+| 39 | **Pending Stock Expiry Alerts** | **YES** | `get_pending_stock_expiry_alerts` in `inventory/services.py`, `PendingStockExpiryAlertView`, `admin_dashboard_screen.dart`, `test_pending_stock_expiry_e2e.py` | Warns Admin/Super Admin when uncollected/pending order or allocation stock approaches expiry. Auto-stops at 0 pending. |
+
+---
+
+## 21. Pending Stock Expiry Alerts
+
+### 21.1 Business Purpose & Why the Alert Exists
+In water manufacturing and franchise distribution, a dealer or customer frequently places an order or requests an allocation for a batch of bottled water (e.g., 5,000 bottles) with an established shelf life / expiry date. Often, the customer/dealer takes partial delivery (e.g., 2,000 bottles), leaving the remaining balance (3,000 bottles) uncollected or pending in the warehouse. 
+
+If those remaining uncollected bottles approach their expiration date, they pose a critical financial risk of spoilage and wastage. The **Pending Stock Expiry Alert** specifically detects this condition and warns management before the stock expires.
+
+### 21.2 Who Receives the Alert
+- **SUPER_ADMIN**: Receives alerts across the entire enterprise with full data access.
+- **ADMIN**: Receives alerts strictly scoped by server-side data permissions (`ALL_DATA`, `TERRITORY_SCOPED`, `DEALER_SCOPED`, `PLANT_SCOPED`). Unauthorized staff never see operational alerts outside their jurisdiction.
+
+### 21.3 What Pending Quantity Means (Condition A & B)
+The alert triggers if and only if **BOTH** conditions are met:
+1. **Stock is Still Pending (Condition A)**:
+   $$\text{Pending Quantity} = \text{Original Allocated / Ordered Quantity} - \text{Collected / Dispatched Quantity} > 0$$
+   *Example*: Original = 5,000 bottles; Collected = 2,000 bottles $\implies$ **Pending = 3,000 bottles**.  
+   *Crucial Rule*: The alert only warns about the **pending 3,000 bottles**, never the 5,000 original bottles. As the dealer collects more (e.g., an additional 1,000 bottles), the pending count dynamically updates to 2,000 bottles.
+2. **Expiry is Approaching (Condition B)**:
+   The remaining uncollected batch is within the enterprise-configured 5-tier thresholds:
+   - **30 Days Remaining**: Advisory alert (`30_DAYS`).
+   - **15 Days Remaining**: Moderate warning (`15_DAYS`).
+   - **7 Days Remaining**: Urgent caution (`7_DAYS`).
+   - **3 Days Remaining**: Critical immediate action (`3_DAYS`).
+   - **0 Days / Expired**: Action required (`0_DAYS_EXPIRED`).
+
+### 21.4 Multi-Batch Expiry & FEFO
+If a pending quantity spans multiple batches with differing expiration dates, batches are **not** merged into a single misleading date. Each pending batch is tracked individually and sorted with the earliest-expiring batch first in accordance with First-Expiry-First-Out (FEFO) rules.
+
+### 21.5 Daily Reminders & Daily Reappearance
+The alert runs on the scheduled daily maintenance cycle (`run_scheduled_tasks.py`). Unresolved pending stock generates a daily reminder:
+- **Day 1**: 3,000 pending stock approaching expiry $\to$ Warning appears on Dashboard & Notification Center.
+- Admin reviews and clicks **[CLOSE]**.
+- **Day 2**: 3,000 still pending $\to$ Alert reappears on the dashboard on the new calendar day.
+- This continues daily until the physical inventory is resolved.
+
+### 21.6 Close vs. Actual Resolution
+- **Dismiss Alert ([CLOSE] Button)**:
+  Clicking `[CLOSE]` dismisses the visible popup dialog for the current session. The user is returned to the dashboard smoothly with no frozen overlays or UI traps. Dismissal does **NOT** resolve the underlying stock risk.
+- **Resolve Alert (Physical Stock Transaction)**:
+  There is **no manual "Mark as Resolved"** button. The alert condition is resolved **strictly and automatically** when a real, database-backed stock transaction occurs (collection, dispatch, customer return, or ledger adjustment) that reduces the pending quantity to **0**. Once $\text{Pending Quantity} = 0$, the alert stops completely.
+
+### 21.7 Action Buttons in the Alert UI
+1. **[VIEW STOCK]**: Navigates directly to the live Inventory Management screen to inspect physical batch stock, location, and remaining balance.
+2. **[VIEW ORDER]**: If the pending stock originates from an order, navigates directly to Order Details displaying Order ID, Customer/Dealer, Ordered Qty, Allocated Qty, Collected Qty, Pending Qty, and current Order Status.
+3. **[CLOSE]**: Immediately and cleanly dismisses the dialog without freezing or blocking application workflows.
 
 ---
 

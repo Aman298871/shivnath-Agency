@@ -651,3 +651,171 @@ def adjust_stock_atomic(entity_type, entity_id, adjusted_quantity, reason='Manua
     else:
         raise ValidationError(f"Unsupported entity type for stock adjustment: {entity_type}")
 
+
+def get_pending_stock_expiry_alerts(user=None, target_date=None):
+    """
+    Evaluates real DB-backed pending/uncollected stock approaching expiry:
+    1. Dealer Stock Request Allocations:
+       pending = allocated_quantity - received_quantity - damaged_quantity
+    2. Customer / Dealer Order Batch Reservations:
+       pending = reserved_quantity - consumed_quantity - released_quantity
+    
+    Checks batch expiry date against the standard 5-tier thresholds:
+    - 0 days / expired (0_DAYS_EXPIRED)
+    - <= 3 days (3_DAYS)
+    - <= 7 days (7_DAYS)
+    - <= 15 days (15_DAYS)
+    - <= 30 days (30_DAYS)
+    
+    Applies server-side data scoping for user:
+    - super_admin / all_data: Unrestricted enterprise visibility
+    - territory_scoped: Filtered to assigned territories/districts
+    - dealer_scoped: Filtered to assigned dealer IDs
+    - plant_scoped: Filtered to central plant direct orders / company batches
+    """
+    from datetime import date
+    from django.utils import timezone
+    from accounts.services import apply_data_scope
+    from inventory.models import DealerStockRequest, DealerStockRequestAllocation
+    from orders.models import Order, OrderItemBatchReservation
+
+    today = target_date or timezone.now().date()
+    alerts = []
+
+    # 1. Evaluate Dealer Stock Request Allocations
+    alloc_qs = DealerStockRequestAllocation.objects.select_related(
+        'stock_request',
+        'stock_request__dealer',
+        'stock_request__product',
+        'production_batch',
+        'production_batch__product'
+    ).exclude(stock_request__status='REJECTED')
+
+    if user and user.is_authenticated and not user.is_superuser:
+        scoped_requests = apply_data_scope(user, DealerStockRequest.objects.all(), 'DealerStockRequest')
+        alloc_qs = alloc_qs.filter(stock_request__in=scoped_requests)
+
+    for alloc in alloc_qs:
+        pending = alloc.allocated_quantity - alloc.received_quantity - alloc.damaged_quantity
+        if pending <= 0:
+            continue
+
+        batch = alloc.production_batch
+        if not batch:
+            continue
+
+        days_left = (batch.expiry_date - today).days
+        if days_left > 30:
+            continue
+
+        if days_left <= 0:
+            level_key = '0_DAYS_EXPIRED'
+        elif days_left <= 3:
+            level_key = '3_DAYS'
+        elif days_left <= 7:
+            level_key = '7_DAYS'
+        elif days_left <= 15:
+            level_key = '15_DAYS'
+        else:
+            level_key = '30_DAYS'
+
+        dealer_name = alloc.stock_request.dealer.business_name if alloc.stock_request.dealer else 'Wholesale Dealer'
+        product = alloc.stock_request.product or batch.product
+
+        alerts.append({
+            'alert_id': f"ALLOC-{alloc.id}",
+            'source_type': 'DEALER_STOCK_REQUEST',
+            'dealer_or_customer': dealer_name,
+            'dealer_id': alloc.stock_request.dealer_id,
+            'order_number': alloc.stock_request.request_number,
+            'order_id': alloc.stock_request.id,
+            'product_name': product.name,
+            'product_sku': product.sku,
+            'batch_number': batch.batch_number,
+            'batch_id': batch.id,
+            'batch_type': 'COMPANY',
+            'allocated_quantity': alloc.allocated_quantity,
+            'collected_quantity': alloc.received_quantity,
+            'pending_quantity': pending,
+            'expiry_date': batch.expiry_date.isoformat(),
+            'remaining_days': days_left,
+            'alert_level': level_key,
+            'is_expired': days_left <= 0,
+            'warning_message': "This stock has not been collected/cleared and is approaching expiry. Please clear the pending stock before expiry.",
+        })
+
+    # 2. Evaluate Customer / Dealer Order Batch Reservations
+    res_qs = OrderItemBatchReservation.objects.select_related(
+        'order_item',
+        'order_item__order',
+        'order_item__order__created_by',
+        'order_item__order__serving_franchise',
+        'order_item__product',
+        'production_batch',
+        'dealer_stock_batch'
+    ).exclude(order_item__order__status__in=['cancelled', 'delivered'])
+
+    if user and user.is_authenticated and not user.is_superuser:
+        scoped_orders = apply_data_scope(user, Order.objects.all(), 'Order')
+        res_qs = res_qs.filter(order_item__order__in=scoped_orders)
+
+    for res in res_qs:
+        pending = res.reserved_quantity - res.consumed_quantity - res.released_quantity
+        if pending <= 0:
+            continue
+
+        batch = res.production_batch or res.dealer_stock_batch
+        if not batch:
+            continue
+
+        days_left = (batch.expiry_date - today).days
+        if days_left > 30:
+            continue
+
+        if days_left <= 0:
+            level_key = '0_DAYS_EXPIRED'
+        elif days_left <= 3:
+            level_key = '3_DAYS'
+        elif days_left <= 7:
+            level_key = '7_DAYS'
+        elif days_left <= 15:
+            level_key = '15_DAYS'
+        else:
+            level_key = '30_DAYS'
+
+        order = res.order_item.order
+        customer_or_dealer = (
+            (order.created_by.get_full_name() if order.created_by else '') or
+            (order.created_by.username if order.created_by else '') or
+            (order.serving_franchise.business_name if order.serving_franchise else 'Direct Customer')
+        )
+        product_name = res.order_item.product.name if res.order_item.product else res.order_item.product_name
+        product_sku = res.order_item.product.sku if res.order_item.product else ''
+
+        alerts.append({
+            'alert_id': f"RES-{res.id}",
+            'source_type': 'CUSTOMER_ORDER',
+            'dealer_or_customer': customer_or_dealer,
+            'dealer_id': order.serving_franchise_id,
+            'order_number': f"ORD-{order.id}",
+            'order_id': order.id,
+            'product_name': product_name,
+            'product_sku': product_sku,
+            'batch_number': batch.batch_number,
+            'batch_id': batch.id,
+            'batch_type': 'COMPANY' if res.production_batch else 'DEALER',
+            'allocated_quantity': res.reserved_quantity,
+            'collected_quantity': res.consumed_quantity,
+            'pending_quantity': pending,
+            'expiry_date': batch.expiry_date.isoformat(),
+            'remaining_days': days_left,
+            'alert_level': level_key,
+            'is_expired': days_left <= 0,
+            'warning_message': "This stock has not been collected/cleared and is approaching expiry. Please clear the pending stock before expiry.",
+        })
+
+    # Sort so earliest expiring batch is first
+    alerts.sort(key=lambda x: (x['remaining_days'], -x['pending_quantity']))
+    return alerts
+
+

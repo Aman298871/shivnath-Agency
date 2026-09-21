@@ -178,7 +178,7 @@ class PublicLeadCaptureView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        name = str(request.data.get('name', '')).strip()
+        name = str(request.data.get('name') or request.data.get('full_name') or '').strip()
         phone = str(request.data.get('phone', '')).strip()
         email = str(request.data.get('email', '')).strip().lower()
         city = str(request.data.get('city', '')).strip()

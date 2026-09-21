@@ -968,4 +968,28 @@ class StockAdjustmentAPIView(views.APIView):
             }, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PendingStockExpiryAlertView(APIView):
+    """
+    Returns real DB-backed pending/uncollected stock approaching expiry.
+    Audience: SUPER_ADMIN (unrestricted) and ADMIN (scoped by apply_data_scope).
+    Calculates current pending quantity dynamically from actual database records.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        if not user.is_superuser and role not in ['super_admin', 'admin']:
+            return Response({'success': False, 'message': 'Forbidden: Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+
+        from .services import get_pending_stock_expiry_alerts
+        alerts = get_pending_stock_expiry_alerts(user=user)
+        return Response({
+            'success': True,
+            'count': len(alerts),
+            'alerts': alerts,
+        }, status=status.HTTP_200_OK)
+
 

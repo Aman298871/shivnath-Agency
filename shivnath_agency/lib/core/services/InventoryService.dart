@@ -568,6 +568,17 @@ class InventoryService {
     }
   }
 
+  /// Pending / Uncollected Stock Approaching Expiry Alerts
+  Future<Map<String, dynamic>> getPendingStockExpiryAlerts() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/pending-stock-expiry-alerts/');
+      final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   // =====================================================
   // BILLING & CREDIT METHODS
   // =====================================================

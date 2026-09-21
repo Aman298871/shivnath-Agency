@@ -17,6 +17,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
         ]
 
 
+class OrderStatusHistorySerializer(serializers.ModelSerializer):
+    changed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderStatusHistory
+        fields = [
+            'id',
+            'old_status',
+            'new_status',
+            'changed_by',
+            'changed_by_name',
+            'notes',
+            'created_at',
+        ]
+
+    def get_changed_by_name(self, obj):
+        if not obj.changed_by:
+            return 'System'
+        return obj.changed_by.get_full_name() or obj.changed_by.username
+
+
 class OrderSerializer(serializers.ModelSerializer):
 
     order_id = serializers.CharField(
@@ -39,6 +60,7 @@ class OrderSerializer(serializers.ModelSerializer):
     registered_franchise_name = serializers.SerializerMethodField()
     zone_name = serializers.SerializerMethodField()
     items = OrderItemSerializer(many=True, read_only=True)
+    status_history = OrderStatusHistorySerializer(many=True, read_only=True)
 
     class Meta:
         model = Order
@@ -76,6 +98,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_by',
             'created_by_name',
             'items',
+            'status_history',
 
             'created_at',
             'updated_at',
@@ -93,6 +116,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'registered_franchise_name',
             'zone_name',
             'items',
+            'status_history',
             'created_at',
             'updated_at',
         ]

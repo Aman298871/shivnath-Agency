@@ -46,7 +46,7 @@ def validate_and_create_chatbot_inquiry(data, is_dealer_inquiry=False):
     Enforces REQUIRED email, exactly 10-digit mobile starting with 6/7/8/9,
     and deduplicates by phone/email.
     """
-    name = data.get('name', '').strip()
+    name = (data.get('name') or data.get('full_name') or '').strip()
     phone = data.get('phone', '').strip()
     email = data.get('email', '').strip()
     district = data.get('district', '').strip()

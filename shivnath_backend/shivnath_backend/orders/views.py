@@ -187,6 +187,28 @@ class OrderListCreateView(APIView):
                 order_source = 'DIRECT_COMPANY'
                 serving_franchise = None
 
+            # Fallback Check: If dealer has insufficient non-expired stock, fallback to DIRECT_COMPANY
+            if order_source == 'FRANCHISE' and serving_franchise:
+                from inventory.models import DealerStockBatch
+                from datetime import date
+                today_chk = date.today()
+                has_insufficient_dealer_stock = False
+                for prod, req_qty, _ in validated_order_items:
+                    dealer_batches = DealerStockBatch.objects.filter(
+                        dealer=serving_franchise,
+                        product=prod,
+                        is_active=True,
+                        expiry_date__gt=today_chk
+                    )
+                    if dealer_batches.exists():
+                        avail = sum(b.available_quantity for b in dealer_batches)
+                        if avail < req_qty:
+                            has_insufficient_dealer_stock = True
+                            break
+                if has_insufficient_dealer_stock:
+                    order_source = 'DIRECT_COMPANY'
+                    serving_franchise = None
+
             # Set franchise_name display
             if not order_data.get('franchise_name'):
                 if order_source == 'DIRECT_COMPANY':
@@ -272,6 +294,13 @@ class OrderListCreateView(APIView):
                     unit_price=price,
                     total_price=float(price) * qty,
                 )
+
+            # Perform soft FEFO batch reservation if batches exist
+            try:
+                from inventory.services import reserve_order_stock_fefo_atomic
+                reserve_order_stock_fefo_atomic(order)
+            except Exception:
+                pass
 
             # Start/Renew Active Stock Cycle with permanent serving franchise association and snapshots
             stock_cycle = None

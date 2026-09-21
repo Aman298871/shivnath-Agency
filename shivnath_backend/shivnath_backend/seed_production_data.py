@@ -32,29 +32,43 @@ def seed():
         defaults={"slug": "dispensers-accessories", "order": 4, "description": "Water dispensers, stands, and automatic pumps", "is_active": True}
     )
 
+    sub_200ml, _ = ProductCategory.objects.get_or_create(
+        name="200 ML Bottle", parent=cat_bottles,
+        defaults={"slug": "200ml-bottle", "order": 1, "description": "Hospitality and event water bottle", "is_active": True}
+    )
     sub_250ml, _ = ProductCategory.objects.get_or_create(
         name="250 ML Bottle", parent=cat_bottles,
-        defaults={"slug": "250ml-bottle", "order": 1, "description": "Pocket size water bottle", "is_active": True}
+        defaults={"slug": "250ml-bottle", "order": 2, "description": "Small personal travel bottle", "is_active": True}
     )
     sub_500ml, _ = ProductCategory.objects.get_or_create(
         name="500 ML Bottle", parent=cat_bottles,
-        defaults={"slug": "500ml-bottle", "order": 2, "description": "Standard travel water bottle", "is_active": True}
+        defaults={"slug": "500ml-bottle", "order": 3, "description": "Standard travel water bottle", "is_active": True}
     )
     sub_1l, _ = ProductCategory.objects.get_or_create(
         name="1 Litre Bottle", parent=cat_bottles,
-        defaults={"slug": "1-litre-bottle", "order": 3, "description": "1 Litre standard table water bottle", "is_active": True}
-    )
-    sub_2l, _ = ProductCategory.objects.get_or_create(
-        name="2 Litre Bottle", parent=cat_bottles,
-        defaults={"slug": "2-litre-bottle", "order": 4, "description": "2 Litre family drinking water bottle", "is_active": True}
+        defaults={"slug": "1-litre-bottle", "order": 4, "description": "1 Litre standard table water bottle", "is_active": True}
     )
     sub_20l, _ = ProductCategory.objects.get_or_create(
         name="20 Litre Jar", parent=cat_jars,
         defaults={"slug": "20-litre-jar", "order": 1, "description": "20 Litre returnable dispenser jar", "is_active": True}
     )
 
-    # 2. Products
-    p1, _ = Product.objects.get_or_create(
+    # 2. Products - Exactly 5 Official Products
+    p0, _ = Product.objects.update_or_create(
+        sku="SKU-BOT-200",
+        defaults={
+            "name": "Shivnath 200ml Event Bottle",
+            "category": "Water Bottles",
+            "category_ref": sub_200ml,
+            "size": "200 ML",
+            "price": Decimal("5.00"),
+            "stock": 500,
+            "unit": "Bottle",
+            "description": "200ml packaged pure drinking water, ideal for events, hospitality, and meetings.",
+            "status": "Active"
+        }
+    )
+    p1, _ = Product.objects.update_or_create(
         sku="SKU-BOT-250",
         defaults={
             "name": "Shivnath 250ml Mini Bottle",
@@ -68,7 +82,7 @@ def seed():
             "status": "Active"
         }
     )
-    p2, _ = Product.objects.get_or_create(
+    p2, _ = Product.objects.update_or_create(
         sku="SKU-BOT-500",
         defaults={
             "name": "Shivnath 500ml Travel Bottle",
@@ -82,7 +96,7 @@ def seed():
             "status": "Active"
         }
     )
-    p3, _ = Product.objects.get_or_create(
+    p3, _ = Product.objects.update_or_create(
         sku="SKU-BOT-1000",
         defaults={
             "name": "Shivnath 1 Litre Premium Mineral Bottle",
@@ -96,21 +110,20 @@ def seed():
             "status": "Active"
         }
     )
-    p4, _ = Product.objects.get_or_create(
+    p4, _ = Product.objects.update_or_create(
         sku="SKU-BOT-2000",
         defaults={
             "name": "Shivnath 2 Litre Family Mineral Bottle",
             "category": "Water Bottles",
-            "category_ref": sub_2l,
             "size": "2 Litre",
             "price": Decimal("30.00"),
-            "stock": 250,
+            "stock": 0,
             "unit": "Bottle",
             "description": "2 Litre large family packaged drinking water bottle.",
-            "status": "Active"
+            "status": "Inactive"
         }
     )
-    p5, _ = Product.objects.get_or_create(
+    p5, _ = Product.objects.update_or_create(
         sku="SKU-JAR-20L",
         defaults={
             "name": "Shivnath 20 Litre Dispenser Jar",
@@ -124,7 +137,10 @@ def seed():
             "status": "Active"
         }
     )
-    p6, _ = Product.objects.get_or_create(
+    # Ensure legacy 2L and accessories remain Inactive
+    Product.objects.filter(sku__in=["SKU-BOT-2000", "SKU-ACC-PUMP", "SKU-ACC-STAND"]).update(status="Inactive")
+
+    p6, _ = Product.objects.update_or_create(
         sku="SKU-ALK-1000",
         defaults={
             "name": "Shivnath 1L Alkaline Mineral Water",

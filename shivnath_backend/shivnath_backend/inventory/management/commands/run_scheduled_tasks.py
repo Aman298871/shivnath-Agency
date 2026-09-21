@@ -158,6 +158,40 @@ class Command(BaseCommand):
                     break
 
         # =====================================================================
+        # 1.1 PENDING / UNCOLLECTED STOCK EXPIRY MONITORING
+        # =====================================================================
+        self.stdout.write("1.1 Evaluating Pending Stock Expiry Alerts...")
+        from inventory.services import get_pending_stock_expiry_alerts
+        from accounts.models import AdminNotification
+        pending_alerts = get_pending_stock_expiry_alerts(target_date=today)
+        for pa in pending_alerts:
+            title = f"⚠️ STOCK EXPIRY ALERT: {pa['product_name']} ({pa['order_number']})"
+            msg = (
+                f"Dealer/Customer: {pa['dealer_or_customer']}\n"
+                f"Order: {pa['order_number']}\n"
+                f"Product: {pa['product_name']} ({pa['product_sku']})\n"
+                f"Pending Quantity: {pa['pending_quantity']} units "
+                f"(Original: {pa['allocated_quantity']}, Collected: {pa['collected_quantity']})\n"
+                f"Batch: {pa['batch_number']} | Expiry: {pa['expiry_date']} ({pa['remaining_days']} days remaining)\n"
+                f"{pa['warning_message']}"
+            )
+            existing_notif = AdminNotification.objects.filter(
+                notification_type='stock_alert',
+                reference_id=pa['order_id'],
+                title=title
+            ).first()
+            if existing_notif:
+                existing_notif.message = msg
+                existing_notif.save(update_fields=['message'])
+            else:
+                AdminNotification.objects.create(
+                    title=title,
+                    message=msg,
+                    notification_type='stock_alert',
+                    reference_id=pa['order_id']
+                )
+
+        # =====================================================================
         # 2. LOW-STOCK THRESHOLD MONITORING
         # =====================================================================
         self.stdout.write("2. Evaluating Low-Stock Thresholds...")

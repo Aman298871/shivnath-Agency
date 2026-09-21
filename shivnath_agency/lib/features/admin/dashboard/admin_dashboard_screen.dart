@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/followup_service.dart';
 import '../../../core/services/lead_service.dart';
+import '../../../core/services/InventoryService.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenLeads;
@@ -36,8 +39,10 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final LeadService _leadService = LeadService();
   final FollowupService _followupService = FollowupService();
+  final InventoryService _inventoryService = InventoryService();
 
-  bool _isLoading = false;
+  List<Map<String, dynamic>> _pendingStockAlerts = [];
+  bool _pendingStockDialogShown = false;
 
   List<Map<String, dynamic>> _stats = [
     {
@@ -86,8 +91,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true);
-
     try {
       final leadStatsResult = await _leadService.getLeadStats();
       final fuStatsResult = await _followupService.getStats();
@@ -171,9 +174,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     } catch (_) {}
 
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
+    _loadPendingStockAlerts();
+  }
+
+  Future<void> _loadPendingStockAlerts() async {
+    try {
+      final res = await _inventoryService.getPendingStockExpiryAlerts();
+      if (!mounted) return;
+      if (res['success'] == true && res['data'] is List) {
+        final List alerts = res['data'];
+        setState(() {
+          _pendingStockAlerts = alerts.cast<Map<String, dynamic>>();
+        });
+
+        if (_pendingStockAlerts.isNotEmpty && !_pendingStockDialogShown) {
+          final prefs = await SharedPreferences.getInstance();
+          final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+          final dismissedDate = prefs.getString('dismissed_pending_stock_expiry_date');
+
+          if (dismissedDate != todayStr) {
+            _pendingStockDialogShown = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _showPendingStockExpiryDialog(context);
+              }
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
 
@@ -212,6 +241,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   _header(
                     desktop,
                   ),
+
+                  if (_pendingStockAlerts.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _pendingStockExpiryBanner(),
+                  ],
 
                   const SizedBox(
                     height: 24,
@@ -1139,13 +1173,446 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           14,
         ),
         border: Border.all(
-          color:
-              const Color(
-            0xFFE5E7EB,
-          ),
+          color: const Color(0xFFE5E7EB),
         ),
       ),
       child: child,
+    );
+  }
+
+  Widget _pendingStockExpiryBanner() {
+    final alertCount = _pendingStockAlerts.length;
+    final totalPendingQty = _pendingStockAlerts.fold<int>(
+      0,
+      (sum, item) => sum + (int.tryParse('${item['pending_quantity']}') ?? 0),
+    );
+    final earliestAlert = _pendingStockAlerts.first;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withValues(alpha: 0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFEF3C7),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFD97706),
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      '⚠️ PENDING STOCK EXPIRY ALERT',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFB45309),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC2626),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$alertCount Batch${alertCount > 1 ? 'es' : ''}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${NumberFormat('#,##,###').format(totalPendingQty)} pending bottles approaching batch expiry. '
+                  'Earliest batch expires in ${earliestAlert['remaining_days']} days (${earliestAlert['dealer_or_customer']}).',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF92400E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: () => _showPendingStockExpiryDialog(context),
+            icon: const Icon(Icons.visibility_outlined, size: 16),
+            label: const Text('View Alerts'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD97706),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPendingStockExpiryDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 580, maxHeight: 680),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                    border: Border(bottom: BorderSide(color: Color(0xFFFDE68A))),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.warning_amber_rounded,
+                          color: Color(0xFFD97706),
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '⚠️ STOCK EXPIRY ALERT',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFFB45309),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            Text(
+                              'Uncollected/Pending Stock Approaching Expiry (${_pendingStockAlerts.length} item${_pendingStockAlerts.length > 1 ? 's' : ''})',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF92400E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
+                        icon: const Icon(Icons.close, color: Color(0xFF78350F)),
+                        tooltip: 'Close',
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Notice Banner
+                Container(
+                  width: double.infinity,
+                  color: const Color(0xFFFEF2F2),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Color(0xFFDC2626)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'This stock has not been collected/cleared and is approaching expiry. Please clear the pending stock before expiry.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF991B1B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // List of alert items
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _pendingStockAlerts.length,
+                    separatorBuilder: (ctx, idx) => const SizedBox(height: 12),
+                    itemBuilder: (c, idx) {
+                      final alert = _pendingStockAlerts[idx];
+                      final remainingDays = alert['remaining_days'] ?? 0;
+                      final isExpired = alert['is_expired'] == true || remainingDays <= 0;
+                      final pendingQty = alert['pending_quantity'] ?? 0;
+                      final allocatedQty = alert['allocated_quantity'] ?? 0;
+                      final collectedQty = alert['collected_quantity'] ?? 0;
+
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isExpired ? const Color(0xFFEF4444) : const Color(0xFFFBBF24),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Dealer & Order Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    alert['dealer_or_customer']?.toString() ?? 'Wholesale Dealer',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: isExpired ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    isExpired ? 'EXPIRED' : '⏳ $remainingDays Days Remaining',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: isExpired ? const Color(0xFFDC2626) : const Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+
+                            // Product & Batch
+                            Text(
+                              '${alert['product_name']} (${alert['product_sku'] ?? ''})',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Text(
+                                  'Order: ${alert['order_number']}',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                ),
+                                const Text(' • ', style: TextStyle(color: Color(0xFF94A3B8))),
+                                Text(
+                                  'Batch: ${alert['batch_number']}',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w700),
+                                ),
+                                const Text(' • ', style: TextStyle(color: Color(0xFF94A3B8))),
+                                Text(
+                                  'Expiry: ${alert['expiry_date']}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isExpired ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Quantities Breakdown Grid
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  Column(
+                                    children: [
+                                      const Text('Allocated', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                                      Text(
+                                        NumberFormat('#,##,###').format(allocatedQty),
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(width: 1, height: 24, color: const Color(0xFFCBD5E1)),
+                                  Column(
+                                    children: [
+                                      const Text('Collected', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                                      Text(
+                                        NumberFormat('#,##,###').format(collectedQty),
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF16A34A)),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(width: 1, height: 24, color: const Color(0xFFCBD5E1)),
+                                  Column(
+                                    children: [
+                                      const Text('PENDING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFFDC2626))),
+                                      Text(
+                                        '${NumberFormat('#,##,###').format(pendingQty)} Bottles',
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFFDC2626)),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                // Bottom Action Buttons
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+                    border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+                  ),
+                  child: Row(
+                    children: [
+                      // View Stock
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(ctx, rootNavigator: true).pop();
+                            if (widget.onOpenInventory != null) {
+                              widget.onOpenInventory!();
+                            }
+                          },
+                          icon: const Icon(Icons.inventory_2_outlined, size: 16),
+                          label: const Text('VIEW STOCK'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF0284C7),
+                            side: const BorderSide(color: Color(0xFF0284C7)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // View Order
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(ctx, rootNavigator: true).pop();
+                            if (widget.onOpenOrders != null) {
+                              widget.onOpenOrders!();
+                            }
+                          },
+                          icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                          label: const Text('VIEW ORDER'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF16A34A),
+                            side: const BorderSide(color: Color(0xFF16A34A)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Close
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final prefs = await SharedPreferences.getInstance();
+                            final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                            await prefs.setString('dismissed_pending_stock_expiry_date', todayStr);
+                            if (ctx.mounted) {
+                              Navigator.of(ctx, rootNavigator: true).pop();
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF64748B),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('CLOSE'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

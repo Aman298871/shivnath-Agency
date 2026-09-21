@@ -37,6 +37,7 @@ from .views import (
     SupportContactListView,
     DealerKYCDocumentView,
     DealerKYCVerifyView,
+    SuperAdminSeedDemoDataView,
 )
 
 
@@ -249,5 +250,10 @@ urlpatterns = [
         'dealers/documents/<int:pk>/verify/',
         DealerKYCVerifyView.as_view(),
         name='dealer_kyc_verify'
+    ),
+    path(
+        'super-admin/seed-demo-data/',
+        SuperAdminSeedDemoDataView.as_view(),
+        name='super_admin_seed_demo_data'
     ),
 ]

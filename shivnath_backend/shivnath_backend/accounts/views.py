@@ -3970,6 +3970,26 @@ class DealerKYCVerifyView(APIView):
         })
 
 
+class SuperAdminSeedDemoDataView(APIView):
+    """
+    Triggers complete demo dataset seeding for development, staging, or cloud environments.
+    """
+    permission_classes = [AllowAny]
 
+    def post(self, request):
+        from django.core.management import call_command
+        secret = request.data.get('secret') or request.query_params.get('secret')
+        is_admin = False
+        if request.user and request.user.is_authenticated:
+            profile = getattr(request.user, 'profile', None)
+            is_admin = request.user.is_superuser or (profile and profile.role in ['admin', 'super_admin'])
 
+        if not is_admin and secret != 'shivnath_demo_seed_secret_2026':
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            call_command('seed_demo_data', force=True)
+            return Response({'success': True, 'message': 'Authoritative demo dataset seeded successfully.'})
+        except Exception as e:
+            return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

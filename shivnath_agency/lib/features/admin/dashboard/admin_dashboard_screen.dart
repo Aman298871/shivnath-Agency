@@ -181,10 +181,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final res = await _inventoryService.getPendingStockExpiryAlerts();
       if (!mounted) return;
-      if (res['success'] == true && res['data'] is List) {
-        final List alerts = res['data'];
+      List? alerts;
+      if (res['success'] == true) {
+        if (res['data'] is List) {
+          alerts = res['data'];
+        } else if (res['data'] is Map && res['data']['alerts'] is List) {
+          alerts = res['data']['alerts'];
+        } else if (res['alerts'] is List) {
+          alerts = res['alerts'];
+        }
+      }
+      if (alerts != null) {
         setState(() {
-          _pendingStockAlerts = alerts.cast<Map<String, dynamic>>();
+          _pendingStockAlerts = alerts!.cast<Map<String, dynamic>>();
         });
 
         if (_pendingStockAlerts.isNotEmpty && !_pendingStockDialogShown) {

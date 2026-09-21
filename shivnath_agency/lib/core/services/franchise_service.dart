@@ -15,11 +15,8 @@ class FranchiseService {
   }
 
   Future<Map<String, String>> _headers() async {
-  final token = await _getToken();
-
-  print('ACCESS TOKEN = $token');
-
-  return {
+    final token = await _getToken();
+    return {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     if (token != null && token.isNotEmpty)

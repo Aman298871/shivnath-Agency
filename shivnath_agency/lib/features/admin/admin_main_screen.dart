@@ -112,7 +112,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         title: 'Daily P&L Reports',
         icon: Icons.bar_chart_outlined,
       ),
-      if (isSuperAdmin) ...[
+      if (isSuperAdmin || _currentUser?.isAdmin == true) ...[
         const _AdminMenuItem(
           index: 19,
           title: 'Admin Management',

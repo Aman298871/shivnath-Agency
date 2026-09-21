@@ -277,9 +277,20 @@ class ProductBOMDetailView(APIView):
         product = get_object_or_404(Product, pk=pk)
         bom, _ = ProductionRecipeBOM.objects.get_or_create(product=product)
         serializer = ProductionRecipeBOMSerializer(bom)
+        bom_data = dict(serializer.data)
+        bom_data["pricing"] = {
+            "dealer_wholesale_price": float(product.dealer_transfer_price),
+            "retail_mrp": float(product.mrp),
+            "minimum_order_quantity_cases": getattr(product, "units_per_case", 10),
+            "units_per_case": getattr(product, "units_per_case", 24),
+            "customer_price": float(product.price),
+        }
+        threshold = getattr(product, "stock_threshold", None)
+        bom_data["minimum_stock_threshold"] = threshold.company_low_stock_threshold if threshold else 500
         return Response({
             "success": True,
-            "bom": serializer.data,
+            "bom": bom_data,
+            "data": bom_data,
             "raw_materials_available": [
                 {
                     "id": rm.id,

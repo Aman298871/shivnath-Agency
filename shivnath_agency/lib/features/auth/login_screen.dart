@@ -65,7 +65,7 @@ class _LoginScreenState
         return 'Franchise Login';
 
       case AppConstants.adminRole:
-        return 'Company Staff / Admin Login';
+        return 'Admin Login';
 
       default:
         return 'Login';
@@ -738,7 +738,7 @@ class _LoginScreenState
 
     if (role ==
         AppConstants.adminRole) {
-      return 'Company Staff / Admin Account\nAccess reserved for Super Admin, Plant Operations, and Sales Executives.';
+      return 'Admin Account\nAccess reserved for Super Admin, Plant Operations, and Sales Executives.';
     }
 
     return 'Use your registered email and password.';

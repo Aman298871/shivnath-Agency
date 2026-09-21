@@ -73,20 +73,10 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
 
     Future<void> pickPdfFile(StateSetter setDlgState) async {
       try {
-        FilePickerResult? result;
-        try {
-          result = await FilePicker.platform.pickFiles(
-            type: FileType.custom,
-            allowedExtensions: ['pdf'],
-            allowMultiple: false,
-          );
-        } catch (e) {
-          debugPrint('Custom PDF file picker failed: $e, trying FileType.any');
-          result = await FilePicker.platform.pickFiles(
-            type: FileType.any,
-            allowMultiple: false,
-          );
-        }
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.any,
+          allowMultiple: false,
+        );
 
         if (result != null && result.files.isNotEmpty) {
           final file = result.files.first;

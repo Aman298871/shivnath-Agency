@@ -2886,8 +2886,14 @@ class SuperAdminAdminManagementView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    def _check_super_admin(self, request):
+        if request.user.is_superuser:
+            return True
+        profile = getattr(request.user, 'profile', None)
+        return profile is not None and profile.role == 'super_admin'
+
     def get(self, request):
-        if not hasattr(request.user, 'profile') or request.user.profile.role != 'super_admin':
+        if not self._check_super_admin(request):
             return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
 
         admins = User.objects.filter(profile__role__in=['admin', 'super_admin', 'sales_executive']).select_related('profile')
@@ -2896,11 +2902,13 @@ class SuperAdminAdminManagementView(APIView):
                 'id': u.id,
                 'username': u.username,
                 'email': u.email,
-                'name': u.get_full_name() or u.profile.name,
-                'role': u.profile.role,
-                'admin_permissions': u.profile.admin_permissions,
-                'data_scope_type': u.profile.data_scope_type,
-                'assigned_scope_ids': u.profile.assigned_scope_ids,
+                'name': u.get_full_name() or (u.profile.name if hasattr(u, 'profile') else ''),
+                'phone': u.profile.phone if hasattr(u, 'profile') else '',
+                'role': u.profile.role if hasattr(u, 'profile') else 'admin',
+                'status': u.profile.status if hasattr(u, 'profile') else ('active' if u.is_active else 'inactive'),
+                'admin_permissions': u.profile.admin_permissions if hasattr(u, 'profile') else [],
+                'data_scope_type': u.profile.data_scope_type if hasattr(u, 'profile') else 'all_data',
+                'assigned_scope_ids': u.profile.assigned_scope_ids if hasattr(u, 'profile') else [],
                 'is_active': u.is_active,
                 'created_at': u.date_joined.strftime('%Y-%m-%d %H:%M'),
             }
@@ -2909,14 +2917,30 @@ class SuperAdminAdminManagementView(APIView):
         return Response({'success': True, 'count': len(data), 'admins': data})
 
     def post(self, request):
-        if not hasattr(request.user, 'profile') or request.user.profile.role != 'super_admin':
+        if not self._check_super_admin(request):
             return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
 
         email = request.data.get('email', '').strip().lower()
-        password = request.data.get('password', '')
+        username = request.data.get('username', '').strip()
         name = request.data.get('name', '').strip()
-        role = request.data.get('role', 'admin')
+        phone = request.data.get('phone', request.data.get('mobile', '')).strip()
+        password = request.data.get('password', '')
+        confirm_password = request.data.get('confirm_password', '').strip()
+        status_val = request.data.get('status', 'active').strip().lower()
+        role = request.data.get('role', 'admin').strip().lower()
+        data_scope_type = request.data.get('data_scope_type', 'all_data').strip().lower()
+        assigned_scope_ids = request.data.get('assigned_scope_ids', [])
         admin_permissions = request.data.get('admin_permissions', [])
+
+        if confirm_password and confirm_password != password:
+            return Response({'error': 'Password and confirm password do not match.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not email or not password:
+            return Response({'error': 'Email and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not username:
+            username = email
+
         if isinstance(admin_permissions, str):
             import json
             try:
@@ -2928,8 +2952,6 @@ class SuperAdminAdminManagementView(APIView):
             if raw_list and len(raw_list) > 1:
                 admin_permissions = raw_list
 
-        data_scope_type = request.data.get('data_scope_type', 'all_data')
-        assigned_scope_ids = request.data.get('assigned_scope_ids', [])
         if isinstance(assigned_scope_ids, str):
             import json
             try:
@@ -2941,21 +2963,26 @@ class SuperAdminAdminManagementView(APIView):
             if raw_scopes and len(raw_scopes) > 1:
                 assigned_scope_ids = raw_scopes
 
-        if not email or not password:
-            return Response({'error': 'Email and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(username__iexact=username).exists():
+            return Response({'error': f'A user with username "{username}" already exists.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if User.objects.filter(username=email).exists() or User.objects.filter(email=email).exists():
-            return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(email__iexact=email).exists():
+            return Response({'error': f'A user with email "{email}" already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        is_active = (status_val == 'active')
 
         with transaction.atomic():
             user = User.objects.create(
-                username=email,
+                username=username,
                 email=email,
                 password=make_password(password),
-                first_name=name
+                first_name=name,
+                is_active=is_active,
             )
-            prof = user.profile
+            prof, _ = UserProfile.objects.get_or_create(user=user)
             prof.name = name
+            prof.phone = phone
+            prof.status = status_val
             prof.role = role
             prof.admin_permissions = admin_permissions
             prof.data_scope_type = data_scope_type
@@ -2967,7 +2994,17 @@ class SuperAdminAdminManagementView(APIView):
                 action='CREATE_ADMIN',
                 resource_type='UserProfile',
                 resource_id=str(user.id),
-                changes={'role': role, 'admin_permissions': admin_permissions, 'data_scope_type': data_scope_type}
+                changes={
+                    'username': username,
+                    'email': email,
+                    'name': name,
+                    'phone': phone,
+                    'role': role,
+                    'status': status_val,
+                    'admin_permissions': admin_permissions,
+                    'data_scope_type': data_scope_type,
+                    'assigned_scope_ids': assigned_scope_ids
+                }
             )
 
         return Response({
@@ -3019,7 +3056,9 @@ class SuperAdminAdminDetailView(APIView):
                 'username': target_user.username,
                 'email': target_user.email,
                 'name': target_user.get_full_name() or (profile.name if profile else ''),
+                'phone': profile.phone if profile else '',
                 'role': profile.role if profile else 'admin',
+                'status': profile.status if profile else ('active' if target_user.is_active else 'inactive'),
                 'is_active': target_user.is_active,
                 'admin_permissions': profile.admin_permissions if profile else [],
                 'data_scope_type': profile.data_scope_type if profile else 'all_data',
@@ -3048,19 +3087,42 @@ class SuperAdminAdminDetailView(APIView):
 
             if 'email' in request.data:
                 email = request.data['email'].strip().lower()
-                if email != target_user.email and User.objects.filter(email=email).exclude(pk=target_user.pk).exists():
+                if email != target_user.email and User.objects.filter(email__iexact=email).exclude(pk=target_user.pk).exists():
                     return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
                 target_user.email = email
-                target_user.username = email
                 changes['email'] = email
+
+            if 'username' in request.data:
+                uname = request.data['username'].strip()
+                if uname and uname != target_user.username and User.objects.filter(username__iexact=uname).exclude(pk=target_user.pk).exists():
+                    return Response({'error': 'A user with this username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+                if uname:
+                    target_user.username = uname
+                    changes['username'] = uname
+
+            if 'phone' in request.data or 'mobile' in request.data:
+                ph = request.data.get('phone', request.data.get('mobile', '')).strip()
+                if profile:
+                    profile.phone = ph
+                changes['phone'] = ph
+
+            if 'status' in request.data:
+                st = request.data['status'].strip().lower()
+                if profile:
+                    profile.status = st
+                target_user.is_active = (st == 'active')
+                changes['status'] = st
+                changes['is_active'] = target_user.is_active
 
             if 'is_active' in request.data:
                 is_active = bool(request.data['is_active'])
                 target_user.is_active = is_active
+                if profile:
+                    profile.status = 'active' if is_active else 'inactive'
                 changes['is_active'] = is_active
 
             if 'role' in request.data and profile:
-                new_role = request.data['role'].strip()
+                new_role = request.data['role'].strip().lower()
                 if new_role in ['admin', 'sales_executive', 'super_admin']:
                     profile.role = new_role
                     changes['role'] = new_role
@@ -3081,7 +3143,7 @@ class SuperAdminAdminDetailView(APIView):
                 changes['admin_permissions'] = profile.admin_permissions
 
             if 'data_scope_type' in request.data and profile:
-                profile.data_scope_type = request.data['data_scope_type']
+                profile.data_scope_type = request.data['data_scope_type'].strip().lower()
                 changes['data_scope_type'] = profile.data_scope_type
 
             if 'assigned_scope_ids' in request.data and profile:
@@ -3125,19 +3187,22 @@ class SuperAdminAdminDetailView(APIView):
         if not self._check_super_admin(request):
             return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
 
-        target_user = get_object_or_404(User, pk=pk)
+        target_user = get_object_or_404(User.objects.select_related('profile'), pk=pk)
         if target_user.pk == request.user.pk:
             return Response({'error': 'Cannot disable your own Super Admin account.'}, status=status.HTTP_400_BAD_REQUEST)
 
         target_user.is_active = False
         target_user.save()
+        if hasattr(target_user, 'profile') and target_user.profile:
+            target_user.profile.status = 'inactive'
+            target_user.profile.save()
 
         AdminAuditLog.objects.create(
             actor=request.user,
             action='DISABLE_ADMIN',
             resource_type='UserProfile',
             resource_id=str(target_user.id),
-            changes={'is_active': False}
+            changes={'is_active': False, 'status': 'inactive'}
         )
 
         return Response({

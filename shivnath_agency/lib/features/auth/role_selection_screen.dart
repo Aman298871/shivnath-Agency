@@ -112,7 +112,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   const SizedBox(height: 12),
 
                   _RoleCard(
-                    title: 'Company Staff / Admin',
+                    title: 'Admin Login',
                     subtitle: 'Super Admin, Plant Operations & Sales Executive portal',
                     icon: Icons.admin_panel_settings_outlined,
                     selected: selectedRole == AppConstants.adminRole,

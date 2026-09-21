@@ -79,7 +79,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       ),
       const _AdminMenuItem(
         index: 3,
-        title: 'Wholesale Dealers',
+        title: 'Franchises',
         icon: Icons.storefront_outlined,
       ),
       const _AdminMenuItem(

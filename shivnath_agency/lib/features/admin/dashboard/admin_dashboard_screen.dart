@@ -1416,7 +1416,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    alert['dealer_or_customer']?.toString() ?? 'Wholesale Dealer',
+                                    alert['dealer_or_customer']?.toString() ?? 'Franchise',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 14,

@@ -10,7 +10,7 @@ class AppConstants {
   static const String superAdminRole = 'super_admin';
   static const String salesExecutiveRole = 'sales_executive';
 
-  static const String dealerDisplayName = 'Wholesale Dealer';
+  static const String dealerDisplayName = 'Franchise';
 
   static String getRoleDisplayName(String? role) {
     switch (role?.toLowerCase()) {

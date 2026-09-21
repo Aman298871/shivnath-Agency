@@ -3596,11 +3596,11 @@ class RoleBasedChatbotMenuView(APIView):
             menu_items = [
                 {'key': 'LEADS', 'title': 'Leads', 'description': 'New inquiries and qualification pipeline'},
                 {'key': 'CUSTOMERS', 'title': 'Customers', 'description': 'Customer service areas and delivery status'},
-                {'key': 'DEALERS', 'title': 'Dealers', 'description': 'Wholesale dealer network and contact info'},
+                {'key': 'DEALERS', 'title': 'Franchises', 'description': 'Franchise network and contact info'},
                 {'key': 'ORDERS', 'title': 'Orders', 'description': 'Pending approvals, dispatch and tracking'},
                 {'key': 'PRODUCTS', 'title': 'Products', 'description': 'Official 5 variants and MRP catalog'},
                 {'key': 'INVENTORY', 'title': 'Inventory', 'description': 'Plant stock and raw material balances'},
-                {'key': 'STOCK_REQUESTS', 'title': 'Stock Requests', 'description': 'Pending wholesale dealer allocations'},
+                {'key': 'STOCK_REQUESTS', 'title': 'Stock Requests', 'description': 'Pending franchise allocations'},
                 {'key': 'PRODUCTION', 'title': 'Production', 'description': 'Log new production batches'},
                 {'key': 'FOLLOW_UPS', 'title': 'Follow-ups', 'description': 'Scheduled customer & dealer calls'},
                 {'key': 'REPORTS', 'title': 'Reports', 'description': 'Daily dispatch and sales summaries'},
@@ -3668,12 +3668,12 @@ class RoleBasedChatbotActionView(APIView):
                 total_orders = Order.objects.count()
                 total_dealers = FranchiseProfile.objects.filter(status='approved').count()
                 batches_active = ProductionBatch.objects.filter(status='ACTIVE').count()
-                message = f"Enterprise Overview: {total_orders} total orders placed, {total_dealers} active wholesale dealers, {batches_active} active production batches."
+                message = f"Enterprise Overview: {total_orders} total orders placed, {total_dealers} active franchises, {batches_active} active production batches."
                 result_data = {'orders_count': total_orders, 'dealers_count': total_dealers, 'active_batches': batches_active}
             elif action in ['DEALERS', 'DEALER_NETWORK']:
                 dealers = FranchiseProfile.objects.filter(status='approved')[:10]
                 result_data = [{'id': d.id, 'dealer_code': d.dealer_code, 'name': d.business_name, 'city': d.city} for d in dealers]
-                message = f"Found {dealers.count()} active approved wholesale dealers."
+                message = f"Found {dealers.count()} active approved franchises."
             elif action in ['PROFIT_LOSS', 'P&L']:
                 from inventory.models import DailyBusinessReport
                 latest = DailyBusinessReport.objects.first()
@@ -3698,7 +3698,7 @@ class RoleBasedChatbotActionView(APIView):
                 result_data = {'total_units': total_bottles, 'batches_count': batches.count()}
             elif action in ['STOCK_REQUESTS']:
                 reqs = DealerStockRequest.objects.filter(status='REQUESTED').select_related('dealer', 'product')
-                message = f"{reqs.count()} pending wholesale dealer stock request(s) awaiting allocation."
+                message = f"{reqs.count()} pending franchise stock request(s) awaiting allocation."
                 result_data = [{'id': r.id, 'request_number': r.request_number, 'dealer': r.dealer.business_name, 'qty': r.requested_quantity} for r in reqs]
             elif action in ['ORDERS']:
                 pending = Order.objects.filter(status='order_placement').count()

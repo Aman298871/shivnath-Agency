@@ -745,7 +745,7 @@ class SupportContact(models.Model):
         ('public_customer',  'Public / Anonymous Customer Inquiry'),
         ('public_franchise', 'Public / Anonymous Franchise Inquiry'),
         ('customer',         'Authenticated Customer'),
-        ('franchise',        'Authenticated Wholesale Dealer'),
+        ('franchise',        'Authenticated Franchise'),
         ('admin',            'Admin / Super Admin'),
         ('sales_executive',  'Sales Executive'),
     ]

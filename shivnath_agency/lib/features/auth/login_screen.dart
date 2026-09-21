@@ -62,7 +62,7 @@ class _LoginScreenState
         return 'Customer Login';
 
       case AppConstants.franchiseRole:
-        return 'Wholesale Dealer Login';
+        return 'Franchise Login';
 
       case AppConstants.adminRole:
         return 'Company Staff / Admin Login';
@@ -649,7 +649,7 @@ class _LoginScreenState
                               .center,
                       children: [
                         const Text(
-                          'New Wholesale Dealer?',
+                          'New Franchise?',
                           style:
                               TextStyle(
                             color:
@@ -733,7 +733,7 @@ class _LoginScreenState
 
     if (role ==
         AppConstants.franchiseRole) {
-      return 'Wholesale Dealer Account\nNew dealership registrations require admin verification & approval.';
+      return 'Franchise Account\nNew franchise registrations require admin verification & approval.';
     }
 
     if (role ==

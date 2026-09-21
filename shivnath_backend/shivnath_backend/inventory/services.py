@@ -719,7 +719,7 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
         else:
             level_key = '30_DAYS'
 
-        dealer_name = alloc.stock_request.dealer.business_name if alloc.stock_request.dealer else 'Wholesale Dealer'
+        dealer_name = alloc.stock_request.dealer.business_name if alloc.stock_request.dealer else 'Franchise'
         product = alloc.stock_request.product or batch.product
 
         alerts.append({

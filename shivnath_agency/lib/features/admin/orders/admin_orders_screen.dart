@@ -525,7 +525,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             'Order Source',
                             order['order_source'] == 'DIRECT_COMPANY'
                                 ? 'Direct Company (Plant Fulfilled)'
-                                : 'Wholesale Dealer Fulfilled',
+                                : 'Franchise Fulfilled',
                           ),
                         const SizedBox(height: 14),
                         const Text(

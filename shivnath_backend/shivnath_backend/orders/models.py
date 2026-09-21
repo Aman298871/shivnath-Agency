@@ -17,7 +17,7 @@ class Order(models.Model):
     ]
 
     ORDER_SOURCE_CHOICES = [
-        ('FRANCHISE', 'Wholesale Dealer Fulfilled'),
+        ('FRANCHISE', 'Franchise Fulfilled'),
         ('DIRECT_COMPANY', 'Direct Company Fulfilled (Shivnath Agency Central Plant)'),
     ]
 

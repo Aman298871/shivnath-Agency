@@ -97,7 +97,7 @@ class _DealerStockScreenState extends State<DealerStockScreen>
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
-          'Wholesale Dealer Inventory',
+          'Franchise Inventory',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,

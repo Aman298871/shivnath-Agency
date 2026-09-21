@@ -324,7 +324,7 @@ class _CentralPlantInventoryScreenState
         final req = pending[idx];
         final id = req['id'];
         final reqNum = req['request_number'] ?? 'REQ-$id';
-        final dealerName = req['dealer_name'] ?? 'Wholesale Dealer';
+        final dealerName = req['dealer_name'] ?? 'Franchise';
         final items = (req['items'] as List?) ?? [];
 
         return Card(

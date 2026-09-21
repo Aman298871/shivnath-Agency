@@ -61,7 +61,7 @@ class UserModel {
     if (isSuperAdmin) return 'Super Admin';
     if (isAdmin) return 'Plant Admin';
     if (isSalesExecutive) return 'Sales Executive';
-    if (isDealer) return 'Wholesale Dealer';
+    if (isDealer) return 'Franchise';
     if (isCustomer) return 'Customer';
     return role;
   }

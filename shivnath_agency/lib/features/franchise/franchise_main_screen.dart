@@ -471,7 +471,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                         Text(
                           _currentUser?.name.isNotEmpty == true
                               ? _currentUser!.name
-                              : 'Wholesale Dealer',
+                              : 'Franchise',
                           maxLines: 1,
                           overflow:
                               TextOverflow.ellipsis,
@@ -486,7 +486,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                         Text(
                           _currentUser?.phone.isNotEmpty == true
                               ? _currentUser!.phone
-                              : 'Authorized Wholesale Dealer',
+                              : 'Authorized Franchise',
                           style: const TextStyle(
                             color:
                                 Color(0xFF94A3B8),

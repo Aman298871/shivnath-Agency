@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -7,6 +8,7 @@ import 'session_service.dart';
 
 class AuthService {
   static String get baseUrl => AppConstants.apiBaseUrl;
+  static const Duration defaultTimeout = Duration(seconds: 45);
 
   Future<Map<String, dynamic>> getCurrentUser() async {
     final token = await SessionService().getAccessToken();
@@ -18,7 +20,7 @@ class AuthService {
           'Accept': 'application/json',
           if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(defaultTimeout);
 
       dynamic decoded;
       try {
@@ -31,8 +33,10 @@ class AuthService {
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': 'Failed to fetch user data', 'data': decoded};
+    } on TimeoutException {
+      return {'success': false, 'message': 'Server is starting up. Please wait a moment and try again.'};
     } catch (_) {
-      return {'success': false, 'message': 'Server unavailable. Please start the backend and try again.'};
+      return {'success': false, 'message': 'Unable to connect to server. Please check your internet connection.'};
     }
   }
 
@@ -234,11 +238,7 @@ class AuthService {
             },
             body: jsonEncode(body),
           )
-          .timeout(
-            const Duration(
-              seconds: 15,
-            ),
-          );
+          .timeout(defaultTimeout);
 
       dynamic decoded;
 
@@ -269,11 +269,17 @@ class AuthService {
             _extractError(data),
         'data': data,
       };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message':
+            'Cloud server is starting up (cold start). Please wait a few seconds and try again.',
+      };
     } catch (_) {
       return {
         'success': false,
         'message':
-            'Server unavailable. Please start the backend and try again.',
+            'Unable to connect to server. Please check your internet connection and try again.',
       };
     }
   }

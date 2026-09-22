@@ -571,9 +571,21 @@ class InventoryService {
   }
 
   /// Daily Business Reports
-  Future<Map<String, dynamic>> getDailyBusinessReports() async {
+  Future<Map<String, dynamic>> getDailyBusinessReports({
+    String? startDate,
+    String? endDate,
+  }) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/inventory/daily-reports/');
+      final queryParams = <String, String>{};
+      if (startDate != null && startDate.isNotEmpty) {
+        queryParams['start_date'] = startDate;
+      }
+      if (endDate != null && endDate.isNotEmpty) {
+        queryParams['end_date'] = endDate;
+      }
+      final uri = Uri.parse('$baseUrl/api/inventory/daily-reports/').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
       final response = await http.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
@@ -650,6 +662,31 @@ class InventoryService {
     try {
       final uri = Uri.parse('$baseUrl/api/billing/dealers/$dealerId/aging/');
       final response = await http.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> recordInvoicePayment({
+    required int invoiceId,
+    required double amount,
+    String paymentMethod = 'UPI',
+    String referenceNumber = '',
+    String notes = '',
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/billing/invoices/$invoiceId/payments/');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({
+          'amount': amount,
+          'payment_method': paymentMethod,
+          'reference_number': referenceNumber,
+          'notes': notes,
+        }),
+      );
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};

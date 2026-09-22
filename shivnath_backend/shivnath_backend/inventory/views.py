@@ -955,13 +955,20 @@ class DailyBusinessReportAPIView(views.APIView):
 
     def get(self, request):
         date_str = request.query_params.get('date')
-        if date_str:
-            report = DailyBusinessReport.objects.filter(report_date=date_str).first()
-            if report:
-                return Response(DailyBusinessReportSerializer(report).data)
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
 
-        # Return latest reports
-        reports = DailyBusinessReport.objects.all()[:30]
+        qs = DailyBusinessReport.objects.all()
+
+        if date_str:
+            qs = qs.filter(report_date=date_str)
+        else:
+            if start_date:
+                qs = qs.filter(report_date__gte=start_date)
+            if end_date:
+                qs = qs.filter(report_date__lte=end_date)
+
+        reports = qs.order_by('-report_date')[:60]
         return Response(DailyBusinessReportSerializer(reports, many=True).data)
 
 

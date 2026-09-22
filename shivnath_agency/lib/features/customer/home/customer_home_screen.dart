@@ -358,22 +358,39 @@ class _CustomerHomeScreenState
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Shivnath Agency',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+            Image.asset(
+              'assets/images/logo.png',
+              height: 28,
+              width: 28,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.water_drop_rounded,
+                color: Color(0xFF0284C7),
+                size: 26,
               ),
             ),
-            Text(
-              'Pure Water. Delivered.',
-              style: TextStyle(
-                fontSize: 11,
-                color: Color(0xFF64748B),
-              ),
+            const SizedBox(width: 10),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Shivnath Agency',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  'Pure Water. Delivered.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

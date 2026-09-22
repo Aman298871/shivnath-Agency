@@ -9,6 +9,7 @@ class ProductModel {
   final int stock;
   final String description;
   final int shelfLifeDays;
+  final String status;
 
   final int? categoryRefId;
   final String? categoryHierarchy;
@@ -26,6 +27,7 @@ class ProductModel {
     required this.stock,
     required this.description,
     this.shelfLifeDays = 180,
+    this.status = 'Active',
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class ProductModel {
       stock: int.tryParse(json["stock"]?.toString() ?? "0") ?? 0,
       description: json["description"]?.toString() ?? "",
       shelfLifeDays: int.tryParse(json["shelf_life_days"]?.toString() ?? "180") ?? 180,
+      status: json["status"]?.toString() ?? "Active",
     );
   }
 
@@ -58,6 +61,7 @@ class ProductModel {
       "image": image,
       "stock": stock,
       "description": description,
+      "status": status,
     };
   }
 

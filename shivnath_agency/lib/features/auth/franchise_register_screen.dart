@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/services/auth_service.dart';
-import '../../core/services/session_service.dart';
-import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
 
 class FranchiseRegisterScreen extends StatefulWidget {
@@ -211,7 +208,7 @@ class _FranchiseRegisterScreenState
                 ),
 
                 const Text(
-                  'Wholesale Dealer Registration',
+                  'Franchise Registration',
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -225,7 +222,7 @@ class _FranchiseRegisterScreenState
                 ),
 
                 const Text(
-                  'Submit your wholesale dealership application for admin approval',
+                  'Submit your franchise application for admin approval',
                   style: TextStyle(
                     color: Color(0xFF64748B),
                   ),

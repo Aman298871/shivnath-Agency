@@ -8,6 +8,8 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/services/franchise_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/services/whatsapp_service.dart';
+import '../../../core/theme/brand_colors.dart';
+import '../../../core/widgets/support_desk_modal.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
 
@@ -857,7 +859,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                               Expanded(
                                 child: ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0284C7),
+                                    backgroundColor: BrandColors.greenDark,
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -885,6 +887,26 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: BrandColors.greenDark),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              onPressed: () => SupportDeskModal.show(context),
+                              icon: const Icon(Icons.headset_mic_outlined, color: BrandColors.greenDark),
+                              label: const Text(
+                                'Franchise Support Desk',
+                                style: TextStyle(
+                                  color: BrandColors.greenDark,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),

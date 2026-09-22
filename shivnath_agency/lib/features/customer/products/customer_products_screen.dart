@@ -23,6 +23,7 @@ class _CustomerProductsScreenState
   List<Map<String, dynamic>> _categoryItems = [
     {'id': null, 'name': 'All', 'full_path': 'All'}
   ];
+  List<ProductModel> _loadedProducts = [];
   bool _loadingProducts = false;
 
   @override
@@ -34,11 +35,20 @@ class _CustomerProductsScreenState
 
   Future<void> _fetchProducts() async {
     if (mounted) setState(() => _loadingProducts = true);
-    await ProductService().getProducts(
+    final res = await ProductService().getProducts(
       categoryId: selectedCategoryId,
       category: selectedCategoryId == null && selectedCategoryName != 'All' ? selectedCategoryName : null,
     );
-    if (mounted) setState(() => _loadingProducts = false);
+    if (mounted) {
+      setState(() {
+        if (res['parsed_products'] is List<ProductModel>) {
+          _loadedProducts = List<ProductModel>.from(res['parsed_products'] as List<ProductModel>);
+        } else {
+          _loadedProducts = [];
+        }
+        _loadingProducts = false;
+      });
+    }
   }
 
   Future<void> _fetchCategories() async {
@@ -81,7 +91,7 @@ class _CustomerProductsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final products = ProductService.products.where((product) {
+    final products = _loadedProducts.where((product) {
       final matchesSearch = search.trim().isEmpty ||
           product.name.toLowerCase().contains(search.toLowerCase());
       return matchesSearch;

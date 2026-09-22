@@ -55,13 +55,17 @@ class AppTheme {
 
   /// Dynamic Theme parameterized by role
   static ThemeData getThemeForRole(String? roleKey) {
-    final roleConfig = RoleTheme.fromKey(roleKey);
-    final primary = roleConfig.primary;
+    return getThemeForRoleConfig(RoleTheme.fromKey(roleKey));
+  }
+
+  /// Dynamic Theme parameterized by RoleThemeConfig
+  static ThemeData getThemeForRoleConfig(RoleThemeConfig roleConfig) {
+    final primary = roleConfig.primaryColor;
 
     final colorScheme = ColorScheme.fromSeed(
       seedColor: primary,
       primary: primary,
-      secondary: roleConfig.secondary,
+      secondary: roleConfig.secondaryColor,
       surface: BrandColors.surface,
       error: BrandColors.error,
       brightness: Brightness.light,

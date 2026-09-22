@@ -117,13 +117,6 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
           icon: Icons.phone_callback_outlined,
           selectedIcon: Icons.phone_callback_rounded,
         ),
-        _FranchiseNavItem(
-          index: 10,
-          title: 'Support',
-          icon: Icons.headset_mic_outlined,
-          selectedIcon: Icons.headset_mic_rounded,
-          isSupport: true,
-        ),
       ],
     ),
     _FranchiseNavGroup(
@@ -131,7 +124,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       items: [
         _FranchiseNavItem(
           index: 11,
-          title: 'Dealer Information',
+          title: 'Franchise Information',
           icon: Icons.folder_outlined,
           selectedIcon: Icons.folder_rounded,
         ),
@@ -380,7 +373,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                           ),
                           SizedBox(height: 3),
                           Text(
-                            'Wholesale Dealer Portal',
+                            'Franchise Portal',
                             style: TextStyle(
                               color:
                                   Color(0xFF94A3B8),
@@ -871,13 +864,33 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
             tooltip: 'Menu',
           );
         }),
-        title: Text(
-          screenTitle,
-          style: const TextStyle(
-            color: Color(0xFF111827),
-            fontWeight: FontWeight.w700,
-            fontSize: 17,
-          ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/logo.png',
+              height: 26,
+              width: 26,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.water_drop_rounded,
+                color: Color(0xFF059669),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                screenTitle == 'Dashboard' ? 'Shivnath Agency' : screenTitle,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF111827),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
@@ -931,7 +944,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Wholesale Dealer Portal',
+                          'Franchise Portal',
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: 10,

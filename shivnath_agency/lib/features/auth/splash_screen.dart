@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/services/session_service.dart';
 import '../../core/theme/brand_colors.dart';
+import '../../core/theme/role_theme.dart';
 import '../../routes/app_routes.dart';
+import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -30,19 +34,34 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     if (user == null) {
-      Navigator.pushReplacementNamed(
-        context,
-        AppRoutes.roleSelection,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final onboardingDone =
+          prefs.getBool(OnboardingScreen.keyCompleted) ?? false;
+      if (!mounted) return;
+
+      if (!onboardingDone) {
+        Navigator.pushReplacementNamed(
+          context,
+          AppRoutes.onboarding,
+        );
+      } else {
+        Navigator.pushReplacementNamed(
+          context,
+          AppRoutes.roleSelection,
+        );
+      }
       return;
     }
 
+    final roleProvider = Provider.of<RoleThemeProvider>(context, listen: false);
     if (user.role == AppConstants.customerRole) {
+      roleProvider.setRole('customer');
       Navigator.pushReplacementNamed(
         context,
         AppRoutes.customerDashboard,
       );
     } else if (user.role == AppConstants.franchiseRole) {
+      roleProvider.setRole('franchise');
       Navigator.pushReplacementNamed(
         context,
         AppRoutes.franchiseDashboard,
@@ -50,6 +69,7 @@ class _SplashScreenState extends State<SplashScreen> {
     } else if (user.role == AppConstants.adminRole ||
         user.role == AppConstants.superAdminRole ||
         user.role == AppConstants.salesExecutiveRole) {
+      roleProvider.setRole('admin');
       Navigator.pushReplacementNamed(
         context,
         AppRoutes.adminDashboard,

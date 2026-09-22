@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/support_desk_modal.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
 
@@ -153,7 +154,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
             height: 86,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
-              color: Color(0xFF0284C7),
+              color: Color(0xFFDC2626),
               shape: BoxShape.circle,
             ),
             child: Text(
@@ -181,13 +182,13 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
               vertical: 6,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFFE0F2FE),
+              color: const Color(0xFFFEF2F2),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               role,
               style: const TextStyle(
-                color: Color(0xFF0284C7),
+                color: Color(0xFFDC2626),
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
@@ -207,6 +208,20 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
             'Full Platform Administration',
           ),
           const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFDC2626),
+                side: const BorderSide(color: Color(0xFFFCA5A5)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => SupportDeskModal.show(context),
+              icon: const Icon(Icons.support_agent_rounded, color: Color(0xFFDC2626)),
+              label: const Text('Support Desk', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -232,7 +247,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
           Icon(
             icon,
             size: 18,
-            color: const Color(0xFF0284C7),
+            color: const Color(0xFFDC2626),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -317,7 +332,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
               height: 46,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0284C7),
+                  backgroundColor: const Color(0xFFDC2626),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),

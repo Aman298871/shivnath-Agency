@@ -79,17 +79,20 @@ final result = _decode(response);
           rawList = result["data"];
         }
 
+        List<ProductModel> parsedList = [];
         if (rawList is List) {
-          products = rawList
+          parsedList = rawList
               .whereType<Map>()
               .map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e)))
               .toList();
+          products = parsedList;
         } else {
           products = [];
         }
+        result['parsed_products'] = parsedList;
       }
 
-return result;
+      return result;
     } catch (e) {
       return {
         "success": false,

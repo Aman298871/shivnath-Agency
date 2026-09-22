@@ -33,6 +33,15 @@ class ShivnathLogo extends StatelessWidget {
   })  : isHorizontal = true,
         isIconOnly = false;
 
+  const ShivnathLogo.appBar({
+    super.key,
+    this.size = 28.0,
+    this.showSubtitle = false,
+    this.textColor,
+  })  : isHorizontal = true,
+        isIconOnly = false,
+        useAssetImage = true;
+
   const ShivnathLogo.icon({
     super.key,
     this.size = 40.0,
@@ -63,19 +72,36 @@ class ShivnathLogo extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildWaterDropletMark(size),
-          const SizedBox(width: 10),
+          if (useAssetImage)
+            Image.asset(
+              'assets/images/logo.png',
+              width: size,
+              height: size,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => _buildWaterDropletMark(size),
+            )
+          else
+            _buildWaterDropletMark(size),
+          const SizedBox(width: 8),
           Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBrandText(fontSize: size * 0.44),
+              Text(
+                'Shivnath Agency',
+                style: TextStyle(
+                  fontSize: size * 0.58,
+                  fontWeight: FontWeight.w800,
+                  color: textColor ?? BrandColors.textPrimary,
+                  letterSpacing: -0.3,
+                ),
+              ),
               if (showSubtitle) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   'Water Business Management',
                   style: TextStyle(
-                    fontSize: size * 0.22,
+                    fontSize: size * 0.28,
                     fontWeight: FontWeight.w600,
                     color: textColor ?? BrandColors.textSecondary,
                     letterSpacing: 0.2,

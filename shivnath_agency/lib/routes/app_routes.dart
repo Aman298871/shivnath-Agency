@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/admin/admin_main_screen.dart';
 
 import '../features/auth/login_screen.dart';
+import '../features/auth/onboarding_screen.dart';
 import '../features/auth/role_selection_screen.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/auth/customer_register_screen.dart';
@@ -13,12 +14,9 @@ import '../features/franchise/franchise_main_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
-
-  static const String roleSelection =
-      '/role-selection';
-
-  static const String login =
-      '/login';
+  static const String onboarding = '/onboarding';
+  static const String roleSelection = '/role-selection';
+  static const String login = '/login';
 
   // Registration
   static const String customerRegister =
@@ -46,6 +44,14 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) =>
               const SplashScreen(),
+          settings: settings,
+        );
+
+      // Onboarding
+      case onboarding:
+        return MaterialPageRoute(
+          builder: (_) =>
+              const OnboardingScreen(),
           settings: settings,
         );
 

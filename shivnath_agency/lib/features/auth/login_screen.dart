@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/services/auth_service.dart';
@@ -31,8 +32,13 @@ class _LoginScreenState extends State<LoginScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is String) {
+    if (args is String && args.isNotEmpty) {
       role = args;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Provider.of<RoleThemeProvider>(context, listen: false).setRole(role);
+        }
+      });
     }
   }
 
@@ -43,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
       case AppConstants.customerRole:
         return 'Customer Login';
       case AppConstants.franchiseRole:
-        return 'Wholesale Dealer Login';
+        return 'Franchise Login';
       case AppConstants.adminRole:
         return 'Admin Login';
       default:
@@ -462,7 +468,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-                // Registration Link for Wholesale Dealer
+                // Registration Link for Franchise
                 if (role == AppConstants.franchiseRole)
                   Center(
                     child: Wrap(
@@ -470,7 +476,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       alignment: WrapAlignment.center,
                       children: [
                         const Text(
-                          'New Wholesale Dealer? ',
+                          'New Franchise Partner? ',
                           style: TextStyle(color: BrandColors.textSecondary),
                         ),
                         TextButton(
@@ -533,7 +539,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return 'Customer Portal: Sign in with your registered email or create a new account to order packaged drinking water.';
     }
     if (role == AppConstants.franchiseRole) {
-      return 'Wholesale Dealer Portal: Authorized distributors can manage inventory, place bulk orders, and review billing.';
+      return 'Franchise Portal: Authorized partners can manage inventory, place bulk orders, and review billing.';
     }
     if (role == AppConstants.adminRole) {
       return 'Admin Control Panel: Reserved for Super Admin, Plant Operations, and authorized personnel.';

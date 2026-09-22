@@ -43,11 +43,16 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     });
 
     try {
-      await ProductService().getProducts(
+      final res = await ProductService().getProducts(
         categoryId: widget.categoryId,
         category: widget.categoryId == null ? widget.categoryName : null,
+        status: 'Active',
       );
-      _products = ProductService.products.toList();
+      if (res['parsed_products'] is List<ProductModel>) {
+        _products = List<ProductModel>.from(res['parsed_products'] as List<ProductModel>);
+      } else {
+        _products = [];
+      }
     } catch (e) {
       _error = 'Failed to load products. Please try again.';
     }
@@ -57,8 +62,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
 
   List<ProductModel> get _filtered {
     final q = _search.trim().toLowerCase();
-    if (q.isEmpty) return _products;
-    return _products.where((p) => p.name.toLowerCase().contains(q)).toList();
+    final activeOnly = _products.where((p) => p.status.toLowerCase() == 'active' || p.status.isEmpty);
+    if (q.isEmpty) return activeOnly.toList();
+    return activeOnly.where((p) => p.name.toLowerCase().contains(q)).toList();
   }
 
   @override
@@ -109,16 +115,19 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                   right: 6,
                   top: 6,
                   child: Container(
-                    width: 16,
-                    height: 16,
+                    padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(
-                      color: Color(0xFFEF4444),
+                      color: Color(0xFF0284C7),
                       shape: BoxShape.circle,
                     ),
-                    child: Center(
-                      child: Text(
-                        cartCount > 9 ? '9+' : '$cartCount',
-                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '$cartCount',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
@@ -183,8 +192,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     final products = _filtered;
     return LayoutBuilder(
       builder: (ctx, constraints) {
-        final isWide = constraints.maxWidth >= 600;
-        final crossCount = isWide ? 3 : 2;
+        final crossCount = constraints.maxWidth >= 720
+            ? 3
+            : (constraints.maxWidth < 340 ? 1 : 2);
+        final ratio = constraints.maxWidth >= 720
+            ? 0.78
+            : (crossCount == 1 ? 1.2 : 0.63);
         return RefreshIndicator(
           onRefresh: _fetchProducts,
           color: const Color(0xFF0284C7),
@@ -194,7 +207,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               crossAxisCount: crossCount,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
-              childAspectRatio: isWide ? 0.80 : 0.62,
+              childAspectRatio: ratio,
             ),
             itemCount: products.length,
             itemBuilder: (ctx, i) => _ProductCard(product: products[i]),

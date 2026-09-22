@@ -76,7 +76,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       ),
       const _AdminMenuItem(
         index: 3,
-        title: 'Wholesale Dealers',
+        title: 'Franchises',
         icon: Icons.storefront_outlined,
       ),
       const _AdminMenuItem(
@@ -364,7 +364,6 @@ Widget _currentScreen() {
       'permissions': 16,
 
       // Customer Stocks
-      'stock': 17,
       'stocks': 17,
       'customer stock': 17,
       'customer stocks': 17,
@@ -509,11 +508,34 @@ Widget _currentScreen() {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF111827),
         elevation: 0,
-        title: Text(
-          _currentTitle(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/logo.png',
+              height: 26,
+              width: 26,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.water_drop_rounded,
+                color: Color(0xFFEF4444),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                _currentTitle() == 'Dashboard' ? 'Shivnath Agency' : _currentTitle(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF111827),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
@@ -611,19 +633,18 @@ Widget _currentScreen() {
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 21,
-                    backgroundColor: Color(0xFF0284C7),
-                    child: Text(
-                      'S',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  Image.asset(
+                    'assets/images/logo.png',
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Color(0xFFEF4444),
+                      child: Icon(Icons.water_drop, color: Colors.white, size: 18),
                     ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

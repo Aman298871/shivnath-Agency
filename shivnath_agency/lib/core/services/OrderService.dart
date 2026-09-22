@@ -402,18 +402,25 @@ class OrderService {
     }
   }
 
-  String _statusDisplay(String value) {
-    switch (value) {
+  static String normalizeStatusDisplay(String value) {
+    final lower = value.trim().toLowerCase();
+    if (lower.contains('plant') && lower.contains('approval')) {
+      return 'Plant Approval';
+    }
+    switch (lower) {
       case 'order_placement':
         return 'Order Placement';
       case 'plant_approval':
         return 'Plant Approval';
       case 'preparing':
+      case 'preparing / bottling':
         return 'Preparing';
       case 'invoice_generated':
         return 'Invoice Generated';
       case 'dispatch':
-        return 'Dispatch';
+      case 'dispatched':
+      case 'dispatch / in transit':
+        return 'Dispatched';
       case 'delivered':
         return 'Delivered';
       case 'payment_collection':
@@ -424,6 +431,8 @@ class OrderService {
         return value;
     }
   }
+
+  String _statusDisplay(String value) => normalizeStatusDisplay(value);
 
   // =====================================================
   // PAYMENT CONVERSION

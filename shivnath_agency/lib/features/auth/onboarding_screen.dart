@@ -20,38 +20,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<_OnboardingData> _pages = const [
     _OnboardingData(
       title: 'Welcome to Shivnath Agency',
-      subtitle: 'Complete water business management in one place.',
-      icon: Icons.water_drop_rounded,
+      subtitle: 'Manage your complete water business from one powerful platform.',
       color: BrandColors.primaryBlue,
       bgColor: BrandColors.blueSoft,
-      badgeText: 'Shivnath Agency',
+      badgeText: 'Pure Water Platform',
+      type: _IllustrationType.welcome,
     ),
     _OnboardingData(
-      title: 'Order & Manage Water Products',
-      subtitle:
-          'Customers can browse products, place orders and track their order status.',
-      icon: Icons.shopping_bag_rounded,
+      title: 'Order Water Products',
+      subtitle: 'Browse products, place orders and easily track your order status.',
       color: BrandColors.waterBlue,
       bgColor: Color(0xFFE0F2FE),
-      badgeText: 'Customer App',
+      badgeText: 'Seamless Ordering',
+      type: _IllustrationType.ordering,
     ),
     _OnboardingData(
-      title: 'Franchise Network',
-      subtitle:
-          'Franchises receive stock from the company and manage their local customer sales.',
-      icon: Icons.storefront_rounded,
+      title: 'Grow With Shivnath',
+      subtitle: 'Manufacturing, franchise stock, customers and orders connected in one system.',
       color: BrandColors.greenDark,
       bgColor: BrandColors.greenSoft,
-      badgeText: 'Franchise Partner',
+      badgeText: 'Connected Network',
+      type: _IllustrationType.franchiseNetwork,
     ),
     _OnboardingData(
       title: 'Smart Business Management',
-      subtitle:
-          'Admins manage production, inventory, orders, billing, franchise stock, customers and reports.',
-      icon: Icons.admin_panel_settings_rounded,
+      subtitle: 'Manage production, inventory, billing, CRM, reports and business operations.',
       color: BrandColors.redDark,
       bgColor: BrandColors.redSoft,
-      badgeText: 'Company Administration',
+      badgeText: 'Operations & ERP',
+      type: _IllustrationType.smartManagement,
     ),
   ];
 
@@ -91,6 +88,440 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  Widget _buildIllustration(_IllustrationType type, Color primary, Color bg) {
+    switch (type) {
+      case _IllustrationType.welcome:
+        return Container(
+          width: 220,
+          height: 180,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: primary.withValues(alpha: 0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Concentric circles
+              Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.65),
+                ),
+              ),
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primary.withValues(alpha: 0.12),
+                ),
+              ),
+              // Main droplet
+              Icon(
+                Icons.water_drop_rounded,
+                size: 64,
+                color: primary,
+              ),
+              // Packaged bottles badge
+              Positioned(
+                bottom: 16,
+                right: 20,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFACC15), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.verified_rounded, size: 14, color: Color(0xFFEAB308)),
+                      SizedBox(width: 4),
+                      Text(
+                        '100% Pure',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // RO + UV Mineral Badge
+              Positioned(
+                top: 16,
+                left: 20,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: primary.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.sanitizer_rounded, size: 12, color: primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'RO + UV Minerals',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: primary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case _IllustrationType.ordering:
+        return Container(
+          width: 220,
+          height: 180,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: primary.withValues(alpha: 0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Central Bottle/Jar visual
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 20L Jar
+                  Container(
+                    width: 58,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: primary.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: primary, width: 2),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.water_rounded, size: 28, color: primary),
+                        const SizedBox(height: 2),
+                        const Text(
+                          '20L JAR',
+                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Color(0xFF0369A1)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  // Packaged 500ml / 1L Bottle
+                  Container(
+                    width: 36,
+                    height: 104,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF0284C7), width: 1.5),
+                    ),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.liquor_rounded, size: 24, color: Color(0xFF0284C7)),
+                        SizedBox(height: 2),
+                        Text(
+                          '1L',
+                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Color(0xFF0369A1)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              // Delivery Truck Card
+              Positioned(
+                bottom: 12,
+                left: 20,
+                right: 20,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.local_shipping_rounded, size: 16, color: Color(0xFF16A34A)),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Real-Time Dispatch Tracking',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                        ),
+                      ),
+                      Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case _IllustrationType.franchiseNetwork:
+        return Container(
+          width: 220,
+          height: 180,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: primary.withValues(alpha: 0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Top Node: Factory
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF0284C7), width: 1.5),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.factory_rounded, size: 15, color: Color(0xFF0284C7)),
+                          SizedBox(width: 6),
+                          Text('Plant Factory', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Icon(Icons.arrow_downward_rounded, size: 18, color: Color(0xFF16A34A)),
+                // Middle Node: Franchise Hub
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16A34A),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF16A34A).withValues(alpha: 0.25),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.storefront_rounded, size: 16, color: Colors.white),
+                          SizedBox(width: 6),
+                          Text('Franchise Depot', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Icon(Icons.arrow_downward_rounded, size: 18, color: Color(0xFFEAB308)),
+                // Bottom Node: Customer Sales
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFEAB308), width: 1.5),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.people_alt_rounded, size: 15, color: Color(0xFFEAB308)),
+                          SizedBox(width: 6),
+                          Text('Customer Orders', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+
+      case _IllustrationType.smartManagement:
+        return Container(
+          width: 220,
+          height: 180,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: primary.withValues(alpha: 0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Top metric cards
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: primary.withValues(alpha: 0.2)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('REVENUE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: primary)),
+                            const SizedBox(height: 2),
+                            const Text('₹1,48,500', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.2)),
+                        ),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('STOCK', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Color(0xFF16A34A))),
+                            SizedBox(height: 2),
+                            Text('15,400 Units', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Feature pills row
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.inventory_2_rounded, size: 12, color: Color(0xFFDC2626)),
+                          SizedBox(width: 4),
+                          Text('Batches & BOM', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.pie_chart_rounded, size: 12, color: Color(0xFFEAB308)),
+                          SizedBox(width: 4),
+                          Text('P&L Daily', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Expiry alert pill
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF87171)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 13, color: Color(0xFFDC2626)),
+                      SizedBox(width: 5),
+                      Text(
+                        'Early Expiry Alert Protection Active',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF991B1B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+    }
   }
 
   @override
@@ -171,30 +602,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 const Spacer(flex: 1),
-                                // Central Illustration / Visual Container
-                                Container(
-                                  width: 140,
-                                  height: 140,
-                                  decoration: BoxDecoration(
-                                    color: data.bgColor,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: data.color.withValues(alpha: 0.12),
-                                        blurRadius: 24,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Center(
-                                    child: Icon(
-                                      data.icon,
-                                      size: 72,
-                                      color: data.color,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 28),
+                                // Central Rich Custom Illustration
+                                _buildIllustration(data.type, data.color, data.bgColor),
+                                const SizedBox(height: 24),
 
                                 // Role / Feature Badge
                                 Container(
@@ -219,7 +629,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 18),
 
                                 // Title
                                 Text(
@@ -233,7 +643,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                     height: 1.25,
                                   ),
                                 ),
-                                const SizedBox(height: 14),
+                                const SizedBox(height: 12),
 
                                 // Subtitle / Explanation
                                 Padding(
@@ -346,20 +756,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
+enum _IllustrationType {
+  welcome,
+  ordering,
+  franchiseNetwork,
+  smartManagement,
+}
+
 class _OnboardingData {
   final String title;
   final String subtitle;
-  final IconData icon;
   final Color color;
   final Color bgColor;
   final String badgeText;
+  final _IllustrationType type;
 
   const _OnboardingData({
     required this.title,
     required this.subtitle,
-    required this.icon,
     required this.color,
     required this.bgColor,
     required this.badgeText,
+    required this.type,
   });
 }

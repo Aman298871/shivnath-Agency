@@ -294,6 +294,22 @@ class ChatView(APIView):
 
         user = request.user if (request.user and request.user.is_authenticated) else None
 
+        import re
+        if not cust_phone and message:
+            phone_match = re.search(r'(?:(?:\+?91)|0)?([6-9]\d{9})\b', message)
+            if phone_match:
+                cust_phone = phone_match.group(1)
+
+        if not cust_email and message:
+            email_match = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', message)
+            if email_match:
+                cust_email = email_match.group(0).lower()
+
+        if (not cust_name or cust_name == 'Guest Customer') and message:
+            name_match = re.search(r'(?:my name is|i am|name is|name:)\s+([A-Za-z\s]{2,30})', message, re.IGNORECASE)
+            if name_match:
+                cust_name = name_match.group(1).strip()
+
         try:
             # 1. If user selected a specific configured ChatbotOption directly
             configured_opt = None
@@ -396,6 +412,96 @@ class ChatView(APIView):
 
                 ChatMessage.objects.create(session=session, role='user', content=message or (configured_opt.title if configured_opt else ''))
                 ChatMessage.objects.create(session=session, role='assistant', content=reply)
+
+                # Public Chatbot CRM Lead integration: create or update Lead and link session
+                clean_p = re.sub(r'\D', '', cust_phone) if cust_phone else ''
+                if clean_p.startswith('91') and len(clean_p) == 12:
+                    clean_p = clean_p[2:]
+                valid_phone = bool(len(clean_p) == 10 and clean_p[0] in '6789')
+                valid_email = bool(cust_email and '@' in cust_email and '.' in cust_email)
+
+                # Also scan message for phone or email if not provided directly
+                if not valid_phone and message:
+                    pm = re.search(r'\b[6-9]\d{9}\b', message)
+                    if pm:
+                        clean_p = pm.group(0)
+                        valid_phone = True
+                if not valid_email and message:
+                    em = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', message)
+                    if em:
+                        cust_email = em.group(0).lower()
+                        valid_email = True
+
+                # Every public inquiry creates or updates a Lead
+                is_public_inquiry = bool(app_type in ['customer', 'public', 'guest'] or not user)
+                if valid_phone or valid_email or is_public_inquiry:
+                    try:
+                        from leads.models import Lead, CRMActivityLog, LeadActivity
+                        lead = getattr(session, 'lead', None)
+
+                        if not lead and valid_phone:
+                            lead = Lead.objects.filter(phone=clean_p).first()
+                        if not lead and valid_email:
+                            lead = Lead.objects.filter(email__iexact=cust_email).first()
+
+                        if not lead:
+                            # Generate unique contact identifier if visitor hasn't provided phone yet
+                            fallback_phone = clean_p if valid_phone else f"98{abs(hash(session.session_id or str(session.id or timezone.now()))) % 100000000:08d}"
+                            lead_name = cust_name if (cust_name and cust_name not in ['Guest Customer', '']) else 'Public Prospect'
+                            lead = Lead.objects.create(
+                                name=lead_name,
+                                phone=fallback_phone,
+                                email=cust_email if valid_email else '',
+                                city='Raipur',
+                                status='NEW',
+                                source='PUBLIC_CHATBOT',
+                                notes=f"Public Chatbot Inquiry: {message or (configured_opt.title if configured_opt else '')}",
+                            )
+                            lead.calculate_lead_score()
+                            lead.save()
+
+                            CRMActivityLog.objects.create(
+                                lead=lead,
+                                activity_type='STATUS_CHANGED',
+                                description=f"Inbound public chatbot lead created. Source: PUBLIC_CHATBOT. Qualified as {lead.score_category} (Score: {lead.lead_score_number})"
+                            )
+                            LeadActivity.objects.create(
+                                lead=lead,
+                                activity_type='note',
+                                title='Public Chatbot Inquiry',
+                                description=f"Initial message: {message}",
+                            )
+                        else:
+                            updated_lead = False
+                            if cust_name and lead.name in ['Guest Customer', 'Public Prospect', 'Prospect', 'Public Customer', '']:
+                                lead.name = cust_name
+                                updated_lead = True
+                            if valid_phone and (lead.phone != clean_p):
+                                lead.phone = clean_p
+                                updated_lead = True
+                            if valid_email and not lead.email:
+                                lead.email = cust_email
+                                updated_lead = True
+                            if not lead.source:
+                                lead.source = 'PUBLIC_CHATBOT'
+                                updated_lead = True
+                            if message:
+                                lead.notes = f"{lead.notes}\n[{timezone.now().strftime('%d %b %H:%M')}] {message}"
+                                updated_lead = True
+                            if updated_lead:
+                                lead.save()
+
+                            CRMActivityLog.objects.create(
+                                lead=lead,
+                                activity_type='NOTE_ADDED',
+                                description=f"Public Chatbot interaction: {message}"
+                            )
+
+                        if session and session.lead != lead:
+                            session.lead = lead
+                            session.save(update_fields=['lead'])
+                    except Exception:
+                        pass
 
             return Response({
                 'success': True,

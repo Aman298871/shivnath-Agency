@@ -329,7 +329,9 @@ class _FranchiseOrdersScreenState
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: selectedStatus,
+                value: const ['All', 'Plant Approval', 'Invoice Generated', 'Dispatched', 'Delivered'].contains(selectedStatus)
+                    ? selectedStatus
+                    : 'All',
                 isExpanded: true,
                 items: const [
                   DropdownMenuItem(
@@ -1308,8 +1310,22 @@ class _FranchiseOrdersScreenState
       );
       return;
     }
+    String rawStatus = order['status']?.toString() ?? 'Plant Approval';
+    String selectedNewStatus = 'Plant Approval';
+    if (rawStatus.toLowerCase().contains('plant') && rawStatus.toLowerCase().contains('approval')) {
+      selectedNewStatus = 'Plant Approval';
+    } else if (rawStatus.toLowerCase().contains('dispatch')) {
+      selectedNewStatus = 'Dispatched';
+    } else if (rawStatus.toLowerCase().contains('invoice')) {
+      selectedNewStatus = 'Invoice Generated';
+    } else if (rawStatus.toLowerCase().contains('deliver')) {
+      selectedNewStatus = 'Delivered';
+    } else if (rawStatus.toLowerCase().contains('cancel')) {
+      selectedNewStatus = 'Cancelled';
+    } else if (rawStatus.toLowerCase().contains('placement')) {
+      selectedNewStatus = 'Order Placement';
+    }
 
-    String selectedNewStatus = order['status']?.toString() ?? 'Plant Approval';
     const statusOptions = [
       'Order Placement',
       'Plant Approval',

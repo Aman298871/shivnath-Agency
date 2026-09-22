@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_constants.dart';
 import '../services/chat_service.dart';
 import '../services/whatsapp_service.dart';
+import '../services/support_desk_service.dart';
 
 enum ChatbotMode {
   public,
@@ -1730,25 +1731,72 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
                 const SizedBox(width: 8),
               ],
               Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isUser ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
-                      bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isUser ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(16),
+                          topRight: const Radius.circular(16),
+                          bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
+                          bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
+                        ),
+                      ),
+                      child: Text(
+                        cleanedText,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: isUser ? Colors.white : const Color(0xFF1E293B),
+                          height: 1.38,
+                        ),
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    cleanedText,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      color: isUser ? Colors.white : const Color(0xFF1E293B),
-                      height: 1.38,
-                    ),
-                  ),
+                    if (!isUser) ...[
+                      const SizedBox(height: 6),
+                      InkWell(
+                        onTap: () {
+                          SupportDeskService.showContactActionSheet(
+                            context,
+                            phone: '+919806247194',
+                            supportName: 'Admin Support Desk',
+                            userName: _leadData['name']?.toString(),
+                            userMobile: _leadData['phone']?.toString(),
+                            userEmail: _leadData['email']?.toString(),
+                            initialEnquiry: 'Enquiry via Public Chatbot',
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFF86EFAC)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.phone_in_talk_rounded, size: 14, color: Color(0xFF16A34A)),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'For further information, please contact +91 98062 47194 (Tap for Call / Message)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF15803D),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],

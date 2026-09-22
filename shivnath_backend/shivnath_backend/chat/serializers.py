@@ -147,33 +147,46 @@ class ChatbotOptionSerializer(serializers.ModelSerializer):
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):
+    sender = serializers.CharField(source='role', read_only=True)
+    message = serializers.CharField(source='content', read_only=True)
+
     class Meta:
         model = ChatMessage
         fields = [
             'id',
             'session',
+            'role',
+            'content',
             'sender',
             'message',
-            'quick_replies',
-            'created_at',
+            'timestamp',
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'timestamp', 'sender', 'message']
 
 
 class ChatSessionSerializer(serializers.ModelSerializer):
     messages = ChatMessageSerializer(many=True, read_only=True)
+    session_token = serializers.CharField(source='session_id', read_only=True)
+    is_active = serializers.BooleanField(default=True, read_only=True)
 
     class Meta:
         model = ChatSession
         fields = [
             'id',
+            'session_id',
             'session_token',
-            'lead',
+            'customer_name',
+            'customer_phone',
+            'customer_email',
+            'app_type',
+            'chatbot_mode',
             'inquiry_type',
+            'lead',
+            'status',
             'is_active',
             'created_at',
             'updated_at',
             'messages',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'messages']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'messages', 'session_token', 'is_active']
 

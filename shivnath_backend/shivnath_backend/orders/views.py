@@ -66,6 +66,8 @@ class OrderListCreateView(APIView):
         if order_status:
             orders = orders.filter(status=order_status)
 
+        orders = orders.order_by('-created_at')
+
         serializer = OrderSerializer(orders, many=True)
 
         return Response(

@@ -77,15 +77,35 @@ class RecordPaymentAPIView(views.APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+def _resolve_dealer(user, dealer_id):
+    from accounts.models import FranchiseProfile
+    dealer = None
+    if dealer_id and int(dealer_id) > 0:
+        dealer = FranchiseProfile.objects.filter(id=dealer_id).first()
+        if not dealer:
+            dealer = FranchiseProfile.objects.filter(user_id=dealer_id).first()
+    if not dealer and hasattr(user, 'franchise_profile'):
+        dealer = user.franchise_profile
+    if not dealer:
+        dealer = FranchiseProfile.objects.filter(status='approved').first() or FranchiseProfile.objects.first()
+    return dealer
+
+
 class DealerCreditProfileAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, dealer_id):
-        profile, _ = DealerCreditProfile.objects.get_or_create(dealer_id=dealer_id)
+        dealer = _resolve_dealer(request.user, dealer_id)
+        if not dealer:
+            return Response({'error': 'Dealer not found.'}, status=status.HTTP_404_NOT_FOUND)
+        profile, _ = DealerCreditProfile.objects.get_or_create(dealer=dealer)
         return Response(DealerCreditProfileSerializer(profile).data)
 
     def put(self, request, dealer_id):
-        profile, _ = DealerCreditProfile.objects.get_or_create(dealer_id=dealer_id)
+        dealer = _resolve_dealer(request.user, dealer_id)
+        if not dealer:
+            return Response({'error': 'Dealer not found.'}, status=status.HTTP_404_NOT_FOUND)
+        profile, _ = DealerCreditProfile.objects.get_or_create(dealer=dealer)
         serializer = DealerCreditProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -97,7 +117,9 @@ class DealerAgingReportAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, dealer_id):
-        aging = get_dealer_aging_report(dealer_id)
+        dealer = _resolve_dealer(request.user, dealer_id)
+        d_id = dealer.id if dealer else dealer_id
+        aging = get_dealer_aging_report(d_id)
         return Response(aging)
 
 

@@ -42,8 +42,10 @@ class PendingStockExpiryAndCancellationTestCase(TestCase):
         # Cleanup existing test records if any
         DealerStockRequestAllocation.objects.filter(stock_request__request_number__in=['ORD-1025', 'ORD-MULTI-BATCH']).delete()
         DealerStockRequest.objects.filter(request_number__in=['ORD-1025', 'ORD-MULTI-BATCH']).delete()
+        OrderItemBatchReservation.objects.filter(order_item__order_id=1025).delete()
         OrderItemBatchReservation.objects.filter(order_item__order__created_by__username='test_super_owner').delete()
         OrderItem.objects.filter(order__created_by__username='test_super_owner').delete()
+        Order.objects.filter(id=1025).delete()
         Order.objects.filter(created_by__username='test_super_owner').delete()
         ProductionBatch.objects.filter(batch_number__in=['SHV-500-2026-00125', 'BATCH-A-EARLY', 'BATCH-B-LATER', 'BATCH-CANCEL-TEST']).delete()
 

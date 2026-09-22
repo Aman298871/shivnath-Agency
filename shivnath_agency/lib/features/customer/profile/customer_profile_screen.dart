@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/session_service.dart';
-import '../../../core/services/whatsapp_service.dart';
 import '../../../core/widgets/support_desk_modal.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
@@ -1078,8 +1077,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           ),
                           _ProfileTile(
                             icon: Icons.support_agent,
-                            title: 'Help & Support',
-                            subtitle: 'WhatsApp & phone customer support',
+                            title: 'Help & Admin Support',
+                            subtitle: 'Admin Helpline: +91 98062 47194 (Call / Chat)',
                             onTap: _showHelpSupportDialog,
                           ),
                           const SizedBox(height: 12),
@@ -1204,8 +1203,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         ),
         _ProfileTile(
           icon: Icons.support_agent,
-          title: 'Help & Support',
-          subtitle: 'WhatsApp & phone customer support',
+          title: 'Help & Admin Support',
+          subtitle: 'Admin Helpline: +91 98062 47194 (Call / Chat)',
           onTap: _showHelpSupportDialog,
         ),
         const SizedBox(height: 20),

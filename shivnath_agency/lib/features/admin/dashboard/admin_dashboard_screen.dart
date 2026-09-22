@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/followup_service.dart';
 import '../../../core/services/lead_service.dart';
 import '../../../core/services/InventoryService.dart';
+import '../../../core/services/OrderService.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenLeads;
@@ -40,6 +41,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final LeadService _leadService = LeadService();
   final FollowupService _followupService = FollowupService();
   final InventoryService _inventoryService = InventoryService();
+  final OrderService _orderService = OrderService();
 
   List<Map<String, dynamic>> _pendingStockAlerts = [];
   bool _pendingStockDialogShown = false;
@@ -52,6 +54,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       'icon': Icons.people_alt_outlined,
       'color': const Color(0xFF0284C7),
       'bgColor': const Color(0xFFE0F2FE),
+    },
+    {
+      'title': 'Customer Orders',
+      'value': '0',
+      'change': '0 placed',
+      'icon': Icons.shopping_bag_outlined,
+      'color': const Color(0xFF2563EB),
+      'bgColor': const Color(0xFFEFF6FF),
+    },
+    {
+      'title': 'Franchise Stock Reqs',
+      'value': '0',
+      'change': '0 requests',
+      'icon': Icons.storefront_outlined,
+      'color': const Color(0xFF7C3AED),
+      'bgColor': const Color(0xFFF5F3FF),
     },
     {
       'title': 'Hot Leads',
@@ -105,6 +123,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final leadsResult = await _leadService.getLeads();
       final fuResult = await _followupService.getFollowups();
 
+      int ordersCount = 0;
+      try {
+        final orderRes = await _orderService.getOrders();
+        if (orderRes['success'] == true) {
+          final dynamic ordData = orderRes['data'];
+          if (ordData is List) {
+            ordersCount = ordData.length;
+          } else if (ordData is Map && ordData['orders'] is List) {
+            ordersCount = (ordData['orders'] as List).length;
+          }
+        }
+      } catch (_) {}
+
+      int franchiseReqCount = 0;
+      try {
+        final reqRes = await _inventoryService.getDealerStockRequests();
+        if (reqRes['success'] == true) {
+          final dynamic reqData = reqRes['data'];
+          if (reqData is List) {
+            franchiseReqCount = reqData.length;
+          } else if (reqData is Map && reqData['requests'] is List) {
+            franchiseReqCount = (reqData['requests'] as List).length;
+          }
+        }
+      } catch (_) {}
+
       if (leadStatsResult['success'] == true && leadStatsResult['data'] is Map) {
         final statsData = leadStatsResult['data']['stats'] ?? {};
         final totalLeads = statsData['total_leads'] ?? 0;
@@ -125,6 +169,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             'icon': Icons.people_alt_outlined,
             'color': const Color(0xFF0284C7),
             'bgColor': const Color(0xFFE0F2FE),
+          },
+          {
+            'title': 'Customer Orders',
+            'value': '$ordersCount',
+            'change': 'Database orders',
+            'icon': Icons.shopping_bag_outlined,
+            'color': const Color(0xFF2563EB),
+            'bgColor': const Color(0xFFEFF6FF),
+          },
+          {
+            'title': 'Franchise Stock Reqs',
+            'value': '$franchiseReqCount',
+            'change': 'Stock Requests',
+            'icon': Icons.storefront_outlined,
+            'color': const Color(0xFF7C3AED),
+            'bgColor': const Color(0xFFF5F3FF),
           },
           {
             'title': 'Hot Leads',
@@ -376,10 +436,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         case 0:
           return widget.onOpenLeads;
         case 1:
-          return widget.onOpenLeads;
+          return widget.onOpenOrders;
         case 2:
-          return widget.onOpenFollowups;
+          return widget.onOpenInventory;
         case 3:
+          return widget.onOpenLeads;
+        case 4:
+          return widget.onOpenFollowups;
+        case 5:
           return widget.onOpenFranchises;
         default:
           return null;

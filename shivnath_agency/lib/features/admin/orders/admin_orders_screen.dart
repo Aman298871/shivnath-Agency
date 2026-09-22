@@ -238,20 +238,23 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   }
 
   Widget _filter() {
+    const filterOptions = [
+      'All',
+      'Order Placement',
+      'Plant Approval',
+      'Preparing',
+      'Invoice Generated',
+      'Dispatch',
+      'Delivered',
+      'Payment Collection',
+      'Cancelled',
+    ];
+    final activeFilter = filterOptions.contains(filter) ? filter : 'All';
+
     return DropdownButtonFormField<String>(
-      value: filter,
+      value: activeFilter,
       decoration: const InputDecoration(labelText: 'Order Status'),
-      items: const [
-        'All',
-        'Order Placement',
-        'Plant Approval',
-        'Preparing',
-        'Invoice Generated',
-        'Dispatch',
-        'Delivered',
-        'Payment Collection',
-        'Cancelled',
-      ]
+      items: filterOptions
           .map(
             (e) => DropdownMenuItem(
               value: e,
@@ -793,7 +796,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   }
 
   Future<void> _changeStatus(Map<String, dynamic> order) async {
-    final statuses = [
+    const statuses = [
       'Order Placement',
       'Plant Approval',
       'Preparing',
@@ -804,7 +807,26 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       'Cancelled',
     ];
 
-    String selected = order['status'];
+    String rawStatus = order['status']?.toString() ?? 'Order Placement';
+    final lowerStatus = rawStatus.toLowerCase();
+    String selected = 'Order Placement';
+    if (lowerStatus.contains('plant') && lowerStatus.contains('approval')) {
+      selected = 'Plant Approval';
+    } else if (lowerStatus.contains('prep')) {
+      selected = 'Preparing';
+    } else if (lowerStatus.contains('invoice')) {
+      selected = 'Invoice Generated';
+    } else if (lowerStatus.contains('dispatch')) {
+      selected = 'Dispatch';
+    } else if (lowerStatus.contains('deliver')) {
+      selected = 'Delivered';
+    } else if (lowerStatus.contains('payment')) {
+      selected = 'Payment Collection';
+    } else if (lowerStatus.contains('cancel')) {
+      selected = 'Cancelled';
+    } else if (statuses.contains(rawStatus)) {
+      selected = rawStatus;
+    }
 
     await showDialog(
       context: context,
@@ -817,7 +839,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 maxWidth: MediaQuery.of(context).size.width * 0.9,
               ),
               child: DropdownButtonFormField<String>(
-                value: selected,
+                value: statuses.contains(selected) ? selected : statuses.first,
                 decoration: const InputDecoration(labelText: 'Order Status'),
                 items: statuses
                     .map(

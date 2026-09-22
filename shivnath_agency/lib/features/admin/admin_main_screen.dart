@@ -131,11 +131,12 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         title: 'Quotations',
         icon: Icons.request_quote_outlined,
       ),
-      const _AdminMenuItem(
-        index: 12,
-        title: 'WhatsApp settings',
-        icon: Icons.chat_outlined,
-      ),
+      if (isSuperAdmin)
+        const _AdminMenuItem(
+          index: 12,
+          title: 'WhatsApp settings',
+          icon: Icons.chat_outlined,
+        ),
       const _AdminMenuItem(
         index: 13,
         title: 'Customer Inquiries',

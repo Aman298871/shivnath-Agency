@@ -574,9 +574,13 @@ class InventoryService {
   Future<Map<String, dynamic>> getDailyBusinessReports({
     String? startDate,
     String? endDate,
+    String? period,
   }) async {
     try {
       final queryParams = <String, String>{};
+      if (period != null && period.isNotEmpty) {
+        queryParams['period'] = period;
+      }
       if (startDate != null && startDate.isNotEmpty) {
         queryParams['start_date'] = startDate;
       }

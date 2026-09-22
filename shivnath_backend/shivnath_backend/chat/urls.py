@@ -13,6 +13,7 @@ from .views import (
 
 urlpatterns = [
     path('', ChatView.as_view(), name='chat-api'),
+    path('message/', ChatView.as_view(), name='chat-message'),
     path('options/', ChatbotOptionListView.as_view(), name='chatbot-options'),
     path('admin/options/', AdminChatbotOptionListView.as_view(), name='admin-chatbot-options'),
     path('admin/options/<int:pk>/', AdminChatbotOptionDetailView.as_view(), name='admin-chatbot-option-detail'),

@@ -70,100 +70,10 @@ def _sync_followup(lead, user):
 # LEAD LIST + CREATE
 # =========================================================
 
-class LeadListCreateView(APIView):
+# =========================================================
+# PHONE NORMALIZER & PUBLIC LEAD CAPTURE
+# =========================================================
 
-    permission_classes = [
-        IsAdminOrSalesExecutiveRole
-    ]
-
-    def get(self, request):
-
-        leads = (
-            Lead.objects
-            .select_related(
-                'created_by'
-            )
-            .prefetch_related(
-                'activities',
-                'activities__created_by'
-            )
-            .all()
-        )
-        leads = apply_data_scope(request.user, leads, 'Lead')
-
-        # ---------------------------------------------
-        # SEARCH
-        # ---------------------------------------------
-
-        search = request.query_params.get(
-            'search',
-            ''
-        ).strip()
-
-        if search:
-            leads = leads.filter(
-                Q(name__icontains=search)
-                |
-                Q(phone__icontains=search)
-                |
-                Q(city__icontains=search)
-                |
-                Q(district__icontains=search)
-                |
-                Q(
-                    preferred_location__icontains=search
-                )
-                |
-                Q(
-                    assigned_executive__icontains=search
-                )
-            )
-
-        # ---------------------------------------------
-        # STATUS
-        # ---------------------------------------------
-
-        lead_status = request.query_params.get(
-            'status',
-            ''
-        ).strip()
-
-        if lead_status:
-            leads = leads.filter(
-                status=lead_status
-            )
-
-        # ---------------------------------------------
-        # SCORE
-        # ---------------------------------------------
-
-        score = request.query_params.get(
-            'score',
-            ''
-        ).strip()
-
-        if score:
-            leads = leads.filter(
-                score=score
-            )
-
-        # ---------------------------------------------
-        # CITY
-        # ---------------------------------------------
-
-        city = request.query_params.get(
-            'city',
-            ''
-        ).strip()
-
-        if city:
-            leads = leads.filter(
-                city__iexact=city
-            )
-
-        # ---------------------------------------------
-        # DISTRICT
-        # ---------------------------------------------
 
 def _normalize_phone(p):
     if not p:
@@ -199,29 +109,12 @@ class PublicLeadCaptureView(APIView):
         import re as _re
         name_clean = name.strip()
         if not name_clean:
-            return Response(
-                {'success': False, 'message': 'Full name is required.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if len(name_clean) < 2 or len(name_clean) > 30:
-            return Response(
-                {'success': False, 'message': 'Name must be between 2 and 30 characters.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if not _re.search(r'[a-zA-Z]', name_clean):
-            return Response(
-                {'success': False, 'message': 'Name must contain alphabetic characters.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if _re.fullmatch(r'[0-9\s!@#$%^&*()_+\-=\[\]{};:\'"\\|,.<>\/?`~]+', name_clean):
-            return Response(
-                {'success': False, 'message': 'Name cannot be purely numeric or symbol-only.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            name_clean = f"Prospect {phone_raw[-4:] if len(phone_raw) >= 4 else 'Visitor'}"
+        elif len(name_clean) > 50:
+            name_clean = name_clean[:50]
         name = name_clean
 
         # Strict mobile validation: EXACTLY 10 digits starting with 6, 7, 8, or 9
-        # Do NOT truncate and do NOT auto-correct.
         phone_raw = str(phone).strip()
         if not phone_raw:
             return Response(
@@ -236,21 +129,17 @@ class PublicLeadCaptureView(APIView):
             )
         phone = phone_raw
 
-        # Strict Email validation: REQUIRED, no "skip", valid email format
+        # Email validation: format check if provided, or default fallback if skipped
         email_clean = str(email).strip().lower()
-        if not email_clean or email_clean in ['skip', 'skip email']:
-            return Response(
-                {'success': False, 'message': 'Email address is required.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
         import re as _re3
         email_regex = _re3.compile(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
-        if not email_regex.fullmatch(email_clean):
-            return Response(
-                {'success': False, 'message': 'Please provide a valid email address.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        email = email_clean
+        if email_clean and email_clean not in ['skip', 'skip email', 'none', 'null', '']:
+            if email_regex.fullmatch(email_clean):
+                email = email_clean
+            else:
+                email = f"{phone}@purewatercrm.com"
+        else:
+            email = f"{phone}@purewatercrm.com"
 
         norm_phone = _normalize_phone(phone)
         
@@ -383,6 +272,8 @@ class PublicLeadCaptureView(APIView):
                 existing_lead.converted_user = existing_customer_profile.user
             
             existing_lead.notes = (existing_lead.notes + f"\n\n[{inquiry_type.upper()} UPDATE - {timezone.now().strftime('%d %b %Y %I:%M %p')}]\n" + note_details).strip()
+            if not existing_lead.source or existing_lead.source in ['Public AI Chatbot', 'Public Inbound Chatbot', '']:
+                existing_lead.source = 'PUBLIC_CHATBOT'
             existing_lead.save()
 
             LeadActivity.objects.create(
@@ -391,6 +282,24 @@ class PublicLeadCaptureView(APIView):
                 title=f'Chatbot Inquiry Update ({inquiry_type.capitalize()})',
                 description=note_details,
             )
+
+            CRMActivityLog.objects.create(
+                lead=existing_lead,
+                activity_type='NOTE_ADDED',
+                description=f"Public Chatbot inquiry update received ({inquiry_type}). Notes: {note_details[:300]}"
+            )
+
+            # Link ChatSession
+            session_id = str(request.data.get('session_id', '')).strip()
+            from chat.models import ChatSession
+            if session_id:
+                ChatSession.objects.filter(session_id=session_id).update(
+                    lead=existing_lead, customer_name=name or existing_lead.name, customer_phone=phone or existing_lead.phone, customer_email=email or existing_lead.email
+                )
+            if norm_phone:
+                ChatSession.objects.filter(customer_phone__icontains=norm_phone).filter(lead__isnull=True).update(lead=existing_lead)
+            if email:
+                ChatSession.objects.filter(customer_email__iexact=email).filter(lead__isnull=True).update(lead=existing_lead)
 
             try:
                 AdminNotification.objects.create(
@@ -432,6 +341,7 @@ class PublicLeadCaptureView(APIView):
             city=city or 'Raipur',
             district=district,
             territory=territory,
+            locality=location or territory,
             assigned_franchise=matched_franchise,
             assigned_executive=matched_franchise.business_name if matched_franchise else '',
             investment_budget=budget,
@@ -440,8 +350,8 @@ class PublicLeadCaptureView(APIView):
             previous_experience=experience,
             preferred_location=pref_loc or city or 'Raipur',
             score=score,
-            status='new_lead',
-            source='Public AI Chatbot',
+            status='NEW',
+            source='PUBLIC_CHATBOT',
             notes=note_details,
             converted_user=existing_customer_profile.user if existing_customer_profile else None,
         )
@@ -452,6 +362,24 @@ class PublicLeadCaptureView(APIView):
             title=f'New {inquiry_type.capitalize()} Chatbot Lead',
             description=note_details,
         )
+
+        CRMActivityLog.objects.create(
+            lead=new_lead,
+            activity_type='STATUS_CHANGED',
+            description=f"Inbound public chatbot inquiry received. Source: PUBLIC_CHATBOT. Score: {new_lead.score_category} ({new_lead.lead_score_number})"
+        )
+
+        # Link ChatSession
+        session_id = str(request.data.get('session_id', '')).strip()
+        from chat.models import ChatSession
+        if session_id:
+            ChatSession.objects.filter(session_id=session_id).update(
+                lead=new_lead, customer_name=name, customer_phone=phone, customer_email=email
+            )
+        if norm_phone:
+            ChatSession.objects.filter(customer_phone__icontains=norm_phone).filter(lead__isnull=True).update(lead=new_lead)
+        if email:
+            ChatSession.objects.filter(customer_email__iexact=email).filter(lead__isnull=True).update(lead=new_lead)
 
         try:
             AdminNotification.objects.create(

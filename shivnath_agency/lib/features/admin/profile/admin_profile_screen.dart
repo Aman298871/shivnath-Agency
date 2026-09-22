@@ -218,7 +218,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
               ),
               onPressed: () => SupportDeskModal.show(context),
               icon: const Icon(Icons.support_agent_rounded, color: Color(0xFFDC2626)),
-              label: const Text('Support Desk', style: TextStyle(fontWeight: FontWeight.w700)),
+              label: const Text('Admin Helpline (+91 98062 47194)', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ),
           const SizedBox(height: 10),

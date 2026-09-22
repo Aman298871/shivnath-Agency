@@ -85,8 +85,15 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
     );
 
     if (result["success"] == true) {
-      final data = result["data"]["products"] as List? ?? [];
-      products = List<Map<String, dynamic>>.from(data);
+      final dynamic raw = (result["data"] is Map && result["data"]["products"] is List)
+          ? result["data"]["products"]
+          : (result["products"] is List
+              ? result["products"]
+              : (result["data"] is List ? result["data"] : []));
+      products = (raw as List)
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
     } else {
       if (mounted) {
         AppToast.error(
@@ -123,10 +130,10 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
       products.where((item) => item['status'] == 'Active').length;
 
   int get bottleCount =>
-      products.where((item) => item['category'] == 'Bottle').length;
+      products.where((item) => item['category']?.toString().toLowerCase().contains('bottle') == true).length;
 
   int get jarCount =>
-      products.where((item) => item['category'] == 'Jar').length;
+      products.where((item) => item['category']?.toString().toLowerCase().contains('jar') == true).length;
 
   @override
   Widget build(BuildContext context) {
@@ -1124,8 +1131,8 @@ else if (filteredProducts.isEmpty)
               ],
             ),
           ),
-          Expanded(child: _cell(product['size'])),
-          Expanded(child: _cell(product['category'])),
+          Expanded(child: _cell(product['size']?.toString() ?? '')),
+          Expanded(child: _cell(product['category']?.toString() ?? '')),
           Expanded(child: _cell(_formatPrice(product['price']), bold: true)),
           Expanded(child: _cell('${product['gst']}%')),
           Expanded(
@@ -1255,8 +1262,8 @@ if (filteredProducts.isEmpty) {
                 ],
               ),
               const SizedBox(height: 14),
-              _mobileInfo('Size', product['size']),
-              _mobileInfo('Category', product['category']),
+              _mobileInfo('Size', product['size']?.toString() ?? ''),
+              _mobileInfo('Category', product['category']?.toString() ?? ''),
               _mobileInfo('Price', _formatPrice(product['price'])),
               _mobileInfo('GST', '${product['gst']}%'),
               _mobileInfo('Stock', product['stock']),
@@ -1338,8 +1345,9 @@ if (filteredProducts.isEmpty) {
     }
 
     if (categoryRefId == null && product?['category'] != null) {
+      final productCatStr = product!['category']?.toString().toLowerCase() ?? '';
       final match = flatCategories.firstWhere(
-        (c) => c['name'].toString().toLowerCase() == product!['category'].toString().toLowerCase(),
+        (c) => c['name'].toString().toLowerCase() == productCatStr,
         orElse: () => {},
       );
       if (match.isNotEmpty && match['id'] is int) {
@@ -1347,7 +1355,7 @@ if (filteredProducts.isEmpty) {
       }
     }
 
-    String category = product?['category'] ??
+    String category = product?['category']?.toString() ??
         (flatCategories.isNotEmpty ? flatCategories.first['name'].toString() : 'Bottle');
     String status = product?['status'] ?? 'Active';
     bool saved = false;

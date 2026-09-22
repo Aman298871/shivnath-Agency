@@ -137,18 +137,24 @@ class LeadSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    activity_logs = CRMActivityLogSerializer(
+        many=True,
+        read_only=True
+    )
+
     class Meta:
         model = Lead
 
         fields = [
             'id',
-
+            'lead_number',
             'name',
             'phone',
             'email',
             'city',
             'district',
             'territory',
+            'locality',
             'assigned_franchise',
 
             'investment_budget',
@@ -161,6 +167,8 @@ class LeadSerializer(serializers.ModelSerializer):
 
             'score',
             'score_display',
+            'score_category',
+            'lead_score_number',
 
             'status',
             'status_display',
@@ -185,16 +193,19 @@ class LeadSerializer(serializers.ModelSerializer):
             'updated_at',
 
             'activities',
+            'activity_logs',
             'chat_sessions',
         ]
 
         read_only_fields = [
             'id',
+            'lead_number',
             'created_by',
             'created_by_name',
             'created_at',
             'updated_at',
             'activities',
+            'activity_logs',
             'chat_sessions',
             'converted_user',
 

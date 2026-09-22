@@ -1328,6 +1328,73 @@ class Command(BaseCommand):
                 }
             )
 
+            # Seed CRM Activity Log
+            CRMActivityLog.objects.get_or_create(
+                lead=lead,
+                activity_type="STATUS_CHANGED" if journey_day <= 3 else "NOTE_ADDED",
+                defaults={
+                    "description": f"CRM Audit: Lead {name} is at stage {st} with score {score_cat}. Scheduled Day {journey_day} outreach.",
+                }
+            )
+
+        # Seed 2 Demo Chatbot Conversations linked to Leads
+        from chat.models import ChatSession, ChatMessage
+        lead_gupta = Lead.objects.filter(phone="9826111111").first()
+        if lead_gupta:
+            sess, _ = ChatSession.objects.get_or_create(
+                session_id="DEMO-CHAT-GUPTA-01",
+                defaults={
+                    "customer_name": "Ashok Gupta",
+                    "customer_phone": "9826111111",
+                    "customer_email": "ashok.gupta@demo.local",
+                    "app_type": "customer",
+                    "chatbot_mode": "public",
+                    "inquiry_type": "customer",
+                    "lead": lead_gupta,
+                    "lead_capture_completed": True,
+                }
+            )
+            sess.lead = lead_gupta
+            sess.save()
+            ChatMessage.objects.get_or_create(
+                session=sess,
+                role="user",
+                content="Hi, what is the wholesale rate for 500ml Shivnath packaged water bottles in Raipur?",
+            )
+            ChatMessage.objects.get_or_create(
+                session=sess,
+                role="assistant",
+                content="Hello Ashok Ji! Welcome to Shivnath Agency. Our 500ml water bottles are ₹6/unit with tiered wholesale margins for retail distributors. Would you like to schedule a delivery?",
+            )
+
+        lead_shri_ram = Lead.objects.filter(phone="9826111112").first()
+        if lead_shri_ram:
+            sess2, _ = ChatSession.objects.get_or_create(
+                session_id="DEMO-CHAT-SHRIRAM-02",
+                defaults={
+                    "customer_name": "Ram Prakash",
+                    "customer_phone": "9826111112",
+                    "customer_email": "ramprakash@shriram.local",
+                    "app_type": "customer",
+                    "chatbot_mode": "public",
+                    "inquiry_type": "franchise",
+                    "lead": lead_shri_ram,
+                    "lead_capture_completed": True,
+                }
+            )
+            sess2.lead = lead_shri_ram
+            sess2.save()
+            ChatMessage.objects.get_or_create(
+                session=sess2,
+                role="user",
+                content="I want to apply for a Shivnath franchise dealership in Bilaspur East territory.",
+            )
+            ChatMessage.objects.get_or_create(
+                session=sess2,
+                role="assistant",
+                content="Thank you for your interest in partnering with Shivnath Agency! Your franchise inquiry has been logged and our territory manager will coordinate with you.",
+            )
+
     def _seed_notifications(self, dealers, orders):
         self.stdout.write("16. Seeding Admin Notifications & System Alerts...")
         ord_1001 = orders.get(1001)

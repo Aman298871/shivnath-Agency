@@ -303,7 +303,9 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
           const SizedBox(width: 14),
           Expanded(
             child: DropdownButtonFormField<ProductModel>(
-              value: _selectedProduct,
+              value: (_selectedProduct != null && _products.contains(_selectedProduct))
+                  ? _selectedProduct
+                  : (_products.isNotEmpty ? _products.first : null),
               isExpanded: true,
               decoration: const InputDecoration(
                 isDense: true,
@@ -472,36 +474,35 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
             final rawMatId = (item['raw_material'] is int)
                 ? item['raw_material'] as int
                 : int.tryParse(item['raw_material']?.toString() ?? '');
-            final matchedRm = rawMatId != null
+            final matchedRm = (rawMatId != null)
                 ? _rawMaterials.firstWhere(
-                    (rm) => rm['id'] == rawMatId,
+                    (rm) => rm is Map && rm['id'] == rawMatId,
                     orElse: () => <String, dynamic>{},
                   )
                 : <String, dynamic>{};
 
-            final rmName = item['raw_material_name'] ??
-                rawMat?['name'] ??
-                matchedRm['name'] ??
+            final rmName = item['raw_material_name']?.toString() ??
+                rawMat?['name']?.toString() ??
+                (matchedRm is Map ? matchedRm['name']?.toString() : null) ??
                 'Material';
-            final rmSku = item['raw_material_sku'] ??
-                rawMat?['sku'] ??
-                matchedRm['code'] ??
-                matchedRm['sku'] ??
+            final rmSku = item['raw_material_sku']?.toString() ??
+                rawMat?['sku']?.toString() ??
+                (matchedRm is Map ? (matchedRm['code'] ?? matchedRm['sku'])?.toString() : null) ??
                 '';
             final rmCategory = (item['raw_material_category'] ??
                 rawMat?['category'] ??
-                matchedRm['category'] ??
+                (matchedRm is Map ? matchedRm['category'] : null) ??
                 '').toString();
             final qtyReq = (item['quantity_required_per_unit'] ??
                 item['quantity_required'])?.toString() ?? '1';
-            final uom = item['raw_material_unit'] ??
-                item['unit_of_measure'] ??
-                rawMat?['unit_of_measure'] ??
-                matchedRm['unit_of_measure'] ??
+            final uom = item['raw_material_unit']?.toString() ??
+                item['unit_of_measure']?.toString() ??
+                rawMat?['unit_of_measure']?.toString() ??
+                (matchedRm is Map ? matchedRm['unit_of_measure']?.toString() : null) ??
                 'pcs';
             final unitCost = double.tryParse((item['unit_cost_snapshot'] ??
                 item['unit_cost'] ??
-                matchedRm['unit_cost'])?.toString() ?? '0') ?? 0.0;
+                (matchedRm is Map ? matchedRm['unit_cost'] : null))?.toString() ?? '0') ?? 0.0;
             final costBasis = double.tryParse((item['calculated_cost_per_unit'] ??
                 item['cost_basis'])?.toString() ?? '0') ??
                 (unitCost * (double.tryParse(qtyReq) ?? 1.0));
@@ -678,10 +679,14 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                 children: [
                   DropdownButtonFormField<Map<String, dynamic>>(
                     decoration: const InputDecoration(labelText: 'Select Raw Material *'),
-                    items: _rawMaterials.map((rm) {
+                    items: _rawMaterials.whereType<Map<String, dynamic>>().map((rm) {
+                      final name = rm['name']?.toString() ?? 'Material';
+                      final code = rm['code']?.toString() ?? rm['sku']?.toString();
+                      final cat = rm['category']?.toString() ?? '';
+                      final tag = (code != null && code.isNotEmpty) ? code : cat;
                       return DropdownMenuItem(
                         value: rm,
-                        child: Text('${rm['name']} (${rm['code'] ?? rm['category']})'),
+                        child: Text('$name ($tag)'),
                       );
                     }).toList(),
                     onChanged: (val) {

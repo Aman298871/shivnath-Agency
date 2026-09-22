@@ -3,301 +3,179 @@ import 'dart:typed_data';
 
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../../../core/services/InventoryService.dart';
 import '../../../core/widgets/app_toast.dart';
 
 class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
 
   @override
-  State<AdminReportsScreen> createState() =>
-      _AdminReportsScreenState();
+  State<AdminReportsScreen> createState() => _AdminReportsScreenState();
 }
 
-class _AdminReportsScreenState
-    extends State<AdminReportsScreen> {
-  String period = 'This Month';
+class _AdminReportsScreenState extends State<AdminReportsScreen> {
+  final InventoryService _inventoryService = InventoryService();
 
-  final List<Map<String, dynamic>> monthlySales = [
-    {
-      'month': 'Apr',
-      'amount': 145000,
-    },
-    {
-      'month': 'May',
-      'amount': 178000,
-    },
-    {
-      'month': 'Jun',
-      'amount': 210000,
-    },
-    {
-      'month': 'Jul',
-      'amount': 235000,
-    },
-    {
-      'month': 'Aug',
-      'amount': 278000,
-    },
-    {
-      'month': 'Sep',
-      'amount': 315000,
-    },
-  ];
+  String period = 'THIS MONTH';
+  DateTime? customStartDate;
+  DateTime? customEndDate;
+  bool isLoading = false;
 
-  final List<Map<String, dynamic>> cities = [
-    {
-      'city': 'Raipur',
-      'franchises': 8,
-      'sales': 425000,
-    },
-    {
-      'city': 'Bhilai',
-      'franchises': 5,
-      'sales': 286000,
-    },
-    {
-      'city': 'Bilaspur',
-      'franchises': 4,
-      'sales': 232000,
-    },
-    {
-      'city': 'Durg',
-      'franchises': 4,
-      'sales': 198000,
-    },
-    {
-      'city': 'Rajnandgaon',
-      'franchises': 3,
-      'sales': 147000,
-    },
-  ];
+  Map<String, dynamic> summary = {};
+  List<Map<String, dynamic>> monthlySales = [];
+  List<Map<String, dynamic>> customerActivity = [];
+  List<Map<String, dynamic>> franchiseActivity = [];
+  List<Map<String, dynamic>> leadActivity = [];
+  List<Map<String, dynamic>> reportsLog = [];
 
-  final List<Map<String, dynamic>> executives = [
-    {
-      'name': 'Aman Verma',
-      'leads': 84,
-      'followups': 52,
-      'confirmed': 12,
-      'sales': 480000,
-      'conversion': 14.3,
-    },
-    {
-      'name': 'Riya Sharma',
-      'leads': 72,
-      'followups': 46,
-      'confirmed': 9,
-      'sales': 365000,
-      'conversion': 12.5,
-    },
-    {
-      'name': 'Neha Patel',
-      'leads': 58,
-      'followups': 38,
-      'confirmed': 7,
-      'sales': 295000,
-      'conversion': 12.1,
-    },
-  ];
+  int _selectedActivityTab = 0; // 0: Customer Orders, 1: Franchise Stock, 2: CRM Leads, 3: Daily Reports
 
-  final List<Map<String, dynamic>> productSales = [
-    {
-      'product': '250ml Water Bottle',
-      'quantity': 1280,
-      'revenue': 64000,
-    },
-    {
-      'product': '500ml Water Bottle',
-      'quantity': 2150,
-      'revenue': 215000,
-    },
-    {
-      'product': '1 Litre Water Bottle',
-      'quantity': 1480,
-      'revenue': 296000,
-    },
-    {
-      'product': '2 Litre Water Bottle',
-      'quantity': 760,
-      'revenue': 266000,
-    },
-    {
-      'product': '5 Litre Water Jar',
-      'quantity': 420,
-      'revenue': 315000,
-    },
-    {
-      'product': '20 Litre Water Jar',
-      'quantity': 290,
-      'revenue': 348000,
-    },
-  ];
-
-  final List<Map<String, dynamic>> franchisePerformance = [
-    {
-      'name': 'Rahul Sharma',
-      'city': 'Raipur',
-      'orders': 28,
-      'sales': 285000,
-      'outstanding': 22000,
-      'status': 'Excellent',
-    },
-    {
-      'name': 'Aqua Point',
-      'city': 'Bhilai',
-      'orders': 22,
-      'sales': 218000,
-      'outstanding': 17996,
-      'status': 'Good',
-    },
-    {
-      'name': 'Shiv Water',
-      'city': 'Bilaspur',
-      'orders': 19,
-      'sales': 184000,
-      'outstanding': 0,
-      'status': 'Good',
-    },
-    {
-      'name': 'Pure Aqua Agency',
-      'city': 'Durg',
-      'orders': 14,
-      'sales': 126000,
-      'outstanding': 46504,
-      'status': 'Average',
-    },
-  ];
-
-  // =========================================================
-  // REPORT VALUES
-  // =========================================================
-
-  int get totalRevenue {
-    return monthlySales.fold<int>(
-      0,
-      (sum, item) =>
-          sum +
-          ((item['amount'] as num).toInt()),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _fetchReports();
   }
 
-  int get productRevenue {
-    return productSales.fold<int>(
-      0,
-      (sum, item) =>
-          sum +
-          ((item['revenue'] as num).toInt()),
-    );
+  Future<void> _fetchReports() async {
+    if (!mounted) return;
+    setState(() => isLoading = true);
+
+    try {
+      String? apiPeriod;
+      String? startDate;
+      String? endDate;
+
+      switch (period) {
+        case 'TODAY':
+          apiPeriod = 'today';
+          break;
+        case 'YESTERDAY':
+          apiPeriod = 'yesterday';
+          break;
+        case 'THIS WEEK':
+          apiPeriod = 'this_week';
+          break;
+        case 'THIS MONTH':
+          apiPeriod = 'this_month';
+          break;
+        case 'CUSTOM DATE RANGE':
+          if (customStartDate != null && customEndDate != null) {
+            startDate = DateFormat('yyyy-MM-dd').format(customStartDate!);
+            endDate = DateFormat('yyyy-MM-dd').format(customEndDate!);
+          } else {
+            apiPeriod = 'this_month';
+          }
+          break;
+        default:
+          apiPeriod = 'this_month';
+      }
+
+      final res = await _inventoryService.getDailyBusinessReports(
+        period: apiPeriod,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      if (!mounted) return;
+
+      Map<String, dynamic> data = {};
+      if (res['success'] == true && res['data'] is Map) {
+        data = Map<String, dynamic>.from(res['data'] as Map);
+      } else if (res['summary'] is Map) {
+        data = Map<String, dynamic>.from(res);
+      }
+
+      setState(() {
+        summary = Map<String, dynamic>.from(data['summary'] ?? {});
+        monthlySales = List<Map<String, dynamic>>.from(data['monthly_sales'] ?? []);
+        customerActivity = List<Map<String, dynamic>>.from(data['customer_activity'] ?? []);
+        franchiseActivity = List<Map<String, dynamic>>.from(data['franchise_activity'] ?? []);
+        leadActivity = List<Map<String, dynamic>>.from(data['lead_activity'] ?? []);
+        reportsLog = List<Map<String, dynamic>>.from(data['reports'] ?? []);
+      });
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, 'Failed to fetch report data: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
   }
 
-  int get totalExecutiveSales {
-    return executives.fold<int>(
-      0,
-      (sum, item) =>
-          sum +
-          ((item['sales'] as num).toInt()),
+  Future<void> _pickCustomDateRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 2),
+      lastDate: now.add(const Duration(days: 1)),
+      initialDateRange: DateTimeRange(
+        start: customStartDate ?? now.subtract(const Duration(days: 7)),
+        end: customEndDate ?? now,
+      ),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF0284C7),
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF1E293B),
+            ),
+          ),
+          child: child ?? const SizedBox(),
+        );
+      },
     );
-  }
 
-  int get totalFranchises {
-    return cities.fold<int>(
-      0,
-      (sum, item) =>
-          sum +
-          ((item['franchises'] as num).toInt()),
-    );
-  }
-
-  int get franchiseSales {
-    return franchisePerformance.fold<int>(
-      0,
-      (sum, item) =>
-          sum +
-          ((item['sales'] as num).toInt()),
-    );
-  }
-
-  int get franchiseOutstanding {
-    return franchisePerformance.fold<int>(
-      0,
-      (sum, item) =>
-          sum +
-          ((item['outstanding'] as num).toInt()),
-    );
+    if (picked != null) {
+      setState(() {
+        customStartDate = picked.start;
+        customEndDate = picked.end;
+        period = 'CUSTOM DATE RANGE';
+      });
+      _fetchReports();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final desktop =
-            constraints.maxWidth >= 900;
+        final desktop = constraints.maxWidth >= 900;
 
         return Container(
           width: double.infinity,
           height: double.infinity,
           color: const Color(0xFFF5F7FB),
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(
-              desktop ? 28 : 16,
-            ),
+            padding: EdgeInsets.all(desktop ? 28 : 16),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 1400,
-                ),
+                constraints: const BoxConstraints(maxWidth: 1400),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _header(desktop),
-
-                    const SizedBox(height: 22),
-
-                    _summaryCards(desktop),
-
-                    const SizedBox(height: 20),
-
-                    _monthlySalesCard(),
-
-                    const SizedBox(height: 20),
-
-                    if (desktop)
-                      Row(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child:
-                                _cityReport(),
-                          ),
-                          const SizedBox(
-                            width: 18,
-                          ),
-                          Expanded(
-                            child:
-                                _revenueAnalysis(),
-                          ),
-                        ],
-                      )
-                    else ...[
-                      _cityReport(),
-                      const SizedBox(height: 16),
-                      _revenueAnalysis(),
+                    if (isLoading) ...[
+                      const SizedBox(height: 10),
+                      const ClipRRect(
+                        borderRadius: BorderRadius.all(Radius.circular(4)),
+                        child: LinearProgressIndicator(
+                          backgroundColor: Color(0xFFE2E8F0),
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0284C7)),
+                          minHeight: 4,
+                        ),
+                      ),
                     ],
-
                     const SizedBox(height: 20),
-
-                    _executivePerformance(),
-
-                    const SizedBox(height: 20),
-
-                    _productSalesReport(),
-
-                    const SizedBox(height: 20),
-
-                    _franchisePerformance(),
-
+                    _summaryCards(desktop),
+                    const SizedBox(height: 22),
+                    _monthlySalesCard(),
+                    const SizedBox(height: 24),
+                    _activityTabsSection(desktop),
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -314,51 +192,74 @@ class _AdminReportsScreenState
   // =========================================================
 
   Widget _header(bool desktop) {
+    final periodSelector = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: desktop ? 190 : 160,
+          child: _periodDropdown(),
+        ),
+        if (period == 'CUSTOM DATE RANGE') ...[
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Select Custom Date Range',
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFFE0F2FE),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: const Icon(Icons.calendar_month, color: Color(0xFF0284C7), size: 20),
+            onPressed: _pickCustomDateRange,
+          ),
+        ],
+        const SizedBox(width: 8),
+        IconButton(
+          tooltip: 'Refresh Reports',
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          icon: const Icon(Icons.refresh, color: Color(0xFF475569), size: 20),
+          onPressed: _fetchReports,
+        ),
+      ],
+    );
+
+    final exportButton = SizedBox(
+      height: 44,
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF0284C7),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        onPressed: _exportReport,
+        icon: const Icon(Icons.download_outlined, size: 18),
+        label: const Text('Export CSV', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+      ),
+    );
+
     if (!desktop) {
       return Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'Reports & Analytics',
-            style: TextStyle(
-              fontSize: 27,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF111827),
-            ),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
           ),
-
-          const SizedBox(height: 5),
-
-          const Text(
-            'Business performance, sales, lead, franchise and inventory analytics.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-            ),
+          const SizedBox(height: 4),
+          Text(
+            _dateSubtitle(),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
-
           const SizedBox(height: 14),
-
-          _periodDropdown(),
-
-          const SizedBox(height: 10),
-
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                minimumSize:
-                    const Size(0, 44),
-              ),
-              onPressed: _exportReport,
-              icon: const Icon(
-                Icons.download_outlined,
-              ),
-              label:
-                  const Text('Export Report'),
-            ),
+          Row(
+            children: [
+              Expanded(child: periodSelector),
+              const SizedBox(width: 8),
+              exportButton,
+            ],
           ),
         ],
       );
@@ -366,103 +267,81 @@ class _AdminReportsScreenState
 
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Reports & Analytics',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight:
-                      FontWeight.w800,
-                  color:
-                      Color(0xFF111827),
-                ),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
               ),
-              SizedBox(height: 5),
+              const SizedBox(height: 4),
               Text(
-                'Business performance, sales, lead, franchise and inventory analytics.',
-                style: TextStyle(
-                  color:
-                      Color(0xFF64748B),
-                ),
+                _dateSubtitle(),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
               ),
             ],
           ),
         ),
-
-        SizedBox(
-          width: 180,
-          child: _periodDropdown(),
-        ),
-
+        periodSelector,
         const SizedBox(width: 12),
-
-        SizedBox(
-          width: 155,
-          height: 44,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              minimumSize:
-                  const Size(0, 44),
-              maximumSize:
-                  const Size(155, 44),
-            ),
-            onPressed: _exportReport,
-            icon: const Icon(
-              Icons.download_outlined,
-            ),
-            label:
-                const Text('Export Report'),
-          ),
-        ),
+        exportButton,
       ],
     );
   }
 
+  String _dateSubtitle() {
+    if (period == 'CUSTOM DATE RANGE' && customStartDate != null && customEndDate != null) {
+      final df = DateFormat('dd MMM yyyy');
+      return 'Data range: ${df.format(customStartDate!)} - ${df.format(customEndDate!)}';
+    }
+    return 'Real-time database aggregated reporting for ${period.toLowerCase().replaceAll('_', ' ')}.';
+  }
+
   Widget _periodDropdown() {
+    const periodOptions = [
+      'TODAY',
+      'YESTERDAY',
+      'THIS WEEK',
+      'THIS MONTH',
+      'CUSTOM DATE RANGE',
+    ];
+
     return DropdownButtonFormField<String>(
       value: period,
       isExpanded: true,
       decoration: InputDecoration(
         filled: true,
         fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         border: OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
       ),
-      items: const [
-        'This Month',
-        'Last Month',
-        'Last 3 Months',
-        'This Year',
-      ].map(
-        (value) {
-          return DropdownMenuItem(
-            value: value,
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 11,
-              ),
-            ),
-          );
-        },
-      ).toList(),
+      items: periodOptions.map((val) {
+        return DropdownMenuItem(
+          value: val,
+          child: Text(
+            val,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+          ),
+        );
+      }).toList(),
       onChanged: (value) {
         if (value == null) return;
-
-        setState(() {
-          period = value;
-        });
+        if (value == 'CUSTOM DATE RANGE') {
+          _pickCustomDateRange();
+        } else {
+          setState(() {
+            period = value;
+          });
+          _fetchReports();
+        }
       },
     );
   }
@@ -472,145 +351,139 @@ class _AdminReportsScreenState
   // =========================================================
 
   Widget _summaryCards(bool desktop) {
+    final grossRev = (summary['gross_revenue'] as num?)?.toDouble() ?? 0.0;
+    final totalOrders = (summary['total_orders'] as num?)?.toInt() ?? 0;
+    final franchiseReqs = (summary['franchise_requests_count'] as num?)?.toInt() ?? 0;
+    final newLeads = (summary['new_leads_count'] as num?)?.toInt() ?? 0;
+    final prodUnits = (summary['production_volume_units'] as num?)?.toInt() ?? 0;
+    final dispUnits = (summary['dealer_dispatch_units'] as num?)?.toInt() ?? 0;
+    final expenses = (summary['expenses'] as num?)?.toDouble() ?? 0.0;
+    final netProfit = (summary['net_profit'] as num?)?.toDouble() ?? 0.0;
+
     final data = [
       {
-        'title': 'Today\'s Leads',
-        'value': '24',
-        'subtitle': '+8 from yesterday',
-        'icon': Icons.people_outline,
-      },
-      {
-        'title': 'Conversion Rate',
-        'value': '11.8%',
-        'subtitle': 'Lead to franchise',
-        'icon':
-            Icons.trending_up_outlined,
-      },
-      {
-        'title': 'Cost Per Lead',
-        'value': '₹186',
-        'subtitle': 'Marketing cost / leads',
-        'icon':
-            Icons.ads_click_outlined,
-      },
-      {
-        'title': 'Pending Follow-ups',
-        'value': '18',
-        'subtitle': 'Need attention',
-        'icon':
-            Icons.schedule_outlined,
-      },
-      {
-        'title': 'Monthly Sales',
-        'value': '₹3.15L',
-        'subtitle': 'September',
-        'icon':
-            Icons.currency_rupee,
-      },
-      {
-        'title': 'Inventory Value',
-        'value': '₹4.72L',
-        'subtitle': 'Current stock value',
-        'icon':
-            Icons.inventory_2_outlined,
-      },
-      {
-        'title':
-            'Outstanding Payments',
-        'value': '₹86,500',
-        'subtitle':
-            'Pending collection',
-        'icon':
-            Icons.account_balance_wallet_outlined,
-      },
-      {
         'title': 'Total Revenue',
-        'value':
-            _compactCurrency(totalRevenue),
-        'subtitle': 'Revenue analysis',
-        'icon':
-            Icons.analytics_outlined,
+        'value': _formatCurrency(grossRev),
+        'subtitle': 'Gross order & invoice value',
+        'icon': Icons.currency_rupee,
+        'color': const Color(0xFF0284C7),
+        'bg': const Color(0xFFE0F2FE),
+      },
+      {
+        'title': 'Customer Orders',
+        'value': '$totalOrders',
+        'subtitle': 'Customer placements',
+        'icon': Icons.shopping_bag_outlined,
+        'color': const Color(0xFF2563EB),
+        'bg': const Color(0xFFEFF6FF),
+      },
+      {
+        'title': 'Franchise Requests',
+        'value': '$franchiseReqs',
+        'subtitle': 'Stock requests received',
+        'icon': Icons.storefront_outlined,
+        'color': const Color(0xFF7C3AED),
+        'bg': const Color(0xFFF5F3FF),
+      },
+      {
+        'title': 'Chatbot & CRM Leads',
+        'value': '$newLeads',
+        'subtitle': 'Inquiries captured',
+        'icon': Icons.people_outline,
+        'color': const Color(0xFF0D9488),
+        'bg': const Color(0xFFCCFBF1),
+      },
+      {
+        'title': 'Units Produced',
+        'value': NumberFormat.compact().format(prodUnits),
+        'subtitle': 'Bottling plant output',
+        'icon': Icons.water_drop_outlined,
+        'color': const Color(0xFF0284C7),
+        'bg': const Color(0xFFE0F2FE),
+      },
+      {
+        'title': 'Units Dispatched',
+        'value': NumberFormat.compact().format(dispUnits),
+        'subtitle': 'To franchises & customers',
+        'icon': Icons.local_shipping_outlined,
+        'color': const Color(0xFFEA580C),
+        'bg': const Color(0xFFFFEDD5),
+      },
+      {
+        'title': 'Operating Expenses',
+        'value': _formatCurrency(expenses),
+        'subtitle': 'Recorded costs',
+        'icon': Icons.receipt_long_outlined,
+        'color': const Color(0xFFDC2626),
+        'bg': const Color(0xFFFEE2E2),
+      },
+      {
+        'title': 'Net Profit',
+        'value': _formatCurrency(netProfit),
+        'subtitle': 'Revenue - (COGS + Expenses)',
+        'icon': Icons.trending_up_outlined,
+        'color': const Color(0xFF16A34A),
+        'bg': const Color(0xFFDCFCE7),
       },
     ];
 
     if (!desktop) {
       return GridView.builder(
         shrinkWrap: true,
-        physics:
-            const NeverScrollableScrollPhysics(),
+        physics: const NeverScrollableScrollPhysics(),
         itemCount: data.length,
-        gridDelegate:
-            const SliverGridDelegateWithFixedCrossAxisCount(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
-          childAspectRatio: 1.08,
+          childAspectRatio: 1.15,
         ),
-        itemBuilder: (_, index) {
-          return _statCard(
-            data[index],
-          );
-        },
+        itemBuilder: (_, index) => _statCard(data[index]),
       );
     }
 
     return Wrap(
       spacing: 14,
       runSpacing: 14,
-      children: data.map(
-        (item) {
-          return SizedBox(
-            width: 320,
-            child: _statCard(item),
-          );
-        },
-      ).toList(),
+      children: data.map((item) {
+        return SizedBox(
+          width: 310,
+          child: _statCard(item),
+        );
+      }).toList(),
     );
   }
 
-  Widget _statCard(
-    Map<String, dynamic> item,
-  ) {
+  Widget _statCard(Map<String, dynamic> item) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: _cardDecoration(),
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color:
-                  const Color(0xFFE0F2FE),
-              borderRadius:
-                  BorderRadius.circular(10),
+              color: item['bg'] as Color? ?? const Color(0xFFE0F2FE),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               item['icon'] as IconData,
-              color:
-                  const Color(0xFF0284C7),
-              size: 20,
+              color: item['color'] as Color? ?? const Color(0xFF0284C7),
+              size: 22,
             ),
           ),
-
-          const SizedBox(width: 10),
-
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   item['title'].toString(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color:
-                        Color(0xFF64748B),
-                  ),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 2),
                 FittedBox(
@@ -618,26 +491,15 @@ class _AdminReportsScreenState
                   alignment: Alignment.centerLeft,
                   child: Text(
                     item['value'].toString(),
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight:
-                          FontWeight.w800,
-                      color:
-                          Color(0xFF111827),
-                    ),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  item['subtitle']
-                      .toString(),
+                  item['subtitle'].toString(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 8.5,
-                    color:
-                        Color(0xFF94A3B8),
-                  ),
+                  style: const TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8)),
                 ),
               ],
             ),
@@ -648,19 +510,17 @@ class _AdminReportsScreenState
   }
 
   // =========================================================
-  // MONTHLY SALES
+  // MONTHLY SALES CARD
   // =========================================================
 
   Widget _monthlySalesCard() {
-    final maxValue = monthlySales.fold<int>(
-      0,
-      (max, item) {
-        final value =
-            (item['amount'] as num).toInt();
+    final hasData = monthlySales.isNotEmpty && monthlySales.any((e) => (e['amount'] as num? ?? 0) > 0);
 
-        return value > max
-            ? value
-            : max;
+    final maxValue = monthlySales.fold<double>(
+      0.0,
+      (max, item) {
+        final val = (item['amount'] as num?)?.toDouble() ?? 0.0;
+        return val > max ? val : max;
       },
     );
 
@@ -669,1006 +529,633 @@ class _AdminReportsScreenState
       padding: const EdgeInsets.all(20),
       decoration: _cardDecoration(),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(
             Icons.bar_chart_rounded,
-            'Monthly Sales',
-            'Month-wise sales performance',
+            'Year-to-Date Monthly Sales',
+            'Real-time order revenue distribution by month across database records',
           ),
-
-          const SizedBox(height: 24),
-
-          SizedBox(
-            height: 230,
-            child: Row(
-              crossAxisAlignment:
-                  CrossAxisAlignment.end,
-              children: monthlySales.map(
-                (item) {
-                  final amount =
-                      (item['amount']
-                              as num)
-                          .toInt();
-
-                  final ratio =
-                      maxValue == 0
-                          ? 0.0
-                          : amount /
-                              maxValue;
+          const SizedBox(height: 20),
+          if (!hasData)
+            Container(
+              height: 120,
+              alignment: Alignment.center,
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.query_stats, size: 36, color: Color(0xFF94A3B8)),
+                  SizedBox(height: 8),
+                  Text(
+                    'No orders placed yet for this year in the database.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            )
+          else
+            SizedBox(
+              height: 200,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: monthlySales.map((item) {
+                  final amount = (item['amount'] as num?)?.toDouble() ?? 0.0;
+                  final ratio = maxValue == 0 ? 0.0 : (amount / maxValue).clamp(0.0, 1.0);
 
                   return Expanded(
                     child: Padding(
-                      padding:
-                          const EdgeInsets
-                              .symmetric(
-                        horizontal: 7,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: Column(
-                        mainAxisAlignment:
-                            MainAxisAlignment
-                                .end,
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Text(
-                            _compactCurrency(
-                              amount,
-                            ),
-                            style:
-                                const TextStyle(
-                              fontSize: 8,
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _compactCurrency(amount.toInt()),
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
                             ),
                           ),
-
-                          const SizedBox(
-                            height: 5,
-                          ),
-
+                          const SizedBox(height: 4),
                           Container(
-                            width:
-                                double.infinity,
-                            height:
-                                155 *
-                                    ratio,
-                            constraints:
-                                const BoxConstraints(
-                              minHeight: 8,
-                            ),
-                            decoration:
-                                BoxDecoration(
-                              color:
-                                  const Color(
-                                0xFF0284C7,
-                              ),
-                              borderRadius:
-                                  const BorderRadius
-                                      .vertical(
-                                top: Radius
-                                    .circular(
-                                  7,
-                                ),
+                            width: double.infinity,
+                            height: (140 * ratio).clamp(8.0, 140.0),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0284C7),
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  const Color(0xFF0284C7),
+                                  const Color(0xFF0284C7).withOpacity(0.7),
+                                ],
                               ),
                             ),
                           ),
-
-                          const SizedBox(
-                            height: 8,
-                          ),
-
+                          const SizedBox(height: 6),
                           Text(
-                            item['month']
-                                .toString(),
-                            style:
-                                const TextStyle(
-                              fontSize: 10,
-                              color:
-                                  Color(
-                                0xFF64748B,
-                              ),
-                            ),
+                            item['month'].toString(),
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
                           ),
                         ],
                       ),
                     ),
                   );
-                },
-              ).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // =========================================================
-  // CITY REPORT
-  // =========================================================
-
-  Widget _cityReport() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(
-            Icons.location_city_outlined,
-            'City-wise Franchise Distribution',
-            'Franchise network by city',
-          ),
-
-          const SizedBox(height: 18),
-
-          ...cities.map(
-            (item) {
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(
-                  vertical: 10,
-                ),
-                decoration:
-                    const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color:
-                          Color(
-                        0xFFF1F5F9,
-                      ),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item['city']
-                            .toString(),
-                        style:
-                            const TextStyle(
-                          fontSize: 11,
-                          fontWeight:
-                              FontWeight
-                                  .w700,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${item['franchises']} Franchise',
-                      style:
-                          const TextStyle(
-                        fontSize: 9,
-                        color:
-                            Color(
-                          0xFF64748B,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(
-                      width: 15,
-                    ),
-                    SizedBox(
-                      width: 75,
-                      child: Text(
-                        _compactCurrency(
-                          (item['sales']
-                                  as num)
-                              .toInt(),
-                        ),
-                        textAlign:
-                            TextAlign.right,
-                        style:
-                            const TextStyle(
-                          fontSize: 10,
-                          fontWeight:
-                              FontWeight
-                                  .w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // =========================================================
-  // REVENUE ANALYSIS
-  // =========================================================
-
-  Widget _revenueAnalysis() {
-    final latestMonth =
-        (monthlySales.last['amount']
-                as num)
-            .toInt();
-
-    final previousMonth =
-        (monthlySales[
-                    monthlySales.length -
-                        2]['amount']
-                as num)
-            .toInt();
-
-    final growth =
-        previousMonth == 0
-            ? 0.0
-            : ((latestMonth -
-                        previousMonth) /
-                    previousMonth) *
-                100;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(
-            Icons.insights_outlined,
-            'Revenue Analysis',
-            'Overall revenue performance',
-          ),
-
-          const SizedBox(height: 20),
-
-          _analysisRow(
-            'Total Revenue',
-            _currency(totalRevenue),
-          ),
-
-          _analysisRow(
-            'Current Month',
-            _currency(latestMonth),
-          ),
-
-          _analysisRow(
-            'Previous Month',
-            _currency(previousMonth),
-          ),
-
-          _analysisRow(
-            'Monthly Growth',
-            '${growth.toStringAsFixed(1)}%',
-          ),
-
-          _analysisRow(
-            'Product Revenue',
-            _currency(productRevenue),
-          ),
-
-          _analysisRow(
-            'Executive Sales',
-            _currency(totalExecutiveSales),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _analysisRow(
-    String label,
-    String value,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: 10,
-      ),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color:
-                Color(0xFFF1F5F9),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 10,
-                color:
-                    Color(0xFF64748B),
+                }).toList(),
               ),
             ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight:
-                  FontWeight.w700,
-            ),
-          ),
         ],
       ),
     );
   }
 
   // =========================================================
-  // EXECUTIVE PERFORMANCE
+  // ACTIVITY TABS SECTION (CUSTOMER, FRANCHISE, LEADS)
   // =========================================================
 
-  Widget _executivePerformance() {
+  Widget _activityTabsSection(bool desktop) {
     return Container(
       width: double.infinity,
       decoration: _cardDecoration(),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding:
-                const EdgeInsets.all(20),
-            child: _sectionTitle(
-              Icons.groups_outlined,
-              'Sales Executive Performance',
-              'Executive-wise leads, conversion and sales',
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _sectionTitle(
+                    Icons.view_list_rounded,
+                    'Activity Breakup & Details',
+                    'Distinguished Customer Orders, Franchise Stock Requests, and CRM Leads',
+                  ),
+                ),
+              ],
             ),
           ),
-
           const Divider(height: 1),
-
-          SingleChildScrollView(
-            scrollDirection:
-                Axis.horizontal,
-            child: SizedBox(
-              width: 1050,
-              child: Column(
+          // Tab bar selector
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: const Color(0xFFF8FAFC),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 children: [
-                  Container(
-                    padding:
-                        const EdgeInsets
-                            .symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    color:
-                        const Color(
-                      0xFFF8FAFC,
-                    ),
-                    child: const Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'EXECUTIVE',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'LEADS',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'FOLLOW-UPS',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'CONFIRMED',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'CONVERSION',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'SALES',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  ...executives.map(
-                    (item) =>
-                        _executiveRow(
-                      item,
-                    ),
-                  ),
+                  _tabChip(0, 'Customer Orders (${customerActivity.length})', Icons.shopping_bag_outlined),
+                  const SizedBox(width: 8),
+                  _tabChip(1, 'Franchise Stock Requests (${franchiseActivity.length})', Icons.storefront_outlined),
+                  const SizedBox(width: 8),
+                  _tabChip(2, 'CRM & Chatbot Leads (${leadActivity.length})', Icons.people_outline),
+                  const SizedBox(width: 8),
+                  _tabChip(3, 'Daily Reports History (${reportsLog.length})', Icons.auto_graph_outlined),
                 ],
               ),
             ),
           ),
+          const Divider(height: 1),
+          // Content
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: _buildSelectedTabContent(desktop),
+          ),
         ],
       ),
     );
   }
 
-  Widget _executiveRow(
-    Map<String, dynamic> item,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color:
-                Color(0xFFF1F5F9),
+  Widget _tabChip(int index, String label, IconData icon) {
+    final selected = _selectedActivityTab == index;
+    return InkWell(
+      onTap: () => setState(() => _selectedActivityTab = index),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF0284C7) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
           ),
         ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: selected ? Colors.white : const Color(0xFF64748B),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? Colors.white : const Color(0xFF334155),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              item['name'].toString(),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight:
-                    FontWeight.w700,
+    );
+  }
+
+  Widget _buildSelectedTabContent(bool desktop) {
+    switch (_selectedActivityTab) {
+      case 0:
+        return _customerOrdersTable();
+      case 1:
+        return _franchiseRequestsTable();
+      case 2:
+        return _leadsTable();
+      case 3:
+        return _dailyReportsLogTable();
+      default:
+        return const SizedBox();
+    }
+  }
+
+  // =========================================================
+  // 1. CUSTOMER ORDERS TABLE
+  // =========================================================
+
+  Widget _customerOrdersTable() {
+    if (customerActivity.isEmpty) {
+      return _emptyState('No customer orders found in this period.');
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: 1000,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: const Color(0xFFF1F5F9),
+              child: const Row(
+                children: [
+                  Expanded(flex: 2, child: Text('ORDER ID', style: _reportHeader)),
+                  Expanded(flex: 3, child: Text('CUSTOMER', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('QUANTITY / ITEMS', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('AMOUNT', style: _reportHeader)),
+                  Expanded(flex: 3, child: Text('FULFILLMENT SOURCE', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('STATUS', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('DATE / TIME', style: _reportHeader)),
+                ],
               ),
             ),
-          ),
-          Expanded(
-            child: Text(
-              item['leads'].toString(),
-              style: _reportCell,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              item['followups']
-                  .toString(),
-              style: _reportCell,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              item['confirmed']
-                  .toString(),
-              style: _reportCell,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              '${item['conversion']}%',
-              style: _reportCell,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              _currency(
-                (item['sales']
-                        as num)
-                    .toInt(),
-              ),
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight:
-                    FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
+            ...customerActivity.map((order) {
+              final orderCode = order['order_code']?.toString() ?? '#${order['id']}';
+              final customer = order['customer']?.toString() ?? 'Customer';
+              final qty = order['quantity'] ?? order['items_count'] ?? 0;
+              final amount = (order['amount'] as num?)?.toDouble() ?? 0.0;
+              final source = order['serving_franchise']?.toString() ?? 'Direct Company';
+              final status = order['status_display']?.toString() ?? order['status']?.toString() ?? 'Placed';
+              final date = order['created_at']?.toString() ?? '';
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Text(orderCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0284C7))),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(customer, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text('$qty units', style: _reportCell),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text('₹${amount.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(source, style: _reportCell),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: _statusBadge(status),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(date, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
 
   // =========================================================
-  // PRODUCT SALES
+  // 2. FRANCHISE STOCK REQUESTS TABLE
   // =========================================================
 
-  Widget _productSalesReport() {
-    return Container(
-      width: double.infinity,
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding:
-                const EdgeInsets.all(20),
-            child: _sectionTitle(
-              Icons.local_drink_outlined,
-              'Product-wise Sales',
-              'Product quantity and revenue contribution',
+  Widget _franchiseRequestsTable() {
+    if (franchiseActivity.isEmpty) {
+      return _emptyState('No franchise stock requests found in this period.');
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: 1150,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: const Color(0xFFF1F5F9),
+              child: const Row(
+                children: [
+                  Expanded(flex: 2, child: Text('REQ NUMBER', style: _reportHeader)),
+                  Expanded(flex: 3, child: Text('FRANCHISE', style: _reportHeader)),
+                  Expanded(flex: 3, child: Text('PRODUCT', style: _reportHeader)),
+                  Expanded(flex: 1, child: Text('REQ', style: _reportHeader)),
+                  Expanded(flex: 1, child: Text('APPR', style: _reportHeader)),
+                  Expanded(flex: 1, child: Text('DISP', style: _reportHeader)),
+                  Expanded(flex: 1, child: Text('RECV', style: _reportHeader)),
+                  Expanded(flex: 1, child: Text('PEND', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('STATUS', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('DATE / TIME', style: _reportHeader)),
+                ],
+              ),
             ),
-          ),
+            ...franchiseActivity.map((req) {
+              final reqNumber = req['request_number']?.toString() ?? 'REQ-${req['id']}';
+              final franchise = req['franchise_name']?.toString() ?? 'Franchise';
+              final product = req['product_name']?.toString() ?? 'Product';
+              final requested = req['requested_quantity'] ?? 0;
+              final approved = req['approved_quantity'] ?? 0;
+              final dispatched = req['dispatched_quantity'] ?? 0;
+              final received = req['received_quantity'] ?? 0;
+              final pending = req['pending_quantity'] ?? 0;
+              final status = req['status']?.toString() ?? 'REQUESTED';
+              final date = req['created_at']?.toString() ?? '';
 
-          const Divider(height: 1),
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Text(reqNumber, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF7C3AED))),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(franchise, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(product, style: _reportCell),
+                    ),
+                    Expanded(flex: 1, child: Text('$requested', style: _reportCell)),
+                    Expanded(flex: 1, child: Text('$approved', style: _reportCell)),
+                    Expanded(flex: 1, child: Text('$dispatched', style: _reportCell)),
+                    Expanded(flex: 1, child: Text('$received', style: _reportCell)),
+                    Expanded(flex: 1, child: Text('$pending', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: pending > 0 ? const Color(0xFFDC2626) : const Color(0xFF16A34A)))),
+                    Expanded(
+                      flex: 2,
+                      child: _statusBadge(status),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(date, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
 
-          ...productSales.map(
-            (item) {
-              final revenue =
-                  (item['revenue']
-                          as num)
-                      .toInt();
+  // =========================================================
+  // 3. CRM LEADS TABLE
+  // =========================================================
 
-              final percentage =
-                  productRevenue == 0
-                      ? 0.0
-                      : revenue /
-                          productRevenue *
-                          100;
+  Widget _leadsTable() {
+    if (leadActivity.isEmpty) {
+      return _emptyState('No leads captured in this period.');
+    }
 
-              return Padding(
-                padding:
-                    const EdgeInsets
-                        .fromLTRB(
-                  18,
-                  14,
-                  18,
-                  14,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: 1050,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: const Color(0xFFF1F5F9),
+              child: const Row(
+                children: [
+                  Expanded(flex: 3, child: Text('NAME', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('MOBILE', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('SOURCE', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('STATUS', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('SCORE / INTENT', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('CITY / TERRITORY', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('DATE / TIME', style: _reportHeader)),
+                ],
+              ),
+            ),
+            ...leadActivity.map((lead) {
+              final name = lead['name']?.toString() ?? 'Visitor';
+              final phone = lead['phone']?.toString() ?? '';
+              final source = lead['source']?.toString() ?? 'PUBLIC_CHATBOT';
+              final status = lead['status']?.toString() ?? 'NEW_LEAD';
+              final score = lead['score_category']?.toString() ?? 'WARM';
+              final city = lead['city']?.toString() ?? lead['territory']?.toString() ?? 'Raipur';
+              final date = lead['created_at']?.toString() ?? '';
+
+              final isChatbot = source == 'PUBLIC_CHATBOT';
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
                 ),
                 child: Row(
                   children: [
                     Expanded(
                       flex: 3,
-                      child: Text(
-                        item['product']
-                            .toString(),
-                        style:
-                            const TextStyle(
-                          fontSize: 11,
-                          fontWeight:
-                              FontWeight
-                                  .w700,
+                      child: Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(phone, style: _reportCell),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isChatbot ? const Color(0xFFE0F2FE) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          isChatbot ? '🤖 Chatbot' : source,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: isChatbot ? const Color(0xFF0284C7) : const Color(0xFF475569),
+                          ),
                         ),
                       ),
                     ),
-
                     Expanded(
-                      child: Text(
-                        '${item['quantity']} Qty',
-                        style:
-                            _reportCell,
-                      ),
+                      flex: 2,
+                      child: _statusBadge(status),
                     ),
-
                     Expanded(
-                      child: Text(
-                        _currency(
-                          revenue,
-                        ),
-                        style:
-                            const TextStyle(
-                          fontSize: 10,
-                          fontWeight:
-                              FontWeight
-                                  .w700,
-                        ),
-                      ),
+                      flex: 2,
+                      child: Text(score, style: _reportCell),
                     ),
-
                     Expanded(
-                      child: Text(
-                        '${percentage.toStringAsFixed(1)}%',
-                        style:
-                            _reportCell,
-                      ),
+                      flex: 2,
+                      child: Text(city, style: _reportCell),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(date, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
                     ),
                   ],
                 ),
               );
-            },
-          ),
-        ],
+            }),
+          ],
+        ),
       ),
     );
   }
 
   // =========================================================
-  // FRANCHISE PERFORMANCE
+  // 4. DAILY REPORTS LOG TABLE
   // =========================================================
 
-  Widget _franchisePerformance() {
-    return Container(
-      width: double.infinity,
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding:
-                const EdgeInsets.all(20),
-            child: _sectionTitle(
-              Icons.storefront_outlined,
-              'Franchise Performance',
-              'Sales, orders and outstanding by franchise',
-            ),
-          ),
+  Widget _dailyReportsLogTable() {
+    if (reportsLog.isEmpty) {
+      return _emptyState('No daily business reports stored for this period yet.');
+    }
 
-          const Divider(height: 1),
-
-          SingleChildScrollView(
-            scrollDirection:
-                Axis.horizontal,
-            child: SizedBox(
-              width: 1050,
-              child: Column(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: 1050,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: const Color(0xFFF1F5F9),
+              child: const Row(
                 children: [
-                  Container(
-                    padding:
-                        const EdgeInsets
-                            .symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    color:
-                        const Color(
-                      0xFFF8FAFC,
-                    ),
-                    child: const Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'FRANCHISE',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'CITY',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'ORDERS',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'SALES',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'OUTSTANDING',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'PERFORMANCE',
-                            style:
-                                _reportHeader,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  ...franchisePerformance
-                      .map(
-                    (item) =>
-                        _franchiseRow(
-                      item,
-                    ),
-                  ),
+                  Expanded(flex: 2, child: Text('DATE', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('PROD UNITS', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('DISP UNITS', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('DEALER REV', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('DIRECT REV', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('GROSS REV', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('EXPENSES', style: _reportHeader)),
+                  Expanded(flex: 2, child: Text('NET PROFIT', style: _reportHeader)),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            ...reportsLog.map((r) {
+              final rDate = r['report_date']?.toString() ?? '';
+              final pUnits = r['total_production_volume_units'] ?? 0;
+              final dUnits = r['total_dealer_dispatch_units'] ?? 0;
+              final dealerRev = (r['total_dealer_sales_revenue_inr'] as num?)?.toDouble() ?? 0.0;
+              final directRev = (r['total_direct_company_revenue_inr'] as num?)?.toDouble() ?? 0.0;
+              final gross = (r['total_gross_revenue_inr'] as num?)?.toDouble() ?? 0.0;
+              final exp = (r['total_operating_expenses_inr'] as num?)?.toDouble() ?? 0.0;
+              final net = (r['net_profit_inr'] as num?)?.toDouble() ?? 0.0;
 
-  Widget _franchiseRow(
-    Map<String, dynamic> item,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color:
-                Color(0xFFF1F5F9),
-          ),
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(flex: 2, child: Text(rDate, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)))),
+                    Expanded(flex: 2, child: Text('$pUnits', style: _reportCell)),
+                    Expanded(flex: 2, child: Text('$dUnits', style: _reportCell)),
+                    Expanded(flex: 2, child: Text('₹${dealerRev.toStringAsFixed(0)}', style: _reportCell)),
+                    Expanded(flex: 2, child: Text('₹${directRev.toStringAsFixed(0)}', style: _reportCell)),
+                    Expanded(flex: 2, child: Text('₹${gross.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))),
+                    Expanded(flex: 2, child: Text('₹${exp.toStringAsFixed(0)}', style: _reportCell)),
+                    Expanded(flex: 2, child: Text('₹${net.toStringAsFixed(0)}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: net >= 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626)))),
+                  ],
+                ),
+              );
+            }),
+          ],
         ),
       ),
-      child: Row(
+    );
+  }
+
+  Widget _emptyState(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 36),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              item['name'].toString(),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight:
-                    FontWeight.w700,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              item['city'].toString(),
-              style: _reportCell,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              item['orders'].toString(),
-              style: _reportCell,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              _currency(
-                (item['sales']
-                        as num)
-                    .toInt(),
-              ),
-              style: _reportCell,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              _currency(
-                (item['outstanding']
-                        as num)
-                    .toInt(),
-              ),
-              style: TextStyle(
-                fontSize: 10,
-                color:
-                    (item['outstanding']
-                                as num)
-                            .toInt() >
-                        0
-                    ? const Color(
-                        0xFFDC2626,
-                      )
-                    : const Color(
-                        0xFF15803D,
-                      ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: _performanceBadge(
-              item['status'].toString(),
-            ),
-          ),
+          const Icon(Icons.folder_open_outlined, size: 36, color: Color(0xFF94A3B8)),
+          const SizedBox(height: 8),
+          Text(message, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
         ],
       ),
     );
   }
 
-  Widget _performanceBadge(
-    String status,
-  ) {
-    Color bg;
-    Color fg;
+  // =========================================================
+  // STATUS BADGE
+  // =========================================================
 
-    switch (status) {
-      case 'Excellent':
-        bg =
-            const Color(0xFFECFDF5);
-        fg =
-            const Color(0xFF15803D);
-        break;
+  Widget _statusBadge(String rawStatus) {
+    final status = rawStatus.toUpperCase();
+    Color bg = const Color(0xFFE2E8F0);
+    Color fg = const Color(0xFF475569);
 
-      case 'Good':
-        bg =
-            const Color(0xFFE0F2FE);
-        fg =
-            const Color(0xFF0284C7);
-        break;
-
-      default:
-        bg =
-            const Color(0xFFFFF7ED);
-        fg =
-            const Color(0xFFEA580C);
+    if (status.contains('APPROVED') || status.contains('CONFIRMED') || status.contains('DELIVERED') || status.contains('COMPLETED')) {
+      bg = const Color(0xFFDCFCE7);
+      fg = const Color(0xFF16A34A);
+    } else if (status.contains('DISPATCH') || status.contains('IN TRANSIT')) {
+      bg = const Color(0xFFFFEDD5);
+      fg = const Color(0xFFEA580C);
+    } else if (status.contains('PENDING') || status.contains('REQUESTED') || status.contains('NEW')) {
+      bg = const Color(0xFFFEF3C7);
+      fg = const Color(0xFFD97706);
+    } else if (status.contains('CANCEL') || status.contains('REJECT')) {
+      bg = const Color(0xFFFEE2E2);
+      fg = const Color(0xFFDC2626);
     }
 
     return Align(
-      alignment:
-          Alignment.centerLeft,
+      alignment: Alignment.centerLeft,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 5,
-        ),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius:
-              BorderRadius.circular(14),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
         child: Text(
-          status,
-          style: TextStyle(
-            fontSize: 8,
-            fontWeight:
-                FontWeight.w700,
-            color: fg,
-          ),
+          rawStatus,
+          style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: fg),
         ),
       ),
     );
   }
 
   // =========================================================
-  // ACTUAL CSV EXPORT
+  // CSV EXPORT
   // =========================================================
 
   Future<void> _exportReport() async {
     try {
       final buffer = StringBuffer();
-
-      buffer.writeln(
-        'BUSINESS REPORT - $period',
-      );
-
+      buffer.writeln('SHIVNATH AGENCY - BUSINESS REPORT');
+      buffer.writeln('Period,$period');
+      if (customStartDate != null && customEndDate != null) {
+        buffer.writeln('Custom Date Range,${DateFormat('yyyy-MM-dd').format(customStartDate!)} to ${DateFormat('yyyy-MM-dd').format(customEndDate!)}');
+      }
+      buffer.writeln('Exported At,${DateTime.now().toIso8601String()}');
       buffer.writeln();
 
-      buffer.writeln('SUMMARY');
-      buffer.writeln(
-        'Metric,Value',
-      );
-      buffer.writeln(
-        'Today Leads,24',
-      );
-      buffer.writeln(
-        'Lead Conversion Rate,11.8%',
-      );
-      buffer.writeln(
-        'Cost Per Lead,186',
-      );
-      buffer.writeln(
-        'Pending Follow-ups,18',
-      );
-      buffer.writeln(
-        'Monthly Sales,315000',
-      );
-      buffer.writeln(
-        'Inventory Value,472000',
-      );
-      buffer.writeln(
-        'Outstanding Payments,86500',
-      );
-      buffer.writeln(
-        'Total Revenue,$totalRevenue',
-      );
-
+      buffer.writeln('--- FINANCIAL & OPERATIONAL SUMMARY ---');
+      buffer.writeln('Metric,Value');
+      buffer.writeln('Total Revenue,${summary['gross_revenue'] ?? 0}');
+      buffer.writeln('Customer Orders Count,${summary['total_orders'] ?? 0}');
+      buffer.writeln('Franchise Requests Count,${summary['franchise_requests_count'] ?? 0}');
+      buffer.writeln('New CRM Leads,${summary['new_leads_count'] ?? 0}');
+      buffer.writeln('Production Units,${summary['production_volume_units'] ?? 0}');
+      buffer.writeln('Dispatch Units,${summary['dealer_dispatch_units'] ?? 0}');
+      buffer.writeln('Operating Expenses,${summary['expenses'] ?? 0}');
+      buffer.writeln('Net Profit,${summary['net_profit'] ?? 0}');
       buffer.writeln();
-      buffer.writeln(
-        'MONTHLY SALES',
-      );
-      buffer.writeln(
-        'Month,Amount',
-      );
 
-      for (final item
-          in monthlySales) {
-        buffer.writeln(
-          '${item['month']},${item['amount']}',
-        );
+      buffer.writeln('--- CUSTOMER ORDERS ---');
+      buffer.writeln('Order Code,Customer,Quantity,Amount,Fulfillment,Status,Date');
+      for (final o in customerActivity) {
+        buffer.writeln('"${o['order_code']}","${o['customer']}",${o['quantity'] ?? o['items_count']},${o['amount']},"${o['serving_franchise']}","${o['status']}","${o['created_at']}"');
+      }
+      buffer.writeln();
+
+      buffer.writeln('--- FRANCHISE STOCK REQUESTS ---');
+      buffer.writeln('Request #,Franchise,Product,Requested,Approved,Dispatched,Received,Pending,Status,Date');
+      for (final f in franchiseActivity) {
+        buffer.writeln('"${f['request_number']}","${f['franchise_name']}","${f['product_name']}",${f['requested_quantity']},${f['approved_quantity']},${f['dispatched_quantity']},${f['received_quantity']},${f['pending_quantity']},"${f['status']}","${f['created_at']}"');
+      }
+      buffer.writeln();
+
+      buffer.writeln('--- CRM & PUBLIC CHATBOT LEADS ---');
+      buffer.writeln('Name,Phone,Source,Status,Score,City,Date');
+      for (final l in leadActivity) {
+        buffer.writeln('"${l['name']}","${l['phone']}","${l['source']}","${l['status']}","${l['score_category']}","${l['city']}","${l['created_at']}"');
       }
 
-      buffer.writeln();
-      buffer.writeln(
-        'CITY-WISE FRANCHISE',
-      );
-      buffer.writeln(
-        'City,Franchises,Sales',
-      );
-
-      for (final item in cities) {
-        buffer.writeln(
-          '${item['city']},${item['franchises']},${item['sales']}',
-        );
-      }
-
-      buffer.writeln();
-      buffer.writeln(
-        'EXECUTIVE PERFORMANCE',
-      );
-
-      buffer.writeln(
-        'Executive,Leads,Follow-ups,Confirmed,Conversion,Sales',
-      );
-
-      for (final item
-          in executives) {
-        buffer.writeln(
-          '${item['name']},'
-          '${item['leads']},'
-          '${item['followups']},'
-          '${item['confirmed']},'
-          '${item['conversion']}%,'
-          '${item['sales']}',
-        );
-      }
-
-      buffer.writeln();
-      buffer.writeln(
-        'PRODUCT-WISE SALES',
-      );
-
-      buffer.writeln(
-        'Product,Quantity,Revenue',
-      );
-
-      for (final item
-          in productSales) {
-        buffer.writeln(
-          '"${item['product']}",'
-          '${item['quantity']},'
-          '${item['revenue']}',
-        );
-      }
-
-      buffer.writeln();
-      buffer.writeln(
-        'FRANCHISE PERFORMANCE',
-      );
-
-      buffer.writeln(
-        'Franchise,City,Orders,Sales,Outstanding,Performance',
-      );
-
-      for (final item
-          in franchisePerformance) {
-        buffer.writeln(
-          '"${item['name']}",'
-          '${item['city']},'
-          '${item['orders']},'
-          '${item['sales']},'
-          '${item['outstanding']},'
-          '${item['status']}',
-        );
-      }
-
-      final bytes = Uint8List.fromList(
-        utf8.encode(
-          buffer.toString(),
-        ),
-      );
-
+      final bytes = Uint8List.fromList(utf8.encode(buffer.toString()));
       final now = DateTime.now();
-
-      final fileName =
-          'business_report_'
-          '${now.year}_'
-          '${now.month.toString().padLeft(2, '0')}_'
-          '${now.day.toString().padLeft(2, '0')}';
+      final fileName = 'shivnath_report_${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}';
 
       await FileSaver.instance.saveFile(
         name: fileName,
@@ -1678,73 +1165,42 @@ class _AdminReportsScreenState
       );
 
       if (!mounted) return;
-
-      AppToast.success(
-        context,
-        '$period report exported successfully.',
-        title: 'Report Exported',
-      );
+      AppToast.success(context, '$period report exported successfully.', title: 'Export Complete');
     } catch (e) {
       if (!mounted) return;
-
-      AppToast.error(
-        context,
-        'Unable to export report.',
-        title: 'Export Failed',
-      );
+      AppToast.error(context, 'Export failed: $e', title: 'Export Error');
     }
   }
 
   // =========================================================
-  // COMMON HELPERS
+  // HELPERS
   // =========================================================
 
-  Widget _sectionTitle(
-    IconData icon,
-    String title,
-    String subtitle,
-  ) {
+  Widget _sectionTitle(IconData icon, String title, String subtitle) {
     return Row(
       children: [
         Container(
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color:
-                const Color(0xFFE0F2FE),
-            borderRadius:
-                BorderRadius.circular(10),
+            color: const Color(0xFFE0F2FE),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(
-            icon,
-            size: 19,
-            color:
-                const Color(0xFF0284C7),
-          ),
+          child: Icon(icon, size: 20, color: const Color(0xFF0284C7)),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight:
-                      FontWeight.w800,
-                  color:
-                      Color(0xFF111827),
-                ),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
               ),
+              const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  fontSize: 9.5,
-                  color:
-                      Color(0xFF64748B),
-                ),
+                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
               ),
             ],
           ),
@@ -1753,79 +1209,56 @@ class _AdminReportsScreenState
     );
   }
 
-  String _currency(int value) {
-    final text = value.toString();
-
-    if (text.length <= 3) {
-      return '₹$text';
+  String _formatCurrency(double val) {
+    if (val >= 10000000) {
+      return '₹${(val / 10000000).toStringAsFixed(2)} Cr';
     }
-
-    final lastThree = text.substring(
-      text.length - 3,
-    );
-
-    String remaining = text.substring(
-      0,
-      text.length - 3,
-    );
-
-    final buffer = StringBuffer();
-
-    while (remaining.length > 2) {
-      buffer.write(
-        ',${remaining.substring(remaining.length - 2)}',
-      );
-
-      remaining = remaining.substring(
-        0,
-        remaining.length - 2,
-      );
+    if (val >= 100000) {
+      return '₹${(val / 100000).toStringAsFixed(2)} L';
     }
-
-    return '₹$remaining'
-        '${buffer.toString().split(',').reversed.where((e) => e.isNotEmpty).map((e) => ',$e').join()}'
-        ',$lastThree';
+    if (val >= 1000) {
+      return '₹${(val / 1000).toStringAsFixed(1)} K';
+    }
+    return '₹${val.toStringAsFixed(0)}';
   }
 
-  String _compactCurrency(int value) {
-    if (value >= 10000000) {
-      return '₹${(value / 10000000).toStringAsFixed(2)}Cr';
+  String _compactCurrency(int val) {
+    if (val >= 10000000) {
+      return '₹${(val / 10000000).toStringAsFixed(1)}Cr';
     }
-
-    if (value >= 100000) {
-      return '₹${(value / 100000).toStringAsFixed(2)}L';
+    if (val >= 100000) {
+      return '₹${(val / 100000).toStringAsFixed(1)}L';
     }
-
-    if (value >= 1000) {
-      return '₹${(value / 1000).toStringAsFixed(1)}K';
+    if (val >= 1000) {
+      return '₹${(val / 1000).toStringAsFixed(1)}K';
     }
-
-    return '₹$value';
+    return '₹$val';
   }
 
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: Colors.white,
-      borderRadius:
-          BorderRadius.circular(14),
-      border: Border.all(
-        color:
-            const Color(0xFFE5E7EB),
-      ),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE5E7EB)),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x05000000),
+          blurRadius: 10,
+          offset: Offset(0, 4),
+        ),
+      ],
     );
   }
 }
 
-const TextStyle _reportHeader =
-    TextStyle(
-  fontSize: 8.5,
+const TextStyle _reportHeader = TextStyle(
+  fontSize: 9,
   fontWeight: FontWeight.w700,
   color: Color(0xFF64748B),
   letterSpacing: .3,
 );
 
-const TextStyle _reportCell =
-    TextStyle(
-  fontSize: 10,
+const TextStyle _reportCell = TextStyle(
+  fontSize: 10.5,
   color: Color(0xFF475569),
 );

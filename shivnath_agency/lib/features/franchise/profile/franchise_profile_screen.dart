@@ -900,7 +900,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                               onPressed: () => SupportDeskModal.show(context),
                               icon: const Icon(Icons.headset_mic_outlined, color: BrandColors.greenDark),
                               label: const Text(
-                                'Franchise Support Desk',
+                                'Admin Support Desk (+91 98062 47194)',
                                 style: TextStyle(
                                   color: BrandColors.greenDark,
                                   fontWeight: FontWeight.w700,

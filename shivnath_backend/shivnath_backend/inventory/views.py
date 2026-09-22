@@ -817,6 +817,8 @@ class DealerStockRequestListCreateAPIView(views.APIView):
         if status_param:
             qs = qs.filter(status=status_param)
 
+        qs = qs.order_by('-created_at')
+
         serializer = DealerStockRequestSerializer(qs, many=True)
         return Response(serializer.data)
 
@@ -828,16 +830,57 @@ class DealerStockRequestListCreateAPIView(views.APIView):
             dealer = get_object_or_404(FranchiseProfile, id=request.data['dealer_id'])
 
         if not dealer:
-            return Response({'error': 'No dealer profile associated.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'success': False, 'error': 'No dealer profile associated.', 'message': 'No dealer profile associated.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        product_id = request.data.get('product') or request.data.get('product_id')
-        qty = request.data.get('requested_quantity')
-        notes = request.data.get('dealer_notes', '')
-
-        if not product_id or not qty:
-            return Response({'error': 'Product and requested_quantity are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        notes = request.data.get('dealer_notes') or request.data.get('notes', '')
+        raw_items = request.data.get('items')
 
         from products.models import Product
+
+        # Handle batch items from Flutter franchise inventory screen
+        if isinstance(raw_items, list) and len(raw_items) > 0:
+            created_requests = []
+            for item in raw_items:
+                p_id = item.get('product_id') or item.get('product') or item.get('id')
+                qty = item.get('quantity_units') or item.get('requested_quantity') or item.get('quantity')
+                if not p_id or not qty:
+                    continue
+                try:
+                    product = Product.objects.get(id=p_id)
+                except Product.DoesNotExist:
+                    continue
+
+                count = DealerStockRequest.objects.count() + 1
+                req_number = f"SR-{timezone.now().strftime('%Y%m')}-{count:04d}"
+
+                stock_req = DealerStockRequest.objects.create(
+                    request_number=req_number,
+                    dealer=dealer,
+                    product=product,
+                    requested_quantity=int(qty),
+                    dealer_notes=notes,
+                    status='REQUESTED'
+                )
+                created_requests.append(stock_req)
+
+            if not created_requests:
+                return Response({'success': False, 'message': 'No valid products in stock request.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            serialized_list = DealerStockRequestSerializer(created_requests, many=True).data
+            return Response({
+                'success': True,
+                'message': f'{len(created_requests)} stock request(s) submitted successfully.',
+                'requests': serialized_list,
+                'data': serialized_list,
+            }, status=status.HTTP_201_CREATED)
+
+        # Handle single product request
+        product_id = request.data.get('product') or request.data.get('product_id')
+        qty = request.data.get('requested_quantity')
+
+        if not product_id or not qty:
+            return Response({'success': False, 'error': 'Product and requested_quantity are required.', 'message': 'Product and requested_quantity are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
         product = get_object_or_404(Product, id=product_id)
 
         count = DealerStockRequest.objects.count() + 1
@@ -851,7 +894,13 @@ class DealerStockRequestListCreateAPIView(views.APIView):
             dealer_notes=notes,
             status='REQUESTED'
         )
-        return Response(DealerStockRequestSerializer(stock_req).data, status=status.HTTP_201_CREATED)
+        data = DealerStockRequestSerializer(stock_req).data
+        return Response({
+            'success': True,
+            'message': 'Stock request submitted successfully.',
+            'data': data,
+            **data,
+        }, status=status.HTTP_201_CREATED)
 
 
 class DealerStockRequestDispatchAPIView(views.APIView):
@@ -954,22 +1003,230 @@ class DailyBusinessReportAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        from datetime import date, timedelta
+        from decimal import Decimal
+        from django.utils import timezone
+        from orders.models import Order, OrderItem
+        from leads.models import Lead
+        from billing.models import Invoice
+
+        today = timezone.now().date()
         date_str = request.query_params.get('date')
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+        period = (request.query_params.get('period') or '').strip().lower()
 
-        qs = DailyBusinessReport.objects.all()
+        start_date = None
+        end_date = None
 
-        if date_str:
-            qs = qs.filter(report_date=date_str)
-        else:
-            if start_date:
-                qs = qs.filter(report_date__gte=start_date)
-            if end_date:
-                qs = qs.filter(report_date__lte=end_date)
+        if period == 'today':
+            start_date = today
+            end_date = today
+        elif period == 'yesterday':
+            start_date = today - timedelta(days=1)
+            end_date = today - timedelta(days=1)
+        elif period in ['this_week', 'this week', 'week']:
+            start_date = today - timedelta(days=today.weekday())
+            end_date = today
+        elif period in ['this_month', 'this month', 'month']:
+            start_date = today.replace(day=1)
+            end_date = today
+        elif period in ['last_month', 'last month']:
+            first_this_month = today.replace(day=1)
+            last_day_last_month = first_this_month - timedelta(days=1)
+            start_date = last_day_last_month.replace(day=1)
+            end_date = last_day_last_month
+        elif period in ['last_3_months', 'last 3 months']:
+            start_date = (today.replace(day=1) - timedelta(days=60)).replace(day=1)
+            end_date = today
+        elif period in ['this_year', 'this year']:
+            start_date = today.replace(month=1, day=1)
+            end_date = today
+        elif start_date_str and end_date_str:
+            try:
+                start_date = date.fromisoformat(start_date_str)
+                end_date = date.fromisoformat(end_date_str)
+            except Exception:
+                pass
+        elif date_str:
+            try:
+                start_date = date.fromisoformat(date_str)
+                end_date = start_date
+            except Exception:
+                pass
 
-        reports = qs.order_by('-report_date')[:60]
-        return Response(DailyBusinessReportSerializer(reports, many=True).data)
+        if not start_date:
+            start_date = today.replace(day=1)
+        if not end_date:
+            end_date = today
+
+        # 1. Dynamically calculate and sync today's DailyBusinessReport
+        try:
+            prod_batches_today = ProductionBatch.objects.filter(created_at__date=today)
+            prod_units = prod_batches_today.aggregate(u=Sum('quantity_produced_units'))['u'] or 0
+            prod_cost = prod_batches_today.aggregate(c=Sum('unit_production_cost'))['c'] or Decimal('0.00')
+
+            dispatches_today = InventoryTransactionLedger.objects.filter(
+                transaction_type='STOCK_TRANSFER_OUT',
+                timestamp__date=today
+            )
+            dispatch_units = abs(dispatches_today.aggregate(q=Sum('quantity'))['q'] or 0)
+
+            dealer_invoices = Invoice.objects.filter(
+                invoice_type='DEALER_PURCHASE_INVOICE',
+                issued_at__date=today
+            )
+            dealer_rev = dealer_invoices.aggregate(t=Sum('grand_total'))['t'] or Decimal('0.00')
+
+            direct_orders = Order.objects.filter(
+                order_source='DIRECT_COMPANY',
+                created_at__date=today
+            ).exclude(status__in=['Cancelled', 'CANCELLED'])
+            direct_rev = direct_orders.aggregate(t=Sum('grand_total'))['t'] or Decimal('0.00')
+
+            gross_rev = dealer_rev + direct_rev
+            cogs_direct = OrderItem.objects.filter(order__in=direct_orders).aggregate(
+                c=Sum(F('snapshot_unit_production_cost') * F('quantity'))
+            )['c'] or Decimal('0.00')
+            expenses_today = Expense.objects.filter(paid_date=today)
+            total_exp = expenses_today.aggregate(a=Sum('amount'))['a'] or Decimal('0.00')
+            net_prof = gross_rev - (cogs_direct + total_exp)
+
+            DailyBusinessReport.objects.update_or_create(
+                report_date=today,
+                defaults={
+                    'total_production_volume_units': int(prod_units),
+                    'total_production_volume_cases': Decimal(int(prod_units) // 24),
+                    'total_production_cost_inr': Decimal(str(prod_cost)),
+                    'total_dealer_dispatch_units': int(dispatch_units),
+                    'total_dealer_dispatch_cases': Decimal(int(dispatch_units) // 24),
+                    'total_dealer_sales_revenue_inr': dealer_rev,
+                    'total_direct_company_revenue_inr': direct_rev,
+                    'total_gross_revenue_inr': gross_rev,
+                    'total_cogs_inr': cogs_direct,
+                    'total_expenses_inr': total_exp,
+                    'net_profit_inr': net_prof,
+                }
+            )
+        except Exception:
+            pass
+
+        # 2. Query data across the requested date range
+        orders_qs = Order.objects.filter(
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        ).select_related('created_by', 'serving_franchise').prefetch_related('items').order_by('-created_at')
+
+        stock_requests_qs = DealerStockRequest.objects.filter(
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        ).select_related('dealer', 'product').order_by('-created_at')
+
+        leads_qs = Lead.objects.filter(
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        ).order_by('-created_at')
+
+        total_orders_count = orders_qs.count()
+        total_order_amount = orders_qs.exclude(status__in=['Cancelled', 'CANCELLED']).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+        customer_orders = [
+            {
+                'id': o.id,
+                'order_code': o.order_code,
+                'customer': o.franchise_name or (o.created_by.get_full_name() if o.created_by else 'Customer'),
+                'items_count': o.items_count,
+                'quantity': sum(it.quantity for it in o.items.all()) or o.items_count,
+                'amount': float(o.amount),
+                'status': o.status,
+                'status_display': o.get_status_display(),
+                'order_source': o.order_source,
+                'serving_franchise': o.serving_franchise.business_name if o.serving_franchise else 'Direct Company',
+                'created_at': o.created_at.strftime('%d %b %Y %H:%M') if o.created_at else '',
+            }
+            for o in orders_qs[:100]
+        ]
+
+        franchise_activity = [
+            {
+                'id': req.id,
+                'request_number': req.request_number,
+                'franchise_name': req.dealer.business_name if req.dealer else 'Franchise',
+                'product_name': req.product.name if req.product else '',
+                'requested_quantity': req.requested_quantity,
+                'approved_quantity': req.approved_quantity,
+                'dispatched_quantity': req.dispatched_quantity,
+                'received_quantity': req.received_quantity,
+                'pending_quantity': max(0, req.requested_quantity - (req.received_quantity or 0)),
+                'outstanding': float(getattr(req.dealer, 'current_balance', 0.0)) if req.dealer else 0.0,
+                'status': req.status,
+                'created_at': req.created_at.strftime('%d %b %Y %H:%M') if req.created_at else '',
+            }
+            for req in stock_requests_qs[:100]
+        ]
+
+        lead_activity = [
+            {
+                'id': l.id,
+                'name': l.name,
+                'phone': l.phone,
+                'source': l.source,
+                'status': l.status,
+                'score_category': l.score_category,
+                'city': l.city,
+                'territory': l.territory,
+                'created_at': l.created_at.strftime('%d %b %Y %H:%M') if l.created_at else '',
+            }
+            for l in leads_qs[:100]
+        ]
+
+        reports_qs = DailyBusinessReport.objects.filter(
+            report_date__gte=start_date,
+            report_date__lte=end_date
+        ).order_by('-report_date')
+
+        reports_data = DailyBusinessReportSerializer(reports_qs, many=True).data
+
+        # Aggregate totals for summary
+        agg_gross = reports_qs.aggregate(t=Sum('total_gross_revenue_inr'))['t'] or total_order_amount
+        agg_cogs = reports_qs.aggregate(t=Sum('total_cogs_inr'))['t'] or Decimal('0.00')
+        agg_exp = reports_qs.aggregate(t=Sum('total_expenses_inr'))['t'] or Decimal('0.00')
+        agg_net = agg_gross - (agg_cogs + agg_exp)
+        agg_prod = reports_qs.aggregate(t=Sum('total_production_volume_units'))['t'] or 0
+        agg_disp = reports_qs.aggregate(t=Sum('total_dealer_dispatch_units'))['t'] or 0
+
+        # Monthly chart data derived from actual orders
+        monthly_map = {}
+        for o in Order.objects.filter(created_at__year=today.year).exclude(status__in=['Cancelled', 'CANCELLED']):
+            m_key = o.created_at.strftime('%b')
+            monthly_map[m_key] = monthly_map.get(m_key, 0.0) + float(o.amount)
+
+        monthly_sales_list = [{'month': m, 'amount': int(val)} for m, val in monthly_map.items()]
+
+        return Response({
+            'success': True,
+            'period': period or 'custom',
+            'start_date': str(start_date),
+            'end_date': str(end_date),
+            'summary': {
+                'gross_revenue': float(agg_gross),
+                'total_revenue': float(agg_gross),
+                'cogs': float(agg_cogs),
+                'expenses': float(agg_exp),
+                'net_profit': float(agg_net),
+                'production_volume_units': int(agg_prod),
+                'dealer_dispatch_units': int(agg_disp),
+                'total_orders': total_orders_count,
+                'customer_orders_count': total_orders_count,
+                'franchise_requests_count': stock_requests_qs.count(),
+                'new_leads_count': leads_qs.count(),
+                'converted_leads_count': leads_qs.filter(status__in=['CONVERTED', 'FRANCHISE_CONFIRMED', 'converted', 'franchise_confirmed']).count(),
+            },
+            'monthly_sales': monthly_sales_list,
+            'customer_activity': customer_orders,
+            'franchise_activity': franchise_activity,
+            'lead_activity': lead_activity,
+            'reports': reports_data,
+        })
 
 
 class ExpiryAlertListAPIView(generics.ListAPIView):

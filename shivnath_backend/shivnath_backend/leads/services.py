@@ -46,12 +46,17 @@ def validate_and_create_chatbot_inquiry(data, is_dealer_inquiry=False):
     Enforces REQUIRED email, exactly 10-digit mobile starting with 6/7/8/9,
     and deduplicates by phone/email.
     """
+    from leads.models import LeadActivity
+    from chat.models import ChatSession
+    from django.db.models import Q
+
     name = (data.get('name') or data.get('full_name') or '').strip()
     phone = data.get('phone', '').strip()
     email = data.get('email', '').strip()
     district = data.get('district', '').strip()
     territory = data.get('territory', '').strip()
     locality = data.get('locality_or_address') or data.get('locality') or data.get('address', '').strip()
+    session_id = str(data.get('session_id', '')).strip()
 
     # Validation
     if not (2 <= len(name) <= 100):
@@ -66,9 +71,10 @@ def validate_and_create_chatbot_inquiry(data, is_dealer_inquiry=False):
     if not email or '@' not in email or '.' not in email:
         raise ValidationError("A valid Email address is required.")
 
-    # Deduplication check
-    lead = Lead.objects.filter(phone=clean_phone).first() or Lead.objects.filter(email=email).first()
+    # Deduplication check by phone OR email
+    lead = Lead.objects.filter(phone=clean_phone).first() or Lead.objects.filter(email__iexact=email).first()
 
+    is_new = False
     if not lead:
         lead = Lead(
             name=name,
@@ -77,10 +83,25 @@ def validate_and_create_chatbot_inquiry(data, is_dealer_inquiry=False):
             district=district,
             territory=territory,
             locality=locality,
-            city=district or 'Patna',
+            city=district or 'Raipur',
             status='NEW',
-            source='Public Inbound Chatbot'
+            source='PUBLIC_CHATBOT'
         )
+        is_new = True
+    else:
+        # Update existing lead fields if missing or default
+        if name and lead.name in ['Guest Customer', 'Public Prospect', 'Prospect', 'Public Customer', '']:
+            lead.name = name
+        if email and not lead.email:
+            lead.email = email
+        if district and not lead.district:
+            lead.district = district
+        if territory and not lead.territory:
+            lead.territory = territory
+        if locality and not lead.locality:
+            lead.locality = locality
+        if not lead.source:
+            lead.source = 'PUBLIC_CHATBOT'
 
     if is_dealer_inquiry:
         lead.investment_budget = data.get('investment_budget', '')
@@ -92,6 +113,15 @@ def validate_and_create_chatbot_inquiry(data, is_dealer_inquiry=False):
     lead.calculate_lead_score()
     lead.save()
 
+    # Link any matching ChatSession to this Lead
+    if session_id:
+        ChatSession.objects.filter(session_id=session_id).update(
+            lead=lead, customer_name=name, customer_phone=clean_phone, customer_email=email
+        )
+    ChatSession.objects.filter(
+        Q(customer_phone=clean_phone) | Q(customer_email__iexact=email)
+    ).filter(lead__isnull=True).update(lead=lead)
+
     # Initialize 15-day journey state if new
     journey, created = LeadJourneyState.objects.get_or_create(
         lead=lead,
@@ -102,10 +132,18 @@ def validate_and_create_chatbot_inquiry(data, is_dealer_inquiry=False):
         }
     )
 
+    action_text = "created" if is_new else "updated"
     CRMActivityLog.objects.create(
         lead=lead,
-        activity_type='STATUS_CHANGED',
-        description=f"Inbound chatbot inquiry received. Qualified as {lead.score_category} (Score: {lead.lead_score_number})"
+        activity_type='STATUS_CHANGED' if is_new else 'NOTE_ADDED',
+        description=f"Inbound public chatbot inquiry {action_text}. Source: PUBLIC_CHATBOT. Qualified as {lead.score_category} (Score: {lead.lead_score_number})"
+    )
+
+    LeadActivity.objects.create(
+        lead=lead,
+        activity_type='note',
+        title=f"Public Chatbot Inquiry ({'New' if is_new else 'Updated'})",
+        description=f"Public Chatbot inquiry received for {name} ({clean_phone}). District: {district}, Territory: {territory}",
     )
 
     return lead

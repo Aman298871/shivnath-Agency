@@ -503,7 +503,7 @@ def apply_data_scope(user, queryset, model_type):
     scope_type = profile.data_scope_type or 'all_data'
     scope_ids = profile.assigned_scope_ids or []
 
-    if role == 'super_admin' or scope_type == 'all_data':
+    if role in ['super_admin', 'admin'] and (not scope_type or scope_type in ['all_data', 'all'] or not scope_ids):
         return queryset
 
     if model_type == 'Order':

@@ -134,16 +134,15 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
 
   Widget _quickOperationsGrid(bool desktop) {
     final actions = [
-      {'title': 'Orders', 'icon': Icons.shopping_bag_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenOrders},
+      {'title': 'Customer Orders', 'icon': Icons.shopping_bag_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenOrders},
       {'title': 'Customers', 'icon': Icons.people_outline_rounded, 'color': const Color(0xFF10B981), 'action': widget.onOpenCustomers},
-      {'title': 'Products', 'icon': Icons.inventory_2_outlined, 'color': const Color(0xFF8B5CF6), 'action': widget.onOpenProducts},
-      {'title': 'Categories', 'icon': Icons.category_outlined, 'color': const Color(0xFF06B6D4), 'action': widget.onOpenCategories},
-      {'title': 'Inventory', 'icon': Icons.warehouse_outlined, 'color': const Color(0xFFF59E0B), 'action': widget.onOpenInventory},
-      {'title': 'Raw Materials', 'icon': Icons.science_outlined, 'color': const Color(0xFFEC4899), 'action': widget.onOpenRawMaterials ?? widget.onOpenInventory},
-      {'title': 'Finished Stock', 'icon': Icons.local_drink_outlined, 'color': const Color(0xFF3B82F6), 'action': widget.onOpenFinishedProducts ?? widget.onOpenInventory},
+      {'title': 'Company Catalog', 'icon': Icons.inventory_2_outlined, 'color': const Color(0xFF8B5CF6), 'action': widget.onOpenProducts},
+      {'title': 'My Stock', 'icon': Icons.warehouse_outlined, 'color': const Color(0xFFF59E0B), 'action': widget.onOpenInventory},
+      {'title': 'Stock Requests', 'icon': Icons.add_shopping_cart_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenFinishedProducts ?? widget.onOpenInventory},
+      {'title': 'Credit & Ledger', 'icon': Icons.account_balance_wallet_outlined, 'color': const Color(0xFF059669), 'action': widget.onOpenStock ?? widget.onOpenInventory},
       {'title': 'Territory', 'icon': Icons.location_on_outlined, 'color': const Color(0xFF14B8A6), 'action': widget.onOpenTerritory},
       {'title': 'Documents', 'icon': Icons.description_outlined, 'color': const Color(0xFF6366F1), 'action': widget.onOpenDocuments},
-      {'title': 'Invoices & Reports', 'icon': Icons.receipt_long_outlined, 'color': const Color(0xFFF97316), 'action': widget.onOpenReports},
+      {'title': 'Reports', 'icon': Icons.bar_chart_outlined, 'color': const Color(0xFFF97316), 'action': widget.onOpenReports},
       {'title': 'Support Desk', 'icon': Icons.headset_mic_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenSupport ?? () => SupportDeskModal.show(context)},
       {'title': 'Settings', 'icon': Icons.settings_outlined, 'color': const Color(0xFF64748B), 'action': widget.onOpenSettings},
     ];

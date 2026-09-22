@@ -533,6 +533,30 @@ class InventoryService {
     }
   }
 
+  /// Record Customer / Dealer Partial Collection or Dispatch from a Production Batch
+  Future<Map<String, dynamic>> recordBatchCollection({
+    required int batchId,
+    required int quantityCollected,
+    String? clientName,
+    String? notes,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/production-batches/$batchId/collection/');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({
+          'quantity_collected': quantityCollected,
+          if (clientName != null && clientName.isNotEmpty) 'client_name': clientName,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        }),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   /// Universal Inventory Transaction Ledger
   Future<Map<String, dynamic>> getInventoryLedger({Map<String, String>? filters}) async {
     try {

@@ -211,6 +211,10 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
     product_sku = serializers.CharField(source='product.sku', read_only=True)
     available_quantity = serializers.IntegerField(read_only=True)
     is_expired = serializers.BooleanField(read_only=True)
+    linked_order_code = serializers.SerializerMethodField()
+    quantity_taken = serializers.IntegerField(read_only=True)
+    quantity_pending_collection = serializers.IntegerField(read_only=True)
+    dynamic_remaining_company = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = ProductionBatch
@@ -220,17 +224,35 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
             'product',
             'product_name',
             'product_sku',
+            'client_name',
+            'linked_order',
+            'linked_order_code',
+            'label_requirement',
+            'printing_requirement',
+            'branding_requirement',
+            'shelf_life_days',
             'manufacture_date',
             'expiry_date',
             'quantity_produced_units',
             'quantity_remaining_company',
             'reserved_quantity',
+            'quantity_dispatched',
+            'quantity_taken',
+            'quantity_pending_collection',
+            'dynamic_remaining_company',
+            'quantity_damaged',
+            'quantity_returned',
             'available_quantity',
             'unit_production_cost',
             'status',
             'is_expired',
             'created_at',
         ]
+
+    def get_linked_order_code(self, obj):
+        if obj.linked_order:
+            return obj.linked_order.order_code
+        return None
 
 
 class DealerStockBatchSerializer(serializers.ModelSerializer):

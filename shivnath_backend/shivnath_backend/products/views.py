@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
-from accounts.permissions import IsAdminRole, IsSuperAdminRole, IsAdminOrApprovedFranchise
+from accounts.permissions import IsAdminRole, IsSuperAdminRole, IsProductMasterAdmin
 
 from .models import Product, ProductCategory, ProductionRecipeBOM, ProductionRecipeBOMItem, ProductStockThreshold
 from .serializers import (
@@ -25,7 +25,7 @@ class CategoryListCreateView(APIView):
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
-        return [IsAdminOrApprovedFranchise()]
+        return [IsProductMasterAdmin()]
 
     def get(self, request):
         tree_only = request.query_params.get("tree", "").lower() in ["true", "1"]
@@ -65,7 +65,7 @@ class CategoryDetailView(APIView):
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
-        return [IsAdminOrApprovedFranchise()]
+        return [IsProductMasterAdmin()]
 
     def get(self, request, pk):
         category = get_object_or_404(ProductCategory, pk=pk)
@@ -120,7 +120,7 @@ class ProductListCreateView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
-        return [IsAdminOrApprovedFranchise()]
+        return [IsProductMasterAdmin()]
 
     def get(self, request):
         queryset = Product.objects.select_related("category_ref").all()
@@ -195,7 +195,7 @@ class ProductDetailView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
-        return [IsAdminOrApprovedFranchise()]
+        return [IsProductMasterAdmin()]
 
     def get(self, request, pk):
         product = get_object_or_404(Product.objects.select_related("category_ref"), pk=pk)

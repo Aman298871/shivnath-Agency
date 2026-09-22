@@ -12,6 +12,8 @@ class ShivnathLogo extends StatelessWidget {
   final bool isIconOnly;
   final Color? textColor;
 
+  final bool useAssetImage;
+
   const ShivnathLogo({
     super.key,
     this.size = 56.0,
@@ -19,6 +21,7 @@ class ShivnathLogo extends StatelessWidget {
     this.isHorizontal = false,
     this.isIconOnly = false,
     this.textColor,
+    this.useAssetImage = true,
   });
 
   const ShivnathLogo.horizontal({
@@ -26,12 +29,14 @@ class ShivnathLogo extends StatelessWidget {
     this.size = 36.0,
     this.showSubtitle = false,
     this.textColor,
+    this.useAssetImage = false,
   })  : isHorizontal = true,
         isIconOnly = false;
 
   const ShivnathLogo.icon({
     super.key,
     this.size = 40.0,
+    this.useAssetImage = false,
   })  : showSubtitle = false,
         isHorizontal = false,
         isIconOnly = true,
@@ -39,6 +44,16 @@ class ShivnathLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (useAssetImage && !isIconOnly && !isHorizontal) {
+      return Image.asset(
+        'assets/images/logo.png',
+        width: size * 2.2,
+        height: size * 2.2,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => _buildFallbackVertical(),
+      );
+    }
+
     if (isIconOnly) {
       return _buildWaterDropletMark(size);
     }
@@ -73,6 +88,10 @@ class ShivnathLogo extends StatelessWidget {
       );
     }
 
+    return _buildFallbackVertical();
+  }
+
+  Widget _buildFallbackVertical() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,

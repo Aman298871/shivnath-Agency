@@ -618,6 +618,73 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 14),
+
+                        // Shivnath Central Manufacturing & Production Allocation
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.precision_manufacturing_rounded, size: 18, color: Color(0xFF0284C7)),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Shivnath Factory Production & Pending Stock',
+                                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              if ((order['client_name'] ?? '').toString().isNotEmpty)
+                                _info('Client Name', order['client_name']),
+                              if ((order['label_requirement'] ?? '').toString().isNotEmpty)
+                                _info('Label Spec', order['label_requirement']),
+                              if ((order['printing_requirement'] ?? '').toString().isNotEmpty)
+                                _info('Printing Spec', order['printing_requirement']),
+                              if ((order['branding_requirement'] ?? '').toString().isNotEmpty)
+                                _info('Branding Spec', order['branding_requirement']),
+                              if (order['custom_shelf_life_days'] != null)
+                                _info('Shelf Life', '${order['custom_shelf_life_days']} Days (Configured)'),
+                              const Divider(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('PRODUCED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+                                      const SizedBox(height: 2),
+                                      Text('${order['total_produced_units'] ?? 0} units', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('DELIVERED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF0284C7))),
+                                      const SizedBox(height: 2),
+                                      Text('${order['total_delivered_units'] ?? 0} units', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0284C7))),
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('PENDING IN STOCK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF16A34A))),
+                                      const SizedBox(height: 2),
+                                      Text('${order['total_pending_stock_units'] ?? 0} units', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF16A34A))),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 16),
                         const Text(
                           'Lifecycle & Status History',

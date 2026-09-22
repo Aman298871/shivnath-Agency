@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminRole
+from accounts.permissions import IsAdminRole, IsProductMasterAdmin
 
 from .models import InventoryItem, StockRequest
 from .serializers import InventoryItemSerializer, StockRequestSerializer
@@ -650,6 +650,7 @@ from .serializers import (
 )
 from .services import (
     create_production_batch_atomic,
+    record_batch_collection_atomic,
     allocate_and_dispatch_stock_request_atomic,
     receive_stock_request_atomic,
 )
@@ -658,7 +659,11 @@ from .services import (
 class RawMaterialListCreateAPIView(generics.ListCreateAPIView):
     queryset = RawMaterial.objects.all()
     serializer_class = RawMaterialSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return [permissions.IsAuthenticated()]
+        return [IsProductMasterAdmin()]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -669,13 +674,19 @@ class RawMaterialListCreateAPIView(generics.ListCreateAPIView):
 
 
 class ProductionBatchListCreateAPIView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return [permissions.IsAuthenticated()]
+        return [IsProductMasterAdmin()]
 
     def get(self, request):
-        batches = ProductionBatch.objects.select_related('product').all()
+        batches = ProductionBatch.objects.select_related('product', 'linked_order').all()
         product_id = request.query_params.get('product_id')
         if product_id:
             batches = batches.filter(product_id=product_id)
+        order_id = request.query_params.get('order_id')
+        if order_id:
+            batches = batches.filter(linked_order_id=order_id)
         serializer = ProductionBatchSerializer(batches, many=True)
         return Response(serializer.data)
 
@@ -685,6 +696,12 @@ class ProductionBatchListCreateAPIView(views.APIView):
         mfg_date = request.data.get('manufacture_date')
         exp_date = request.data.get('expiry_date')
         batch_number = request.data.get('batch_number')
+        shelf_life_days = request.data.get('shelf_life_days')
+        client_name = request.data.get('client_name')
+        linked_order = request.data.get('linked_order') or request.data.get('order_id')
+        label_requirement = request.data.get('label_requirement')
+        printing_requirement = request.data.get('printing_requirement')
+        branding_requirement = request.data.get('branding_requirement')
 
         if not product_id or not qty:
             return Response({'error': 'Product and quantity_produced_units are required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -696,9 +713,58 @@ class ProductionBatchListCreateAPIView(views.APIView):
                 manufacture_date=mfg_date,
                 expiry_date=exp_date,
                 batch_number=batch_number,
+                shelf_life_days=int(shelf_life_days) if shelf_life_days is not None else None,
+                client_name=client_name,
+                linked_order=linked_order,
+                label_requirement=label_requirement,
+                printing_requirement=printing_requirement,
+                branding_requirement=branding_requirement,
                 actor=request.user
             )
             return Response(ProductionBatchSerializer(batch).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductionBatchCollectionAPIView(views.APIView):
+    """
+    Handles customer / dealer collection or dispatch from a central company ProductionBatch.
+    Example: Customer Digital Marketing Wala ordered 5,000, batch manufactured 5,000,
+    customer collects 2,000 units. The remaining 3,000 units STAY as pending company stock.
+    """
+    def get_permissions(self):
+        return [IsProductMasterAdmin()]
+
+    def post(self, request, pk):
+        qty = request.data.get('quantity_collected') or request.data.get('quantity')
+        if not qty:
+            return Response({'error': 'quantity_collected is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        client_name = request.data.get('client_name')
+        notes = request.data.get('notes')
+
+        try:
+            res = record_batch_collection_atomic(
+                batch_id=pk,
+                quantity_collected=int(qty),
+                client_name=client_name,
+                notes=notes,
+                actor=request.user
+            )
+            return Response({
+                'success': True,
+                'message': (
+                    f"Successfully collected {res['quantity_collected']} units. "
+                    f"Remaining company pending stock: {res['quantity_remaining_company']} units."
+                ),
+                'batch': ProductionBatchSerializer(res['batch']).data,
+                'summary': {
+                    'produced': res['quantity_produced'],
+                    'collected': res['quantity_dispatched'],
+                    'pending_company_stock': res['quantity_remaining_company'],
+                    'order_status': res['order_status'],
+                }
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

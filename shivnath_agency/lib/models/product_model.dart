@@ -8,6 +8,7 @@ class ProductModel {
   final String image;
   final int stock;
   final String description;
+  final int shelfLifeDays;
 
   final int? categoryRefId;
   final String? categoryHierarchy;
@@ -24,6 +25,7 @@ class ProductModel {
     required this.image,
     required this.stock,
     required this.description,
+    this.shelfLifeDays = 180,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,7 @@ class ProductModel {
       image: json["image"]?.toString() ?? "",
       stock: int.tryParse(json["stock"]?.toString() ?? "0") ?? 0,
       description: json["description"]?.toString() ?? "",
+      shelfLifeDays: int.tryParse(json["shelf_life_days"]?.toString() ?? "180") ?? 180,
     );
   }
 
@@ -57,4 +60,14 @@ class ProductModel {
       "description": description,
     };
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProductModel &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

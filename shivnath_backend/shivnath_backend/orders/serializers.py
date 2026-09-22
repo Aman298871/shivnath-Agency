@@ -81,6 +81,15 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_address',
             'order_source',
 
+            'client_name',
+            'label_requirement',
+            'printing_requirement',
+            'branding_requirement',
+            'custom_shelf_life_days',
+            'total_produced_units',
+            'total_delivered_units',
+            'total_pending_stock_units',
+
             'order_date',
             'duration_choice',
             'duration_days',

@@ -99,11 +99,6 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                   onPressed: _loadCategories,
                   tooltip: 'Refresh',
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF0284C7)),
-                  onPressed: () => _openCategoryDialog(),
-                  tooltip: 'Add Root Category',
-                ),
               ],
             ),
       body: LayoutBuilder(
@@ -133,7 +128,7 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                               ),
                               SizedBox(height: 4),
                               Text(
-                                'Manage recursive product hierarchy, nested subcategories and groupings',
+                                'Official company product catalog hierarchy and variant groupings',
                                 style: TextStyle(
                                   color: Color(0xFF64748B),
                                   fontSize: 12,
@@ -141,32 +136,16 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                               ),
                             ],
                           ),
-                          Row(
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: _loadCategories,
-                                icon: const Icon(Icons.refresh_rounded, size: 16),
-                                label: const Text('Refresh'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF0284C7),
-                                  side: const BorderSide(color: Color(0xFF0284C7)),
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              ElevatedButton.icon(
-                                onPressed: () => _openCategoryDialog(),
-                                icon: const Icon(Icons.add_rounded, size: 18),
-                                label: const Text('Add Root Category'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0284C7),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                              ),
-                            ],
+                          OutlinedButton.icon(
+                            onPressed: _loadCategories,
+                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                            label: const Text('Refresh'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0284C7),
+                              side: const BorderSide(color: Color(0xFF0284C7)),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
                           ),
                         ],
                       ),
@@ -226,24 +205,6 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
 
                     const SizedBox(height: 16),
 
-                    if (!desktop) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () => _openCategoryDialog(),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('Add Root Category'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0284C7),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-
                     // Categories Tree Container
                     Container(
                       width: double.infinity,
@@ -270,7 +231,7 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                                         Text('No product categories found.',
                                             style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF475569))),
                                         SizedBox(height: 4),
-                                        Text('Click "Add Root Category" to create the first category.',
+                                        Text('Company product categories will appear here once configured by Admin.',
                                             style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
                                       ],
                                     ),
@@ -415,31 +376,6 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      tooltip: 'Add Child Category',
-                      icon: const Icon(Icons.add_circle_outline_rounded, size: 18, color: Color(0xFF0284C7)),
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                      onPressed: () => _openCategoryDialog(parent: cat),
-                    ),
-                    IconButton(
-                      tooltip: 'Edit Category',
-                      icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF64748B)),
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                      onPressed: () => _openCategoryDialog(category: cat),
-                    ),
-                    IconButton(
-                      tooltip: 'Archive Category',
-                      icon: const Icon(Icons.archive_outlined, size: 18, color: Color(0xFFDC2626)),
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                      onPressed: () => _archiveCategory(cat),
-                    ),
                   ],
                 ),
               ),
@@ -453,256 +389,5 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
         );
       }).toList(),
     );
-  }
-
-  Future<void> _openCategoryDialog({
-    Map<String, dynamic>? category,
-    Map<String, dynamic>? parent,
-  }) async {
-    final isEditing = category != null;
-    final nameController = TextEditingController(text: category?['name'] ?? '');
-    final descController = TextEditingController(text: category?['description'] ?? '');
-    final orderController = TextEditingController(text: category?['order']?.toString() ?? '0');
-    bool isActive = category?['is_active'] ?? true;
-    bool isSaving = false;
-
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                children: [
-                  Icon(
-                    isEditing ? Icons.edit_outlined : Icons.add_circle_outline,
-                    color: const Color(0xFF0284C7),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    isEditing
-                        ? 'Edit Category'
-                        : (parent != null ? 'Add Subcategory' : 'Add Root Category'),
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              content: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 450),
-                child: SizedBox(
-                  width: double.maxFinite,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (parent != null) ...[
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFBFDBFE)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.info_outline, size: 16, color: Color(0xFF1D4ED8)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Parent: ${parent['full_path'] ?? parent['name']}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF1E40AF),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-                        TextField(
-                          controller: nameController,
-                          autofocus: true,
-                          decoration: InputDecoration(
-                            labelText: 'Category Name *',
-                            hintText: 'e.g. 1 Litre, Sparkling, 20 Litre Jar',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            prefixIcon: const Icon(Icons.label_outline),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        TextField(
-                          controller: descController,
-                          maxLines: 2,
-                          decoration: InputDecoration(
-                            labelText: 'Description (Optional)',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            prefixIcon: const Icon(Icons.description_outlined),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        TextField(
-                          controller: orderController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Display Order',
-                            hintText: '0',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            prefixIcon: const Icon(Icons.sort_rounded),
-                          ),
-                        ),
-                        if (isEditing) ...[
-                          const SizedBox(height: 14),
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Is Active', style: TextStyle(fontSize: 14)),
-                            value: isActive,
-                            onChanged: (val) => setDialogState(() => isActive = val),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0284C7),
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          final name = nameController.text.trim();
-                          if (name.isEmpty) {
-                            AppToast.error(context, 'Category name cannot be empty.');
-                            return;
-                          }
-                          setDialogState(() => isSaving = true);
-                          final payload = <String, dynamic>{
-                            'name': name,
-                            'description': descController.text.trim(),
-                            'order': int.tryParse(orderController.text.trim()) ?? 0,
-                            'is_active': isActive,
-                          };
-                          if (parent != null && parent['id'] != null) {
-                            payload['parent_id'] = parent['id'];
-                          }
-
-                          final res = isEditing
-                              ? await _productService.updateCategory(category['id'] as int, payload)
-                              : await _productService.createCategory(payload);
-
-                          if (res['success'] == true) {
-                            if (mounted) {
-                              AppToast.success(
-                                context,
-                                isEditing
-                                    ? 'Category "$name" updated successfully.'
-                                    : 'Category "$name" created successfully.',
-                              );
-                              Navigator.pop(dialogCtx);
-                              await _loadCategories();
-                            }
-                          } else {
-                            setDialogState(() => isSaving = false);
-                            if (mounted) {
-                              AppToast.error(context, res['message'] ?? 'Unable to save category.');
-                            }
-                          }
-                        },
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : Text(isEditing ? 'Save Changes' : 'Create Category'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _archiveCategory(Map<String, dynamic> cat) async {
-    final catId = cat['id'] as int? ?? 0;
-    final name = cat['name']?.toString() ?? 'Category';
-
-    // Protect "Jar" or vital categories from accidental destruction
-    if (name.toLowerCase() == 'jar' || name.toLowerCase() == 'water jar') {
-      final overrideConfirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706)),
-              SizedBox(width: 8),
-              Text('Core Category Notice'),
-            ],
-          ),
-          content: const Text(
-            '"Jar" is a core system category for 20L water cans. Archiving it will affect jar tracking.\n\nAre you absolutely sure you want to proceed?',
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Proceed with Archive', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      );
-      if (overrideConfirm != true) return;
-    }
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Archive Category?'),
-        content: Text(
-          'Are you sure you want to archive "$name"?\n\n'
-          'Categories with active subcategories or active products cannot be archived.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Archive', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    final res = await _productService.deleteCategory(catId);
-    if (res['success'] == true) {
-      if (mounted) {
-        AppToast.success(context, 'Category "$name" archived successfully.');
-        await _loadCategories();
-      }
-    } else {
-      if (mounted) {
-        AppToast.error(context, res['message'] ?? 'Unable to archive category.');
-      }
-    }
   }
 }

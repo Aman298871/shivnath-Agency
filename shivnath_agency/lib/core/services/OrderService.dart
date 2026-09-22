@@ -293,6 +293,15 @@ class OrderService {
 
       'order_source': item['order_source']?.toString() ?? '',
 
+      'client_name': item['client_name']?.toString() ?? '',
+      'label_requirement': item['label_requirement']?.toString() ?? '',
+      'printing_requirement': item['printing_requirement']?.toString() ?? '',
+      'branding_requirement': item['branding_requirement']?.toString() ?? '',
+      'custom_shelf_life_days': item['custom_shelf_life_days'],
+      'total_produced_units': int.tryParse(item['total_produced_units']?.toString() ?? '0') ?? 0,
+      'total_delivered_units': int.tryParse(item['total_delivered_units']?.toString() ?? '0') ?? 0,
+      'total_pending_stock_units': int.tryParse(item['total_pending_stock_units']?.toString() ?? '0') ?? 0,
+
       'status_history': item['status_history'] is List ? item['status_history'] : [],
 
       'raw': item,

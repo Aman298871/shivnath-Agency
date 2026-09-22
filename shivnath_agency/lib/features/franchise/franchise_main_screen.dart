@@ -72,7 +72,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
         ),
         _FranchiseNavItem(
           index: 1,
-          title: 'Orders',
+          title: 'Customer Orders',
           icon: Icons.shopping_bag_outlined,
           selectedIcon: Icons.shopping_bag_rounded,
         ),
@@ -84,19 +84,13 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
         ),
         _FranchiseNavItem(
           index: 3,
-          title: 'Products',
+          title: 'Company Catalog',
           icon: Icons.inventory_2_outlined,
           selectedIcon: Icons.inventory_2_rounded,
         ),
         _FranchiseNavItem(
-          index: 4,
-          title: 'Product Categories',
-          icon: Icons.category_outlined,
-          selectedIcon: Icons.category_rounded,
-        ),
-        _FranchiseNavItem(
           index: 5,
-          title: 'Inventory',
+          title: 'My Stock',
           icon: Icons.warehouse_outlined,
           selectedIcon: Icons.warehouse_rounded,
         ),
@@ -106,22 +100,10 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       title: 'OPERATIONS',
       items: [
         _FranchiseNavItem(
-          index: 5,
-          title: 'Dealer Inventory',
-          icon: Icons.warehouse_outlined,
-          selectedIcon: Icons.warehouse_rounded,
-        ),
-        _FranchiseNavItem(
           index: 6,
           title: 'Stock Requests',
           icon: Icons.add_shopping_cart_outlined,
           selectedIcon: Icons.add_shopping_cart_rounded,
-        ),
-        _FranchiseNavItem(
-          index: 7,
-          title: '5 Official Variants',
-          icon: Icons.local_drink_outlined,
-          selectedIcon: Icons.local_drink_rounded,
         ),
         _FranchiseNavItem(
           index: 8,

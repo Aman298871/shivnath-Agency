@@ -13,6 +13,7 @@ from .views import (
     # ERP Views
     RawMaterialListCreateAPIView,
     ProductionBatchListCreateAPIView,
+    ProductionBatchCollectionAPIView,
     DealerStockBatchListAPIView,
     DealerStockRequestListCreateAPIView,
     DealerStockRequestDispatchAPIView,
@@ -43,6 +44,7 @@ urlpatterns = [
     # Authoritative Enterprise ERP endpoints
     path('raw-materials/', RawMaterialListCreateAPIView.as_view(), name='erp_raw_materials'),
     path('production-batches/', ProductionBatchListCreateAPIView.as_view(), name='erp_production_batches'),
+    path('production-batches/<int:pk>/collection/', ProductionBatchCollectionAPIView.as_view(), name='erp_production_batch_collection'),
     path('dealer-batches/', DealerStockBatchListAPIView.as_view(), name='erp_dealer_batches'),
     path('dealer-stock-requests/', DealerStockRequestListCreateAPIView.as_view(), name='erp_dealer_stock_requests'),
     path('dealer-stock-requests/<int:pk>/dispatch/', DealerStockRequestDispatchAPIView.as_view(), name='erp_dealer_stock_request_dispatch'),

@@ -99,7 +99,17 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
         _currentBOM = bomMap;
         final rawItems = bomMap['items'] ?? (decoded is Map ? decoded['items'] : null);
         if (rawItems is List && rawItems.isNotEmpty) {
-          _bomItems = List<Map<String, dynamic>>.from(rawItems);
+          final safeItems = <Map<String, dynamic>>[];
+          for (final it in rawItems) {
+            if (it is Map<String, dynamic>) {
+              safeItems.add(it);
+            } else if (it is Map) {
+              safeItems.add(Map<String, dynamic>.from(it));
+            }
+          }
+          _bomItems = safeItems.isNotEmpty
+              ? safeItems
+              : _getFallbackBOMItems(_selectedProduct?.name ?? '');
         } else {
           _bomItems = _getFallbackBOMItems(_selectedProduct?.name ?? '');
         }
@@ -452,14 +462,49 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
         else
           // Clean Vertical Cards (No horizontal scrolling)
           ..._bomItems.map((item) {
-            final id = item['id'];
-            final rmName = item['raw_material_name'] ?? item['raw_material']?['name'] ?? 'Material';
-            final rmSku = item['raw_material_sku'] ?? item['raw_material']?['sku'] ?? '';
-            final rmCategory = (item['raw_material_category'] ?? item['raw_material']?['category'] ?? '').toString();
-            final qtyReq = (item['quantity_required_per_unit'] ?? item['quantity_required'])?.toString() ?? '1';
-            final uom = item['raw_material_unit'] ?? item['unit_of_measure'] ?? item['raw_material']?['unit_of_measure'] ?? 'pcs';
-            final unitCost = double.tryParse((item['unit_cost_snapshot'] ?? item['unit_cost'])?.toString() ?? '0') ?? 0.0;
-            final costBasis = double.tryParse((item['calculated_cost_per_unit'] ?? item['cost_basis'])?.toString() ?? '0') ?? 0.0;
+            final id = (item['id'] is int)
+                ? (item['id'] as int)
+                : (int.tryParse(item['id']?.toString() ?? '0') ?? 0);
+
+            final rawMat = (item['raw_material'] is Map)
+                ? item['raw_material'] as Map<String, dynamic>
+                : null;
+            final rawMatId = (item['raw_material'] is int)
+                ? item['raw_material'] as int
+                : int.tryParse(item['raw_material']?.toString() ?? '');
+            final matchedRm = rawMatId != null
+                ? _rawMaterials.firstWhere(
+                    (rm) => rm['id'] == rawMatId,
+                    orElse: () => <String, dynamic>{},
+                  )
+                : <String, dynamic>{};
+
+            final rmName = item['raw_material_name'] ??
+                rawMat?['name'] ??
+                matchedRm['name'] ??
+                'Material';
+            final rmSku = item['raw_material_sku'] ??
+                rawMat?['sku'] ??
+                matchedRm['code'] ??
+                matchedRm['sku'] ??
+                '';
+            final rmCategory = (item['raw_material_category'] ??
+                rawMat?['category'] ??
+                matchedRm['category'] ??
+                '').toString();
+            final qtyReq = (item['quantity_required_per_unit'] ??
+                item['quantity_required'])?.toString() ?? '1';
+            final uom = item['raw_material_unit'] ??
+                item['unit_of_measure'] ??
+                rawMat?['unit_of_measure'] ??
+                matchedRm['unit_of_measure'] ??
+                'pcs';
+            final unitCost = double.tryParse((item['unit_cost_snapshot'] ??
+                item['unit_cost'] ??
+                matchedRm['unit_cost'])?.toString() ?? '0') ?? 0.0;
+            final costBasis = double.tryParse((item['calculated_cost_per_unit'] ??
+                item['cost_basis'])?.toString() ?? '0') ??
+                (unitCost * (double.tryParse(qtyReq) ?? 1.0));
 
             Color catColor = const Color(0xFF0284C7);
             Color catBg = const Color(0xFFF0F9FF);

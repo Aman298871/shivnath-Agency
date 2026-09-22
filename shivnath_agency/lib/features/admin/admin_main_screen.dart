@@ -244,6 +244,12 @@ Widget _currentScreen() {
         onOpenLeads: () => _selectMenu(1),
         onOpenFollowups: () => _selectMenu(2),
         onOpenFranchises: () => _selectMenu(3),
+        onOpenInventory: () => _selectMenu(4),
+        onOpenProducts: () => _selectMenu(5),
+        onOpenOrders: () => _selectMenu(7),
+        onOpenChatbot: () => _selectMenu(10),
+        onOpenQuotations: () => _selectMenu(11),
+        onOpenUsers: () => _selectMenu(14),
         onOpenNotifications: () => _selectMenu(15),
       );
   }

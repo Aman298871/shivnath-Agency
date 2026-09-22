@@ -49,20 +49,57 @@ def record_raw_material_purchase_receipt(purchase_order, actor=None):
 
 
 @transaction.atomic
-def create_production_batch_atomic(product_id, quantity_produced_units, manufacture_date=None, expiry_date=None, batch_number=None, actor=None):
+def create_production_batch_atomic(
+    product_id,
+    quantity_produced_units,
+    manufacture_date=None,
+    expiry_date=None,
+    batch_number=None,
+    shelf_life_days=None,
+    client_name=None,
+    linked_order=None,
+    label_requirement=None,
+    printing_requirement=None,
+    branding_requirement=None,
+    actor=None
+):
     """
     Validates raw material availability based on BOM recipe,
     deducts raw material stocks via PRODUCTION_CONSUMPTION,
-    creates the ProductionBatch, and logs PRODUCTION_IN finished goods entry atomically.
+    creates the ProductionBatch with configurable shelf-life and client bulk specifications,
+    and logs PRODUCTION_IN finished goods entry atomically.
     """
     product = Product.objects.select_for_update().get(id=product_id)
     now_date = timezone.now().date()
     mfg_date = manufacture_date or now_date
-    exp_date = expiry_date or (mfg_date + datetime.timedelta(days=product.shelf_life_days))
+
+    # Shelf-life must be configurable per product/batch, never hardcoded.
+    effective_shelf_life = (
+        int(shelf_life_days)
+        if shelf_life_days is not None and int(shelf_life_days) > 0
+        else (product.shelf_life_days or 180)
+    )
+    exp_date = expiry_date or (mfg_date + datetime.timedelta(days=effective_shelf_life))
 
     if not batch_number:
         count = ProductionBatch.objects.filter(product=product).count() + 1
         batch_number = f"PB-{mfg_date.strftime('%Y%m')}-{product.sku}-{count:03d}"
+
+    # Resolve linked order if passed as ID
+    order_instance = None
+    if linked_order:
+        if isinstance(linked_order, Order):
+            order_instance = linked_order
+        else:
+            try:
+                order_instance = Order.objects.select_for_update().get(id=linked_order)
+            except Order.DoesNotExist:
+                order_instance = None
+
+    # Resolve client name
+    resolved_client_name = client_name or ''
+    if not resolved_client_name and order_instance:
+        resolved_client_name = order_instance.client_name or order_instance.franchise_name or ''
 
     # Verify BOM Recipe
     try:
@@ -106,15 +143,30 @@ def create_production_batch_atomic(product_id, quantity_produced_units, manufact
     batch = ProductionBatch.objects.create(
         batch_number=batch_number,
         product=product,
+        client_name=resolved_client_name,
+        linked_order=order_instance,
+        label_requirement=label_requirement or (order_instance.label_requirement if order_instance else ''),
+        printing_requirement=printing_requirement or (order_instance.printing_requirement if order_instance else ''),
+        branding_requirement=branding_requirement or (order_instance.branding_requirement if order_instance else ''),
+        shelf_life_days=effective_shelf_life,
         manufacture_date=mfg_date,
         expiry_date=exp_date,
         quantity_produced_units=quantity_produced_units,
         quantity_remaining_company=quantity_produced_units,
         reserved_quantity=0,
+        quantity_dispatched=0,
         unit_production_cost=unit_prod_cost,
         status='ACTIVE',
         created_by=actor
     )
+
+    # If linked to an order, update order production totals
+    if order_instance:
+        order_instance.total_produced_units += quantity_produced_units
+        order_instance.total_pending_stock_units = max(0, order_instance.total_produced_units - order_instance.total_delivered_units)
+        if order_instance.status in ['order_placement', 'plant_approval']:
+            order_instance.status = 'preparing'
+        order_instance.save()
 
     # 4. Log PRODUCTION_IN finished goods
     InventoryTransactionLedger.objects.create(
@@ -129,10 +181,87 @@ def create_production_batch_atomic(product_id, quantity_produced_units, manufact
         reference_type='PRODUCTION_BATCH',
         reference_id=batch_number,
         actor=actor,
-        notes=f"Manufactured {quantity_produced_units} units of {product.name}"
+        notes=f"Manufactured {quantity_produced_units} units of {product.name} (Client: {resolved_client_name or 'General'})"
     )
 
     return batch
+
+
+@transaction.atomic
+def record_batch_collection_atomic(batch_id, quantity_collected, client_name=None, notes=None, actor=None):
+    """
+    Authoritative handler for customer/dealer partial collection or dispatch from a ProductionBatch.
+    Example:
+      - Digital Marketing Wala places order for 5,000 units.
+      - Batch produces 5,000 units.
+      - Customer collects 2,000 units.
+      - Remaining 3,000 units STAY as company pending stock attached to this batch.
+    Updates batch.quantity_dispatched, batch.quantity_remaining_company, and writes an immutable ledger entry.
+    """
+    batch = ProductionBatch.objects.select_for_update().get(id=batch_id)
+    qty = int(quantity_collected)
+
+    if qty <= 0:
+        raise ValidationError("Quantity collected must be greater than zero.")
+
+    if qty > batch.quantity_remaining_company:
+        raise ValidationError(
+            f"Cannot collect {qty} units. Only {batch.quantity_remaining_company} units remaining in company stock."
+        )
+
+    # 1. Update batch counters
+    batch.quantity_dispatched += qty
+    batch.quantity_remaining_company -= qty
+    if batch.quantity_remaining_company == 0:
+        batch.status = 'DEPLETED'
+    batch.save()
+
+    # 2. Update linked order if present
+    order = batch.linked_order
+    if order:
+        order = Order.objects.select_for_update().get(id=order.id)
+        order.total_delivered_units += qty
+        order.total_pending_stock_units = max(0, order.total_produced_units - order.total_delivered_units)
+        if order.total_delivered_units >= order.total_produced_units and order.total_produced_units > 0:
+            order.status = 'delivered'
+            order.delivered_at = timezone.now()
+        else:
+            order.status = 'dispatch'
+        order.save()
+
+    # 3. Log authoritative inventory ledger entry
+    collector = client_name or batch.client_name or 'Customer / Dealer'
+    audit_notes = (
+        f"Collection/Dispatch of {qty} units by {collector}. "
+        f"Produced: {batch.quantity_produced_units}, Dispatched: {batch.quantity_dispatched}, "
+        f"Pending in company stock: {batch.quantity_remaining_company} units. "
+        f"{notes or ''}"
+    ).strip()
+
+    InventoryTransactionLedger.objects.create(
+        transaction_type='STOCK_TRANSFER_OUT',
+        material_type='FINISHED_GOODS',
+        location_type='COMPANY_WAREHOUSE',
+        product=batch.product,
+        production_batch=batch,
+        quantity=-Decimal(qty),
+        balance_after=Decimal(batch.quantity_remaining_company),
+        unit_cost_or_price=batch.unit_production_cost,
+        reference_type='CUSTOMER_COLLECTION',
+        reference_id=batch.batch_number,
+        actor=actor,
+        notes=audit_notes
+    )
+
+    return {
+        'batch': batch,
+        'quantity_collected': qty,
+        'quantity_produced': batch.quantity_produced_units,
+        'quantity_dispatched': batch.quantity_dispatched,
+        'quantity_remaining_company': batch.quantity_remaining_company,
+        'pending_stock': batch.quantity_pending_collection,
+        'order_status': order.status if order else None
+    }
 
 
 @transaction.atomic

@@ -114,6 +114,54 @@ class ProductionBatch(models.Model):
         default=0.00,
         help_text="Frozen BOM unit production cost snapshot at manufacture time"
     )
+    client_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Customer / client name for bulk custom order (e.g. Digital Marketing Wala)"
+    )
+    linked_order = models.ForeignKey(
+        'orders.Order',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='production_batches',
+        help_text="Linked Customer / Client Bulk Order"
+    )
+    label_requirement = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Custom label / sticker requirement"
+    )
+    printing_requirement = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Printing / branding specification"
+    )
+    branding_requirement = models.TextField(
+        blank=True,
+        default='',
+        help_text="Branding notes / instructions"
+    )
+    shelf_life_days = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Configured shelf life in days for this batch (Expiry = Mfg + Shelf Life)"
+    )
+    quantity_dispatched = models.PositiveIntegerField(
+        default=0,
+        help_text="Quantity collected / taken / dispatched by client or dealer"
+    )
+    quantity_damaged = models.PositiveIntegerField(
+        default=0,
+        help_text="Quantity damaged or spoiled"
+    )
+    quantity_returned = models.PositiveIntegerField(
+        default=0,
+        help_text="Quantity returned"
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -135,6 +183,30 @@ class ProductionBatch(models.Model):
 
     def __str__(self):
         return f"{self.batch_number} - {self.product.name} (Rem: {self.quantity_remaining_company}, Res: {self.reserved_quantity}, Exp: {self.expiry_date})"
+
+    @property
+    def quantity_allocated(self):
+        return self.reserved_quantity
+
+    @property
+    def quantity_taken(self):
+        return self.quantity_dispatched
+
+    @property
+    def quantity_pending_collection(self):
+        """
+        Quantity remaining to be collected by client / customer.
+        Example: Produced 5,000 - Taken 2,000 = 3,000 Pending.
+        """
+        return max(0, self.quantity_produced_units - self.quantity_dispatched - self.quantity_damaged)
+
+    @property
+    def dynamic_remaining_company(self):
+        """
+        Dynamically calculated remaining stock in central company warehouse:
+        Produced - Dispatched - Damaged + Returned
+        """
+        return max(0, self.quantity_produced_units - self.quantity_dispatched - self.quantity_damaged + self.quantity_returned)
 
     @property
     def available_quantity(self):

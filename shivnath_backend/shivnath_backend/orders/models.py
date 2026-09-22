@@ -164,6 +164,54 @@ class Order(models.Model):
         help_text="Full delivery address for this order."
     )
 
+    client_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Direct client / company name placing bulk requirement (e.g. Digital Marketing Wala)"
+    )
+
+    label_requirement = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Customer custom label/sticker requirement"
+    )
+
+    printing_requirement = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Customer printing/branding specification"
+    )
+
+    branding_requirement = models.TextField(
+        blank=True,
+        default='',
+        help_text="Customer branding & design instructions"
+    )
+
+    custom_shelf_life_days = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Configured shelf life in days requested for this order"
+    )
+
+    total_produced_units = models.PositiveIntegerField(
+        default=0,
+        help_text="Total units manufactured for this bulk order across batches"
+    )
+
+    total_delivered_units = models.PositiveIntegerField(
+        default=0,
+        help_text="Total units collected / delivered to customer so far"
+    )
+
+    total_pending_stock_units = models.PositiveIntegerField(
+        default=0,
+        help_text="Remaining units still held in company stock pending customer collection"
+    )
+
     delivered_at = models.DateTimeField(
         null=True,
         blank=True,

@@ -89,23 +89,23 @@ class _FranchiseProductsScreenState
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogStateContext, setDialogState) {
             final totalAmount = quantity * product.price;
 
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              title: Row(
+              title: const Row(
                 children: [
-                  const Icon(Icons.shopping_bag_outlined, color: Color(0xFF0284C7)),
-                  const SizedBox(width: 8),
-                  const Text('Place Plant Order', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                  Icon(Icons.shopping_bag_outlined, color: Color(0xFF0284C7)),
+                  SizedBox(width: 8),
+                  Text('Request Stock from Plant', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                 ],
               ),
               content: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  maxWidth: MediaQuery.of(dialogStateContext).size.width * 0.9,
                 ),
                 child: SingleChildScrollView(
                   child: Column(
@@ -184,7 +184,7 @@ class _FranchiseProductsScreenState
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        '• Order will be sent to the bottling plant for approval.',
+                        '• Stock request will be sent to company admin for review and dispatch.',
                         style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
                       ),
                     ],
@@ -226,22 +226,12 @@ class _FranchiseProductsScreenState
                           if (res['success'] == true) {
                             Navigator.pop(dialogContext);
                             if (mounted) {
-                              ScaffoldMessenger.of(context)
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(
-                                  SnackBar(
-                                    content: Text('Order of $quantity x ${product.name} placed successfully!'),
-                                    backgroundColor: const Color(0xFF0284C7),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
+                              AppToast.success(context, 'Stock request of $quantity x ${product.name} submitted successfully!');
                             }
                           } else {
                             setDialogState(() => isSubmitting = false);
-                            final msg = res['message'] ?? 'Unable to place order.';
-                            ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red),
-                            );
+                            final msg = res['message'] ?? 'Unable to submit stock request.';
+                            AppToast.error(dialogContext, msg.toString());
                           }
                         },
                   child: isSubmitting
@@ -250,7 +240,7 @@ class _FranchiseProductsScreenState
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Confirm Order'),
+                      : const Text('Submit Stock Request'),
                 ),
               ],
             );
@@ -263,196 +253,6 @@ class _FranchiseProductsScreenState
     notesController.dispose();
   }
 
-  Future<void> _openProductFormDialog({ProductModel? product}) async {
-    final bool editing = product != null;
-    final nameController = TextEditingController(text: product?.name ?? '');
-    final skuController = TextEditingController(text: 'SKU-${DateTime.now().millisecondsSinceEpoch % 10000}');
-    final sizeController = TextEditingController(text: product?.size ?? '20 Litre');
-    final priceController = TextEditingController(text: product != null ? product.price.toStringAsFixed(0) : '35');
-    final unitController = TextEditingController(text: product?.unit ?? 'Jar');
-    final stockController = TextEditingController(text: product?.stock.toString() ?? '50');
-    final descController = TextEditingController(text: product?.description ?? '');
-    int? catId = product?.categoryRefId;
-    String status = 'Active';
-    bool isSaving = false;
-
-    await showDialog(
-      context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Icon(editing ? Icons.edit_note_rounded : Icons.add_box_rounded, color: const Color(0xFF0284C7)),
-              const SizedBox(width: 8),
-              Text(editing ? 'Edit Product' : 'Add Product', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-            ],
-          ),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(ctx).size.width * 0.9),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Product Name *', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: skuController,
-                          decoration: const InputDecoration(labelText: 'SKU *', border: OutlineInputBorder()),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: sizeController,
-                          decoration: const InputDecoration(labelText: 'Size / Volume *', border: OutlineInputBorder()),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int?>(
-                    value: catId,
-                    decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
-                    items: _categoryItems.map((c) => DropdownMenuItem<int?>(
-                      value: c['id'] as int?,
-                      child: Text(c['name']?.toString() ?? 'All', overflow: TextOverflow.ellipsis),
-                    )).toList(),
-                    onChanged: (val) => setDlgState(() => catId = val),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: priceController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Price (₹) *', border: OutlineInputBorder()),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: unitController,
-                          decoration: const InputDecoration(labelText: 'Unit (Jar/Bottle) *', border: OutlineInputBorder()),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: stockController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Stock Qty', border: OutlineInputBorder()),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: status,
-                          decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
-                          items: const [
-                            DropdownMenuItem(value: 'Active', child: Text('Active')),
-                            DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) setDlgState(() => status = val);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: isSaving ? null : () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7), foregroundColor: Colors.white),
-              onPressed: isSaving ? null : () async {
-                final name = nameController.text.trim();
-                final sku = skuController.text.trim();
-                final size = sizeController.text.trim();
-                final price = double.tryParse(priceController.text.trim()) ?? 0.0;
-                final unit = unitController.text.trim().isEmpty ? 'Jar' : unitController.text.trim();
-                final stock = int.tryParse(stockController.text.trim()) ?? 0;
-                final desc = descController.text.trim();
-
-                if (name.isEmpty) {
-                  AppToast.error(ctx, 'Please enter product name');
-                  return;
-                }
-
-                setDlgState(() => isSaving = true);
-                final Map<String, dynamic> payload = {
-                  'name': name,
-                  'sku': sku.isEmpty ? 'SKU-${name.substring(0, 2).toUpperCase()}' : sku,
-                  'size': size.isEmpty ? '20 Litre' : size,
-                  'price': price,
-                  'unit': unit,
-                  'stock': stock,
-                  'description': desc,
-                  'status': status,
-                };
-                if (catId != null) {
-                  payload['category_ref_id'] = catId;
-                }
-
-                final prodIdInt = int.tryParse(product?.id ?? '') ?? 0;
-                Map<String, dynamic> res;
-                if (editing && prodIdInt > 0) {
-                  res = await ProductService().updateProduct(prodIdInt, payload);
-                } else {
-                  res = await ProductService().createProduct(payload);
-                }
-
-                if (!dialogCtx.mounted) return;
-                setDlgState(() => isSaving = false);
-
-                if (res['success'] == true) {
-                  Navigator.pop(dialogCtx);
-                  await _fetchProducts();
-                  if (mounted) {
-                    AppToast.success(context, editing ? 'Product updated successfully!' : 'Product added successfully!');
-                  }
-                } else {
-                  AppToast.error(dialogCtx, res['message'] ?? 'Failed to save product');
-                }
-              },
-              child: isSaving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text(editing ? 'Save Changes' : 'Create Product'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    nameController.dispose();
-    skuController.dispose();
-    sizeController.dispose();
-    priceController.dispose();
-    unitController.dispose();
-    stockController.dispose();
-    descController.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -471,12 +271,12 @@ class _FranchiseProductsScreenState
           appBar: desktop
               ? null
               : AppBar(
-                  title: const Text('Products'),
+                  title: const Text('Company Catalog'),
                   actions: [
                     IconButton(
-                      tooltip: 'Add Product',
-                      icon: const Icon(Icons.add_rounded),
-                      onPressed: () => _openProductFormDialog(),
+                      tooltip: 'Refresh Products',
+                      icon: const Icon(Icons.refresh_rounded),
+                      onPressed: () => _fetchProducts(),
                     ),
                   ],
                 ),
@@ -493,7 +293,7 @@ class _FranchiseProductsScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Products',
+                            'Company Catalog',
                             style: TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w800,
@@ -501,7 +301,7 @@ class _FranchiseProductsScreenState
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'View products and franchise pricing.',
+                            'Official company products and wholesale dealer pricing. Select products to request stock.',
                             style: TextStyle(
                               color: Color(0xFF64748B),
                             ),
@@ -515,9 +315,9 @@ class _FranchiseProductsScreenState
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        onPressed: () => _openProductFormDialog(),
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Add Product'),
+                        onPressed: () => _fetchProducts(),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Refresh Catalog'),
                       ),
                     ],
                   ),
@@ -648,27 +448,6 @@ class _FranchiseProductsScreenState
                                                       color: const Color(0xFF0284C7),
                                                     ),
                                                   ),
-                                                  Positioned(
-                                                    top: 4,
-                                                    right: 4,
-                                                    child: InkWell(
-                                                      onTap: () => _openProductFormDialog(product: product),
-                                                      child: Container(
-                                                        padding: const EdgeInsets.all(4),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.white,
-                                                          shape: BoxShape.circle,
-                                                          boxShadow: [
-                                                            BoxShadow(
-                                                              color: Colors.black.withOpacity(0.08),
-                                                              blurRadius: 4,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        child: const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF0284C7)),
-                                                      ),
-                                                    ),
-                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -744,7 +523,7 @@ class _FranchiseProductsScreenState
                                               ),
                                               onPressed: () => _openOrderDialog(product),
                                               icon: const Icon(Icons.add_shopping_cart, size: 15),
-                                              label: const Text('Order', style: TextStyle(fontSize: 12)),
+                                              label: const Text('Request Stock', style: TextStyle(fontSize: 12)),
                                             ),
                                           ),
                                         ],

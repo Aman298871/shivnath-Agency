@@ -499,15 +499,21 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
   }
 
   void _showInitialTerritoryDialog() async {
+    BuildContext? dialogContext;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7))),
+      builder: (ctx) {
+        dialogContext = ctx;
+        return const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)));
+      },
     );
 
     final masterRes = await _authService.getTerritoryMaster();
+    if (dialogContext != null && dialogContext!.mounted) {
+      Navigator.pop(dialogContext!);
+    }
     if (!mounted) return;
-    Navigator.pop(context);
 
     List<Map<String, dynamic>> districts = [];
     if (masterRes['success'] == true && masterRes['data'] is Map && masterRes['data']['districts'] is List) {

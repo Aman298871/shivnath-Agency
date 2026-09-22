@@ -114,4 +114,40 @@ class IsAdminOrSalesExecutiveRole(BasePermission):
         if request.user.is_superuser:
             return True
         profile = getattr(request.user, 'profile', None)
-        return profile is not None and profile.role in ['admin', 'super_admin', 'sales_executive']
+        return profile is not None and profile.role in ['admin', 'super_admin', 'sales_executive']
+
+
+class IsProductMasterAdmin(BasePermission):
+    """
+    Strict permission to guard Company Product Master data.
+    Wholesale Dealers (Franchise role), Sales Executives, and Customers
+    are strictly forbidden from creating, updating, or deleting:
+    - Products
+    - Categories
+    - BOM Recipes & BOM items
+    - Company-wide Pricing & MRP
+    - Raw Materials
+    - Production Batches
+
+    Only Super Admin and authorized Admins are permitted.
+    Attempts by Franchise/Wholesale Dealer will be rejected with HTTP 403 Forbidden.
+    """
+    message = "Permission Denied: Wholesale Dealers (Franchise) cannot create, update, or delete Product Master data. Products and master catalog are managed exclusively by Company Administration."
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if request.user.is_superuser:
+            return True
+
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return False
+
+        if profile.role == 'franchise':
+            self.message = "Permission Denied: Wholesale Dealers (Franchise) cannot create, update, or delete Product Master data. Products and master catalog are managed exclusively by Company Administration."
+            return False
+
+        return profile.role in ['admin', 'super_admin']
+

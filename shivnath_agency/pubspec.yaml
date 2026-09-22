@@ -35,10 +35,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Assets hum baad me add karenge.
-  # Jab logo/product images add karenge tab uncomment karna:
-  #
-  # assets:
-  #   - assets/images/
-  #   - assets/icons/
-  #   - assets/logos/
+  assets:
+    - assets/images/

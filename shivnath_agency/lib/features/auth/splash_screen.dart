@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/services/session_service.dart';
+import '../../core/theme/brand_colors.dart';
 import '../../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -21,7 +22,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkSession() async {
-    await Future.delayed(const Duration(seconds: 2));
+    // Smooth splash dwell time for brand display
+    await Future.delayed(const Duration(milliseconds: 2200));
 
     final user = await _sessionService.getUser();
 
@@ -32,7 +34,6 @@ class _SplashScreenState extends State<SplashScreen> {
         context,
         AppRoutes.roleSelection,
       );
-
       return;
     }
 
@@ -46,7 +47,9 @@ class _SplashScreenState extends State<SplashScreen> {
         context,
         AppRoutes.franchiseDashboard,
       );
-    } else if (user.role == AppConstants.adminRole) {
+    } else if (user.role == AppConstants.adminRole ||
+        user.role == AppConstants.superAdminRole ||
+        user.role == AppConstants.salesExecutiveRole) {
       Navigator.pushReplacementNamed(
         context,
         AppRoutes.adminDashboard,
@@ -62,54 +65,54 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0284C7),
-              Color(0xFF06B6D4),
-            ],
-          ),
-        ),
-        child: const SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: 48,
-                backgroundColor: Colors.white,
-                child: Icon(
-                  Icons.water_drop_rounded,
-                  size: 54,
-                  color: Color(0xFF0284C7),
+      backgroundColor: BrandColors.white,
+      body: SizedBox.expand(
+        child: Image.asset(
+          'assets/images/splash_branding.png',
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            // High quality vector fallback if asset loading encounters any platform hiccup
+            return Container(
+              color: BrandColors.white,
+              child: const SafeArea(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircleAvatar(
+                        radius: 54,
+                        backgroundColor: BrandColors.blueSoft,
+                        child: Icon(
+                          Icons.water_drop_rounded,
+                          size: 58,
+                          color: BrandColors.primaryBlue,
+                        ),
+                      ),
+                      SizedBox(height: 24),
+                      Text(
+                        'shivnath_agency',
+                        style: TextStyle(
+                          color: BrandColors.textPrimary,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Water Business Management',
+                        style: TextStyle(
+                          color: BrandColors.textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              SizedBox(height: 22),
-              Text(
-                'shivnath_agency',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Water Business Management',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
-              ),
-              SizedBox(height: 40),
-              CircularProgressIndicator(
-                color: Colors.white,
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

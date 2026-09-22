@@ -76,7 +76,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       ),
       const _AdminMenuItem(
         index: 3,
-        title: 'Franchises',
+        title: 'Wholesale Dealers',
         icon: Icons.storefront_outlined,
       ),
       const _AdminMenuItem(
@@ -621,13 +621,41 @@ Widget _currentScreen() {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Shivnath Agency',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      Row(
+                        children: [
+                          const Text(
+                            'Shivnath Agency',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.6),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: const Text(
+                              'ADMIN',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFFCA5A5),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       Text(
                         _currentUser?.roleDisplay.isNotEmpty == true

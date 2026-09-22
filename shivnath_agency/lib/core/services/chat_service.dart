@@ -224,10 +224,10 @@ class ChatService {
         data.forEach((k, v) {
           if (v != null) request.fields[k] = v.toString();
         });
-        if (pdfFilePath != null && pdfFilePath.isNotEmpty) {
-          request.files.add(await http.MultipartFile.fromPath('pdf_file', pdfFilePath, filename: pdfFileName));
-        } else if (pdfBytes != null) {
+        if (pdfBytes != null && pdfBytes.isNotEmpty) {
           request.files.add(http.MultipartFile.fromBytes('pdf_file', pdfBytes, filename: pdfFileName ?? 'quotation.pdf'));
+        } else if (pdfFilePath != null && pdfFilePath.isNotEmpty) {
+          request.files.add(await http.MultipartFile.fromPath('pdf_file', pdfFilePath, filename: pdfFileName));
         }
         final streamed = await request.send().timeout(const Duration(seconds: 20));
         final response = await http.Response.fromStream(streamed);
@@ -265,10 +265,10 @@ class ChatService {
         });
         if (removePdf) {
           request.fields['remove_pdf'] = 'true';
+        } else if (pdfBytes != null && pdfBytes.isNotEmpty) {
+          request.files.add(http.MultipartFile.fromBytes('pdf_file', pdfBytes, filename: pdfFileName ?? 'quotation.pdf'));
         } else if (pdfFilePath != null && pdfFilePath.isNotEmpty) {
           request.files.add(await http.MultipartFile.fromPath('pdf_file', pdfFilePath, filename: pdfFileName));
-        } else if (pdfBytes != null) {
-          request.files.add(http.MultipartFile.fromBytes('pdf_file', pdfBytes, filename: pdfFileName ?? 'quotation.pdf'));
         }
         final streamed = await request.send().timeout(const Duration(seconds: 20));
         final response = await http.Response.fromStream(streamed);

@@ -118,6 +118,9 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: mobileIndex,
+        indicatorColor: const Color(0xFFE0F2FE),
+        backgroundColor: Colors.white,
+        elevation: 3,
         onDestinationSelected: (index) {
           setState(() {
             currentIndex = index;
@@ -126,27 +129,27 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
+            selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF0284C7)),
             label: 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.local_mall_outlined),
-            selectedIcon: Icon(Icons.local_mall),
+            selectedIcon: Icon(Icons.local_mall, color: Color(0xFF0284C7)),
             label: 'Products',
           ),
           NavigationDestination(
             icon: Icon(Icons.shopping_cart_outlined),
-            selectedIcon: Icon(Icons.shopping_cart),
+            selectedIcon: Icon(Icons.shopping_cart, color: Color(0xFF0284C7)),
             label: 'Cart',
           ),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
+            selectedIcon: Icon(Icons.receipt_long, color: Color(0xFF0284C7)),
             label: 'Orders',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
+            selectedIcon: Icon(Icons.person_rounded, color: Color(0xFF0284C7)),
             label: 'Profile',
           ),
         ],

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/OrderService.dart';
+import '../../../core/widgets/app_components.dart';
 import 'order_detail_screen.dart';
 
 class CustomerOrdersScreen extends StatefulWidget {
@@ -287,21 +288,31 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                     Color(0xFF0284C7),
               ),
             ),
-            title: Text(
-              '#${order['id']}',
-              style: const TextStyle(
-                fontWeight:
-                    FontWeight.w800,
-              ),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '#${order['id']}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  order['amount']!,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
-            subtitle: Text(
-              '${order['date']} • ${order['status']}',
-            ),
-            trailing: Text(
-              order['amount']!,
-              style: const TextStyle(
-                fontWeight:
-                    FontWeight.w800,
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 6.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('${order['date']}'),
+                  AppStatusBadge.order(order['status']),
+                ],
               ),
             ),
             onTap: () {
@@ -488,8 +499,9 @@ class _DesktopOrderRow
             ),
 
             Expanded(
-              child: Text(
-                order['status']!,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: AppStatusBadge.order(order['status']),
               ),
             ),
 

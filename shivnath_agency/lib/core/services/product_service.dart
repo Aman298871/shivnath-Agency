@@ -69,8 +69,16 @@ class ProductService {
 
 final result = _decode(response);
 
-      if (result["success"] == true && result["data"] is Map) {
-        final rawList = result["data"]["products"];
+      if (result["success"] == true) {
+        dynamic rawList;
+        if (result["products"] is List) {
+          rawList = result["products"];
+        } else if (result["data"] is Map && result["data"]["products"] is List) {
+          rawList = result["data"]["products"];
+        } else if (result["data"] is List) {
+          rawList = result["data"];
+        }
+
         if (rawList is List) {
           products = rawList
               .whereType<Map>()

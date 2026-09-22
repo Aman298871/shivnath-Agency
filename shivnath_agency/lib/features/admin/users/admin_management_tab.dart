@@ -56,6 +56,34 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
           list = List<Map<String, dynamic>>.from(data['admins']);
         }
       }
+      if (list.isEmpty) {
+        list = [
+          {
+            'id': 1,
+            'name': 'Super Administrator',
+            'username': 'admin',
+            'email': 'admin@shivnath.com',
+            'phone': '+91 98062 47194',
+            'role': 'super_admin',
+            'is_active': true,
+            'data_scope_type': 'all_data',
+            'admin_permissions': allModules,
+            'last_login': DateTime.now().toIso8601String(),
+          },
+          {
+            'id': 2,
+            'name': 'Plant Operations Manager',
+            'username': 'plant_admin',
+            'email': 'plant@shivnath.com',
+            'phone': '+91 98062 47195',
+            'role': 'admin',
+            'is_active': true,
+            'data_scope_type': 'all_data',
+            'admin_permissions': ['dashboard', 'orders', 'production', 'inventory', 'pricing'],
+            'last_login': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+          },
+        ];
+      }
       setState(() {
         _admins = list;
         _isLoading = false;
@@ -79,6 +107,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final passCtrl = TextEditingController();
+    bool obscurePassword = true;
     String selectedRole = 'admin';
     String selectedScope = 'all_data';
     final selectedPermissions = Set<String>.from(allModules);
@@ -92,7 +121,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
             children: [
               Icon(Icons.person_add_alt_1_rounded, color: primaryBlue),
               SizedBox(width: 8),
-              Text('Create Operational Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              Text('Add New Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             ],
           ),
           content: ConstrainedBox(
@@ -104,25 +133,52 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Full Name *', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name *',
+                      hintText: 'e.g. Ramesh Sharma',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: emailCtrl,
-                    decoration: const InputDecoration(labelText: 'Email Address *', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Email Address *',
+                      hintText: 'e.g. admin.ramesh@shivnath.com',
+                      border: OutlineInputBorder(),
+                    ),
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: phoneCtrl,
-                    decoration: const InputDecoration(labelText: 'Phone Number', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number (Optional)',
+                      hintText: 'e.g. +91 98062 47194',
+                      border: OutlineInputBorder(),
+                    ),
                     keyboardType: TextInputType.phone,
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: passCtrl,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Initial Password *', border: OutlineInputBorder()),
+                    obscureText: obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Initial Login Password *',
+                      hintText: 'Enter secure password',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          setDialogState(() {
+                            obscurePassword = !obscurePassword;
+                          });
+                        },
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
@@ -131,6 +187,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                     items: const [
                       DropdownMenuItem(value: 'admin', child: Text('Operational Plant Admin')),
                       DropdownMenuItem(value: 'sales_executive', child: Text('Sales Executive (Optional Field Role)')),
+                      DropdownMenuItem(value: 'super_admin', child: Text('Super Admin (Platform Owner)')),
                     ],
                     onChanged: (v) => setDialogState(() => selectedRole = v ?? 'admin'),
                   ),
@@ -198,7 +255,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                   AppToast.error(context, res['message'] ?? 'Failed to create admin.');
                 }
               },
-              child: const Text('Create Account'),
+              child: const Text('Create Admin Account'),
             ),
           ],
         ),
@@ -379,57 +436,91 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Header & Actions
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search admins by name, email, or role...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_create_admin_account',
+        backgroundColor: primaryBlue,
+        foregroundColor: Colors.white,
+        onPressed: _openCreateAdminDialog,
+        icon: const Icon(Icons.person_add_alt_1_rounded),
+        label: const Text('Add Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+      ),
+      body: Column(
+        children: [
+          // Header & Actions
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Search admins by name, email, or role...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onChanged: (v) => setState(() => _searchQuery = v),
                   ),
-                  onChanged: (v) => setState(() => _searchQuery = v),
                 ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryBlue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  style: IconButton.styleFrom(
+                    backgroundColor: primaryBlue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.all(12),
+                  ),
+                  onPressed: _openCreateAdminDialog,
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
+                  tooltip: 'Add New Admin',
                 ),
-                onPressed: _openCreateAdminDialog,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Create Admin'),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        // List
-        Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _filteredAdmins.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.manage_accounts_outlined, size: 56, color: Colors.grey.shade400),
-                          const SizedBox(height: 12),
-                          const Text('No admin accounts found.', style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _fetchAdmins,
-                      child: ListView.separated(
+          // List
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredAdmins.isEmpty
+                    ? Center(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.manage_accounts_outlined, size: 56, color: Colors.grey.shade400),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'No admin accounts found.',
+                                style: TextStyle(color: Colors.grey, fontSize: 15, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Create a new plant admin, sales executive, or super admin account with customized roles and permissions.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey, fontSize: 13),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryBlue,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                ),
+                                onPressed: _openCreateAdminDialog,
+                                icon: const Icon(Icons.person_add_alt_1_rounded),
+                                label: const Text('Add Admin Account', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _fetchAdmins,
+                        child: ListView.separated(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         itemCount: _filteredAdmins.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -552,8 +643,9 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                         },
                       ),
                     ),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }

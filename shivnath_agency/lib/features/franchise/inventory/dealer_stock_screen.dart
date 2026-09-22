@@ -291,16 +291,16 @@ class _DealerStockScreenState extends State<DealerStockScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: const Color(0xFFFFFBEB),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.red.shade200),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
                 ),
                 child: const Text(
                   'LOW STOCK',
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
-                    color: Colors.red,
+                    color: Color(0xFFD97706),
                   ),
                 ),
               ),
@@ -372,7 +372,7 @@ class _DealerStockScreenState extends State<DealerStockScreen>
     final expiryDateStr = b['expiry_date']?.toString() ?? '';
 
     String expiryText = 'Expiry: $expiryDateStr';
-    Color expiryColor = const Color(0xFF10B981);
+    Color expiryColor = const Color(0xFF059669);
 
     if (expiryDateStr.isNotEmpty) {
       try {
@@ -380,13 +380,19 @@ class _DealerStockScreenState extends State<DealerStockScreen>
         final diff = exp.difference(DateTime.now()).inDays;
         if (diff <= 0) {
           expiryText = 'EXPIRED (Quarantined)';
-          expiryColor = Colors.red;
+          expiryColor = const Color(0xFFDC2626);
+        } else if (diff <= 3) {
+          expiryText = 'Exp: $expiryDateStr ($diff days - Critical)';
+          expiryColor = const Color(0xFFEF4444);
+        } else if (diff <= 7) {
+          expiryText = 'Exp: $expiryDateStr ($diff days left)';
+          expiryColor = const Color(0xFFEA580C);
         } else if (diff <= 15) {
           expiryText = 'Exp: $expiryDateStr ($diff days left)';
-          expiryColor = Colors.orange.shade800;
+          expiryColor = const Color(0xFFD97706);
         } else {
           expiryText = 'Exp: $expiryDateStr ($diff days left)';
-          expiryColor = const Color(0xFF0284C7);
+          expiryColor = const Color(0xFF059669);
         }
       } catch (_) {}
     }
@@ -421,7 +427,7 @@ class _DealerStockScreenState extends State<DealerStockScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: expiryColor.withOpacity(0.12),
+                  color: expiryColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(

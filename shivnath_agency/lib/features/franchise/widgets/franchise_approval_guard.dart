@@ -96,8 +96,8 @@ class _FranchiseApprovalGuardState extends State<FranchiseApprovalGuard> {
                           height: 68,
                           decoration: BoxDecoration(
                             color: isRejected
-                                ? const Color(0xFFFEE2E2)
-                                : const Color(0xFFE0F2FE),
+                                ? const Color(0xFFFEF2F2)
+                                : const Color(0xFFFFFBEB),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -107,7 +107,7 @@ class _FranchiseApprovalGuardState extends State<FranchiseApprovalGuard> {
                             size: 36,
                             color: isRejected
                                 ? const Color(0xFFDC2626)
-                                : const Color(0xFF0284C7),
+                                : const Color(0xFFD97706),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -115,7 +115,7 @@ class _FranchiseApprovalGuardState extends State<FranchiseApprovalGuard> {
                         // Title
                         Text(
                           isRejected
-                              ? 'Franchise Application Rejected'
+                              ? 'Wholesale Dealership Rejected'
                               : 'Account Verification Pending',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
@@ -130,9 +130,9 @@ class _FranchiseApprovalGuardState extends State<FranchiseApprovalGuard> {
                         Text(
                           isRejected
                               ? (user?.rejectionReason.isNotEmpty == true
-                                  ? 'Your franchise application has not been approved by the administrator.\n\nReason: ${user!.rejectionReason}\n\nPlease contact support for more information.'
-                                  : 'Your franchise application has not been approved by the administrator. Please contact support for more information.')
-                              : 'Your profile has been submitted successfully. Your details have been sent to the admin for verification and confirmation. You will be able to access the full app once your account is approved.',
+                                  ? 'Your wholesale dealership application has not been approved by the administrator.\n\nReason: ${user!.rejectionReason}\n\nPlease contact support for more information.'
+                                  : 'Your wholesale dealership application has not been approved by the administrator. Please contact support for more information.')
+                              : 'Your profile has been submitted successfully. Your details have been sent to the admin for verification and confirmation. You will be able to access the full portal once your account is approved.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 13.5,
@@ -149,7 +149,7 @@ class _FranchiseApprovalGuardState extends State<FranchiseApprovalGuard> {
                             height: 46,
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0284C7),
+                                backgroundColor: const Color(0xFF059669),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(

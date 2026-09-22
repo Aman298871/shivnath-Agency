@@ -3,113 +3,63 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/session_service.dart';
+import '../../core/theme/brand_colors.dart';
+import '../../core/theme/role_theme.dart';
+import '../../core/widgets/shivnath_logo.dart';
 import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({
-    super.key,
-  });
+  const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() =>
-      _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState
-    extends State<LoginScreen> {
-  final emailController =
-      TextEditingController();
-
-  final passwordController =
-      TextEditingController();
-
-  final SessionService _sessionService =
-      SessionService();
-
-  final AuthService _authService =
-      AuthService();
-
-  final formKey =
-      GlobalKey<FormState>();
+class _LoginScreenState extends State<LoginScreen> {
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final SessionService _sessionService = SessionService();
+  final AuthService _authService = AuthService();
+  final formKey = GlobalKey<FormState>();
 
   bool obscurePassword = true;
   bool isLoading = false;
-
   String role = '';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    final args =
-        ModalRoute.of(context)
-            ?.settings
-            .arguments;
-
+    final args = ModalRoute.of(context)?.settings.arguments;
     if (args is String) {
       role = args;
     }
   }
 
-  // --------------------------------------------------
-  // ROLE TITLE
-  // --------------------------------------------------
+  RoleThemeConfig get roleConfig => RoleTheme.fromKey(role);
 
   String get roleTitle {
     switch (role) {
       case AppConstants.customerRole:
         return 'Customer Login';
-
       case AppConstants.franchiseRole:
-        return 'Franchise Login';
-
+        return 'Wholesale Dealer Login';
       case AppConstants.adminRole:
         return 'Admin Login';
-
       default:
         return 'Login';
     }
   }
 
-  // --------------------------------------------------
-  // ROLE ICON
-  // --------------------------------------------------
-
-  IconData get roleIcon {
-    switch (role) {
-      case AppConstants.customerRole:
-        return Icons.person_rounded;
-
-      case AppConstants.franchiseRole:
-        return Icons.storefront_rounded;
-
-      case AppConstants.adminRole:
-        return Icons
-            .admin_panel_settings_rounded;
-
-      default:
-        return Icons
-            .water_drop_rounded;
-    }
-  }
-
-  // --------------------------------------------------
-  // LOGIN
-  // --------------------------------------------------
+  IconData get roleIcon => roleConfig.icon;
 
   Future<void> _login() async {
-    if (!(formKey.currentState
-            ?.validate() ??
-        false)) {
+    if (!(formKey.currentState?.validate() ?? false)) {
       return;
     }
 
     if (role.isEmpty) {
-      _showMessage(
-        'Please select an account type first.',
-      );
-
+      _showMessage('Please select an account type first.');
       return;
     }
 
@@ -117,14 +67,10 @@ class _LoginScreenState
       isLoading = true;
     });
 
-    final email =
-        emailController.text.trim();
+    final email = emailController.text.trim();
+    final password = passwordController.text;
 
-    final password =
-        passwordController.text;
-
-    final result =
-        await _authService.login(
+    final result = await _authService.login(
       email: email,
       password: password,
       role: role,
@@ -132,52 +78,25 @@ class _LoginScreenState
 
     if (!mounted) return;
 
-    // Login Failed
     if (result['success'] != true) {
       setState(() {
         isLoading = false;
       });
-
-      _showMessage(
-        result['message']
-                ?.toString() ??
-            'Login failed.',
-      );
-
+      _showMessage(result['message']?.toString() ?? 'Login failed.');
       return;
     }
 
     try {
-      final response =
-          result['data']
-              as Map<String, dynamic>;
+      final response = result['data'] as Map<String, dynamic>;
+      final accessToken = response['access']?.toString() ?? '';
+      final refreshToken = response['refresh']?.toString() ?? '';
+      final userJson = response['user'];
 
-      final accessToken =
-          response['access']
-                  ?.toString() ??
-              '';
-
-      final refreshToken =
-          response['refresh']
-                  ?.toString() ??
-              '';
-
-      final userJson =
-          response['user'];
-
-      if (accessToken.isEmpty ||
-          refreshToken.isEmpty ||
-          userJson
-              is! Map<String, dynamic>) {
-        throw Exception(
-          'Invalid login response',
-        );
+      if (accessToken.isEmpty || refreshToken.isEmpty || userJson is! Map<String, dynamic>) {
+        throw Exception('Invalid login response');
       }
 
-      final user =
-          UserModel.fromJson(
-        userJson,
-      );
+      final user = UserModel.fromJson(userJson);
 
       // Flexible role validation supporting super_admin, admin, sales_executive
       bool hasAccess = false;
@@ -195,29 +114,19 @@ class _LoginScreenState
         setState(() {
           isLoading = false;
         });
-
         _showMessage(
           'This account does not have access to ${AppConstants.getRoleDisplayName(role)}.',
         );
-
         return;
       }
 
-      // Save JWT
+      // Save JWT & User Session
       await _sessionService.saveTokens(
         accessToken: accessToken,
         refreshToken: refreshToken,
       );
-
-      // Save user
-      await _sessionService.saveUser(
-        user,
-      );
-
-      // Save role
-      await _sessionService.saveRole(
-        user.role,
-      );
+      await _sessionService.saveUser(user);
+      await _sessionService.saveRole(user.role);
 
       if (!mounted) return;
 
@@ -225,28 +134,16 @@ class _LoginScreenState
         isLoading = false;
       });
 
-      // Open correct dashboard based on actual authenticated user role
-      _openDashboard(
-        user.role,
-      );
+      _openDashboard(user.role);
     } catch (e) {
       setState(() {
         isLoading = false;
       });
-
-      _showMessage(
-        'Unable to process login response.',
-      );
+      _showMessage('Unable to process login response.');
     }
   }
 
-  // --------------------------------------------------
-  // DASHBOARD
-  // --------------------------------------------------
-
-  void _openDashboard(
-    String userRole,
-  ) {
+  void _openDashboard(String userRole) {
     final r = userRole.toLowerCase();
 
     if (r == AppConstants.customerRole) {
@@ -255,7 +152,6 @@ class _LoginScreenState
         AppRoutes.customerDashboard,
         (_) => false,
       );
-
       return;
     }
 
@@ -265,7 +161,6 @@ class _LoginScreenState
         AppRoutes.franchiseDashboard,
         (_) => false,
       );
-
       return;
     }
 
@@ -277,354 +172,289 @@ class _LoginScreenState
         AppRoutes.adminDashboard,
         (_) => false,
       );
-
       return;
     }
 
-    _showMessage(
-      'Unknown account role: $userRole',
-    );
+    _showMessage('Unknown account role: $userRole');
   }
-
-  // --------------------------------------------------
-  // CUSTOMER REGISTRATION
-  // --------------------------------------------------
 
   void _openCustomerRegistration() {
-    Navigator.pushNamed(
-      context,
-      AppRoutes.customerRegister,
-    );
+    Navigator.pushNamed(context, AppRoutes.customerRegister);
   }
-
-  // --------------------------------------------------
-  // FRANCHISE REGISTRATION
-  // --------------------------------------------------
 
   void _openFranchiseRegistration() {
-    Navigator.pushNamed(
-      context,
-      AppRoutes.franchiseRegister,
-    );
+    Navigator.pushNamed(context, AppRoutes.franchiseRegister);
   }
 
-  // --------------------------------------------------
-  // MESSAGE
-  // --------------------------------------------------
-
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) return;
-
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            message,
-          ),
-        ),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
-
     super.dispose();
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
+    final cfg = roleConfig;
+    final primaryThemeColor = cfg.primary;
+
     return Scaffold(
-      body: SafeArea(
-        child:
-            SingleChildScrollView(
-          padding:
-              const EdgeInsets.all(
-            22,
+      backgroundColor: BrandColors.white,
+      appBar: AppBar(
+        backgroundColor: BrandColors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: isLoading ? null : () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_rounded, color: BrandColors.textPrimary),
+        ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 18.0),
+            child: ShivnathLogo.horizontal(size: 32),
           ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Form(
             key: formKey,
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Back
-                IconButton(
-                  onPressed:
-                      isLoading
-                          ? null
-                          : () {
-                              Navigator.pop(
-                                context,
-                              );
-                            },
-                  icon: const Icon(
-                    Icons
-                        .arrow_back_rounded,
-                  ),
-                ),
+                const SizedBox(height: 12),
 
-                const SizedBox(
-                  height: 20,
-                ),
-
-                // Role Icon
-                CircleAvatar(
-                  radius: 34,
-                  backgroundColor:
-                      const Color(
-                    0xFFE0F2FE,
-                  ),
-                  child: Icon(
-                    roleIcon,
-                    size: 38,
-                    color:
-                        const Color(
-                      0xFF0284C7,
+                // Role Icon Badge
+                Row(
+                  children: [
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: cfg.primarySoft,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: primaryThemeColor.withValues(alpha: 0.3),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Icon(
+                        roleIcon,
+                        size: 32,
+                        color: primaryThemeColor,
+                      ),
                     ),
-                  ),
+                    if (cfg.isAdmin) ...[
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: BrandColors.redSoft,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: BrandColors.red.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: const Text(
+                          'SECURITY & CONTROL',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: BrandColors.redDark,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
 
-                const SizedBox(
-                  height: 24,
-                ),
+                const SizedBox(height: 20),
 
                 // Title
                 Text(
                   roleTitle,
-                  style:
-                      const TextStyle(
-                    fontSize: 28,
-                    fontWeight:
-                        FontWeight.w800,
-                    color:
-                        Color(
-                      0xFF0F172A,
-                    ),
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    color: BrandColors.textPrimary,
+                    letterSpacing: -0.4,
                   ),
                 ),
 
-                const SizedBox(
-                  height: 7,
-                ),
+                const SizedBox(height: 6),
 
                 const Text(
-                  'Enter your account details to continue',
+                  'Enter your credentials to access your portal',
                   style: TextStyle(
-                    color:
-                        Color(
-                      0xFF64748B,
-                    ),
+                    fontSize: 14,
+                    color: BrandColors.textSecondary,
                   ),
                 ),
 
-                const SizedBox(
-                  height: 32,
-                ),
+                const SizedBox(height: 32),
 
                 // Email
                 TextFormField(
-                  controller:
-                      emailController,
+                  controller: emailController,
                   enabled: !isLoading,
-                  keyboardType:
-                      TextInputType
-                          .emailAddress,
-                  textInputAction:
-                      TextInputAction
-                          .next,
-                  decoration:
-                      const InputDecoration(
-                    labelText: 'Email',
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: 'Email Address',
                     prefixIcon: Icon(
-                      Icons
-                          .email_outlined,
+                      Icons.email_outlined,
+                      color: primaryThemeColor,
+                      size: 20,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(
+                        color: primaryThemeColor,
+                        width: 1.8,
+                      ),
                     ),
                   ),
                   validator: (value) {
-                    final email =
-                        value?.trim() ??
-                            '';
-
-                    if (email.isEmpty) {
-                      return 'Enter your email';
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Enter registered email address';
                     }
-
-                    if (!email
-                        .contains('@')) {
-                      return 'Enter a valid email';
-                    }
-
                     return null;
                   },
                 ),
 
-                const SizedBox(
-                  height: 16,
-                ),
+                const SizedBox(height: 18),
 
                 // Password
                 TextFormField(
-                  controller:
-                      passwordController,
+                  controller: passwordController,
                   enabled: !isLoading,
-                  obscureText:
-                      obscurePassword,
-                  textInputAction:
-                      TextInputAction
-                          .done,
-                  onFieldSubmitted: (_) {
-                    if (!isLoading) {
-                      _login();
-                    }
-                  },
-                  decoration:
-                      InputDecoration(
-                    labelText:
-                        'Password',
-                    prefixIcon:
-                        const Icon(
-                      Icons.lock_outline,
+                  obscureText: obscurePassword,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _login(),
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: Icon(
+                      Icons.lock_outline_rounded,
+                      color: primaryThemeColor,
+                      size: 20,
                     ),
-                    suffixIcon:
-                        IconButton(
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(
+                        color: primaryThemeColor,
+                        width: 1.8,
+                      ),
+                    ),
+                    suffixIcon: IconButton(
                       onPressed: () {
                         setState(() {
-                          obscurePassword =
-                              !obscurePassword;
+                          obscurePassword = !obscurePassword;
                         });
                       },
                       icon: Icon(
                         obscurePassword
-                            ? Icons
-                                .visibility_outlined
-                            : Icons
-                                .visibility_off_outlined,
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: BrandColors.textSecondary,
                       ),
                     ),
                   ),
                   validator: (value) {
-                    if (value == null ||
-                        value.isEmpty) {
+                    if (value == null || value.isEmpty) {
                       return 'Enter password';
                     }
-
                     return null;
                   },
                 ),
 
-                const SizedBox(
-                  height: 8,
-                ),
+                const SizedBox(height: 10),
 
                 // Forgot Password
                 Align(
-                  alignment:
-                      Alignment
-                          .centerRight,
+                  alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed:
-                        isLoading
-                            ? null
-                            : () {
-                                _showMessage(
-                                  'Forgot password will be available soon.',
-                                );
-                              },
-                    child: const Text(
+                    onPressed: isLoading
+                        ? null
+                        : () {
+                            _showMessage(
+                              'Please contact Shivnath Agency administrator to reset your password.',
+                            );
+                          },
+                    child: Text(
                       'Forgot Password?',
+                      style: TextStyle(
+                        color: primaryThemeColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
 
-                const SizedBox(
-                  height: 12,
-                ),
+                const SizedBox(height: 16),
 
                 // Login Button
                 SizedBox(
-                  width:
-                      double.infinity,
-                  child:
-                      ElevatedButton(
-                    onPressed:
-                        isLoading
-                            ? null
-                            : _login,
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryThemeColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: isLoading ? null : _login,
                     child: isLoading
                         ? const SizedBox(
                             width: 22,
                             height: 22,
-                            child:
-                                CircularProgressIndicator(
-                              strokeWidth:
-                                  2,
-                              color:
-                                  Colors.white,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: Colors.white,
                             ),
                           )
                         : const Text(
                             'Login',
-                            style:
-                                TextStyle(
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
                             ),
                           ),
                   ),
                 ),
 
-                const SizedBox(
-                  height: 22,
-                ),
+                const SizedBox(height: 24),
 
-                // --------------------------------------
-                // CUSTOMER REGISTRATION
-                // --------------------------------------
-
-                if (role ==
-                    AppConstants
-                        .customerRole)
+                // Registration Link for Customer
+                if (role == AppConstants.customerRole)
                   Center(
                     child: Wrap(
-                      crossAxisAlignment:
-                          WrapCrossAlignment
-                              .center,
-                      alignment:
-                          WrapAlignment
-                              .center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.center,
                       children: [
                         const Text(
-                          "Don't have an account?",
-                          style:
-                              TextStyle(
-                            color:
-                                Color(
-                              0xFF64748B,
-                            ),
-                          ),
+                          "Don't have an account? ",
+                          style: TextStyle(color: BrandColors.textSecondary),
                         ),
                         TextButton(
-                          onPressed:
-                              isLoading
-                                  ? null
-                                  : _openCustomerRegistration,
-                          child:
-                              const Text(
+                          onPressed: isLoading ? null : _openCustomerRegistration,
+                          child: const Text(
                             'Create Account',
-                            style:
-                                TextStyle(
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
+                            style: TextStyle(
+                              color: BrandColors.primaryBlue,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -632,45 +462,24 @@ class _LoginScreenState
                     ),
                   ),
 
-                // --------------------------------------
-                // FRANCHISE REGISTRATION
-                // --------------------------------------
-
-                if (role ==
-                    AppConstants
-                        .franchiseRole)
+                // Registration Link for Wholesale Dealer
+                if (role == AppConstants.franchiseRole)
                   Center(
                     child: Wrap(
-                      crossAxisAlignment:
-                          WrapCrossAlignment
-                              .center,
-                      alignment:
-                          WrapAlignment
-                              .center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.center,
                       children: [
                         const Text(
-                          'New Franchise?',
-                          style:
-                              TextStyle(
-                            color:
-                                Color(
-                              0xFF64748B,
-                            ),
-                          ),
+                          'New Wholesale Dealer? ',
+                          style: TextStyle(color: BrandColors.textSecondary),
                         ),
                         TextButton(
-                          onPressed:
-                              isLoading
-                                  ? null
-                                  : _openFranchiseRegistration,
-                          child:
-                              const Text(
+                          onPressed: isLoading ? null : _openFranchiseRegistration,
+                          child: const Text(
                             'Register Now',
-                            style:
-                                TextStyle(
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
+                            style: TextStyle(
+                              color: BrandColors.greenDark,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -678,43 +487,37 @@ class _LoginScreenState
                     ),
                   ),
 
-                // --------------------------------------
-                // INFORMATION BOX
-                // --------------------------------------
+                const SizedBox(height: 12),
 
-                const SizedBox(
-                  height: 8,
-                ),
-
+                // Info Box
                 Container(
-                  width:
-                      double.infinity,
-                  padding:
-                      const EdgeInsets
-                          .all(14),
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        const Color(
-                      0xFFF1F5F9,
-                    ),
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      12,
-                    ),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: BrandColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: BrandColors.border),
                   ),
-                  child: Text(
-                    _getInfoText(),
-                    style:
-                        const TextStyle(
-                      fontSize: 12,
-                      height: 1.5,
-                      color:
-                          Color(
-                        0xFF475569,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: primaryThemeColor,
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _getInfoText(),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.45,
+                            color: BrandColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -726,21 +529,15 @@ class _LoginScreenState
   }
 
   String _getInfoText() {
-    if (role ==
-        AppConstants.customerRole) {
-      return 'Customer Account\nLogin with your registered email and password or create a new account.';
+    if (role == AppConstants.customerRole) {
+      return 'Customer Portal: Sign in with your registered email or create a new account to order packaged drinking water.';
     }
-
-    if (role ==
-        AppConstants.franchiseRole) {
-      return 'Franchise Account\nNew franchise registrations require admin verification & approval.';
+    if (role == AppConstants.franchiseRole) {
+      return 'Wholesale Dealer Portal: Authorized distributors can manage inventory, place bulk orders, and review billing.';
     }
-
-    if (role ==
-        AppConstants.adminRole) {
-      return 'Admin Account\nAccess reserved for Super Admin, Plant Operations, and Sales Executives.';
+    if (role == AppConstants.adminRole) {
+      return 'Admin Control Panel: Reserved for Super Admin, Plant Operations, and authorized personnel.';
     }
-
-    return 'Use your registered email and password.';
+    return 'Use your registered email and password to access your Shivnath Agency account.';
   }
 }

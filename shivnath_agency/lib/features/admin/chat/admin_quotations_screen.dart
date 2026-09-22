@@ -74,8 +74,10 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
     Future<void> pickPdfFile(StateSetter setDlgState) async {
       try {
         FilePickerResult? result = await FilePicker.platform.pickFiles(
-          type: FileType.any,
+          type: FileType.custom,
+          allowedExtensions: ['pdf'],
           allowMultiple: false,
+          withData: true,
         );
 
         if (result != null && result.files.isNotEmpty) {
@@ -95,12 +97,24 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
           }
 
           List<int>? bytes = file.bytes;
-          if (bytes == null && file.path != null && file.path!.isNotEmpty) {
+          if ((bytes == null || bytes.isEmpty) && file.path != null && file.path!.isNotEmpty) {
             try {
               bytes = await File(file.path!).readAsBytes();
             } catch (e) {
               debugPrint('Could not read bytes from path: $e');
             }
+          }
+
+          if (bytes == null || bytes.isEmpty) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Could not read file data. Please try selecting the file again.'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+            return;
           }
 
           setDlgState(() {
@@ -111,9 +125,10 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
           });
 
           if (context.mounted) {
+            final kb = (bytes.length / 1024).toStringAsFixed(1);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Selected PDF: $fileName'),
+                content: Text('Selected PDF: $fileName ($kb KB)'),
                 backgroundColor: const Color(0xFF0284C7),
                 duration: const Duration(seconds: 2),
               ),

@@ -364,7 +364,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7),
+                        color: const Color(0xFF059669),
                         borderRadius:
                             BorderRadius.circular(12),
                       ),
@@ -398,7 +398,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                           ),
                           SizedBox(height: 3),
                           Text(
-                            'Franchise Portal',
+                            'Wholesale Dealer Portal',
                             style: TextStyle(
                               color:
                                   Color(0xFF94A3B8),
@@ -543,7 +543,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 11),
                               decoration: BoxDecoration(
                                 color: (!item.isLogout && currentIndex == item.index)
-                                    ? const Color(0xFF0284C7)
+                                    ? const Color(0xFF059669)
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(9),
                               ),
@@ -926,7 +926,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7),
+                        color: const Color(0xFF059669),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -949,7 +949,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Franchise Portal',
+                          'Wholesale Dealer Portal',
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: 10,
@@ -1049,7 +1049,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 10),
                                 decoration: BoxDecoration(
                                   color: (!item.isLogout && currentIndex == item.index)
-                                      ? const Color(0xFF0284C7)
+                                      ? const Color(0xFF059669)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(9),
                                 ),

@@ -97,7 +97,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout from Franchise Portal?'),
+        content: const Text('Are you sure you want to logout from Wholesale Dealer Portal?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx, false),
@@ -247,7 +247,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
           appBar: desktop
               ? null
               : AppBar(
-                  title: const Text('Franchise Dashboard'),
+                  title: const Text('Wholesale Dealer Dashboard'),
                   actions: [
                     IconButton(
                       tooltip: 'AI Operations Assistant',
@@ -274,7 +274,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                   ],
                 ),
           floatingActionButton: FloatingActionButton.extended(
-            backgroundColor: const Color(0xFF0077B6),
+            backgroundColor: const Color(0xFF059669),
             foregroundColor: Colors.white,
             icon: const Icon(Icons.auto_awesome_rounded),
             label: const Text('AI Assistant'),
@@ -300,7 +300,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Welcome back, $_displayName. Here is your franchise overview.',
+                        'Welcome back, $_displayName. Here is your wholesale dealership overview.',
                         style: const TextStyle(
                           color: Color(0xFF64748B),
                         ),
@@ -313,7 +313,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                         padding: EdgeInsets.only(bottom: 16),
                         child: LinearProgressIndicator(
                           backgroundColor: Color(0xFFE2E8F0),
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF059669)),
                         ),
                       ),
 
@@ -453,6 +453,22 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Color iconColor = const Color(0xFF059669);
+    Color bgColor = const Color(0xFFECFDF5);
+    if (title.contains('Low')) {
+      iconColor = const Color(0xFFD97706);
+      bgColor = const Color(0xFFFFFBEB);
+    } else if (title.contains('Expired')) {
+      iconColor = const Color(0xFFEF4444);
+      bgColor = const Color(0xFFFEF2F2);
+    } else if (title.contains('Hold')) {
+      iconColor = const Color(0xFFD97706);
+      bgColor = const Color(0xFFFFFBEB);
+    } else if (title.contains('Pending')) {
+      iconColor = const Color(0xFF0284C7);
+      bgColor = const Color(0xFFE0F2FE);
+    }
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(15),
@@ -473,12 +489,12 @@ class _StatCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE0F2FE),
+                  color: bgColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   icon,
-                  color: const Color(0xFF0284C7),
+                  color: iconColor,
                   size: 20,
                 ),
               ),

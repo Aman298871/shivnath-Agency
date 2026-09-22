@@ -406,4 +406,88 @@ Future<Map<String, dynamic>> deleteFranchise(
       return {'success': false, 'message': 'Server unavailable.'};
     }
   }
+
+  // ---------------------------------------
+  // FRANCHISE / DEALER KYC DOCUMENTS
+  // ---------------------------------------
+
+  Future<Map<String, dynamic>> getFranchiseDocuments([int? dealerId]) async {
+    try {
+      final url = dealerId != null
+          ? '${AppConstants.apiBaseUrl}/api/accounts/dealers/$dealerId/documents/'
+          : '${AppConstants.apiBaseUrl}/api/accounts/dealers/documents/';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: await _headers(),
+      ).timeout(const Duration(seconds: 15));
+
+      final dynamic decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': decoded['message'] ?? 'Failed to load documents'};
+    } catch (_) {
+      return {'success': false, 'message': 'Network error loading documents'};
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadFranchiseDocument({
+    required String documentType,
+    required String documentNumber,
+    required List<int> fileBytes,
+    required String fileName,
+    int? dealerId,
+  }) async {
+    try {
+      final token = await _getToken();
+      final url = dealerId != null
+          ? '${AppConstants.apiBaseUrl}/api/accounts/dealers/$dealerId/documents/'
+          : '${AppConstants.apiBaseUrl}/api/accounts/dealers/documents/';
+
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+      request.fields['document_type'] = documentType;
+      request.fields['document_number'] = documentNumber;
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'document_file',
+          fileBytes,
+          filename: fileName,
+        ),
+      );
+
+      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamed);
+      final dynamic decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': decoded, 'message': decoded['message'] ?? 'Document uploaded successfully.'};
+      }
+      return {'success': false, 'message': decoded['message'] ?? 'Upload failed (${response.statusCode})'};
+    } catch (e) {
+      return {'success': false, 'message': 'Upload error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteFranchiseDocument(int docId, [int? dealerId]) async {
+    try {
+      final url = dealerId != null
+          ? '${AppConstants.apiBaseUrl}/api/accounts/dealers/$dealerId/documents/'
+          : '${AppConstants.apiBaseUrl}/api/accounts/dealers/documents/';
+      final response = await http.delete(
+        Uri.parse('$url?document_id=$docId'),
+        headers: await _headers(),
+      ).timeout(const Duration(seconds: 15));
+
+      final dynamic decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'message': decoded['message'] ?? 'Document deleted successfully.'};
+      }
+      return {'success': false, 'message': decoded['message'] ?? 'Failed to delete document'};
+    } catch (_) {
+      return {'success': false, 'message': 'Network error deleting document'};
+    }
+  }
 }

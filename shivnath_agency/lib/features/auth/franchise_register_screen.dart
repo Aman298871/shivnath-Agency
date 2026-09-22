@@ -198,15 +198,11 @@ class _FranchiseRegisterScreenState
 
                 const CircleAvatar(
                   radius: 34,
-                  backgroundColor: Color(
-                    0xFFE0F2FE,
-                  ),
+                  backgroundColor: Color(0xFFECFDF5),
                   child: Icon(
                     Icons.storefront_rounded,
                     size: 36,
-                    color: Color(
-                      0xFF0284C7,
-                    ),
+                    color: Color(0xFF059669),
                   ),
                 ),
 
@@ -215,14 +211,12 @@ class _FranchiseRegisterScreenState
                 ),
 
                 const Text(
-                  'Franchise Registration',
+                  'Wholesale Dealer Registration',
                   style: TextStyle(
-                    fontSize: 27,
-                    fontWeight:
-                        FontWeight.w800,
-                    color: Color(
-                      0xFF0F172A,
-                    ),
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: -0.3,
                   ),
                 ),
 
@@ -231,11 +225,9 @@ class _FranchiseRegisterScreenState
                 ),
 
                 const Text(
-                  'Submit your franchise application for admin approval',
+                  'Submit your wholesale dealership application for admin approval',
                   style: TextStyle(
-                    color: Color(
-                      0xFF64748B,
-                    ),
+                    color: Color(0xFF64748B),
                   ),
                 ),
 
@@ -477,7 +469,16 @@ class _FranchiseRegisterScreenState
 
                 SizedBox(
                   width: double.infinity,
+                  height: 52,
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF059669),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
                     onPressed: isLoading
                         ? null
                         : _register,

@@ -29,46 +29,51 @@ void initState() {
 
   _loadData();
 }
-Future<void> _loadData() async {
+  Future<void> _loadData() async {
+    setState(() {
+      isLoading = true;
+    });
 
-  setState(() {
-    isLoading = true;
-  });
+    final followupResult = await _followupService.getFollowups();
+    final statsResult = await _followupService.getStats();
 
-  final followupResult =
-      await _followupService.getFollowups();
+    if (!mounted) return;
 
-  final statsResult =
-      await _followupService.getStats();
+    if (followupResult["success"] == true) {
+      final dynamic raw = followupResult["data"] is Map
+          ? (followupResult["data"]["followups"] ?? followupResult["data"])
+          : (followupResult["followups"]);
+      if (raw is List) {
+        followups = List<Map<String, dynamic>>.from(
+          raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)),
+        );
+      }
+    }
 
-  if (!mounted) return;
+    if (statsResult["success"] == true) {
+      final dynamic raw = statsResult["data"] is Map
+          ? (statsResult["data"]["stats"] ?? statsResult["data"])
+          : (statsResult["stats"]);
+      if (raw is Map) {
+        stats = Map<String, dynamic>.from(raw);
+      }
+    }
 
-  if (followupResult["success"] == true) {
-
-    followups =
-        List<Map<String, dynamic>>.from(
-      followupResult["data"]["followups"],
-    );
+    setState(() {
+      isLoading = false;
+    });
   }
-
-  if (statsResult["success"] == true) {
-
-    stats = Map<String, dynamic>.from(
-      statsResult["data"]["stats"],
-    );
-  }
-
-  setState(() {
-    isLoading = false;
-  });
-}
 
   String activeTab = 'Today';
   String search = '';
 
-  final String today = '2026-09-03';
+  String get _todayDateStr {
+    final now = DateTime.now();
+    return "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+  }
 
   List<Map<String, dynamic>> get filteredData {
+    final today = _todayDateStr;
     return followups.where((item) {
       final keyword = search.trim().toLowerCase();
 
@@ -80,51 +85,91 @@ Future<void> _loadData() async {
 
       if (!matchesSearch) return false;
 
-      final date = item['date'].toString();
-      final status = item['status'].toString();
+      String date = item['date']?.toString() ?? '';
+      if (date.isEmpty && item['followup_datetime'] != null) {
+        try {
+          final dt = DateTime.parse(item['followup_datetime'].toString()).toLocal();
+          date = "${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
+        } catch (_) {}
+      }
+
+      final status = (item['status'] ?? 'Pending').toString();
+      final isCompleted = status.toLowerCase() == 'completed';
+
+      if (activeTab == 'Completed') {
+        return isCompleted;
+      }
+
+      if (isCompleted) {
+        return false;
+      }
 
       if (activeTab == 'Today') {
-        return date == today && status == 'Pending';
+        return date == today;
       }
 
       if (activeTab == 'Overdue') {
-        return date.compareTo(today) < 0 && status == 'Pending';
+        return date.isNotEmpty && date.compareTo(today) < 0;
       }
 
       if (activeTab == 'Upcoming') {
-        return date.compareTo(today) > 0 && status == 'Pending';
-      }
-
-      if (activeTab == 'Completed') {
-        return status == 'Completed';
+        return date.isNotEmpty && date.compareTo(today) > 0;
       }
 
       return true;
     }).toList();
   }
 
- int countFor(String type) {
+  int countFor(String type) {
+    int? val;
+    switch (type) {
+      case "Today":
+        val = stats["today"];
+        break;
+      case "Overdue":
+        val = stats["overdue"];
+        break;
+      case "Upcoming":
+        val = stats["upcoming"];
+        break;
+      case "Completed":
+        val = stats["completed"];
+        break;
+    }
 
-  switch (type) {
+    if (val != null && val > 0) return val;
 
-    case "Today":
-      return stats["today"] ?? 0;
+    final today = _todayDateStr;
+    if (type == "Today") {
+      return followups.where((f) {
+        final d = f['date']?.toString() ?? '';
+        final s = (f['status'] ?? '').toString();
+        return d == today && s.toLowerCase() != 'completed';
+      }).length;
+    }
+    if (type == "Overdue") {
+      return followups.where((f) {
+        final d = f['date']?.toString() ?? '';
+        final s = (f['status'] ?? '').toString();
+        return d.isNotEmpty && d.compareTo(today) < 0 && s.toLowerCase() != 'completed';
+      }).length;
+    }
+    if (type == "Upcoming") {
+      return followups.where((f) {
+        final d = f['date']?.toString() ?? '';
+        final s = (f['status'] ?? '').toString();
+        return d.isNotEmpty && d.compareTo(today) > 0 && s.toLowerCase() != 'completed';
+      }).length;
+    }
+    if (type == "Completed") {
+      return followups.where((f) {
+        final s = (f['status'] ?? '').toString();
+        return s.toLowerCase() == 'completed';
+      }).length;
+    }
 
-    case "Overdue":
-      return stats["overdue"] ?? 0;
-
-    case "Upcoming":
-      return stats["upcoming"] ?? 0;
-
-    case "Completed":
-      return stats["completed"] ?? 0;
-
-    default:
-      return 0;
-
+    return val ?? 0;
   }
-
-}
 
   @override
   Widget build(BuildContext context) {
@@ -218,16 +263,23 @@ else
         children: List.generate(
           items.length,
           (index) {
+            final title = items[index]['title'].toString();
             return Expanded(
               child: Padding(
                 padding: EdgeInsets.only(
                   right: index == items.length - 1 ? 0 : 14,
                 ),
                 child: _SummaryCard(
-                  title: items[index]['title'].toString(),
+                  title: title,
                   value: items[index]['value'].toString(),
                   icon: items[index]['icon'] as IconData,
                   type: items[index]['type'].toString(),
+                  isSelected: activeTab.toLowerCase() == title.toLowerCase(),
+                  onTap: () {
+                    setState(() {
+                      activeTab = title;
+                    });
+                  },
                 ),
               ),
             );
@@ -240,19 +292,25 @@ else
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: items.length,
-      gridDelegate:
-          const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1.1,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.45,
       ),
       itemBuilder: (_, index) {
+        final title = items[index]['title'].toString();
         return _SummaryCard(
-          title: items[index]['title'].toString(),
+          title: title,
           value: items[index]['value'].toString(),
           icon: items[index]['icon'] as IconData,
           type: items[index]['type'].toString(),
+          isSelected: activeTab.toLowerCase() == title.toLowerCase(),
+          onTap: () {
+            setState(() {
+              activeTab = title;
+            });
+          },
         );
       },
     );
@@ -984,12 +1042,16 @@ class _SummaryCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final String type;
+  final bool isSelected;
+  final VoidCallback? onTap;
 
   const _SummaryCard({
     required this.title,
     required this.value,
     required this.icon,
     required this.type,
+    this.isSelected = false,
+    this.onTap,
   });
 
   Color get iconColor {
@@ -998,7 +1060,7 @@ class _SummaryCard extends StatelessWidget {
         return const Color(0xFFDC2626);
 
       case 'upcoming':
-        return const Color(0xFFF59E0B);
+        return const Color(0xFFD97706);
 
       case 'completed':
         return const Color(0xFF16A34A);
@@ -1026,62 +1088,93 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? iconColor : const Color(0xFFE2E8F0),
+              width: isSelected ? 2.0 : 1.0,
             ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: iconColor,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF111827),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: iconColor.withValues(alpha: 0.18),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
-                  ),
-                ),
-              ],
-            ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
           ),
-        ],
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: backgroundColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: iconColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        value,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: isSelected ? iconColor : const Color(0xFF111827),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 11,
+                  color: iconColor,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1312,9 +1312,12 @@ class _FranchiseOrdersScreenState
     }
     String rawStatus = order['status']?.toString() ?? 'Plant Approval';
     String selectedNewStatus = 'Plant Approval';
-    if (rawStatus.toLowerCase().contains('plant') && rawStatus.toLowerCase().contains('approval')) {
+    final lower = rawStatus.toLowerCase();
+    if ((lower.contains('plant') && lower.contains('approval')) ||
+        lower.contains('admin approved') ||
+        lower == 'plant_approval') {
       selectedNewStatus = 'Plant Approval';
-    } else if (rawStatus.toLowerCase().contains('dispatch')) {
+    } else if (lower.contains('dispatch')) {
       selectedNewStatus = 'Dispatched';
     } else if (rawStatus.toLowerCase().contains('invoice')) {
       selectedNewStatus = 'Invoice Generated';

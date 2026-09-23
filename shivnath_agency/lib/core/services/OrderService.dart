@@ -281,8 +281,11 @@ class OrderService {
           ) ??
           0,
 
-      'status': item['status_display']?.toString() ??
-          _statusDisplay(item['status']?.toString() ?? ''),
+      'status': normalizeStatusDisplay(
+            item['status_display']?.toString() ??
+                item['status']?.toString() ??
+                '',
+          ),
 
       'payment': item['payment_display']?.toString() ??
           _paymentDisplay(
@@ -404,7 +407,9 @@ class OrderService {
 
   static String normalizeStatusDisplay(String value) {
     final lower = value.trim().toLowerCase();
-    if (lower.contains('plant') && lower.contains('approval')) {
+    if ((lower.contains('plant') && lower.contains('approval')) ||
+        lower.contains('admin approved') ||
+        lower == 'plant_approval') {
       return 'Plant Approval';
     }
     switch (lower) {

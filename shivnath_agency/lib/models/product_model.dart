@@ -33,14 +33,41 @@ class ProductModel {
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
+    String parsedCategory = "Water";
+    int? parsedCatRefId;
+
+    if (json["category"] is Map) {
+      parsedCategory = json["category"]["name"]?.toString() ?? "Water";
+      if (json["category"]["id"] is int) {
+        parsedCatRefId = json["category"]["id"] as int;
+      }
+    } else if (json["category"] is int) {
+      parsedCatRefId = json["category"] as int;
+      parsedCategory = json["category_name"]?.toString() ?? "Category $parsedCatRefId";
+    } else if (json["category"] != null) {
+      parsedCategory = json["category"].toString();
+    } else if (json["category_name"] != null) {
+      parsedCategory = json["category_name"].toString();
+    }
+
+    if (parsedCatRefId == null) {
+      if (json["category_ref_id"] is int) {
+        parsedCatRefId = json["category_ref_id"] as int;
+      } else if (json["category_ref"] is int) {
+        parsedCatRefId = json["category_ref"] as int;
+      } else if (json["category_ref"] is Map && json["category_ref"]["id"] is int) {
+        parsedCatRefId = json["category_ref"]["id"] as int;
+      } else {
+        parsedCatRefId = int.tryParse(json["category_ref_id"]?.toString() ?? "");
+      }
+    }
+
     return ProductModel(
       id: json["id"]?.toString() ?? "",
       name: json["name"]?.toString() ?? "",
       sku: json["sku"]?.toString() ?? "",
-      category: json["category"]?.toString() ?? "Water",
-      categoryRefId: json["category_ref_id"] is int
-          ? json["category_ref_id"]
-          : int.tryParse(json["category_ref_id"]?.toString() ?? ""),
+      category: parsedCategory,
+      categoryRefId: parsedCatRefId,
       categoryHierarchy: json["category_hierarchy"]?.toString(),
       size: json["size"]?.toString() ?? "",
       price: double.tryParse(json["price"]?.toString() ?? "0") ?? 0.0,

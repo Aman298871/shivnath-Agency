@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../core/services/session_service.dart';
-import '../../core/services/whatsapp_service.dart';
 import '../../core/widgets/support_desk_modal.dart';
 import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
@@ -13,14 +11,13 @@ import 'customers/franchise_customers_screen.dart';
 import 'dashboard/franchise_dashboard_screen.dart';
 import 'documents/franchise_documents_screen.dart';
 import 'franchise_settings_screen.dart';
-import 'inventory/franchise_inventory_screen.dart';
 import 'inventory/dealer_stock_screen.dart';
-import 'invoices/franchise_invoices_screen.dart';
 import 'invoices/dealer_credit_ledger_screen.dart';
 import 'notifications/franchise_notifications_screen.dart';
 import 'orders/franchise_orders_screen.dart';
 import 'products/franchise_products_screen.dart';
 import 'profile/franchise_profile_screen.dart';
+import 'reports/franchise_reports_screen.dart';
 import 'territory/franchise_territory_screen.dart';
 import 'widgets/franchise_approval_guard.dart';
 
@@ -227,7 +224,9 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       case 12:
         return const FranchiseTerritoryScreen();
       case 13:
-        return const DealerCreditLedgerScreen(); // Invoices & Aging
+        return FranchiseReportsScreen(
+          onOpenCreditLedger: () => setState(() => currentIndex = 8),
+        );
       case 14:
         return const FranchiseProfileScreen();
       case 15:

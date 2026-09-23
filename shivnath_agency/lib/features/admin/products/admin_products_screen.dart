@@ -127,13 +127,13 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
   }
 
   int get activeProducts =>
-      products.where((item) => item['status'] == 'Active').length;
+      products.where((item) => item is Map && item['status'] == 'Active').length;
 
   int get bottleCount =>
-      products.where((item) => item['category']?.toString().toLowerCase().contains('bottle') == true).length;
+      products.where((item) => item is Map && item['category']?.toString().toLowerCase().contains('bottle') == true).length;
 
   int get jarCount =>
-      products.where((item) => item['category']?.toString().toLowerCase().contains('jar') == true).length;
+      products.where((item) => item is Map && item['category']?.toString().toLowerCase().contains('jar') == true).length;
 
   @override
   Widget build(BuildContext context) {

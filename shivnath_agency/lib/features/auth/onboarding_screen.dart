@@ -398,8 +398,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       case _IllustrationType.smartManagement:
         return Container(
-          width: 220,
-          height: 180,
+          width: 240,
+          height: 184,
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(28),
@@ -413,7 +413,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -463,35 +463,55 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 // Feature pills row
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.inventory_2_rounded, size: 12, color: Color(0xFFDC2626)),
-                          SizedBox(width: 4),
-                          Text('Batches & BOM', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700)),
-                        ],
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.inventory_2_rounded, size: 12, color: Color(0xFFDC2626)),
+                            SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'Batches & BOM',
+                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.pie_chart_rounded, size: 12, color: Color(0xFFEAB308)),
-                          SizedBox(width: 4),
-                          Text('P&L Daily', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700)),
-                        ],
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.pie_chart_rounded, size: 12, color: Color(0xFFEAB308)),
+                            SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'P&L Daily',
+                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -510,9 +530,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     children: [
                       Icon(Icons.warning_amber_rounded, size: 13, color: Color(0xFFDC2626)),
                       SizedBox(width: 5),
-                      Text(
-                        'Early Expiry Alert Protection Active',
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF991B1B)),
+                      Expanded(
+                        child: Text(
+                          'Early Expiry Alert Protection Active',
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF991B1B)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),

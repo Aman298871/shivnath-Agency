@@ -788,38 +788,20 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
         builder: (context, setDlgState) {
           return AlertDialog(
             title: const Text('Add Raw Material to Recipe'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<Map<String, dynamic>>(
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Select Raw Material *',
-                    ),
-                    items: _rawMaterials.whereType<Map<String, dynamic>>().map((
-                      rm,
-                    ) {
-                      final name = rm['name']?.toString() ?? 'Material';
-                      final code =
-                          rm['code']?.toString() ?? rm['sku']?.toString();
-                      final cat = rm['category']?.toString() ?? '';
-                      final tag = (code != null && code.isNotEmpty)
-                          ? code
-                          : cat;
-                      return DropdownMenuItem(
-                        value: rm,
-                        child: Text(
-                          '$name ($tag)',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      );
-                    }).toList(),
-                    selectedItemBuilder: (context) {
-                      return _rawMaterials
-                          .whereType<Map<String, dynamic>>()
-                          .map((rm) {
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<Map<String, dynamic>>(
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Select Raw Material *',
+                      ),
+                      items: _rawMaterials.whereType<Map<String, dynamic>>().map((
+                        rm,
+                      ) {
                         final name = rm['name']?.toString() ?? 'Material';
                         final code =
                             rm['code']?.toString() ?? rm['sku']?.toString();
@@ -827,41 +809,62 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                         final tag = (code != null && code.isNotEmpty)
                             ? code
                             : cat;
-                        return Text(
-                          '$name ($tag)',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
+                        return DropdownMenuItem(
+                          value: rm,
+                          child: Text(
+                            '$name ($tag)',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         );
-                      }).toList();
-                    },
-                    onChanged: (val) {
-                      setDlgState(() {
-                        selectedRM = val;
-                        costCtrl.text = val?['unit_cost']?.toString() ?? '0.00';
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: qtyCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                      }).toList(),
+                      selectedItemBuilder: (context) {
+                        return _rawMaterials
+                            .whereType<Map<String, dynamic>>()
+                            .map((rm) {
+                          final name = rm['name']?.toString() ?? 'Material';
+                          final code =
+                              rm['code']?.toString() ?? rm['sku']?.toString();
+                          final cat = rm['category']?.toString() ?? '';
+                          final tag = (code != null && code.isNotEmpty)
+                              ? code
+                              : cat;
+                          return Text(
+                            '$name ($tag)',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          );
+                        }).toList();
+                      },
+                      onChanged: (val) {
+                        setDlgState(() {
+                          selectedRM = val;
+                          costCtrl.text = val?['unit_cost']?.toString() ?? '0.00';
+                        });
+                      },
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Quantity Required (per finished unit) *',
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: qtyCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Quantity Required (per finished unit) *',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: costCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: costCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Cost Basis per unit (INR)',
+                      ),
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Cost Basis per unit (INR)',
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [

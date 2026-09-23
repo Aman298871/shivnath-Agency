@@ -246,11 +246,15 @@ class _CentralPlantInventoryScreenState
                         children: [
                           Row(
                             children: [
-                              Text(
-                                bNum,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
+                              Flexible(
+                                child: Text(
+                                  bNum,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -715,11 +719,15 @@ class _CentralPlantInventoryScreenState
                 ),
                 title: Row(
                   children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                    Expanded(
+                      child: Text(
+                        name,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),

@@ -192,8 +192,8 @@ class _CentralPlantInventoryScreenState
             0;
         final remaining =
             int.tryParse(
-              (b['dynamic_remaining_company'] ??
-                          b['quantity_remaining_company'])
+              (b['quantity_remaining_company'] ??
+                          b['dynamic_remaining_company'])
                       ?.toString() ??
                   '0',
             ) ??
@@ -1207,15 +1207,15 @@ class _CentralPlantInventoryScreenState
         0;
     final remaining =
         int.tryParse(
-          (batch['dynamic_remaining_company'] ??
-                      batch['quantity_remaining_company'])
+          (batch['quantity_remaining_company'] ??
+                      batch['dynamic_remaining_company'])
                   ?.toString() ??
               '0',
         ) ??
         (produced - taken);
 
     final qtyCtrl = TextEditingController(
-      text: remaining > 2000 ? '2000' : remaining.toString(),
+      text: remaining.toString(),
     );
     final collectorCtrl = TextEditingController(text: clientName);
     final notesCtrl = TextEditingController();
@@ -1394,11 +1394,10 @@ class _CentralPlantInventoryScreenState
                           }
                         } else {
                           if (mounted) {
+                            final errMsg = res['message'] ?? res['error'] ?? 'Failed to log collection.';
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(
-                                  res['message'] ?? 'Failed to log collection.',
-                                ),
+                                content: Text(errMsg.toString()),
                                 backgroundColor: Colors.red,
                               ),
                             );

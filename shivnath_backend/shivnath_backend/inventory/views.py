@@ -770,7 +770,14 @@ class ProductionBatchCollectionAPIView(views.APIView):
                 }
             }, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            msg = str(e)
+            if hasattr(e, 'messages') and e.messages:
+                msg = e.messages[0]
+            elif hasattr(e, 'message') and e.message:
+                msg = e.message
+            if msg.startswith("['") and msg.endswith("']"):
+                msg = msg[2:-2]
+            return Response({'error': msg, 'message': msg}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class DealerStockBatchListAPIView(generics.ListAPIView):

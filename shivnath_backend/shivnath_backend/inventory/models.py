@@ -203,10 +203,10 @@ class ProductionBatch(models.Model):
     @property
     def dynamic_remaining_company(self):
         """
-        Dynamically calculated remaining stock in central company warehouse:
-        Produced - Dispatched - Damaged + Returned
+        Dynamically calculated remaining stock in central company warehouse.
+        Returns the authoritative field quantity_remaining_company.
         """
-        return max(0, self.quantity_produced_units - self.quantity_dispatched - self.quantity_damaged + self.quantity_returned)
+        return self.quantity_remaining_company
 
     @property
     def available_quantity(self):

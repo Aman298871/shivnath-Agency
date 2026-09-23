@@ -798,6 +798,12 @@ class InventoryService {
         _sessionService.refreshAccessToken();
       } else if (decoded['message'] != null) {
         message = decoded['message'].toString();
+      } else if (decoded['error'] != null) {
+        var errStr = decoded['error'].toString().trim();
+        if (errStr.startsWith("['") && errStr.endsWith("']")) {
+          errStr = errStr.substring(2, errStr.length - 2);
+        }
+        message = errStr;
       } else if (decoded['detail'] != null) {
         message = decoded['detail'].toString();
       } else if (decoded['errors'] != null) {

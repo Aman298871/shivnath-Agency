@@ -131,12 +131,13 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         title: 'Quotations',
         icon: Icons.request_quote_outlined,
       ),
-      if (isSuperAdmin)
-        const _AdminMenuItem(
-          index: 12,
-          title: 'WhatsApp settings',
-          icon: Icons.chat_outlined,
-        ),
+      // HIDDEN / COMMENTED OUT PER CLIENT REQUIREMENT (Can be re-enabled in future if needed):
+      // if (isSuperAdmin)
+      //   const _AdminMenuItem(
+      //     index: 12,
+      //     title: 'WhatsApp settings',
+      //     icon: Icons.chat_outlined,
+      //   ),
       const _AdminMenuItem(
         index: 13,
         title: 'Customer Inquiries',
@@ -213,8 +214,9 @@ Widget _currentScreen() {
     case 11:
       return const AdminQuotationsScreen();
 
-    case 12:
-      return const AdminWhatsAppScreen();
+    // case 12:
+    //   // Commented out per client request (can be re-enabled in future if needed):
+    //   return const AdminWhatsAppScreen();
 
     case 13:
       return const AdminChatConversationsScreen();

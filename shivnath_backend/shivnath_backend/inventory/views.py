@@ -840,14 +840,62 @@ class DealerStockRequestListCreateAPIView(views.APIView):
         # Handle batch items from Flutter franchise inventory screen
         if isinstance(raw_items, list) and len(raw_items) > 0:
             created_requests = []
+            skipped_reasons = []
             for item in raw_items:
+                # Resolve product: prefer product_id, fall back to sku lookup.
+                # NOTE: current Franchise stock is NEVER used to determine validity.
                 p_id = item.get('product_id') or item.get('product') or item.get('id')
-                qty = item.get('quantity_units') or item.get('requested_quantity') or item.get('quantity')
-                if not p_id or not qty:
-                    continue
+                product_sku = item.get('product_sku') or item.get('sku') or ''
+
+                # Resolve quantity — use quantity_units if provided, else quantity_cases * 1, else quantity.
+                qty_units = item.get('quantity_units')
+                qty_cases = item.get('quantity_cases')
+                qty_generic = item.get('requested_quantity') or item.get('quantity')
+
+                if qty_units is not None:
+                    qty = qty_units
+                elif qty_cases is not None:
+                    qty = qty_cases
+                else:
+                    qty = qty_generic
+
+                # Validate quantity: must be present and > 0.
                 try:
-                    product = Product.objects.get(id=p_id)
-                except Product.DoesNotExist:
+                    qty_int = int(qty) if qty is not None else 0
+                except (ValueError, TypeError):
+                    qty_int = 0
+
+                if qty_int <= 0:
+                    skipped_reasons.append(
+                        f"Skipped item (sku={product_sku or p_id}): quantity must be > 0."
+                    )
+                    continue
+
+                # Resolve product object.
+                product = None
+                if p_id:
+                    try:
+                        product = Product.objects.get(id=p_id)
+                    except Product.DoesNotExist:
+                        product = None
+
+                # Fallback: look up by SKU when product_id was null/not found.
+                if product is None and product_sku:
+                    try:
+                        product = Product.objects.get(sku__iexact=product_sku.strip())
+                    except Product.DoesNotExist:
+                        product = None
+
+                if product is None:
+                    skipped_reasons.append(
+                        f"Skipped item (sku={product_sku or p_id}): product not found."
+                    )
+                    continue
+
+                if product.status != 'Active':
+                    skipped_reasons.append(
+                        f"Skipped item ({product.sku}): product is inactive/archived."
+                    )
                     continue
 
                 count = DealerStockRequest.objects.count() + 1
@@ -857,14 +905,19 @@ class DealerStockRequestListCreateAPIView(views.APIView):
                     request_number=req_number,
                     dealer=dealer,
                     product=product,
-                    requested_quantity=int(qty),
+                    requested_quantity=qty_int,
                     dealer_notes=notes,
                     status='REQUESTED'
                 )
                 created_requests.append(stock_req)
 
             if not created_requests:
-                return Response({'success': False, 'message': 'No valid products in stock request.'}, status=status.HTTP_400_BAD_REQUEST)
+                # Build a meaningful error: include why each item was rejected.
+                reason_detail = '; '.join(skipped_reasons) if skipped_reasons else 'No items with valid product and quantity > 0 were found.'
+                return Response(
+                    {'success': False, 'message': f'No valid products in stock request. {reason_detail}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             serialized_list = DealerStockRequestSerializer(created_requests, many=True).data
             return Response({

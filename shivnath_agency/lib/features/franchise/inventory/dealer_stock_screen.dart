@@ -688,33 +688,39 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Specify quantity in CASES for each official variant:',
+                    'Enter requested quantity (units) for each variant.\n'
+                    'Your current stock level does NOT affect eligibility.',
                     style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                   const SizedBox(height: 12),
                   ...officialSkus.map((sku) {
                     final upc = _getUnitsPerCase(sku);
+                    // Find current franchise stock for display only.
+                    final batchesForSku = _dealerBatches.where((b) {
+                      final bSku = (b['product_sku'] ?? b['sku'] ?? '').toString().toUpperCase();
+                      return bSku == sku;
+                    }).toList();
+                    int currentUnits = 0;
+                    for (final b in batchesForSku) {
+                      currentUnits += int.tryParse(b['remaining_quantity']?.toString() ?? '0') ?? 0;
+                    }
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            flex: 3,
-                            child: Text(
-                              '$sku ($upc units/case)',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                            ),
+                          Text(
+                            '$sku  ($upc units/case) — Current stock: $currentUnits units',
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                           ),
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: quantities[sku],
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Cases',
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
+                          const SizedBox(height: 4),
+                          TextField(
+                            controller: quantities[sku],
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Requested Units',
+                              isDense: true,
+                              border: OutlineInputBorder(),
                             ),
                           ),
                         ],
@@ -747,25 +753,42 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                     : () async {
                         final items = <Map<String, dynamic>>[];
                         for (final sku in officialSkus) {
-                          final cases = int.tryParse(quantities[sku]?.text.trim() ?? '0') ?? 0;
-                          if (cases > 0) {
-                            // Find product ID if available
-                            final p = _products.cast<ProductModel?>().firstWhere(
-                                  (prod) => prod?.name.toUpperCase().contains(sku) == true,
-                                  orElse: () => null,
-                                );
-                            items.add({
-                              'product_sku': sku,
-                              'product_id': p?.id,
-                              'quantity_cases': cases,
-                              'quantity_units': cases * _getUnitsPerCase(sku),
-                            });
+                          final requestedUnits =
+                              int.tryParse(quantities[sku]?.text.trim() ?? '0') ?? 0;
+                          if (requestedUnits <= 0) continue;
+
+                          // Match product by SKU field (exact, case-insensitive).
+                          // product_id is optional; backend falls back to product_sku lookup.
+                          ProductModel? matched;
+                          for (final prod in _products) {
+                            if (prod.sku.toUpperCase() == sku.toUpperCase()) {
+                              matched = prod;
+                              break;
+                            }
                           }
+                          // Fallback: match by name containing sku (e.g. product not yet cached).
+                          if (matched == null) {
+                            for (final prod in _products) {
+                              if (prod.name.toUpperCase().contains(sku.toUpperCase())) {
+                                matched = prod;
+                                break;
+                              }
+                            }
+                          }
+
+                          items.add({
+                            'product_sku': sku,           // primary lookup key for backend
+                            'product_id': matched?.id,    // optional; backend uses sku if null
+                            'quantity_units': requestedUnits,
+                            'quantity_cases': requestedUnits ~/ _getUnitsPerCase(sku),
+                          });
                         }
 
                         if (items.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please request at least 1 case.')),
+                            const SnackBar(
+                              content: Text('Please enter a quantity > 0 for at least one product.'),
+                            ),
                           );
                           return;
                         }
@@ -813,6 +836,7 @@ class _DealerStockScreenState extends State<DealerStockScreen>
       ),
     );
   }
+
 
   void _openConfirmReceiptDialog(Map<String, dynamic> req) {
     final damageControllers = <String, TextEditingController>{};

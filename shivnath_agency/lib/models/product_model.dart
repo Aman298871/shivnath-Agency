@@ -1,6 +1,7 @@
 class ProductModel {
   final String id;
   final String name;
+  final String sku;
   final String category;
   final String size;
   final double price;
@@ -17,6 +18,7 @@ class ProductModel {
   const ProductModel({
     required this.id,
     required this.name,
+    this.sku = '',
     required this.category,
     this.categoryRefId,
     this.categoryHierarchy,
@@ -34,6 +36,7 @@ class ProductModel {
     return ProductModel(
       id: json["id"]?.toString() ?? "",
       name: json["name"]?.toString() ?? "",
+      sku: json["sku"]?.toString() ?? "",
       category: json["category"]?.toString() ?? "Water",
       categoryRefId: json["category_ref_id"] is int
           ? json["category_ref_id"]
@@ -54,6 +57,7 @@ class ProductModel {
     return {
       "id": id,
       "name": name,
+      "sku": sku,
       "category": category,
       "size": size,
       "price": price,
@@ -74,4 +78,4 @@ class ProductModel {
 
   @override
   int get hashCode => id.hashCode;
-}
+}

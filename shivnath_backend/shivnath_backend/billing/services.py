@@ -69,7 +69,7 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
         notes=notes
     )
 
-    invoice.amount_paid += amount_paid_dec
+    invoice.amount_paid = Decimal(str(invoice.amount_paid or '0.00')) + amount_paid_dec
     if invoice.amount_paid >= invoice.grand_total:
         invoice.status = 'PAID'
     elif invoice.amount_paid > Decimal('0.00'):
@@ -87,11 +87,14 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
 
         if dealer:
             credit_profile, _ = DealerCreditProfile.objects.select_for_update().get_or_create(dealer=dealer)
-            credit_profile.current_outstanding = max(Decimal('0.00'), credit_profile.current_outstanding - amount_paid_dec)
+            current_out = Decimal(str(credit_profile.current_outstanding or '0.00'))
+            limit = Decimal(str(credit_profile.credit_limit or '0.00'))
+            credit_profile.current_outstanding = max(Decimal('0.00'), current_out - amount_paid_dec)
             credit_profile.last_payment_date = timezone.now().date()
-            if credit_profile.current_outstanding <= credit_profile.credit_limit:
+            if credit_profile.current_outstanding <= limit:
                 credit_profile.credit_status = 'GOOD_STANDING'
             credit_profile.save()
+
 
     return txn
 

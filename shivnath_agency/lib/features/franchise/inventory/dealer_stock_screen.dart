@@ -468,15 +468,41 @@ class _DealerStockScreenState extends State<DealerStockScreen>
         final req = _stockRequests[idx];
         final id = req['id'];
         final reqNum = req['request_number'] ?? 'REQ-$id';
-        final status = (req['status'] ?? 'PENDING').toString().toUpperCase();
-        final items = (req['items'] as List?) ?? [];
-        final notes = req['notes']?.toString() ?? '';
+        final status = (req['status'] ?? 'REQUESTED').toString().toUpperCase();
+        final rawItems = req['items'];
+        final List<Map<String, dynamic>> items = [];
+        if (rawItems is List && rawItems.isNotEmpty) {
+          for (final it in rawItems) {
+            if (it is Map<String, dynamic>) {
+              items.add(it);
+            } else if (it is Map) {
+              items.add(Map<String, dynamic>.from(it));
+            }
+          }
+        } else {
+          final sku = (req['product_sku'] ?? req['sku'] ?? req['product_name'] ?? 'Finished Product').toString();
+          final qtyUnits = int.tryParse(req['requested_quantity']?.toString() ?? '0') ?? 0;
+          final upc = _getUnitsPerCase(sku);
+          final qtyCases = upc > 0 ? (qtyUnits / upc).ceil() : qtyUnits;
+          final fulfilledUnits = int.tryParse(req['dispatched_quantity']?.toString() ?? '0') ?? 0;
+          final fulfilledCases = upc > 0 ? (fulfilledUnits / upc).floor() : fulfilledUnits;
+          items.add({
+            'product_sku': sku,
+            'quantity_units': qtyUnits,
+            'quantity_cases': qtyCases,
+            'fulfilled_cases': fulfilledCases,
+            'fulfilled_units': fulfilledUnits,
+          });
+        }
+
+        final notes = (req['dealer_notes'] ?? req['notes'])?.toString() ?? '';
         final createdAt = req['created_at']?.toString() ?? '';
 
         Color statusColor = Colors.orange;
+        if (status == 'PARTIALLY_FULFILLED') statusColor = Colors.purple;
         if (status == 'DISPATCHED' || status == 'PARTIALLY_DISPATCHED') statusColor = Colors.blue;
         if (status == 'RECEIVED') statusColor = Colors.green;
-        if (status == 'CANCELLED') statusColor = Colors.grey;
+        if (status == 'CANCELLED' || status == 'REJECTED') statusColor = Colors.red;
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -496,7 +522,7 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.12),
+                        color: statusColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -560,11 +586,12 @@ class _DealerStockScreenState extends State<DealerStockScreen>
   // =========================================================================
 
   Widget _buildReceiptsTab() {
-    // Show requests that are DISPATCHED or PARTIALLY_DISPATCHED
+    // Show requests that are DISPATCHED or PARTIALLY_DISPATCHED or PARTIALLY_FULFILLED
     final pendingReceipts = _stockRequests.where((r) {
       final s = (r['status'] ?? '').toString().toUpperCase();
-      return s == 'DISPATCHED' || s == 'PARTIALLY_DISPATCHED';
+      return s == 'DISPATCHED' || s == 'PARTIALLY_DISPATCHED' || s == 'PARTIALLY_FULFILLED';
     }).toList();
+
 
     if (pendingReceipts.isEmpty) {
       return Center(

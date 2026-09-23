@@ -18,6 +18,7 @@ class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenQuotations;
   final VoidCallback? onOpenUsers;
   final VoidCallback? onOpenNotifications;
+  final VoidCallback? onOpenStockRequests;
 
   const AdminDashboardScreen({
     super.key,
@@ -31,6 +32,7 @@ class AdminDashboardScreen extends StatefulWidget {
     this.onOpenQuotations,
     this.onOpenUsers,
     this.onOpenNotifications,
+    this.onOpenStockRequests,
   });
 
   @override
@@ -438,7 +440,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         case 1:
           return widget.onOpenOrders;
         case 2:
-          return widget.onOpenInventory;
+          return widget.onOpenStockRequests ?? widget.onOpenInventory;
         case 3:
           return widget.onOpenLeads;
         case 4:

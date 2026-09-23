@@ -286,6 +286,7 @@ Widget _currentScreen() {
         onOpenQuotations: () => _selectMenu(11),
         onOpenUsers: () => _selectMenu(14),
         onOpenNotifications: () => _selectMenu(15),
+        onOpenStockRequests: () => _selectMenu(21),
       );
 
     case 1:
@@ -364,6 +365,7 @@ Widget _currentScreen() {
         onOpenQuotations: () => _selectMenu(11),
         onOpenUsers: () => _selectMenu(14),
         onOpenNotifications: () => _selectMenu(15),
+        onOpenStockRequests: () => _selectMenu(21),
       );
   }
 }

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 import uuid
@@ -16,9 +17,9 @@ class CompanyBillingProfile(models.Model):
     state_name = models.CharField(max_length=100, blank=True, default='')
     state_code = models.CharField(max_length=10, blank=True, default='')
     invoice_prefix = models.CharField(max_length=30, default='SHV/2026/')
-    cgst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=9.00)
-    sgst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=9.00)
-    igst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=18.00)
+    cgst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('9.00'))
+    sgst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('9.00'))
+    igst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('18.00'))
     bank_name = models.CharField(max_length=150, blank=True, default='')
     bank_account_number = models.CharField(max_length=50, blank=True, default='')
     bank_ifsc_code = models.CharField(max_length=30, blank=True, default='')
@@ -52,7 +53,7 @@ class DealerCreditProfile(models.Model):
     credit_limit = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        default=0.00
+        default=Decimal('0.00')
     )
     payment_terms_days = models.PositiveIntegerField(
         default=15,
@@ -61,8 +62,9 @@ class DealerCreditProfile(models.Model):
     current_outstanding = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        default=0.00
+        default=Decimal('0.00')
     )
+
     credit_status = models.CharField(
         max_length=30,
         choices=STATUS_CHOICES,

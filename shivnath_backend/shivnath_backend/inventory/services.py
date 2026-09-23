@@ -339,9 +339,10 @@ def allocate_and_dispatch_stock_request_atomic(stock_request, allocations_list, 
 
     # Generate Wholesale Purchase Invoice
     billing_profile = CompanyBillingProfile.objects.filter(is_configured=True).first()
-    subtotal = Decimal(total_dispatched) * stock_request.product.dealer_transfer_price
-    cgst_rate = billing_profile.cgst_rate if billing_profile else Decimal('9.00')
-    sgst_rate = billing_profile.sgst_rate if billing_profile else Decimal('9.00')
+    unit_transfer_price = Decimal(str(stock_request.product.dealer_transfer_price or '0.00'))
+    subtotal = Decimal(total_dispatched) * unit_transfer_price
+    cgst_rate = Decimal(str(billing_profile.cgst_rate)) if billing_profile and billing_profile.cgst_rate is not None else Decimal('9.00')
+    sgst_rate = Decimal(str(billing_profile.sgst_rate)) if billing_profile and billing_profile.sgst_rate is not None else Decimal('9.00')
     cgst_amt = (subtotal * cgst_rate) / Decimal('100.00')
     sgst_amt = (subtotal * sgst_rate) / Decimal('100.00')
     grand_total = subtotal + cgst_amt + sgst_amt
@@ -367,21 +368,25 @@ def allocate_and_dispatch_stock_request_atomic(stock_request, allocations_list, 
 
     # Check and enforce dealer credit limit
     credit_profile, _ = DealerCreditProfile.objects.select_for_update().get_or_create(dealer=stock_request.dealer)
+    current_out = Decimal(str(credit_profile.current_outstanding or '0.00'))
+    limit = Decimal(str(credit_profile.credit_limit or '0.00'))
+
     if credit_profile.credit_status in ['BLOCKED', 'CREDIT_BLOCKED']:
         raise ValidationError(f"Dealer {stock_request.dealer.business_name} credit is BLOCKED.")
-    if credit_profile.credit_limit > 0 and (credit_profile.current_outstanding + grand_total) > credit_profile.credit_limit:
+    if limit > Decimal('0.00') and (current_out + grand_total) > limit:
         raise ValidationError(
             f"Credit limit exceeded for {stock_request.dealer.business_name}. "
-            f"Limit: ₹{credit_profile.credit_limit}, Outstanding: ₹{credit_profile.current_outstanding}, "
+            f"Limit: ₹{limit}, Outstanding: ₹{current_out}, "
             f"Dispatch Grand Total: ₹{grand_total}."
         )
 
-    credit_profile.current_outstanding += grand_total
-    if credit_profile.current_outstanding > credit_profile.credit_limit > 0:
+    credit_profile.current_outstanding = current_out + grand_total
+    if limit > Decimal('0.00') and credit_profile.current_outstanding > limit:
         credit_profile.credit_status = 'PAYMENT_DUE'
     credit_profile.save()
 
     return stock_request, invoice
+
 
 
 @transaction.atomic

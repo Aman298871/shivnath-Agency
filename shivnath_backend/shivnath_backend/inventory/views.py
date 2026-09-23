@@ -1049,7 +1049,51 @@ class DealerStockRequestDispatchAPIView(views.APIView):
         allocations_data = request.data.get('allocations', [])
 
         if not allocations_data:
-            return Response({'error': 'allocations list is required [{"batch_id": int, "quantity": int}].'}, status=status.HTTP_400_BAD_REQUEST)
+            # Auto-FEFO allocation fallback
+            needed_quantity = max(0, stock_req.requested_quantity - stock_req.dispatched_quantity)
+            custom_qty = request.data.get('quantity')
+            if custom_qty:
+                needed_quantity = min(needed_quantity, int(custom_qty))
+            elif request.data.get('items'):
+                items_list = request.data.get('items', [])
+                if isinstance(items_list, list) and items_list:
+                    item_spec = items_list[0]
+                    if 'cases_to_dispatch' in item_spec:
+                        upc = getattr(stock_req.product, 'units_per_case', 24) or 24
+                        needed_quantity = min(needed_quantity, int(item_spec['cases_to_dispatch']) * upc)
+                    elif 'quantity' in item_spec:
+                        needed_quantity = min(needed_quantity, int(item_spec['quantity']))
+
+            if needed_quantity <= 0:
+                return Response({'error': 'No quantity to dispatch or request is already fulfilled.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            from django.utils import timezone
+            today = timezone.now().date()
+            batches = ProductionBatch.objects.filter(
+                product=stock_req.product,
+                status='ACTIVE',
+                quantity_remaining_company__gt=0,
+                expiry_date__gt=today
+            ).order_by('expiry_date', 'manufacture_date')
+
+            allocations_data = []
+            accumulated = 0
+            for b in batches:
+                avail = b.available_quantity
+                if avail <= 0:
+                    continue
+                take = min(avail, needed_quantity - accumulated)
+                allocations_data.append({'batch_id': b.id, 'quantity': take})
+                accumulated += take
+                if accumulated >= needed_quantity:
+                    break
+
+            if accumulated < needed_quantity:
+                total_avail = sum(b.available_quantity for b in batches)
+                return Response({
+                    'error': f'Insufficient central plant stock for {stock_req.product.name}. Available: {total_avail} units, Required: {needed_quantity} units. Please produce a new batch first.',
+                    'message': f'Insufficient central plant stock for {stock_req.product.name}. Available: {total_avail} units, Required: {needed_quantity} units.'
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             req_obj, invoice = allocate_and_dispatch_stock_request_atomic(
@@ -1058,13 +1102,16 @@ class DealerStockRequestDispatchAPIView(views.APIView):
                 actor=request.user
             )
             return Response({
+                'success': True,
+                'message': f'Dispatched successfully! Wholesale invoice #{invoice.invoice_number} generated.',
                 'stock_request': DealerStockRequestSerializer(req_obj).data,
                 'invoice_id': invoice.id,
                 'invoice_number': invoice.invoice_number,
                 'grand_total': invoice.grand_total
             }, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': str(e), 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class DealerStockRequestReceiveAPIView(views.APIView):

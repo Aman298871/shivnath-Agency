@@ -82,7 +82,7 @@ void initState() {
     return leads
         .where(
           (lead) =>
-              lead['score'] == 'Hot',
+              (lead['score'] ?? '').toString().toUpperCase() == 'HOT',
         )
         .length;
   }
@@ -394,7 +394,7 @@ Future<void> _loadLeads() async {
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: 1.25,
+        childAspectRatio: 1.35,
       ),
       itemBuilder: (
         context,
@@ -620,6 +620,10 @@ Future<void> _loadLeads() async {
       DropdownMenuItem(
         value: 'Franchise Confirmed',
         child: Text('Franchise Confirmed'),
+      ),
+      DropdownMenuItem(
+        value: 'Converted',
+        child: Text('Converted'),
       ),
       DropdownMenuItem(
         value: 'Lost',
@@ -3478,6 +3482,86 @@ Future<void> _viewLead(
                       ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: dialogContext,
+                            builder: (c) => AlertDialog(
+                              title: const Text('Convert to Customer'),
+                              content: Text('Convert ${lead['name']} to an active customer? This will link their profile and mark the lead as Converted.'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669), foregroundColor: Colors.white),
+                                  onPressed: () => Navigator.pop(c, true),
+                                  child: const Text('Confirm Conversion'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            final res = await _leadService.convertLead(lead['id'] as int, 'convert_to_customer');
+                            if (dialogContext.mounted) Navigator.pop(dialogContext);
+                            if (res['success'] == true) {
+                              await _loadLeads();
+                              if (mounted) {
+                                AppToast.success(context, 'Lead successfully converted to Customer!', title: 'Converted');
+                              }
+                            } else {
+                              if (mounted) {
+                                AppToast.error(context, res['message'] ?? 'Failed to convert lead', title: 'Error');
+                              }
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                        label: const Text('Convert to Customer'),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7C3AED),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: dialogContext,
+                            builder: (c) => AlertDialog(
+                              title: const Text('Start Franchise Onboarding'),
+                              content: Text('Start official franchise onboarding for ${lead['name']}? Status will move to Agreement Pending and onboarding will initialize.'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED), foregroundColor: Colors.white),
+                                  onPressed: () => Navigator.pop(c, true),
+                                  child: const Text('Start Onboarding'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            final res = await _leadService.convertLead(lead['id'] as int, 'start_franchise_onboarding');
+                            if (dialogContext.mounted) Navigator.pop(dialogContext);
+                            if (res['success'] == true) {
+                              await _loadLeads();
+                              if (mounted) {
+                                AppToast.success(context, 'Franchise onboarding started successfully!', title: 'Onboarding');
+                              }
+                            } else {
+                              if (mounted) {
+                                AppToast.error(context, res['message'] ?? 'Failed to start onboarding', title: 'Error');
+                              }
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.storefront_rounded, size: 18),
+                        label: const Text('Start Franchise Onboarding'),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF6366F1),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
@@ -4294,24 +4378,25 @@ class _LeadStatCard
           color: const Color(0xFFE5E7EB),
         ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 11,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 11,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
+            const SizedBox(height: 4),
+            Text(
               value,
               style: const TextStyle(
                 fontSize: 22,
@@ -4319,8 +4404,8 @@ class _LeadStatCard
                 color: Color(0xFF111827),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
 

@@ -105,15 +105,6 @@ class PublicLeadCaptureView(APIView):
         notes = str(request.data.get('notes', '')).strip()
         conversation_history = request.data.get('conversation_history', [])
 
-        # Strict name validation: 2-30 chars, at least some alphabetic, not purely numeric/symbol
-        import re as _re
-        name_clean = name.strip()
-        if not name_clean:
-            name_clean = f"Prospect {phone_raw[-4:] if len(phone_raw) >= 4 else 'Visitor'}"
-        elif len(name_clean) > 50:
-            name_clean = name_clean[:50]
-        name = name_clean
-
         # Strict mobile validation: EXACTLY 10 digits starting with 6, 7, 8, or 9
         phone_raw = str(phone).strip()
         if not phone_raw:
@@ -128,6 +119,14 @@ class PublicLeadCaptureView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         phone = phone_raw
+
+        # Strict name validation: 2-30 chars, at least some alphabetic, not purely numeric/symbol
+        name_clean = name.strip()
+        if not name_clean:
+            name_clean = f"Prospect {phone_raw[-4:] if len(phone_raw) >= 4 else 'Visitor'}"
+        elif len(name_clean) > 50:
+            name_clean = name_clean[:50]
+        name = name_clean
 
         # Email validation: format check if provided, or default fallback if skipped
         email_clean = str(email).strip().lower()
@@ -1053,12 +1052,167 @@ class LeadScoreRecalculateView(APIView):
         lead = get_object_or_404(Lead, pk=pk)
         old_score = lead.score
         lead.calculate_lead_score()
-        lead.save(update_fields=['score', 'score_numeric', 'status', 'updated_at'])
+        lead.save(update_fields=['score', 'score_category', 'lead_score_number', 'updated_at'])
         return Response({
             'success': True,
             'lead_id': lead.id,
             'previous_score': old_score,
             'updated_score': lead.score,
-            'score_numeric': lead.score_numeric,
+            'score_category': lead.score_category,
+            'lead_score_number': lead.lead_score_number,
             'status': lead.status,
-        })
+        })
+
+
+# =========================================================
+# LEAD CONVERSION (CUSTOMER / FRANCHISE ONBOARDING)
+# =========================================================
+
+class LeadConvertAPIView(APIView):
+    permission_classes = [IsAdminOrApprovedFranchise]
+
+    def post(self, request, pk):
+        lead = get_object_or_404(Lead, pk=pk)
+        action = str(request.data.get('action', 'convert_to_customer')).strip().lower()
+        actor = request.user if request.user.is_authenticated else None
+
+        from django.contrib.auth.models import User
+        from accounts.models import UserProfile, FranchiseProfile, CustomerDealerRelationship
+
+        if action in ['convert_to_customer', 'customer']:
+            user = None
+            if lead.converted_user:
+                user = lead.converted_user
+            elif lead.phone:
+                user = User.objects.filter(username=lead.phone).first()
+            if not user and lead.email and not lead.email.endswith('@purewatercrm.com'):
+                user = User.objects.filter(email__iexact=lead.email).first()
+
+            if not user:
+                username = lead.phone if lead.phone else f"cust_{lead.id}"
+                user = User.objects.create_user(
+                    username=username,
+                    email=lead.email or f"{username}@purewatercrm.com",
+                    first_name=lead.name[:30],
+                )
+                user.set_unusable_password()
+                user.save()
+
+            prof, _ = UserProfile.objects.get_or_create(user=user)
+            prof.role = 'customer'
+            if lead.phone and not prof.phone:
+                prof.phone = lead.phone
+            if lead.city and not prof.city:
+                prof.city = lead.city
+            if lead.district and not prof.district:
+                prof.district = lead.district
+            if lead.territory and not prof.territory:
+                prof.territory = lead.territory
+            prof.save()
+
+            if lead.assigned_franchise:
+                CustomerDealerRelationship.objects.get_or_create(
+                    customer=user,
+                    defaults={
+                        'registered_franchise': lead.assigned_franchise,
+                        'current_serving_franchise': lead.assigned_franchise,
+                        'district': lead.district or lead.assigned_franchise.district,
+                    }
+                )
+
+            lead.converted_user = user
+            lead.status = 'CONVERTED'
+            lead.save()
+
+            LeadActivity.objects.create(
+                lead=lead,
+                activity_type='status_change',
+                title='Lead Converted to Customer',
+                description=f'Customer account linked: {user.username} ({user.first_name or user.username})',
+                created_by=actor
+            )
+
+            CRMActivityLog.objects.create(
+                lead=lead,
+                actor=actor,
+                activity_type='STATUS_CHANGED',
+                description=f'Lead converted to Customer profile (User ID: {user.id}, Username: {user.username})'
+            )
+
+            return Response({
+                'success': True,
+                'message': f'Lead successfully converted to Customer profile ({user.username}).',
+                'lead': LeadSerializer(lead).data,
+                'customer_id': user.id,
+                'username': user.username,
+            }, status=status.HTTP_200_OK)
+
+        elif action in ['start_franchise_onboarding', 'franchise', 'franchise_onboarding']:
+            user = None
+            if lead.converted_user:
+                user = lead.converted_user
+            elif lead.phone:
+                user = User.objects.filter(username=lead.phone).first()
+
+            if not user:
+                username = lead.phone if lead.phone else f"franchise_{lead.id}"
+                user = User.objects.create_user(
+                    username=username,
+                    email=lead.email or f"{username}@franchiseprospect.com",
+                    first_name=lead.name[:30],
+                )
+                user.set_unusable_password()
+                user.save()
+
+            prof, _ = UserProfile.objects.get_or_create(user=user)
+            prof.role = 'franchise'
+            prof.phone = lead.phone or prof.phone
+            prof.city = lead.city or prof.city
+            prof.district = lead.district or prof.district
+            prof.territory = lead.territory or prof.territory
+            prof.save()
+
+            fp, created = FranchiseProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'business_name': f"{lead.name} Agency",
+                    'city': lead.city or 'Raipur',
+                    'district': lead.district or '',
+                    'territory': lead.territory or '',
+                    'phone': lead.phone,
+                    'status': 'pending',
+                }
+            )
+
+            lead.converted_user = user
+            lead.status = 'AGREEMENT_PENDING'
+            lead.lead_type = 'FRANCHISE'
+            lead.save()
+
+            LeadActivity.objects.create(
+                lead=lead,
+                activity_type='status_change',
+                title='Franchise Onboarding Started',
+                description=f'Onboarding initiated for franchise {fp.business_name}. Status: PENDING / UNDER_REVIEW.',
+                created_by=actor
+            )
+
+            CRMActivityLog.objects.create(
+                lead=lead,
+                actor=actor,
+                activity_type='STATUS_CHANGED',
+                description=f'Franchise onboarding initiated (Profile ID: {fp.id}, Status: PENDING / UNDER_REVIEW)'
+            )
+
+            return Response({
+                'success': True,
+                'message': 'Franchise onboarding started successfully. Status set to PENDING / UNDER_REVIEW.',
+                'lead': LeadSerializer(lead).data,
+                'franchise_id': fp.id,
+                'business_name': fp.business_name,
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            'success': False,
+            'message': f"Unknown conversion action '{action}'. Supported actions: 'convert_to_customer', 'start_franchise_onboarding'."
+        }, status=status.HTTP_400_BAD_REQUEST)

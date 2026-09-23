@@ -271,81 +271,31 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
-  void _showTerritoryLocationDialog() async {
-    BuildContext? dialogContext;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        dialogContext = ctx;
-        return const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)));
-      },
+  void _showTerritoryLocationDialog() {
+    final territoryController = TextEditingController(
+      text: _currentUser?.territory.isNotEmpty == true
+          ? _currentUser!.territory
+          : (_territoryData?['territory']?.toString() ?? ''),
+    );
+    final districtController = TextEditingController(
+      text: _currentUser?.district?.isNotEmpty == true
+          ? _currentUser!.district
+          : (_territoryData?['district']?.toString() ?? 'Raipur'),
+    );
+    final addressController = TextEditingController(
+      text: _currentUser?.address ?? _savedAddress,
     );
 
-    final masterRes = await _authService.getTerritoryMaster();
-    if (dialogContext != null && dialogContext!.mounted) {
-      Navigator.pop(dialogContext!);
-    }
-    if (!mounted) return;
-
-    List<Map<String, dynamic>> districts = [];
-    if (masterRes['success'] == true && masterRes['data'] is Map && masterRes['data']['districts'] is List) {
-      districts = List<Map<String, dynamic>>.from(masterRes['data']['districts']);
-    }
-
-    if (districts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to load territory master. Please check connection.')),
-      );
-      return;
-    }
-
-    String? selectedDistrict = _currentUser?.district?.isNotEmpty == true
-        ? _currentUser!.district
-        : (_territoryData?['district']?.toString() ?? districts.first['name'].toString());
-
-    if (!districts.any((d) => d['name'].toString() == selectedDistrict)) {
-      selectedDistrict = districts.first['name'].toString();
-    }
-
-    List<Map<String, dynamic>> getZonesForDistrict(String? distName) {
-      final d = districts.firstWhere(
-        (elem) => elem['name'].toString() == distName,
-        orElse: () => districts.first,
-      );
-      if (d['zones'] is List) {
-        return List<Map<String, dynamic>>.from(d['zones']);
-      }
-      return [];
-    }
-
-    var availableZones = getZonesForDistrict(selectedDistrict);
-    int? selectedZoneId = _currentUser?.zoneId ?? (_territoryData?['zone_id'] as int?);
-    if (selectedZoneId == null || !availableZones.any((z) => z['id'] == selectedZoneId)) {
-      selectedZoneId = availableZones.isNotEmpty ? availableZones.first['id'] as int? : null;
-    }
-
-    List<String> getAreasForZone(int? zId) {
-      if (zId == null) return [];
-      final z = availableZones.firstWhere(
-        (elem) => elem['id'] == zId,
-        orElse: () => {},
-      );
-      if (z['areas'] is List) {
-        return List<String>.from(z['areas'].map((a) => a.toString()));
-      }
-      return [];
-    }
-
-    var availableAreas = getAreasForZone(selectedZoneId);
-    String? selectedArea = _currentUser?.locality?.isNotEmpty == true
-        ? _currentUser!.locality
-        : (availableAreas.isNotEmpty ? availableAreas.first : null);
-    if (selectedArea != null && !availableAreas.contains(selectedArea) && availableAreas.isNotEmpty) {
-      selectedArea = availableAreas.first;
-    }
-
-    final addressController = TextEditingController(text: _currentUser?.address ?? _savedAddress);
+    const commonSuggestions = [
+      'North Raipur',
+      'South Raipur',
+      'Central Raipur',
+      'Tatibandh',
+      'Shankar Nagar',
+      'Pandri',
+      'Bhilai',
+      'Durg',
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -353,7 +303,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (bCtx) => StatefulBuilder(
+      builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           return Padding(
             padding: EdgeInsets.only(
@@ -382,69 +332,44 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Select your authoritative district, zone, and service area. No PIN code required.',
+                    'Enter your local delivery territory and area. We will assign the closest franchise to fulfill your orders quickly.',
                     style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: selectedDistrict,
+                  TextField(
+                    controller: territoryController,
                     decoration: const InputDecoration(
-                      labelText: 'Select District',
-                      prefixIcon: Icon(Icons.map_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    items: districts.map((d) {
-                      final name = d['name'].toString();
-                      return DropdownMenuItem(value: name, child: Text(name));
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setSheetState(() {
-                          selectedDistrict = val;
-                          availableZones = getZonesForDistrict(val);
-                          selectedZoneId = availableZones.isNotEmpty ? availableZones.first['id'] as int? : null;
-                          availableAreas = getAreasForZone(selectedZoneId);
-                          selectedArea = availableAreas.isNotEmpty ? availableAreas.first : null;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<int>(
-                    value: selectedZoneId,
-                    decoration: const InputDecoration(
-                      labelText: 'Select Territory / Zone',
+                      labelText: 'Territory / Zone',
+                      hintText: 'e.g. North Raipur, Tatibandh, Shankar Nagar',
                       prefixIcon: Icon(Icons.location_city_outlined),
                       border: OutlineInputBorder(),
                     ),
-                    items: availableZones.map((z) {
-                      final name = z['name'].toString();
-                      return DropdownMenuItem(value: z['id'] as int?, child: Text(name));
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: commonSuggestions.map((sug) {
+                      return ActionChip(
+                        label: Text(sug, style: const TextStyle(fontSize: 11)),
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        onPressed: () {
+                          setSheetState(() {
+                            territoryController.text = sug;
+                          });
+                        },
+                      );
                     }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setSheetState(() {
-                          selectedZoneId = val;
-                          availableAreas = getAreasForZone(val);
-                          selectedArea = availableAreas.isNotEmpty ? availableAreas.first : null;
-                        });
-                      }
-                    },
                   ),
                   const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    value: selectedArea,
+                  TextField(
+                    controller: districtController,
                     decoration: const InputDecoration(
-                      labelText: 'Select Service Area / Locality',
-                      prefixIcon: Icon(Icons.near_me_outlined),
+                      labelText: 'City / District',
+                      hintText: 'e.g. Raipur, Durg, Bilaspur',
+                      prefixIcon: Icon(Icons.map_outlined),
                       border: OutlineInputBorder(),
                     ),
-                    items: availableAreas.map((area) {
-                      return DropdownMenuItem(value: area, child: Text(area));
-                    }).toList(),
-                    onChanged: (val) {
-                      setSheetState(() => selectedArea = val);
-                    },
                   ),
                   const SizedBox(height: 14),
                   TextField(
@@ -452,6 +377,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     maxLines: 2,
                     decoration: const InputDecoration(
                       labelText: 'Street Address / Landmark',
+                      hintText: 'e.g. Flat 302, G.E. Road near Railway Station',
                       prefixIcon: Icon(Icons.home_outlined),
                       border: OutlineInputBorder(),
                     ),
@@ -467,17 +393,26 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () async {
-                        final zName = availableZones.firstWhere(
-                          (z) => z['id'] == selectedZoneId,
-                          orElse: () => {},
-                        )['name']?.toString() ?? '';
+                        final terr = territoryController.text.trim();
+                        final dist = districtController.text.trim();
+                        final addr = addressController.text.trim();
+
+                        if (terr.isEmpty) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter your delivery territory (e.g. North Raipur)'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                          return;
+                        }
 
                         final payload = {
-                          'district': selectedDistrict,
-                          'zone_id': selectedZoneId,
-                          'territory': zName,
-                          if (selectedArea != null) 'locality': selectedArea,
-                          'address': addressController.text.trim(),
+                          'district': dist,
+                          'city': dist,
+                          'territory': terr,
+                          'locality': terr,
+                          'address': addr,
                         };
 
                         final res = await _authService.updateProfile(payload);
@@ -486,15 +421,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         if (res['success'] == true) {
                           Navigator.pop(ctx);
                           final prefs = await SharedPreferences.getInstance();
-                          if (addressController.text.trim().isNotEmpty) {
-                            await prefs.setString('customer_delivery_address', addressController.text.trim());
-                            setState(() => _savedAddress = addressController.text.trim());
+                          if (addr.isNotEmpty) {
+                            await prefs.setString('customer_delivery_address', addr);
+                            setState(() => _savedAddress = addr);
                           }
                           await _refreshFromNetwork();
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Territory and service location updated successfully!'),
+                              content: Text('Territory and location saved successfully!'),
                               backgroundColor: Color(0xFF0284C7),
                             ),
                           );

@@ -61,6 +61,19 @@ class Lead(models.Model):
         ('none', 'None'),
     ]
 
+    LEAD_TYPE_CHOICES = [
+        ('CUSTOMER', 'Customer Inquiry'),
+        ('FRANCHISE', 'Franchise / Dealership Inquiry'),
+    ]
+
+    lead_type = models.CharField(
+        max_length=20,
+        choices=LEAD_TYPE_CHOICES,
+        default='CUSTOMER',
+        db_index=True,
+        help_text="Inquiry category: CUSTOMER or FRANCHISE"
+    )
+
     lead_number = models.CharField(
         max_length=50,
         blank=True,

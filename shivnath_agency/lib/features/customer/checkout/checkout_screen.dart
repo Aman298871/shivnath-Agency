@@ -206,6 +206,64 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ? '$durationDays Days (Custom)'
         : selectedDurationChoice;
 
+    // Explicit confirmation dialog to prevent accidental order placement on back/exit
+    final shouldPlace = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.shopping_bag_outlined, color: Color(0xFF0284C7)),
+              SizedBox(width: 10),
+              Text('Confirm Order'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Are you sure you want to place this order?',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              Text('Total Items: $totalItems'),
+              const SizedBox(height: 4),
+              Text(
+                'Payable Amount: ₹${amount.toStringAsFixed(0)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0284C7),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text('Payment: ${paymentMethod == 'COD' ? 'Cash on Delivery (COD)' : 'Online Payment'}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Confirm & Place Order'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldPlace != true) return;
+
     final orderItems = cart.items.map((it) {
       final pid = int.tryParse(it.id) ?? 1;
       return {
@@ -273,7 +331,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_isSubmitting,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text(
           'Checkout',
@@ -724,6 +784,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }

@@ -147,11 +147,28 @@ class ProductListCreateView(APIView):
                 all_cat_ids = [cat_id]
             queryset = queryset.filter(category_ref_id__in=all_cat_ids)
         elif category and category.lower() != "all":
-            queryset = queryset.filter(
-                Q(category__iexact=category)
-                | Q(category_ref__name__iexact=category)
-                | Q(category_ref__parent__name__iexact=category)
-            )
+            c_low = category.lower()
+            if "bottle" in c_low:
+                queryset = queryset.filter(
+                    Q(category__icontains="bottle")
+                    | Q(package_type="BOTTLE")
+                    | Q(category_ref__name__icontains="bottle")
+                    | Q(category_ref__parent__name__icontains="bottle")
+                )
+            elif "jar" in c_low:
+                queryset = queryset.filter(
+                    Q(category__icontains="jar")
+                    | Q(package_type="JAR")
+                    | Q(category_ref__name__icontains="jar")
+                    | Q(category_ref__parent__name__icontains="jar")
+                )
+            else:
+                queryset = queryset.filter(
+                    Q(category__iexact=category)
+                    | Q(category__icontains=category)
+                    | Q(category_ref__name__iexact=category)
+                    | Q(category_ref__parent__name__iexact=category)
+                )
 
         if product_status:
             queryset = queryset.filter(status=product_status)

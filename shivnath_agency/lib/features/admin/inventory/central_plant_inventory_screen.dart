@@ -8,7 +8,11 @@ import '../../../models/product_model.dart';
 /// For Plant Admins: Manages finished production batches,
 /// raw materials stock, and dispatches to authorized wholesale dealers.
 class CentralPlantInventoryScreen extends StatefulWidget {
-  const CentralPlantInventoryScreen({super.key});
+  final int initialTab;
+  const CentralPlantInventoryScreen({
+    super.key,
+    this.initialTab = 0,
+  });
 
   @override
   State<CentralPlantInventoryScreen> createState() =>
@@ -32,7 +36,11 @@ class _CentralPlantInventoryScreenState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 2),
+    );
     _loadData();
   }
 

@@ -210,6 +210,38 @@ class LeadService {
 
 
   // =====================================================
+  // CONVERT LEAD (Customer or Franchise Onboarding)
+  // =====================================================
+
+  Future<Map<String, dynamic>> convertLead(
+    int id,
+    String action, {
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+          '$baseUrl/api/leads/$id/convert/',
+        ),
+        headers: await _headers(),
+        body: jsonEncode({
+          'action': action,
+          if (data != null) ...data,
+        }),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message':
+            'Server unavailable. Please start the backend and try again.',
+      };
+    }
+  }
+
+
+  // =====================================================
   // GET LEAD STATS
   // =====================================================
 
@@ -502,6 +534,18 @@ class LeadService {
 
       'site_visit_notes':
           item['site_visit_notes']?.toString() ?? '',
+
+      'lead_type':
+          item['lead_type']?.toString().toUpperCase() ?? 'FRANCHISE',
+
+      'lead_type_display':
+          item['lead_type_display']?.toString() ?? (item['lead_type'] == 'CUSTOMER' ? 'Customer' : 'Franchise'),
+
+      'customer':
+          item['customer'],
+
+      'franchise':
+          item['franchise'],
 
       'activities':
           item['activities'] ?? [],

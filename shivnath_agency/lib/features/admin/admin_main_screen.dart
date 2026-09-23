@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../core/services/OrderService.dart';
 import '../../core/services/session_service.dart';
 import '../../core/widgets/ai_chatbot_modal.dart';
 import '../../core/widgets/support_desk_modal.dart';
@@ -16,7 +18,6 @@ import 'suppliers/admin_suppliers_screen.dart';
 import 'orders/admin_orders_screen.dart';
 import 'billing/admin_billing_screen.dart';
 import 'reports/daily_pl_report_screen.dart';
-import 'whatsapp/admin_whatsapp_screen.dart';
 import 'chat/admin_chat_conversations_screen.dart';
 import 'chat/admin_chatbot_management_screen.dart';
 import 'chat/admin_quotations_screen.dart';
@@ -38,11 +39,112 @@ class AdminMainScreen extends StatefulWidget {
 class _AdminMainScreenState extends State<AdminMainScreen> {
   int currentIndex = 0;
   UserModel? _currentUser;
+  Timer? _orderPollTimer;
+  int _lastMaxOrderId = 0;
+  bool _baselineOrdersLoaded = false;
+  final OrderService _orderService = OrderService();
 
   @override
   void initState() {
     super.initState();
     _loadUser();
+    _startOrderPolling();
+  }
+
+  @override
+  void dispose() {
+    _orderPollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startOrderPolling() {
+    _pollOrders();
+    _orderPollTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      _pollOrders();
+    });
+  }
+
+  Future<void> _pollOrders() async {
+    try {
+      final res = await _orderService.getOrders();
+      if (!mounted) return;
+      if (res['success'] == true && res['data'] != null) {
+        final List items = res['data']['orders'] ?? (res['data'] is List ? res['data'] : []);
+        if (items.isEmpty) {
+          _baselineOrdersLoaded = true;
+          return;
+        }
+
+        int currentMaxId = 0;
+        Map<String, dynamic>? latestNewOrder;
+
+        for (final it in items) {
+          final idVal = it['id'] is int ? it['id'] as int : int.tryParse(it['id']?.toString() ?? '0') ?? 0;
+          if (idVal > currentMaxId) {
+            currentMaxId = idVal;
+            latestNewOrder = Map<String, dynamic>.from(it as Map);
+          }
+        }
+
+        if (!_baselineOrdersLoaded) {
+          // Establish baseline without triggering alert for existing past orders
+          _lastMaxOrderId = currentMaxId;
+          _baselineOrdersLoaded = true;
+        } else if (currentMaxId > _lastMaxOrderId && latestNewOrder != null) {
+          _lastMaxOrderId = currentMaxId;
+          _showNewOrderAlert(latestNewOrder);
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _showNewOrderAlert(Map<String, dynamic> order) {
+    if (!mounted) return;
+    final orderNum = order['order_id'] ?? order['id'] ?? 'New';
+    final cust = order['customer_name'] ?? 'Customer';
+    final amt = order['total_amount'] ?? order['amount'] ?? '';
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 8),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: Row(
+          children: [
+            const Icon(Icons.notifications_active_rounded, color: Color(0xFF38BDF8), size: 26),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'NEW ORDER RECEIVED!',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Order #$orderNum from $cust • ₹$amt',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'VIEW ORDERS',
+          textColor: const Color(0xFF38BDF8),
+          onPressed: () {
+            _selectMenu(7);
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _loadUser() async {
@@ -83,6 +185,11 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         index: 4,
         title: 'Plant Batches & Stock',
         icon: Icons.inventory_2_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 21,
+        title: 'Central Stock Requests',
+        icon: Icons.move_to_inbox_outlined,
       ),
       const _AdminMenuItem(
         index: 5,
@@ -241,6 +348,9 @@ Widget _currentScreen() {
 
     case 20:
       return const AdminPerformanceScreen();
+
+    case 21:
+      return const CentralPlantInventoryScreen(initialTab: 2);
 
     default:
       return AdminDashboardScreen(

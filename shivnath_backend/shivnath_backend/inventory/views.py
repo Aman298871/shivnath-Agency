@@ -837,17 +837,66 @@ class DealerStockRequestListCreateAPIView(views.APIView):
 
         from products.models import Product
 
+        # Helper for robust product resolution
+        def _resolve_stock_product(p_id, p_sku):
+            product = None
+            if p_id:
+                try:
+                    product = Product.objects.filter(id=p_id).first()
+                except (ValueError, TypeError):
+                    product = None
+
+            if product is None and p_sku:
+                sku_clean = str(p_sku).strip()
+                product = Product.objects.filter(sku__iexact=sku_clean).first()
+
+                if product is None:
+                    alias_map = {
+                        'SHV-200': ['SHV-200', 'SKU-BOT-200', 'BOT-200', '200ML', 'SHV-200ML', '200'],
+                        'SHV-250': ['SHV-250', 'SKU-BOT-250', 'BOT-250', '250ML', 'SHV-250ML', '250'],
+                        'SHV-500': ['SHV-500', 'SKU-BOT-500', 'BOT-500', '500ML', 'SHV-500ML', '500'],
+                        'SHV-1L': ['SHV-1L', 'SKU-BOT-1000', 'BOT-1000', '1000ML', 'SHV-1000', 'SHV-1000ML', '1L', '1 LITRE', '1000'],
+                        'SHV-20L': ['SHV-20L', 'SKU-JAR-20L', 'JAR-20L', '20000ML', 'DEV-JAR-20L', 'STOCK-JAR-20L', '20L', '20 LITRE', '20000'],
+                    }
+                    target_sku = None
+                    sku_upper = sku_clean.upper()
+                    for canonical, aliases in alias_map.items():
+                        if sku_upper == canonical or sku_upper in aliases:
+                            target_sku = canonical
+                            break
+
+                    if target_sku:
+                        product = Product.objects.filter(sku__iexact=target_sku).first()
+                        if not product:
+                            for alias in alias_map.get(target_sku, []):
+                                product = Product.objects.filter(sku__iexact=alias).first()
+                                if product:
+                                    break
+
+                if product is None:
+                    sku_lower = sku_clean.lower()
+                    if '200' in sku_lower:
+                        product = Product.objects.filter(volume_ml=200).first()
+                    elif '250' in sku_lower:
+                        product = Product.objects.filter(volume_ml=250).first()
+                    elif '500' in sku_lower:
+                        product = Product.objects.filter(volume_ml=500).first()
+                    elif '1000' in sku_lower or '1l' in sku_lower or '1 litre' in sku_lower:
+                        product = Product.objects.filter(volume_ml=1000).first()
+                    elif '20000' in sku_lower or '20l' in sku_lower or '20 litre' in sku_lower or 'jar' in sku_lower:
+                        product = Product.objects.filter(volume_ml=20000).first()
+
+            return product
+
         # Handle batch items from Flutter franchise inventory screen
         if isinstance(raw_items, list) and len(raw_items) > 0:
-            created_requests = []
-            skipped_reasons = []
+            validated_items = []
+            validation_errors = []
+
             for item in raw_items:
-                # Resolve product: prefer product_id, fall back to sku lookup.
-                # NOTE: current Franchise stock is NEVER used to determine validity.
                 p_id = item.get('product_id') or item.get('product') or item.get('id')
                 product_sku = item.get('product_sku') or item.get('sku') or ''
 
-                # Resolve quantity — use quantity_units if provided, else quantity_cases * 1, else quantity.
                 qty_units = item.get('quantity_units')
                 qty_cases = item.get('quantity_cases')
                 qty_generic = item.get('requested_quantity') or item.get('quantity')
@@ -859,65 +908,61 @@ class DealerStockRequestListCreateAPIView(views.APIView):
                 else:
                     qty = qty_generic
 
-                # Validate quantity: must be present and > 0.
                 try:
                     qty_int = int(qty) if qty is not None else 0
                 except (ValueError, TypeError):
                     qty_int = 0
 
                 if qty_int <= 0:
-                    skipped_reasons.append(
-                        f"Skipped item (sku={product_sku or p_id}): quantity must be > 0."
-                    )
-                    continue
+                    continue  # User left item at 0 quantity
 
-                # Resolve product object.
-                product = None
-                if p_id:
-                    try:
-                        product = Product.objects.get(id=p_id)
-                    except Product.DoesNotExist:
-                        product = None
-
-                # Fallback: look up by SKU when product_id was null/not found.
-                if product is None and product_sku:
-                    try:
-                        product = Product.objects.get(sku__iexact=product_sku.strip())
-                    except Product.DoesNotExist:
-                        product = None
+                product = _resolve_stock_product(p_id, product_sku)
 
                 if product is None:
-                    skipped_reasons.append(
-                        f"Skipped item (sku={product_sku or p_id}): product not found."
+                    validation_errors.append(
+                        f"Item (sku={product_sku or p_id}): product not found in catalog."
                     )
                     continue
 
                 if product.status != 'Active':
-                    skipped_reasons.append(
-                        f"Skipped item ({product.sku}): product is inactive/archived."
+                    validation_errors.append(
+                        f"Item ({product.sku}): product is inactive or archived."
                     )
                     continue
 
-                count = DealerStockRequest.objects.count() + 1
-                req_number = f"SR-{timezone.now().strftime('%Y%m')}-{count:04d}"
+                validated_items.append((product, qty_int))
 
-                stock_req = DealerStockRequest.objects.create(
-                    request_number=req_number,
-                    dealer=dealer,
-                    product=product,
-                    requested_quantity=qty_int,
-                    dealer_notes=notes,
-                    status='REQUESTED'
-                )
-                created_requests.append(stock_req)
-
-            if not created_requests:
-                # Build a meaningful error: include why each item was rejected.
-                reason_detail = '; '.join(skipped_reasons) if skipped_reasons else 'No items with valid product and quantity > 0 were found.'
+            if validation_errors:
                 return Response(
-                    {'success': False, 'message': f'No valid products in stock request. {reason_detail}'},
+                    {
+                        'success': False,
+                        'message': f"Stock request validation failed: {'; '.join(validation_errors)}",
+                        'errors': validation_errors,
+                    },
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+            if not validated_items:
+                return Response(
+                    {'success': False, 'message': 'Please enter a quantity greater than 0 for at least one active product.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            created_requests = []
+            with transaction.atomic():
+                for product, qty_int in validated_items:
+                    count = DealerStockRequest.objects.count() + 1
+                    req_number = f"SR-{timezone.now().strftime('%Y%m')}-{count:04d}"
+
+                    stock_req = DealerStockRequest.objects.create(
+                        request_number=req_number,
+                        dealer=dealer,
+                        product=product,
+                        requested_quantity=qty_int,
+                        dealer_notes=notes,
+                        status='REQUESTED'
+                    )
+                    created_requests.append(stock_req)
 
             serialized_list = DealerStockRequestSerializer(created_requests, many=True).data
             return Response({
@@ -929,12 +974,28 @@ class DealerStockRequestListCreateAPIView(views.APIView):
 
         # Handle single product request
         product_id = request.data.get('product') or request.data.get('product_id')
-        qty = request.data.get('requested_quantity')
+        qty = request.data.get('requested_quantity') or request.data.get('quantity')
+        product_sku = request.data.get('sku') or request.data.get('product_sku')
 
-        if not product_id or not qty:
-            return Response({'success': False, 'error': 'Product and requested_quantity are required.', 'message': 'Product and requested_quantity are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not product_id and not product_sku:
+            return Response({'success': False, 'error': 'Product identifier is required.', 'message': 'Product identifier is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        product = get_object_or_404(Product, id=product_id)
+        if not qty:
+            return Response({'success': False, 'error': 'Requested quantity is required.', 'message': 'Requested quantity is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            qty_int = int(qty)
+            if qty_int <= 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            return Response({'success': False, 'error': 'Requested quantity must be greater than 0.', 'message': 'Requested quantity must be greater than 0.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        product = _resolve_stock_product(product_id, product_sku)
+        if not product:
+            return Response({'success': False, 'error': f'Product not found (id={product_id}, sku={product_sku}).', 'message': f'Product not found (id={product_id}, sku={product_sku}).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if product.status != 'Active':
+            return Response({'success': False, 'error': f'Product {product.sku} is inactive.', 'message': f'Product {product.sku} is inactive.'}, status=status.HTTP_400_BAD_REQUEST)
 
         count = DealerStockRequest.objects.count() + 1
         req_number = f"SR-{timezone.now().strftime('%Y%m')}-{count:04d}"
@@ -943,7 +1004,7 @@ class DealerStockRequestListCreateAPIView(views.APIView):
             request_number=req_number,
             dealer=dealer,
             product=product,
-            requested_quantity=int(qty),
+            requested_quantity=qty_int,
             dealer_notes=notes,
             status='REQUESTED'
         )

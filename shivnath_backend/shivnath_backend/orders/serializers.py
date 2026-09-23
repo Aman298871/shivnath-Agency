@@ -4,11 +4,16 @@ from .models import Order, OrderItem, OrderStatusHistory
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    sku = serializers.CharField(source='product.sku', read_only=True)
+    product_sku = serializers.CharField(source='product.sku', read_only=True)
+
     class Meta:
         model = OrderItem
         fields = [
             'id',
             'product',
+            'sku',
+            'product_sku',
             'product_name',
             'size',
             'quantity',
@@ -56,6 +61,9 @@ class OrderSerializer(serializers.ModelSerializer):
     )
 
     created_by_name = serializers.SerializerMethodField()
+    customer_name = serializers.SerializerMethodField()
+    customer_phone = serializers.SerializerMethodField()
+    customer_email = serializers.SerializerMethodField()
     serving_franchise_name = serializers.SerializerMethodField()
     registered_franchise_name = serializers.SerializerMethodField()
     zone_name = serializers.SerializerMethodField()
@@ -82,6 +90,9 @@ class OrderSerializer(serializers.ModelSerializer):
             'order_source',
 
             'client_name',
+            'customer_name',
+            'customer_phone',
+            'customer_email',
             'label_requirement',
             'printing_requirement',
             'branding_requirement',
@@ -121,6 +132,9 @@ class OrderSerializer(serializers.ModelSerializer):
             'payment_display',
             'created_by',
             'created_by_name',
+            'customer_name',
+            'customer_phone',
+            'customer_email',
             'serving_franchise_name',
             'registered_franchise_name',
             'zone_name',
@@ -129,6 +143,25 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    def get_customer_name(self, obj):
+        if obj.created_by:
+            name = obj.created_by.get_full_name() or obj.created_by.username
+            if name:
+                return name
+        return obj.client_name or obj.franchise_name or 'Customer'
+
+    def get_customer_phone(self, obj):
+        if obj.created_by:
+            prof = getattr(obj.created_by, 'profile', None)
+            if prof and prof.phone:
+                return prof.phone
+        return ''
+
+    def get_customer_email(self, obj):
+        if obj.created_by:
+            return obj.created_by.email or ''
+        return ''
 
     def get_serving_franchise_name(self, obj):
         if obj.serving_franchise:

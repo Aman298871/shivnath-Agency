@@ -264,7 +264,12 @@ class OrderService {
 
       'serving_franchise_name': item['serving_franchise_name']?.toString() ?? '',
 
-      'customer_name': item['created_by_name']?.toString() ?? '',
+      'customer_name': (item['customer_name'] != null && item['customer_name'].toString().isNotEmpty)
+          ? item['customer_name'].toString()
+          : (item['created_by_name']?.toString() ?? ''),
+
+      'customer_phone': item['customer_phone']?.toString() ?? '',
+      'customer_email': item['customer_email']?.toString() ?? '',
 
       'delivery_address': item['delivery_address']?.toString() ?? '',
 

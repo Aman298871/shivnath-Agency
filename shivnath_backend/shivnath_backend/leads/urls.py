@@ -10,6 +10,7 @@ from .views import (
     WhatsAppWebhookView,
     MarketingSpendListCreateView,
     LeadScoreRecalculateView,
+    LeadConvertAPIView,
 )
 
 
@@ -35,6 +36,7 @@ urlpatterns = [
     # Single Lead
     path('<int:pk>/', LeadDetailView.as_view(), name='lead-detail'),
     path('<int:pk>/score/', LeadScoreRecalculateView.as_view(), name='lead-recalculate-score'),
+    path('<int:pk>/convert/', LeadConvertAPIView.as_view(), name='lead-convert'),
 
     # Activities
     path('<int:lead_id>/activities/', LeadActivityListCreateView.as_view(), name='lead-activities'),

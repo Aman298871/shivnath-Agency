@@ -115,6 +115,11 @@ class LeadSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    lead_type_display = serializers.CharField(
+        source='get_lead_type_display',
+        read_only=True
+    )
+
     existing_business_display = serializers.CharField(
         source='get_existing_business_display',
         read_only=True
@@ -148,6 +153,8 @@ class LeadSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'lead_number',
+            'lead_type',
+            'lead_type_display',
             'name',
             'phone',
             'email',

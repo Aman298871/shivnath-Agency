@@ -757,16 +757,21 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                               int.tryParse(quantities[sku]?.text.trim() ?? '0') ?? 0;
                           if (requestedUnits <= 0) continue;
 
-                          // Match product by SKU field (exact, case-insensitive).
-                          // product_id is optional; backend falls back to product_sku lookup.
+                          // Match product by SKU field (exact, case-insensitive) or known aliases
                           ProductModel? matched;
                           for (final prod in _products) {
-                            if (prod.sku.toUpperCase() == sku.toUpperCase()) {
+                            final pSku = prod.sku.toUpperCase();
+                            if (pSku == sku.toUpperCase() ||
+                                (sku == 'SHV-200' && (pSku.contains('200') || pSku.contains('BOT-200'))) ||
+                                (sku == 'SHV-250' && (pSku.contains('250') || pSku.contains('BOT-250'))) ||
+                                (sku == 'SHV-500' && (pSku.contains('500') || pSku.contains('BOT-500'))) ||
+                                (sku == 'SHV-1L' && (pSku.contains('1000') || pSku.contains('1L') || pSku.contains('BOT-1000'))) ||
+                                (sku == 'SHV-20L' && (pSku.contains('20L') || pSku.contains('JAR-20L') || pSku.contains('20000')))) {
                               matched = prod;
                               break;
                             }
                           }
-                          // Fallback: match by name containing sku (e.g. product not yet cached).
+                          // Fallback: match by name containing sku
                           if (matched == null) {
                             for (final prod in _products) {
                               if (prod.name.toUpperCase().contains(sku.toUpperCase())) {
@@ -777,8 +782,12 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                           }
 
                           items.add({
-                            'product_sku': sku,           // primary lookup key for backend
-                            'product_id': matched?.id,    // optional; backend uses sku if null
+                            'product_id': matched?.id,
+                            'product': matched?.id,
+                            'sku': sku,
+                            'product_sku': sku,
+                            'quantity': requestedUnits,
+                            'requested_quantity': requestedUnits,
                             'quantity_units': requestedUnits,
                             'quantity_cases': requestedUnits ~/ _getUnitsPerCase(sku),
                           });

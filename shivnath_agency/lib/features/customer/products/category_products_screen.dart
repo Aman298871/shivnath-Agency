@@ -53,6 +53,28 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       } else {
         _products = [];
       }
+
+      // Fallback: If server returned empty, match from cached ProductService.products
+      if (_products.isEmpty && ProductService.products.isNotEmpty) {
+        final catLower = widget.categoryName.toLowerCase();
+        _products = ProductService.products.where((p) {
+          final isBottle = catLower.contains('bottle');
+          final isJar = catLower.contains('jar');
+          if (isBottle) {
+            return p.category.toLowerCase().contains('bottle') ||
+                p.unit.toLowerCase().contains('bottle') ||
+                p.name.toLowerCase().contains('bottle') ||
+                (p.size.toLowerCase().contains('ml') && !p.size.toLowerCase().contains('20'));
+          } else if (isJar) {
+            return p.category.toLowerCase().contains('jar') ||
+                p.unit.toLowerCase().contains('jar') ||
+                p.name.toLowerCase().contains('jar') ||
+                p.size.toLowerCase().contains('20');
+          }
+          return p.category.toLowerCase().contains(catLower) ||
+              p.name.toLowerCase().contains(catLower);
+        }).toList();
+      }
     } catch (e) {
       _error = 'Failed to load products. Please try again.';
     }
@@ -350,11 +372,60 @@ class _ProductCard extends StatelessWidget {
                         ? _QuantityControl(product: product)
                         : SizedBox(
                             width: double.infinity,
-                            height: 32,
-                            child: ElevatedButton(
-                              onPressed: product.stock > 0
-                                  ? () => context.read<CartProvider>().add(product)
-                                  : null,
+                            height: 34,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.add_shopping_cart_rounded, size: 14),
+                              label: const Text('Add to Cart'),
+                              onPressed: product.stock <= 0
+                                  ? null
+                                  : () {
+                                      final error = context
+                                          .read<CartProvider>()
+                                          .addProduct(product);
+                                      if (error != null) {
+                                        ScaffoldMessenger.of(context)
+                                          ..hideCurrentSnackBar()
+                                          ..showSnackBar(
+                                            SnackBar(
+                                              content: Text(error),
+                                              backgroundColor: Colors.red.shade700,
+                                              duration: const Duration(seconds: 2),
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                      } else {
+                                        ScaffoldMessenger.of(context)
+                                          ..hideCurrentSnackBar()
+                                          ..showSnackBar(
+                                            SnackBar(
+                                              content: Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.check_circle_rounded,
+                                                    color: Colors.white,
+                                                    size: 20,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      '${product.name} added to cart',
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Colors.white,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              backgroundColor: const Color(0xFF16A34A),
+                                              duration: const Duration(seconds: 2),
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                      }
+                                    },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF0284C7),
                                 foregroundColor: Colors.white,
@@ -362,7 +433,6 @@ class _ProductCard extends StatelessWidget {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
                               ),
-                              child: const Text('Add'),
                             ),
                           ),
                   ],

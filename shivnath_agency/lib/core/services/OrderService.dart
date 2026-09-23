@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import 'session_service.dart';
 
 
@@ -52,7 +53,7 @@ class OrderService {
             queryParameters.isEmpty ? null : queryParameters,
       );
 
-      final response = await http.get(
+      final response = await ApiClient.get(
         uri,
         headers: await _headers(),
       );
@@ -72,7 +73,7 @@ class OrderService {
 
   Future<Map<String, dynamic>> getOrder(int id) async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('$baseUrl/api/orders/$id/'),
         headers: await _headers(),
       );
@@ -94,7 +95,7 @@ class OrderService {
     Map<String, dynamic> data,
   ) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/orders/'),
         headers: await _headers(),
         body: jsonEncode(_prepareOrderData(data)),
@@ -118,7 +119,7 @@ class OrderService {
     Map<String, dynamic> data,
   ) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse('$baseUrl/api/orders/$id/'),
         headers: await _headers(),
         body: jsonEncode(_prepareOrderData(data)),
@@ -142,7 +143,7 @@ class OrderService {
     String status,
   ) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse('$baseUrl/api/orders/$id/status/'),
         headers: await _headers(),
         body: jsonEncode({
@@ -165,7 +166,7 @@ class OrderService {
 
   Future<Map<String, dynamic>> deleteOrder(int id) async {
     try {
-      final response = await http.delete(
+      final response = await ApiClient.delete(
         Uri.parse('$baseUrl/api/orders/$id/'),
         headers: await _headers(),
       );
@@ -185,7 +186,7 @@ class OrderService {
 
   Future<Map<String, dynamic>> getStats() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('$baseUrl/api/orders/stats/'),
         headers: await _headers(),
       );
@@ -518,7 +519,7 @@ class OrderService {
     Map<String, dynamic> data,
   ) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/orders/bulk/'),
         headers: await _headers(),
         body: jsonEncode(data),
@@ -535,7 +536,7 @@ class OrderService {
 
   Future<Map<String, dynamic>> getBulkOrders() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('$baseUrl/api/orders/bulk/'),
         headers: await _headers(),
       );

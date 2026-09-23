@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import '../../models/user_model.dart';
 
 class SessionService {
@@ -105,7 +105,7 @@ class SessionService {
     }
 
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('${AppConstants.apiBaseUrl}/api/auth/refresh/'),
         headers: {
           'Content-Type': 'application/json',

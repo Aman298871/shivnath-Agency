@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import 'session_service.dart';
 
 
@@ -75,7 +76,7 @@ class LeadService {
                 : queryParameters,
       );
 
-      final response = await http.get(
+      final response = await ApiClient.get(
         uri,
         headers: await _headers(),
       );
@@ -99,7 +100,7 @@ class LeadService {
     int id,
   ) async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse(
           '$baseUrl/api/leads/$id/',
         ),
@@ -131,7 +132,7 @@ class LeadService {
       final body = _prepareLeadData(data);
       print(body);
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse(
           '$baseUrl/api/leads/',
         ),
@@ -162,7 +163,7 @@ class LeadService {
     Map<String, dynamic> data,
   ) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse(
           '$baseUrl/api/leads/$id/',
         ),
@@ -191,7 +192,7 @@ class LeadService {
     int id,
   ) async {
     try {
-      final response = await http.delete(
+      final response = await ApiClient.delete(
         Uri.parse(
           '$baseUrl/api/leads/$id/',
         ),
@@ -219,7 +220,7 @@ class LeadService {
     Map<String, dynamic>? data,
   }) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse(
           '$baseUrl/api/leads/$id/convert/',
         ),
@@ -248,7 +249,7 @@ class LeadService {
   Future<Map<String, dynamic>>
       getLeadStats() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse(
           '$baseUrl/api/leads/stats/',
         ),
@@ -275,7 +276,7 @@ class LeadService {
     int leadId,
   ) async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse(
           '$baseUrl/api/leads/'
           '$leadId/activities/',
@@ -306,7 +307,7 @@ class LeadService {
     required String description,
   }) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse(
           '$baseUrl/api/leads/'
           '$leadId/activities/',

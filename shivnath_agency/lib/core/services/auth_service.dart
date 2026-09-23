@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
 import '../../models/user_model.dart';
+import 'api_client.dart';
 import 'session_service.dart';
 
 class AuthService {
@@ -13,7 +14,7 @@ class AuthService {
   Future<Map<String, dynamic>> getCurrentUser() async {
     final token = await SessionService().getAccessToken();
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('$baseUrl/api/auth/me/'),
         headers: {
           'Content-Type': 'application/json',
@@ -43,7 +44,7 @@ class AuthService {
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
     final token = await SessionService().getAccessToken();
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse('$baseUrl/api/accounts/me/'),
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +101,7 @@ class AuthService {
       final uri = Uri.parse('$baseUrl/api/auth/territory-master/').replace(
         queryParameters: {'district': district.trim()},
       );
-      final response = await http.get(uri, headers: {
+      final response = await ApiClient.get(uri, headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 10));
@@ -139,7 +140,7 @@ class AuthService {
       final uri = Uri.parse('$baseUrl/api/auth/eligible-franchises/').replace(
         queryParameters: params.isNotEmpty ? params : null,
       );
-      final response = await http.get(uri, headers: {
+      final response = await ApiClient.get(uri, headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 10));
@@ -360,7 +361,7 @@ class AuthService {
         queryParameters: queryParams.isEmpty ? null : queryParams,
       );
 
-      final response = await http.get(
+      final response = await ApiClient.get(
         uri,
         headers: {
           'Content-Type': 'application/json',
@@ -388,7 +389,7 @@ class AuthService {
   Future<Map<String, dynamic>> getAdminNotifications() async {
     final token = await SessionService().getAccessToken();
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('$baseUrl/api/accounts/notifications/'),
         headers: {
           'Content-Type': 'application/json',
@@ -416,7 +417,7 @@ class AuthService {
   Future<Map<String, dynamic>> markNotificationsAsRead({int? id}) async {
     final token = await SessionService().getAccessToken();
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/accounts/notifications/'),
         headers: {
           'Content-Type': 'application/json',
@@ -463,7 +464,7 @@ class AuthService {
 
   Future<Map<String, dynamic>> getTerritoryMaster() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('$baseUrl/api/accounts/territory-master/'),
         headers: {
           'Content-Type': 'application/json',
@@ -504,7 +505,7 @@ class AuthService {
         if (customerId != null) 'customer_id': customerId,
       };
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/accounts/service-status/'),
         headers: {
           'Content-Type': 'application/json',
@@ -547,7 +548,7 @@ class AuthService {
         queryParameters: queryParams.isEmpty ? null : queryParams,
       );
 
-      final response = await http.get(
+      final response = await ApiClient.get(
         uri,
         headers: {
           'Content-Type': 'application/json',
@@ -579,7 +580,7 @@ class AuthService {
   Future<Map<String, dynamic>> getFranchiseNotifications() async {
     final token = await SessionService().getAccessToken();
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('$baseUrl/api/accounts/franchise-notifications/'),
         headers: {
           'Content-Type': 'application/json',
@@ -607,7 +608,7 @@ class AuthService {
   Future<Map<String, dynamic>> markFranchiseNotificationsAsRead({int? id}) async {
     final token = await SessionService().getAccessToken();
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/accounts/franchise-notifications/'),
         headers: {
           'Content-Type': 'application/json',
@@ -659,7 +660,7 @@ class AuthService {
         if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       };
 
-      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+      final response = await ApiClient.get(uri, headers: headers).timeout(const Duration(seconds: 10));
 
       dynamic decoded;
       try {
@@ -686,7 +687,7 @@ class AuthService {
   }) async {
     try {
       final token = await SessionService().getAccessToken();
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/accounts/support-contact/'),
         headers: {
           'Content-Type': 'application/json',
@@ -725,7 +726,7 @@ class AuthService {
   Future<Map<String, dynamic>> getSuperAdminAdmins() async {
     try {
       final token = await SessionService().getAccessToken();
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('$baseUrl/api/accounts/super-admin/admins/'),
         headers: {
           'Content-Type': 'application/json',
@@ -753,7 +754,7 @@ class AuthService {
   Future<Map<String, dynamic>> createSuperAdminAdmin(Map<String, dynamic> data) async {
     try {
       final token = await SessionService().getAccessToken();
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/accounts/super-admin/admins/'),
         headers: {
           'Content-Type': 'application/json',
@@ -782,7 +783,7 @@ class AuthService {
   Future<Map<String, dynamic>> updateSuperAdminAdmin(int adminId, Map<String, dynamic> data) async {
     try {
       final token = await SessionService().getAccessToken();
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse('$baseUrl/api/accounts/super-admin/admins/$adminId/'),
         headers: {
           'Content-Type': 'application/json',
@@ -835,7 +836,7 @@ class AuthService {
         queryParameters: queryParams,
       );
 
-      final response = await http.get(
+      final response = await ApiClient.get(
         uri,
         headers: {
           'Content-Type': 'application/json',

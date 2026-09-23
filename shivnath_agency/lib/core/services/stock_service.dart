@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import 'session_service.dart';
 
 class StockService {
@@ -21,8 +21,7 @@ class StockService {
   // =========================================================
   Future<Map<String, dynamic>> getCustomerStock() async {
     try {
-      final response = await http
-          .get(
+      final response = await ApiClient.get(
             Uri.parse('$baseUrl/api/accounts/customer/stock/'),
             headers: await _headers(),
           )
@@ -72,8 +71,7 @@ class StockService {
       final uri = Uri.parse('$baseUrl/api/accounts/franchise/customer-stocks/')
           .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
 
-      final response = await http
-          .get(uri, headers: await _headers())
+      final response = await ApiClient.get(uri, headers: await _headers())
           .timeout(const Duration(seconds: 10));
 
       dynamic decoded;
@@ -120,8 +118,7 @@ class StockService {
       final uri = Uri.parse('$baseUrl/api/accounts/admin/stocks/')
           .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
 
-      final response = await http
-          .get(uri, headers: await _headers())
+      final response = await ApiClient.get(uri, headers: await _headers())
           .timeout(const Duration(seconds: 10));
 
       dynamic decoded;
@@ -154,8 +151,7 @@ class StockService {
   // =========================================================
   Future<Map<String, dynamic>> getCustomerNotifications() async {
     try {
-      final response = await http
-          .get(
+      final response = await ApiClient.get(
             Uri.parse('$baseUrl/api/accounts/customer/notifications/'),
             headers: await _headers(),
           )
@@ -190,8 +186,7 @@ class StockService {
     int? id,
   }) async {
     try {
-      final response = await http
-          .post(
+      final response = await ApiClient.post(
             Uri.parse('$baseUrl/api/accounts/customer/notifications/'),
             headers: await _headers(),
             body: jsonEncode(id != null ? {'id': id} : {}),

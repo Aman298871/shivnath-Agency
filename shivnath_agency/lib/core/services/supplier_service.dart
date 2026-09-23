@@ -2,12 +2,14 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import 'session_service.dart';
 
 class SupplierService {
   static String get baseUrl => AppConstants.apiBaseUrl;
 
   final SessionService _sessionService = SessionService();
+  final http.Client _client = ApiClient.client;
 
 
   Future<Map<String, String>> _headers() async {
@@ -56,7 +58,7 @@ class SupplierService {
             query.isEmpty ? null : query,
       );
 
-      final response = await http.get(
+      final response = await _client.get(
         uri,
         headers: await _headers(),
       );
@@ -77,7 +79,7 @@ class SupplierService {
   Future<Map<String, dynamic>> getSupplier(
       int id) async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(
           "$baseUrl/api/suppliers/$id/",
         ),
@@ -100,7 +102,7 @@ class SupplierService {
   Future<Map<String, dynamic>> createSupplier(
       Map<String, dynamic> body) async {
     try {
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(
           "$baseUrl/api/suppliers/",
         ),
@@ -126,7 +128,7 @@ class SupplierService {
     Map<String, dynamic> body,
   ) async {
     try {
-      final response = await http.patch(
+      final response = await _client.patch(
         Uri.parse(
           "$baseUrl/api/suppliers/$id/",
         ),
@@ -150,7 +152,7 @@ class SupplierService {
   Future<Map<String, dynamic>> deleteSupplier(
       int id) async {
     try {
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse(
           "$baseUrl/api/suppliers/$id/",
         ),
@@ -173,7 +175,7 @@ class SupplierService {
   Future<Map<String, dynamic>>
       getStats() async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(
           "$baseUrl/api/suppliers/stats/",
         ),

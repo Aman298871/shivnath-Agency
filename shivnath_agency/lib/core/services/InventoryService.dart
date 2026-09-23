@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import 'session_service.dart';
 
 
@@ -52,7 +53,7 @@ class InventoryService {
             queryParameters.isEmpty ? null : queryParameters,
       );
 
-      final response = await http.get(
+      final response = await ApiClient.get(
         uri,
         headers: await _headers(),
       );
@@ -74,7 +75,7 @@ class InventoryService {
     Map<String, dynamic> data,
   ) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/inventory/items/'),
         headers: await _headers(),
         body: jsonEncode(_prepareItemData(data)),
@@ -98,7 +99,7 @@ class InventoryService {
     Map<String, dynamic> data,
   ) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse('$baseUrl/api/inventory/items/$id/'),
         headers: await _headers(),
         body: jsonEncode(_prepareItemData(data)),
@@ -119,7 +120,7 @@ class InventoryService {
 
   Future<Map<String, dynamic>> deleteItem(int id) async {
     try {
-      final response = await http.delete(
+      final response = await ApiClient.delete(
         Uri.parse('$baseUrl/api/inventory/items/$id/'),
         headers: await _headers(),
       );
@@ -139,7 +140,7 @@ class InventoryService {
 
   Future<Map<String, dynamic>> getStats() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('$baseUrl/api/inventory/stats/'),
         headers: await _headers(),
       );
@@ -176,7 +177,7 @@ class InventoryService {
             queryParameters.isEmpty ? null : queryParameters,
       );
 
-      final response = await http.get(
+      final response = await ApiClient.get(
         uri,
         headers: await _headers(),
       );
@@ -201,7 +202,7 @@ class InventoryService {
     String reason = '',
   }) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/inventory/requests/'),
         headers: await _headers(),
         body: jsonEncode({
@@ -229,7 +230,7 @@ class InventoryService {
     int id,
   ) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse(
           '$baseUrl/api/inventory/requests/$id/approve/',
         ),
@@ -254,7 +255,7 @@ class InventoryService {
     required String reason,
   }) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse(
           '$baseUrl/api/inventory/requests/$id/reject/',
         ),
@@ -364,7 +365,7 @@ class InventoryService {
   Future<Map<String, dynamic>> getFranchiseRawMaterials() async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/franchise/raw-materials/');
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -374,7 +375,7 @@ class InventoryService {
   Future<Map<String, dynamic>> getFranchiseTransactions() async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/franchise/transactions/');
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -384,7 +385,7 @@ class InventoryService {
   Future<Map<String, dynamic>> getFranchiseProductionLogs() async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/franchise/production-logs/');
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -394,7 +395,7 @@ class InventoryService {
   Future<Map<String, dynamic>> createFranchiseProductionLog(Map<String, dynamic> data) async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/franchise/production-logs/');
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
         headers: await _headers(),
         body: jsonEncode(data),
@@ -415,7 +416,7 @@ class InventoryService {
       final uri = Uri.parse('$baseUrl/api/inventory/dealer-batches/').replace(
         queryParameters: dealerId != null ? {'dealer_id': dealerId.toString()} : null,
       );
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -431,7 +432,7 @@ class InventoryService {
       final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/').replace(
         queryParameters: qp.isEmpty ? null : qp,
       );
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -442,7 +443,7 @@ class InventoryService {
   Future<Map<String, dynamic>> createDealerStockRequest(Map<String, dynamic> data) async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/');
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
         headers: await _headers(),
         body: jsonEncode(data),
@@ -457,7 +458,7 @@ class InventoryService {
   Future<Map<String, dynamic>> dispatchDealerStockRequest(int id, Map<String, dynamic> data) async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/$id/dispatch/');
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
         headers: await _headers(),
         body: jsonEncode(data),
@@ -472,7 +473,7 @@ class InventoryService {
   Future<Map<String, dynamic>> receiveDealerStockRequest(int id, Map<String, dynamic> data) async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/$id/receive/');
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
         headers: await _headers(),
         body: jsonEncode(data),
@@ -487,7 +488,7 @@ class InventoryService {
   Future<Map<String, dynamic>> getRawMaterials() async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/raw-materials/');
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -497,7 +498,7 @@ class InventoryService {
   Future<Map<String, dynamic>> createRawMaterial(Map<String, dynamic> data) async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/raw-materials/');
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
         headers: await _headers(),
         body: jsonEncode(data),
@@ -512,7 +513,7 @@ class InventoryService {
   Future<Map<String, dynamic>> getProductionBatches() async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/production-batches/');
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -522,7 +523,7 @@ class InventoryService {
   Future<Map<String, dynamic>> createProductionBatch(Map<String, dynamic> data) async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/production-batches/');
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
         headers: await _headers(),
         body: jsonEncode(data),
@@ -542,7 +543,7 @@ class InventoryService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/production-batches/$batchId/collection/');
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
         headers: await _headers(),
         body: jsonEncode({
@@ -563,7 +564,7 @@ class InventoryService {
       final uri = Uri.parse('$baseUrl/api/inventory/ledger/').replace(
         queryParameters: (filters != null && filters.isNotEmpty) ? filters : null,
       );
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -590,7 +591,7 @@ class InventoryService {
       final uri = Uri.parse('$baseUrl/api/inventory/daily-reports/').replace(
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -601,7 +602,7 @@ class InventoryService {
   Future<Map<String, dynamic>> getExpiryAlerts() async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/expiry-alerts/');
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -612,7 +613,7 @@ class InventoryService {
   Future<Map<String, dynamic>> getPendingStockExpiryAlerts() async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/pending-stock-expiry-alerts/');
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -631,7 +632,7 @@ class InventoryService {
       final uri = Uri.parse('$baseUrl/api/billing/invoices/').replace(
         queryParameters: qp.isEmpty ? null : qp,
       );
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -641,7 +642,7 @@ class InventoryService {
   Future<Map<String, dynamic>> recordPayment(int invoiceId, Map<String, dynamic> data) async {
     try {
       final uri = Uri.parse('$baseUrl/api/billing/invoices/$invoiceId/payments/');
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
         headers: await _headers(),
         body: jsonEncode(data),
@@ -655,7 +656,7 @@ class InventoryService {
   Future<Map<String, dynamic>> getDealerCreditProfile(int dealerId) async {
     try {
       final uri = Uri.parse('$baseUrl/api/billing/dealers/$dealerId/credit-profile/');
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -665,7 +666,7 @@ class InventoryService {
   Future<Map<String, dynamic>> getDealerAgingReport(int dealerId) async {
     try {
       final uri = Uri.parse('$baseUrl/api/billing/dealers/$dealerId/aging/');
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -681,7 +682,7 @@ class InventoryService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/billing/invoices/$invoiceId/payments/');
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
         headers: await _headers(),
         body: jsonEncode({
@@ -704,7 +705,7 @@ class InventoryService {
   Future<Map<String, dynamic>> getProductBOM(int productId) async {
     try {
       final uri = Uri.parse('$baseUrl/api/products/$productId/bom/');
-      final response = await http.get(uri, headers: await _headers());
+      final response = await ApiClient.get(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -714,7 +715,7 @@ class InventoryService {
   Future<Map<String, dynamic>> addProductBOMItem(int productId, Map<String, dynamic> data) async {
     try {
       final uri = Uri.parse('$baseUrl/api/products/$productId/bom-items/');
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
         headers: await _headers(),
         body: jsonEncode(data),
@@ -728,7 +729,7 @@ class InventoryService {
   Future<Map<String, dynamic>> deleteProductBOMItem(int productId, int itemId) async {
     try {
       final uri = Uri.parse('$baseUrl/api/products/$productId/bom-items/$itemId/');
-      final response = await http.delete(uri, headers: await _headers());
+      final response = await ApiClient.delete(uri, headers: await _headers());
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -738,7 +739,7 @@ class InventoryService {
   Future<Map<String, dynamic>> updateProductPricing(int productId, Map<String, dynamic> data) async {
     try {
       final uri = Uri.parse('$baseUrl/api/products/$productId/pricing/');
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         uri,
         headers: await _headers(),
         body: jsonEncode(data),
@@ -752,7 +753,7 @@ class InventoryService {
   Future<Map<String, dynamic>> updateProductStockThreshold(int productId, Map<String, dynamic> data) async {
     try {
       final uri = Uri.parse('$baseUrl/api/products/$productId/threshold/');
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         uri,
         headers: await _headers(),
         body: jsonEncode(data),

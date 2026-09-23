@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import 'session_service.dart';
 
 class FollowupService {
@@ -29,7 +30,7 @@ class FollowupService {
 
   Future<Map<String, dynamic>> getFollowups() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse(
           '$baseUrl/api/followups/',
         ),
@@ -52,7 +53,7 @@ class FollowupService {
 
   Future<Map<String, dynamic>> getStats() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse(
           '$baseUrl/api/followups/stats/',
         ),
@@ -80,7 +81,7 @@ class FollowupService {
     required String note,
   }) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse(
           '$baseUrl/api/followups/',
         ),
@@ -115,7 +116,7 @@ class FollowupService {
     required String note,
   }) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse(
           '$baseUrl/api/followups/$id/',
         ),
@@ -145,7 +146,7 @@ class FollowupService {
   Future<Map<String, dynamic>>
       completeFollowup(int id) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse(
           '$baseUrl/api/followups/$id/complete/',
         ),
@@ -169,7 +170,7 @@ class FollowupService {
   Future<Map<String, dynamic>>
       deleteFollowup(int id) async {
     try {
-      final response = await http.delete(
+      final response = await ApiClient.delete(
         Uri.parse(
           '$baseUrl/api/followups/$id/',
         ),

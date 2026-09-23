@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import 'session_service.dart';
 
 class FranchiseService {
@@ -375,7 +376,7 @@ Future<Map<String, dynamic>> deleteFranchise(
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('${AppConstants.apiBaseUrl}/api/auth/franchise/dashboard-stats/'),
         headers: await _headers(),
       ).timeout(const Duration(seconds: 15));
@@ -392,7 +393,7 @@ Future<Map<String, dynamic>> deleteFranchise(
 
   Future<Map<String, dynamic>> getFranchiseDetail(int franchiseId) async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('${AppConstants.apiBaseUrl}/api/auth/admin/franchises/$franchiseId/detail/'),
         headers: await _headers(),
       ).timeout(const Duration(seconds: 15));
@@ -416,7 +417,7 @@ Future<Map<String, dynamic>> deleteFranchise(
       final url = dealerId != null
           ? '${AppConstants.apiBaseUrl}/api/accounts/dealers/$dealerId/documents/'
           : '${AppConstants.apiBaseUrl}/api/accounts/dealers/documents/';
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse(url),
         headers: await _headers(),
       ).timeout(const Duration(seconds: 15));
@@ -458,7 +459,7 @@ Future<Map<String, dynamic>> deleteFranchise(
         ),
       );
 
-      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final streamed = await ApiClient.sendRequest(request).timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamed);
       final dynamic decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
@@ -476,7 +477,7 @@ Future<Map<String, dynamic>> deleteFranchise(
       final url = dealerId != null
           ? '${AppConstants.apiBaseUrl}/api/accounts/dealers/$dealerId/documents/'
           : '${AppConstants.apiBaseUrl}/api/accounts/dealers/documents/';
-      final response = await http.delete(
+      final response = await ApiClient.delete(
         Uri.parse('$url?document_id=$docId'),
         headers: await _headers(),
       ).timeout(const Duration(seconds: 15));

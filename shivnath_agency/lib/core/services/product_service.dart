@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import 'session_service.dart';
 import '../../models/product_model.dart';
 class ProductService {
@@ -62,7 +63,7 @@ class ProductService {
             query.isEmpty ? null : query,
       );
 
-      final response = await http.get(
+      final response = await ApiClient.get(
   uri,
   headers: await _headers(),
 );
@@ -109,7 +110,7 @@ final result = _decode(response);
   Future<Map<String, dynamic>> getProduct(
       int id) async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse(
             '$baseUrl/api/products/$id/'),
         headers: await _headers(),
@@ -132,7 +133,7 @@ final result = _decode(response);
   Future<Map<String, dynamic>> createProduct(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse(
             '$baseUrl/api/products/'),
         headers: await _headers(),
@@ -163,7 +164,7 @@ return result;
       int id,
       Map<String, dynamic> data) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse(
             '$baseUrl/api/products/$id/'),
         headers: await _headers(),
@@ -193,7 +194,7 @@ return result;
   Future<Map<String, dynamic>> deleteProduct(
       int id) async {
     try {
-      final response = await http.delete(
+      final response = await ApiClient.delete(
         Uri.parse(
             '$baseUrl/api/products/$id/'),
         headers: await _headers(),
@@ -232,7 +233,7 @@ return result;
         queryParameters: query.isEmpty ? null : query,
       );
 
-      final response = await http.get(
+      final response = await ApiClient.get(
         uri,
         headers: await _headers(),
       );
@@ -248,7 +249,7 @@ return result;
 
   Future<Map<String, dynamic>> createCategory(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/products/categories/'),
         headers: await _headers(),
         body: jsonEncode(data),
@@ -265,7 +266,7 @@ return result;
 
   Future<Map<String, dynamic>> updateCategory(int id, Map<String, dynamic> data) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse('$baseUrl/api/products/categories/$id/'),
         headers: await _headers(),
         body: jsonEncode(data),
@@ -282,7 +283,7 @@ return result;
 
   Future<Map<String, dynamic>> deleteCategory(int id) async {
     try {
-      final response = await http.delete(
+      final response = await ApiClient.delete(
         Uri.parse('$baseUrl/api/products/categories/$id/'),
         headers: await _headers(),
       );
@@ -303,7 +304,7 @@ return result;
   Future<Map<String, dynamic>>
       getStats() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse(
             '$baseUrl/api/products/stats/'),
         headers: await _headers(),

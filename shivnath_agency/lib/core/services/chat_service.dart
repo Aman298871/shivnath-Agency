@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import 'product_service.dart';
 import 'session_service.dart';
 
@@ -114,7 +115,7 @@ class ChatService {
     );
 
     try {
-      final response = await http.get(uri, headers: await _headers()).timeout(const Duration(seconds: 8));
+      final response = await ApiClient.get(uri, headers: await _headers()).timeout(const Duration(seconds: 8));
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = jsonDecode(response.body);
         if (decoded is Map<String, dynamic> && decoded['options'] is List) {
@@ -134,7 +135,7 @@ class ChatService {
     );
 
     try {
-      final response = await http.get(uri, headers: await _headers(requireAuth: true)).timeout(const Duration(seconds: 8));
+      final response = await ApiClient.get(uri, headers: await _headers(requireAuth: true)).timeout(const Duration(seconds: 8));
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = jsonDecode(response.body);
         if (decoded is Map<String, dynamic> && decoded['options'] is List) {
@@ -147,7 +148,7 @@ class ChatService {
 
   Future<Map<String, dynamic>> createChatbotOption(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/chat/admin/options/'),
         headers: await _headers(requireAuth: true),
         body: jsonEncode(data),
@@ -160,7 +161,7 @@ class ChatService {
 
   Future<Map<String, dynamic>> updateChatbotOption(int id, Map<String, dynamic> data) async {
     try {
-      final response = await http.patch(
+      final response = await ApiClient.patch(
         Uri.parse('$baseUrl/api/chat/admin/options/$id/'),
         headers: await _headers(requireAuth: true),
         body: jsonEncode(data),
@@ -173,7 +174,7 @@ class ChatService {
 
   Future<Map<String, dynamic>> deleteChatbotOption(int id) async {
     try {
-      final response = await http.delete(
+      final response = await ApiClient.delete(
         Uri.parse('$baseUrl/api/chat/admin/options/$id/'),
         headers: await _headers(requireAuth: true),
       );
@@ -197,7 +198,7 @@ class ChatService {
     );
 
     try {
-      final response = await http.get(uri, headers: await _headers()).timeout(const Duration(seconds: 8));
+      final response = await ApiClient.get(uri, headers: await _headers()).timeout(const Duration(seconds: 8));
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = jsonDecode(response.body);
         if (decoded is Map<String, dynamic> && decoded['quotations'] is List) {
@@ -229,11 +230,11 @@ class ChatService {
         } else if (pdfFilePath != null && pdfFilePath.isNotEmpty) {
           request.files.add(await http.MultipartFile.fromPath('pdf_file', pdfFilePath, filename: pdfFileName));
         }
-        final streamed = await request.send().timeout(const Duration(seconds: 20));
+        final streamed = await ApiClient.sendRequest(request).timeout(const Duration(seconds: 20));
         final response = await http.Response.fromStream(streamed);
         return jsonDecode(response.body);
       } else {
-        final response = await http.post(
+        final response = await ApiClient.post(
           Uri.parse('$baseUrl/api/chat/quotations/'),
           headers: await _headers(requireAuth: true),
           body: jsonEncode(data),
@@ -270,11 +271,11 @@ class ChatService {
         } else if (pdfFilePath != null && pdfFilePath.isNotEmpty) {
           request.files.add(await http.MultipartFile.fromPath('pdf_file', pdfFilePath, filename: pdfFileName));
         }
-        final streamed = await request.send().timeout(const Duration(seconds: 20));
+        final streamed = await ApiClient.sendRequest(request).timeout(const Duration(seconds: 20));
         final response = await http.Response.fromStream(streamed);
         return jsonDecode(response.body);
       } else {
-        final response = await http.patch(
+        final response = await ApiClient.patch(
           Uri.parse('$baseUrl/api/chat/quotations/$id/'),
           headers: await _headers(requireAuth: true),
           body: jsonEncode(data),
@@ -288,7 +289,7 @@ class ChatService {
 
   Future<Map<String, dynamic>> deleteQuotation(int id) async {
     try {
-      final response = await http.delete(
+      final response = await ApiClient.delete(
         Uri.parse('$baseUrl/api/chat/quotations/$id/'),
         headers: await _headers(requireAuth: true),
       );
@@ -304,7 +305,7 @@ class ChatService {
 
   Future<Map<String, dynamic>> submitPublicLead(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/leads/public-capture/'),
         headers: await _headers(),
         body: jsonEncode(data),
@@ -328,7 +329,7 @@ class ChatService {
     );
 
     try {
-      final response = await http.get(uri, headers: await _headers(requireAuth: true)).timeout(const Duration(seconds: 10));
+      final response = await ApiClient.get(uri, headers: await _headers(requireAuth: true)).timeout(const Duration(seconds: 10));
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = jsonDecode(response.body);
         if (decoded is Map<String, dynamic> && decoded['conversations'] is List) {
@@ -341,7 +342,7 @@ class ChatService {
 
   Future<Map<String, dynamic>?> getAdminConversationDetail(int sessionId) async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         Uri.parse('$baseUrl/api/chat/admin/conversations/$sessionId/'),
         headers: await _headers(requireAuth: true),
       ).timeout(const Duration(seconds: 10));

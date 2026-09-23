@@ -981,13 +981,16 @@ class _CentralPlantInventoryScreenState
                 ),
               ],
             ),
-            content: SingleChildScrollView(
-              child: Column(
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width,
+              child: SingleChildScrollView(
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<ProductModel>(
                     initialValue: selectedProduct,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Manufactured Product Variant *',
                       helperText:
@@ -997,10 +1000,23 @@ class _CentralPlantInventoryScreenState
                         .map(
                           (p) => DropdownMenuItem(
                             value: p,
-                            child: Text('${p.name} (${p.size})'),
+                            child: Text(
+                              '${p.name} (${p.size})',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
                           ),
                         )
                         .toList(),
+                    selectedItemBuilder: (context) {
+                      return _products.map((p) {
+                        return Text(
+                          '${p.name} (${p.size})',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        );
+                      }).toList();
+                    },
                     onChanged: (val) {
                       setDlgState(() {
                         selectedProduct = val;
@@ -1078,6 +1094,7 @@ class _CentralPlantInventoryScreenState
                 ],
               ),
             ),
+          ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dlgCtx),
@@ -1445,6 +1462,7 @@ class _CentralPlantInventoryScreenState
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     initialValue: category,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: const [
                       DropdownMenuItem(
@@ -1472,6 +1490,7 @@ class _CentralPlantInventoryScreenState
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     initialValue: uom,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Unit of Measure',
                     ),

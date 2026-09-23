@@ -79,8 +79,16 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
             'role': 'admin',
             'is_active': true,
             'data_scope_type': 'all_data',
-            'admin_permissions': ['dashboard', 'orders', 'production', 'inventory', 'pricing'],
-            'last_login': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+            'admin_permissions': [
+              'dashboard',
+              'orders',
+              'production',
+              'inventory',
+              'pricing',
+            ],
+            'last_login': DateTime.now()
+                .subtract(const Duration(hours: 2))
+                .toIso8601String(),
           },
         ];
       }
@@ -116,12 +124,17 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (dialogCtx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Row(
             children: [
               Icon(Icons.person_add_alt_1_rounded, color: primaryBlue),
               SizedBox(width: 8),
-              Text('Add New Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              Text(
+                'Add New Admin',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
             ],
           ),
           content: ConstrainedBox(
@@ -169,7 +182,9 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
                           color: Colors.grey,
                         ),
                         onPressed: () {
@@ -183,25 +198,53 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     value: selectedRole,
-                    decoration: const InputDecoration(labelText: 'Staff Role', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Staff Role',
+                      border: OutlineInputBorder(),
+                    ),
                     items: const [
-                      DropdownMenuItem(value: 'admin', child: Text('Operational Plant Admin')),
-                      DropdownMenuItem(value: 'sales_executive', child: Text('Sales Executive (Optional Field Role)')),
-                      DropdownMenuItem(value: 'super_admin', child: Text('Super Admin (Platform Owner)')),
+                      DropdownMenuItem(
+                        value: 'admin',
+                        child: Text('Operational Plant Admin'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'sales_executive',
+                        child: Text('Sales Executive (Optional Field Role)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'super_admin',
+                        child: Text('Super Admin (Platform Owner)'),
+                      ),
                     ],
-                    onChanged: (v) => setDialogState(() => selectedRole = v ?? 'admin'),
+                    onChanged: (v) =>
+                        setDialogState(() => selectedRole = v ?? 'admin'),
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     value: selectedScope,
-                    decoration: const InputDecoration(labelText: 'Server-Side Data Scope', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Server-Side Data Scope',
+                      border: OutlineInputBorder(),
+                    ),
                     items: dataScopes.entries
-                        .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13))))
+                        .map(
+                          (e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Text(
+                              e.value,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        )
                         .toList(),
-                    onChanged: (v) => setDialogState(() => selectedScope = v ?? 'all_data'),
+                    onChanged: (v) =>
+                        setDialogState(() => selectedScope = v ?? 'all_data'),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Authorized Module Permissions:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text(
+                    'Authorized Module Permissions:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -209,7 +252,10 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                     children: allModules.map((m) {
                       final isChecked = selectedPermissions.contains(m);
                       return FilterChip(
-                        label: Text(m.replaceAll('_', ' ').toUpperCase(), style: const TextStyle(fontSize: 11)),
+                        label: Text(
+                          m.replaceAll('_', ' ').toUpperCase(),
+                          style: const TextStyle(fontSize: 11),
+                        ),
                         selected: isChecked,
                         selectedColor: primaryBlue.withAlpha(50),
                         onSelected: (val) {
@@ -229,12 +275,23 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: primaryBlue, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryBlue,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () async {
-                if (nameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty || passCtrl.text.trim().isEmpty) {
-                  AppToast.error(context, 'Name, email, and password are required.');
+                if (nameCtrl.text.trim().isEmpty ||
+                    emailCtrl.text.trim().isEmpty ||
+                    passCtrl.text.trim().isEmpty) {
+                  AppToast.error(
+                    context,
+                    'Name, email, and password are required.',
+                  );
                   return;
                 }
                 final payload = {
@@ -252,7 +309,10 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                   AppToast.success(context, 'Admin account created securely.');
                   _fetchAdmins();
                 } else {
-                  AppToast.error(context, res['message'] ?? 'Failed to create admin.');
+                  AppToast.error(
+                    context,
+                    res['message'] ?? 'Failed to create admin.',
+                  );
                 }
               },
               child: const Text('Create Admin Account'),
@@ -265,24 +325,35 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
 
   void _openEditAdminDialog(Map<String, dynamic> admin) {
     final id = int.tryParse(admin['id'].toString()) ?? 0;
-    final nameCtrl = TextEditingController(text: admin['name'] ?? admin['username'] ?? '');
+    final nameCtrl = TextEditingController(
+      text: admin['name'] ?? admin['username'] ?? '',
+    );
     final emailCtrl = TextEditingController(text: admin['email'] ?? '');
     final phoneCtrl = TextEditingController(text: admin['phone'] ?? '');
     String selectedRole = (admin['role'] ?? 'admin').toString().toLowerCase();
-    if (selectedRole != 'admin' && selectedRole != 'sales_executive') selectedRole = 'admin';
-    String selectedScope = (admin['data_scope_type'] ?? 'all_data').toString().toLowerCase();
+    if (selectedRole != 'admin' && selectedRole != 'sales_executive')
+      selectedRole = 'admin';
+    String selectedScope = (admin['data_scope_type'] ?? 'all_data')
+        .toString()
+        .toLowerCase();
     if (!dataScopes.containsKey(selectedScope)) selectedScope = 'all_data';
 
     final rawPerms = admin['admin_permissions'];
-    final selectedPermissions = rawPerms is List ? Set<String>.from(rawPerms.map((e) => e.toString())) : Set<String>.from(allModules);
+    final selectedPermissions = rawPerms is List
+        ? Set<String>.from(rawPerms.map((e) => e.toString()))
+        : Set<String>.from(allModules);
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (dialogCtx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Edit Admin: ${admin['name'] ?? admin['username']}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Edit Admin: ${admin['name'] ?? admin['username']}',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+          ),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 500, maxHeight: 550),
             child: SingleChildScrollView(
@@ -292,39 +363,73 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Full Name', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: emailCtrl,
-                    decoration: const InputDecoration(labelText: 'Email Address', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Email Address',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: phoneCtrl,
-                    decoration: const InputDecoration(labelText: 'Phone', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Phone',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     value: selectedRole,
-                    decoration: const InputDecoration(labelText: 'Role', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Role',
+                      border: OutlineInputBorder(),
+                    ),
                     items: const [
-                      DropdownMenuItem(value: 'admin', child: Text('Operational Plant Admin')),
-                      DropdownMenuItem(value: 'sales_executive', child: Text('Sales Executive')),
+                      DropdownMenuItem(
+                        value: 'admin',
+                        child: Text('Operational Plant Admin'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'sales_executive',
+                        child: Text('Sales Executive'),
+                      ),
                     ],
-                    onChanged: (v) => setDialogState(() => selectedRole = v ?? 'admin'),
+                    onChanged: (v) =>
+                        setDialogState(() => selectedRole = v ?? 'admin'),
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     value: selectedScope,
-                    decoration: const InputDecoration(labelText: 'Data Scope', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Data Scope',
+                      border: OutlineInputBorder(),
+                    ),
                     items: dataScopes.entries
-                        .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13))))
+                        .map(
+                          (e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Text(
+                              e.value,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        )
                         .toList(),
-                    onChanged: (v) => setDialogState(() => selectedScope = v ?? 'all_data'),
+                    onChanged: (v) =>
+                        setDialogState(() => selectedScope = v ?? 'all_data'),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Permissions:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Text(
+                    'Permissions:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 6,
@@ -332,7 +437,10 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                     children: allModules.map((m) {
                       final isChecked = selectedPermissions.contains(m);
                       return FilterChip(
-                        label: Text(m.replaceAll('_', ' ').toUpperCase(), style: const TextStyle(fontSize: 10)),
+                        label: Text(
+                          m.replaceAll('_', ' ').toUpperCase(),
+                          style: const TextStyle(fontSize: 10),
+                        ),
                         selected: isChecked,
                         selectedColor: primaryBlue.withAlpha(50),
                         onSelected: (val) {
@@ -352,9 +460,15 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: primaryBlue, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryBlue,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () async {
                 final payload = {
                   'name': nameCtrl.text.trim(),
@@ -364,13 +478,22 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                   'data_scope_type': selectedScope,
                   'admin_permissions': selectedPermissions.toList(),
                 };
-                final res = await _authService.updateSuperAdminAdmin(id, payload);
+                final res = await _authService.updateSuperAdminAdmin(
+                  id,
+                  payload,
+                );
                 if (dialogCtx.mounted) Navigator.pop(dialogCtx);
                 if (res['success'] == true) {
-                  AppToast.success(context, 'Admin permissions and scope updated.');
+                  AppToast.success(
+                    context,
+                    'Admin permissions and scope updated.',
+                  );
                   _fetchAdmins();
                 } else {
-                  AppToast.error(context, res['message'] ?? 'Failed to update admin.');
+                  AppToast.error(
+                    context,
+                    res['message'] ?? 'Failed to update admin.',
+                  );
                 }
               },
               child: const Text('Save Changes'),
@@ -389,28 +512,48 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Reset Password for ${admin['name'] ?? admin['username']}',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text(
+          'Reset Password for ${admin['name'] ?? admin['username']}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         content: TextField(
           controller: passCtrl,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'New Secure Password *', border: OutlineInputBorder()),
+          decoration: const InputDecoration(
+            labelText: 'New Secure Password *',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade800, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber.shade800,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               if (passCtrl.text.trim().isEmpty) {
                 AppToast.error(context, 'Password cannot be empty.');
                 return;
               }
-              final res = await _authService.resetSuperAdminAdminPassword(id, passCtrl.text.trim());
+              final res = await _authService.resetSuperAdminAdminPassword(
+                id,
+                passCtrl.text.trim(),
+              );
               if (ctx.mounted) Navigator.pop(ctx);
               if (res['success'] == true) {
-                AppToast.success(context, 'Password reset and securely hashed.');
+                AppToast.success(
+                  context,
+                  'Password reset and securely hashed.',
+                );
               } else {
-                AppToast.error(context, res['message'] ?? 'Failed to reset password.');
+                AppToast.error(
+                  context,
+                  res['message'] ?? 'Failed to reset password.',
+                );
               }
             },
             child: const Text('Reset Password'),
@@ -427,7 +570,12 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
 
     final res = await _authService.toggleSuperAdminAdminActive(id, newActive);
     if (res['success'] == true) {
-      AppToast.success(context, newActive ? 'Admin account enabled.' : 'Admin account deactivated (audits preserved).');
+      AppToast.success(
+        context,
+        newActive
+            ? 'Admin account enabled.'
+            : 'Admin account deactivated (audits preserved).',
+      );
       _fetchAdmins();
     } else {
       AppToast.error(context, res['message'] ?? 'Failed to change status.');
@@ -444,7 +592,10 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
         foregroundColor: Colors.white,
         onPressed: _openCreateAdminDialog,
         icon: const Icon(Icons.person_add_alt_1_rounded),
-        label: const Text('Add Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        label: const Text(
+          'Add Admin',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
       ),
       body: Column(
         children: [
@@ -458,8 +609,13 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                     decoration: InputDecoration(
                       hintText: 'Search admins by name, email, or role...',
                       prefixIcon: const Icon(Icons.search, size: 20),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 0,
+                        horizontal: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     onChanged: (v) => setState(() => _searchQuery = v),
                   ),
@@ -469,7 +625,9 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                   style: IconButton.styleFrom(
                     backgroundColor: primaryBlue,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     padding: const EdgeInsets.all(12),
                   ),
                   onPressed: _openCreateAdminDialog,
@@ -484,165 +642,251 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredAdmins.isEmpty
-                    ? Center(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.manage_accounts_outlined, size: 56, color: Colors.grey.shade400),
-                              const SizedBox(height: 12),
-                              const Text(
-                                'No admin accounts found.',
-                                style: TextStyle(color: Colors.grey, fontSize: 15, fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Create a new plant admin, sales executive, or super admin account with customized roles and permissions.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey, fontSize: 13),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: primaryBlue,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                                ),
-                                onPressed: _openCreateAdminDialog,
-                                icon: const Icon(Icons.person_add_alt_1_rounded),
-                                label: const Text('Add Admin Account', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ],
+                ? Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.manage_accounts_outlined,
+                            size: 56,
+                            color: Colors.grey.shade400,
                           ),
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _fetchAdmins,
-                        child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: _filteredAdmins.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (ctx, idx) {
-                          final a = _filteredAdmins[idx];
-                          final isActive = a['is_active'] == true;
-                          final role = (a['role'] ?? 'admin').toString();
-                          final scope = (a['data_scope_type'] ?? 'all_data').toString();
-
-                          return Card(
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              side: BorderSide(color: Colors.grey.shade200),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No admin accounts found.',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 20,
-                                        backgroundColor: primaryBlue.withAlpha(25),
-                                        child: Icon(
-                                          role == 'sales_executive' ? Icons.badge_outlined : Icons.security_rounded,
-                                          color: primaryBlue,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              a['name'] ?? a['username'] ?? 'Admin User',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                            ),
-                                            Text(
-                                              a['email'] ?? '',
-                                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: isActive ? Colors.green.shade50 : Colors.red.shade50,
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: isActive ? Colors.green.shade200 : Colors.red.shade200),
-                                        ),
-                                        child: Text(
-                                          isActive ? 'ACTIVE' : 'DISABLED',
-                                          style: TextStyle(
-                                            color: isActive ? Colors.green.shade700 : Colors.red.shade700,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children: [
-                                      Chip(
-                                        label: Text(role.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                        padding: EdgeInsets.zero,
-                                        visualDensity: VisualDensity.compact,
-                                        backgroundColor: Colors.grey.shade100,
-                                      ),
-                                      Chip(
-                                        label: Text('Scope: ${dataScopes[scope] ?? scope}', style: const TextStyle(fontSize: 10)),
-                                        padding: EdgeInsets.zero,
-                                        visualDensity: VisualDensity.compact,
-                                        backgroundColor: Colors.blue.shade50,
-                                      ),
-                                      if (a['phone'] != null && a['phone'].toString().isNotEmpty)
-                                        Chip(
-                                          avatar: const Icon(Icons.phone, size: 12),
-                                          label: Text(a['phone'].toString(), style: const TextStyle(fontSize: 10)),
-                                          padding: EdgeInsets.zero,
-                                          visualDensity: VisualDensity.compact,
-                                          backgroundColor: Colors.grey.shade50,
-                                        ),
-                                    ],
-                                  ),
-                                  const Divider(height: 20),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.edit_note, size: 16),
-                                        label: const Text('Permissions & Scope', style: TextStyle(fontSize: 12)),
-                                        onPressed: () => _openEditAdminDialog(a),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.lock_reset, size: 16),
-                                        label: const Text('Reset Pass', style: TextStyle(fontSize: 12)),
-                                        onPressed: () => _openResetPasswordDialog(a),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Switch(
-                                        value: isActive,
-                                        activeColor: primaryBlue,
-                                        onChanged: (_) => _toggleActiveStatus(a),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Create a new plant admin, sales executive, or super admin account with customized roles and permissions.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey, fontSize: 13),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryBlue,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 14,
                               ),
                             ),
-                          );
-                        },
+                            onPressed: _openCreateAdminDialog,
+                            icon: const Icon(Icons.person_add_alt_1_rounded),
+                            label: const Text(
+                              'Add Admin Account',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _fetchAdmins,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: _filteredAdmins.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (ctx, idx) {
+                        final a = _filteredAdmins[idx];
+                        final isActive = a['is_active'] == true;
+                        final role = (a['role'] ?? 'admin').toString();
+                        final scope = (a['data_scope_type'] ?? 'all_data')
+                            .toString();
+
+                        return Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor: primaryBlue.withAlpha(
+                                        25,
+                                      ),
+                                      child: Icon(
+                                        role == 'sales_executive'
+                                            ? Icons.badge_outlined
+                                            : Icons.security_rounded,
+                                        color: primaryBlue,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            a['name'] ??
+                                                a['username'] ??
+                                                'Admin User',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                          Text(
+                                            a['email'] ?? '',
+                                            style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isActive
+                                            ? Colors.green.shade50
+                                            : Colors.red.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isActive
+                                              ? Colors.green.shade200
+                                              : Colors.red.shade200,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        isActive ? 'ACTIVE' : 'DISABLED',
+                                        style: TextStyle(
+                                          color: isActive
+                                              ? Colors.green.shade700
+                                              : Colors.red.shade700,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [
+                                    Chip(
+                                      label: Text(
+                                        role.toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      visualDensity: VisualDensity.compact,
+                                      backgroundColor: Colors.grey.shade100,
+                                    ),
+                                    Chip(
+                                      label: Text(
+                                        'Scope: ${dataScopes[scope] ?? scope}',
+                                        style: const TextStyle(fontSize: 10),
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      visualDensity: VisualDensity.compact,
+                                      backgroundColor: Colors.blue.shade50,
+                                    ),
+                                    if (a['phone'] != null &&
+                                        a['phone'].toString().isNotEmpty)
+                                      Chip(
+                                        avatar: const Icon(
+                                          Icons.phone,
+                                          size: 12,
+                                        ),
+                                        label: Text(
+                                          a['phone'].toString(),
+                                          style: const TextStyle(fontSize: 10),
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        visualDensity: VisualDensity.compact,
+                                        backgroundColor: Colors.grey.shade50,
+                                      ),
+                                  ],
+                                ),
+                                const Divider(height: 20),
+                                Wrap(
+                                  alignment: WrapAlignment.end,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: [
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.edit_note,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        'Permissions & Scope',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                      onPressed: () => _openEditAdminDialog(a),
+                                    ),
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.lock_reset,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        'Reset Pass',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                      onPressed: () =>
+                                          _openResetPasswordDialog(a),
+                                    ),
+                                    Transform.scale(
+                                      scale: 0.85,
+                                      child: Switch(
+                                        value: isActive,
+                                        activeThumbColor: primaryBlue,
+                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        onChanged: (_) => _toggleActiveStatus(a),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
           ),
         ],
       ),

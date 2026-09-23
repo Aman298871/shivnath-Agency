@@ -42,14 +42,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     if (!mounted) return;
 
     if (ordersResult['success'] == true) {
-      final List<dynamic> items =
-          ordersResult['data']['orders'] ?? [];
+      final List<dynamic> items = ordersResult['data']['orders'] ?? [];
 
       orders = items
           .map(
-            (item) => _orderService.mapOrder(
-              Map<String, dynamic>.from(item),
-            ),
+            (item) => _orderService.mapOrder(Map<String, dynamic>.from(item)),
           )
           .toList();
     } else {
@@ -61,9 +58,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     }
 
     if (statsResult['success'] == true) {
-      stats = Map<String, dynamic>.from(
-        statsResult['data']['stats'],
-      );
+      stats = Map<String, dynamic>.from(statsResult['data']['stats']);
     }
 
     setState(() {
@@ -128,9 +123,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     if (isLoading)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 60),
-                        child: Center(
-                          child: CircularProgressIndicator(),
-                        ),
+                        child: Center(child: CircularProgressIndicator()),
                       )
                     else
                       desktop ? _desktop() : _mobile(),
@@ -218,11 +211,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               ],
             )
           : Column(
-              children: [
-                _search(),
-                const SizedBox(height: 10),
-                _filter(),
-              ],
+              children: [_search(), const SizedBox(height: 10), _filter()],
             ),
     );
   }
@@ -255,12 +244,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       value: activeFilter,
       decoration: const InputDecoration(labelText: 'Order Status'),
       items: filterOptions
-          .map(
-            (e) => DropdownMenuItem(
-              value: e,
-              child: Text(e),
-            ),
-          )
+          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
           .toList(),
       onChanged: (value) {
         if (value != null) setState(() => filter = value);
@@ -306,9 +290,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       decoration: BoxDecoration(
         color: header ? const Color(0xFFF8FAFC) : Colors.white,
-        border: const Border(
-          bottom: BorderSide(color: Color(0xFFE5E7EB)),
-        ),
+        border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
       ),
       child: Row(
         children: List.generate(cells.length, (i) {
@@ -342,10 +324,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     if (!header && order != null) {
       return Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _viewOrderDetails(order),
-          child: row,
-        ),
+        child: InkWell(onTap: () => _viewOrderDetails(order), child: row),
       );
     }
     return row;
@@ -494,12 +473,19 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7), size: 24),
+                    const Icon(
+                      Icons.receipt_long_rounded,
+                      color: Color(0xFF0284C7),
+                      size: 24,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Order ${order['orderId']}',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -514,13 +500,19 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _info('Date', order['date']),
-                        if ((order['customer_name'] ?? '').toString().isNotEmpty)
+                        if ((order['customer_name'] ?? '')
+                            .toString()
+                            .isNotEmpty)
                           _info('Customer', order['customer_name']),
                         _info('Franchise', order['franchise']),
-                        if ((order['delivery_address'] ?? '').toString().isNotEmpty)
+                        if ((order['delivery_address'] ?? '')
+                            .toString()
+                            .isNotEmpty)
                           _info('Delivery Address', order['delivery_address']),
                         _info('City', order['city']),
-                        if ((order['duration_choice'] ?? '').toString().isNotEmpty)
+                        if ((order['duration_choice'] ?? '')
+                            .toString()
+                            .isNotEmpty)
                           _info('Plan Duration', order['duration_choice']),
                         _info('Payment', order['payment']),
                         if ((order['order_source'] ?? '').toString().isNotEmpty)
@@ -533,7 +525,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                         const SizedBox(height: 14),
                         const Text(
                           'Ordered Products',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF1E293B)),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: Color(0xFF1E293B),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         if (itemsList.isEmpty)
@@ -545,24 +541,44 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.water_drop_outlined, color: Color(0xFF0284C7), size: 20),
+                                const Icon(
+                                  Icons.water_drop_outlined,
+                                  color: Color(0xFF0284C7),
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
-                                  child: Text('${order['items']} Items (${order['franchise']})',
-                                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  child: Text(
+                                    '${order['items']} Items (${order['franchise']})',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
-                                Text('₹${order['amount']}',
-                                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF0284C7))),
+                                Text(
+                                  '₹${order['amount']}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0284C7),
+                                  ),
+                                ),
                               ],
                             ),
                           )
                         else
                           ...itemsList.map((item) {
-                            final name = item['product_name'] ?? item['name'] ?? 'Packaged Water';
+                            final name =
+                                item['product_name'] ??
+                                item['name'] ??
+                                'Packaged Water';
                             final size = item['size'] ?? '';
                             final qty = item['quantity'] ?? 1;
-                            final unitPrice = item['unit_price'] ?? item['price'] ?? 0;
-                            final totalPrice = item['total_price'] ?? (double.tryParse(unitPrice.toString()) ?? 0) * (int.tryParse(qty.toString()) ?? 1);
+                            final unitPrice =
+                                item['unit_price'] ?? item['price'] ?? 0;
+                            final totalPrice =
+                                item['total_price'] ??
+                                (double.tryParse(unitPrice.toString()) ?? 0) *
+                                    (int.tryParse(qty.toString()) ?? 1);
 
                             return Container(
                               margin: const EdgeInsets.only(bottom: 8),
@@ -570,7 +586,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                               ),
                               child: Row(
                                 children: [
@@ -581,24 +599,54 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                       color: const Color(0xFFE0F2FE),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Icon(Icons.water_drop_rounded, size: 18, color: Color(0xFF0284C7)),
+                                    child: const Icon(
+                                      Icons.water_drop_rounded,
+                                      size: 18,
+                                      color: Color(0xFF0284C7),
+                                    ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text(name.toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                        Text(
+                                          name.toString(),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                          ),
+                                        ),
                                         if (size.toString().isNotEmpty)
-                                          Text('Size: $size | Qty: $qty', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                          Text(
+                                            'Size: $size | Qty: $qty',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xFF64748B),
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
-                                      Text('₹$totalPrice', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0284C7))),
-                                      Text('₹$unitPrice each', style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                                      Text(
+                                        '₹$totalPrice',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                          color: Color(0xFF0284C7),
+                                        ),
+                                      ),
+                                      Text(
+                                        '₹$unitPrice each',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF94A3B8),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -607,7 +655,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                           }),
                         const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF0FDF4),
                             borderRadius: BorderRadius.circular(8),
@@ -616,8 +667,21 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Total Order Amount', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                              Text('₹${order['amount']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF16A34A))),
+                              const Text(
+                                'Total Order Amount',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                '₹${order['amount']}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                  color: Color(0xFF16A34A),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -636,51 +700,121 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             children: [
                               const Row(
                                 children: [
-                                  Icon(Icons.precision_manufacturing_rounded, size: 18, color: Color(0xFF0284C7)),
+                                  Icon(
+                                    Icons.precision_manufacturing_rounded,
+                                    size: 18,
+                                    color: Color(0xFF0284C7),
+                                  ),
                                   SizedBox(width: 8),
                                   Text(
-                                    'Shivnath Factory Production & Pending Stock',
-                                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                                    'Shivnath Factory Production & \n Pending Stock',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                      color: Color(0xFF0F172A),
+                                    ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 10),
-                              if ((order['client_name'] ?? '').toString().isNotEmpty)
+                              if ((order['client_name'] ?? '')
+                                  .toString()
+                                  .isNotEmpty)
                                 _info('Client Name', order['client_name']),
-                              if ((order['label_requirement'] ?? '').toString().isNotEmpty)
+                              if ((order['label_requirement'] ?? '')
+                                  .toString()
+                                  .isNotEmpty)
                                 _info('Label Spec', order['label_requirement']),
-                              if ((order['printing_requirement'] ?? '').toString().isNotEmpty)
-                                _info('Printing Spec', order['printing_requirement']),
-                              if ((order['branding_requirement'] ?? '').toString().isNotEmpty)
-                                _info('Branding Spec', order['branding_requirement']),
+                              if ((order['printing_requirement'] ?? '')
+                                  .toString()
+                                  .isNotEmpty)
+                                _info(
+                                  'Printing Spec',
+                                  order['printing_requirement'],
+                                ),
+                              if ((order['branding_requirement'] ?? '')
+                                  .toString()
+                                  .isNotEmpty)
+                                _info(
+                                  'Branding Spec',
+                                  order['branding_requirement'],
+                                ),
                               if (order['custom_shelf_life_days'] != null)
-                                _info('Shelf Life', '${order['custom_shelf_life_days']} Days (Configured)'),
+                                _info(
+                                  'Shelf Life',
+                                  '${order['custom_shelf_life_days']} Days (Configured)',
+                                ),
                               const Divider(height: 16),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      const Text('PRODUCED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+                                      const Text(
+                                        'PRODUCED',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF64748B),
+                                        ),
+                                      ),
                                       const SizedBox(height: 2),
-                                      Text('${order['total_produced_units'] ?? 0} units', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                                      Text(
+                                        '${order['total_produced_units'] ?? 0} units',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      const Text('DELIVERED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF0284C7))),
+                                      const Text(
+                                        'DELIVERED',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF0284C7),
+                                        ),
+                                      ),
                                       const SizedBox(height: 2),
-                                      Text('${order['total_delivered_units'] ?? 0} units', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0284C7))),
+                                      Text(
+                                        '${order['total_delivered_units'] ?? 0} units',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                          color: Color(0xFF0284C7),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      const Text('PENDING IN STOCK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF16A34A))),
+                                      const Text(
+                                        'PENDING IN STOCK',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF16A34A),
+                                        ),
+                                      ),
                                       const SizedBox(height: 2),
-                                      Text('${order['total_pending_stock_units'] ?? 0} units', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF16A34A))),
+                                      Text(
+                                        '${order['total_pending_stock_units'] ?? 0} units',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                          color: Color(0xFF16A34A),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -691,19 +825,28 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                         const SizedBox(height: 16),
                         const Text(
                           'Lifecycle & Status History',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF1E293B)),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: Color(0xFF1E293B),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Builder(
                           builder: (context) {
                             final rawHistory = order['status_history'];
-                            final List history = rawHistory is List ? rawHistory : [];
+                            final List history = rawHistory is List
+                                ? rawHistory
+                                : [];
                             if (history.isEmpty) {
                               return const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 8),
                                 child: Text(
                                   'No status transitions recorded yet.',
-                                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF94A3B8),
+                                  ),
                                 ),
                               );
                             }
@@ -712,7 +855,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                 final oldS = h['old_status'] ?? '-';
                                 final newS = h['new_status'] ?? '-';
                                 final byUser = h['changed_by_name'] ?? 'System';
-                                final changedAt = h['created_at']?.toString() ?? '';
+                                final changedAt =
+                                    h['created_at']?.toString() ?? '';
                                 final notes = h['notes']?.toString() ?? '';
 
                                 return Container(
@@ -721,31 +865,49 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF8FAFC),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                    border: Border.all(
+                                      color: const Color(0xFFE2E8F0),
+                                    ),
                                   ),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      const Icon(Icons.history_rounded, size: 16, color: Color(0xFF0284C7)),
+                                      const Icon(
+                                        Icons.history_rounded,
+                                        size: 16,
+                                        color: Color(0xFF0284C7),
+                                      ),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               '$oldS → $newS',
-                                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 12,
+                                              ),
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
                                               'By: $byUser ${changedAt.isNotEmpty ? '• ${changedAt.substring(0, changedAt.length > 19 ? 19 : changedAt.length).replaceAll('T', ' ')}' : ''}',
-                                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF64748B),
+                                              ),
                                             ),
                                             if (notes.isNotEmpty) ...[
                                               const SizedBox(height: 2),
                                               Text(
                                                 notes,
-                                                style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFF475569)),
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontStyle: FontStyle.italic,
+                                                  color: Color(0xFF475569),
+                                                ),
                                               ),
                                             ],
                                           ],
@@ -771,13 +933,18 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0284C7),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       onPressed: () {
                         Navigator.pop(dialogContext);
                         _changeStatus(order);
                       },
-                      icon: const Icon(Icons.published_with_changes_rounded, size: 18),
+                      icon: const Icon(
+                        Icons.published_with_changes_rounded,
+                        size: 18,
+                      ),
                       label: const Text('Update Status'),
                     ),
                     const SizedBox(width: 8),
@@ -843,10 +1010,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 decoration: const InputDecoration(labelText: 'Order Status'),
                 items: statuses
                     .map(
-                      (status) => DropdownMenuItem(
-                        value: status,
-                        child: Text(status),
-                      ),
+                      (status) =>
+                          DropdownMenuItem(value: status, child: Text(status)),
                     )
                     .toList(),
                 onChanged: (value) {
@@ -890,8 +1055,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     } else {
                       AppToast.error(
                         context,
-                        result['message'] ??
-                            'Unable to update order status.',
+                        result['message'] ?? 'Unable to update order status.',
                         title: 'Update Failed',
                       );
                     }
@@ -972,7 +1136,7 @@ class _OrderStat extends StatelessWidget {
 }
 
 BoxDecoration _orderCard() => BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFFE5E7EB)),
-    );
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(14),
+  border: Border.all(color: const Color(0xFFE5E7EB)),
+);

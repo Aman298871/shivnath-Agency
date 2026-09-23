@@ -185,7 +185,6 @@ class _CentralPlantInventoryScreenState
       itemCount: _productionBatches.length,
       itemBuilder: (context, idx) {
         final b = _productionBatches[idx];
-        final bId = b['id'] is int ? b['id'] as int : int.tryParse(b['id']?.toString() ?? '0') ?? 0;
         final bNum = b['batch_number']?.toString() ?? 'BATCH';
         final pName = b['product_name'] ?? 'Packaged Drinking Water';
         final sku = b['product_sku'] ?? b['sku'] ?? '';
@@ -201,7 +200,6 @@ class _CentralPlantInventoryScreenState
         final shelfDays = b['shelf_life_days']?.toString() ?? '';
         final mfgDate = b['manufacture_date']?.toString() ?? '';
         final expiry = b['expiry_date']?.toString() ?? '';
-        final unitCost = double.tryParse(b['unit_production_cost']?.toString() ?? '0') ?? 0.0;
         final isExpired = b['is_expired'] == true;
         final isDepleted = remaining <= 0;
 
@@ -234,18 +232,21 @@ class _CentralPlantInventoryScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 4,
                             children: [
-                              Text(bNum, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0x1A0284C7),
-                                  borderRadius: BorderRadius.circular(6),
+                              Text(bNum, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                              if (sku.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x1A0284C7),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(sku, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: Color(0xFF0284C7))),
                                 ),
-                                child: Text(sku, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: Color(0xFF0284C7))),
-                              ),
                             ],
                           ),
                           const SizedBox(height: 2),
@@ -382,8 +383,14 @@ class _CentralPlantInventoryScreenState
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Mfg: $mfgDate | Shelf Life: ${shelfDays.isNotEmpty ? '$shelfDays Days' : 'Configured'}',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    Expanded(
+                      child: Text(
+                        'Mfg: $mfgDate | Shelf Life: ${shelfDays.isNotEmpty ? '$shelfDays Days' : 'Configured'}',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text('Exp: $expiry',
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isExpired ? Colors.red : const Color(0xFF0F172A))),
                   ],
@@ -441,10 +448,14 @@ class _CentralPlantInventoryScreenState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Raw Materials Inventory',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            const Flexible(
+              child: Text(
+                'Raw Materials Inventory',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const SizedBox(width: 8),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
@@ -485,9 +496,17 @@ class _CentralPlantInventoryScreenState
                 ),
                 title: Row(
                   children: [
-                    Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                    const SizedBox(width: 8),
-                    Text('($code)', style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                    Flexible(
+                      child: Text(
+                        name,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (code.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text('($code)', style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                    ],
                   ],
                 ),
                 subtitle: Text('Category: $category | Unit Cost: INR ${unitCost.toStringAsFixed(2)}',
@@ -645,18 +664,22 @@ class _CentralPlantInventoryScreenState
                           children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(reqNum, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                                    if (createdAt.isNotEmpty)
-                                      Text(
-                                        'Requested: ${_formatDate(createdAt)}',
-                                        style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                                      ),
-                                  ],
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(reqNum, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                                      if (createdAt.isNotEmpty)
+                                        Text(
+                                          'Requested: ${_formatDate(createdAt)}',
+                                          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                                        ),
+                                    ],
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(8)),
@@ -707,8 +730,9 @@ class _CentralPlantInventoryScreenState
                                     ],
                                   ),
                                   const SizedBox(height: 6),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  Wrap(
+                                    spacing: 12,
+                                    runSpacing: 4,
                                     children: [
                                       Text(
                                         'Dispatched: $dispatchedUnits units ($dispCases cases)',
@@ -839,7 +863,9 @@ class _CentralPlantInventoryScreenState
               children: [
                 Icon(Icons.precision_manufacturing_rounded, color: Color(0xFF0284C7)),
                 SizedBox(width: 8),
-                Text('Produce Factory Batch', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                Expanded(
+                  child: Text('Produce Factory Batch', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                ),
               ],
             ),
             content: SingleChildScrollView(
@@ -1012,7 +1038,9 @@ class _CentralPlantInventoryScreenState
               children: [
                 Icon(Icons.local_shipping_rounded, color: Color(0xFF0284C7)),
                 SizedBox(width: 8),
-                Text('Record Customer Collection', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                Expanded(
+                  child: Text('Record Customer Collection', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                ),
               ],
             ),
             content: SingleChildScrollView(
@@ -1036,12 +1064,14 @@ class _CentralPlantInventoryScreenState
                         if (clientName.isNotEmpty)
                           Text('Client: $clientName', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF0284C7))),
                         const Divider(height: 14),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
-                            Text('Produced: $produced', style: const TextStyle(fontSize: 12)),
-                            Text('Taken: $taken', style: const TextStyle(fontSize: 12)),
-                            Text('Available: $remaining', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF16A34A))),
+                            Text('Produced: $produced', style: const TextStyle(fontSize: 11)),
+                            Text('Taken: $taken', style: const TextStyle(fontSize: 11)),
+                            Text('Available: $remaining', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF16A34A))),
                           ],
                         ),
                       ],
@@ -1339,8 +1369,10 @@ class _CentralPlantInventoryScreenState
                             style: const TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
                           ),
                           const Divider(height: 12, color: Color(0xFFDBEAFE)),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            spacing: 8,
+                            runSpacing: 4,
                             children: [
                               Text('Requested: $requestedUnits units (~$neededCases cases)', style: const TextStyle(fontSize: 11, color: Color(0xFF1E40AF))),
                               Text('Pending: $remainingUnitsNeeded units', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF2563EB))),
@@ -1355,9 +1387,11 @@ class _CentralPlantInventoryScreenState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Allocate From Plant Batches (FEFO):',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                          const Expanded(
+                            child: Text(
+                              'Allocate From Plant Batches (FEFO):',
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                            ),
                           ),
                           TextButton.icon(
                             style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
@@ -1387,24 +1421,35 @@ class _CentralPlantInventoryScreenState
                           child: Row(
                             children: [
                               Expanded(
-                                flex: 3,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(bNum, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                                    Text('Available: $rem units | Exp: $exp', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                                    Text(
+                                      bNum,
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Available: $rem units | Exp: $exp',
+                                      style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ],
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Expanded(
-                                flex: 2,
+                              SizedBox(
+                                width: 85,
                                 child: TextField(
                                   controller: batchControllers[bId],
                                   keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.center,
                                   decoration: const InputDecoration(
                                     labelText: 'Units',
                                     isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                     border: OutlineInputBorder(),
                                   ),
                                   onChanged: (_) => setDlgState(() {}),
@@ -1423,8 +1468,10 @@ class _CentralPlantInventoryScreenState
                               : Colors.amber.shade50,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             Text(
                               'Total to Dispatch:',
@@ -1453,7 +1500,9 @@ class _CentralPlantInventoryScreenState
                               children: [
                                 Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
                                 SizedBox(width: 6),
-                                Text('No Production Batches Available', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.brown)),
+                                Expanded(
+                                  child: Text('No Production Batches Available', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.brown)),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 6),

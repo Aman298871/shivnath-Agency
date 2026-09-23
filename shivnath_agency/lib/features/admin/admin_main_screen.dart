@@ -69,7 +69,8 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       final res = await _orderService.getOrders();
       if (!mounted) return;
       if (res['success'] == true && res['data'] != null) {
-        final List items = res['data']['orders'] ?? (res['data'] is List ? res['data'] : []);
+        final List items =
+            res['data']['orders'] ?? (res['data'] is List ? res['data'] : []);
         if (items.isEmpty) {
           _baselineOrdersLoaded = true;
           return;
@@ -79,7 +80,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         Map<String, dynamic>? latestNewOrder;
 
         for (final it in items) {
-          final idVal = it['id'] is int ? it['id'] as int : int.tryParse(it['id']?.toString() ?? '0') ?? 0;
+          final idVal = it['id'] is int
+              ? it['id'] as int
+              : int.tryParse(it['id']?.toString() ?? '0') ?? 0;
           if (idVal > currentMaxId) {
             currentMaxId = idVal;
             latestNewOrder = Map<String, dynamic>.from(it as Map);
@@ -113,7 +116,11 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Row(
           children: [
-            const Icon(Icons.notifications_active_rounded, color: Color(0xFF38BDF8), size: 26),
+            const Icon(
+              Icons.notifications_active_rounded,
+              color: Color(0xFF38BDF8),
+              size: 26,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -122,12 +129,19 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                 children: [
                   const Text(
                     'NEW ORDER RECEIVED!',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'Order #$orderNum from $cust • ₹$amt',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF94A3B8),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -272,103 +286,102 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   // CURRENT SCREEN
   // =========================================================
 
-Widget _currentScreen() {
-  switch (currentIndex) {
-    case 0:
-      return AdminDashboardScreen(
-        onOpenLeads: () => _selectMenu(1),
-        onOpenFollowups: () => _selectMenu(2),
-        onOpenFranchises: () => _selectMenu(3),
-        onOpenInventory: () => _selectMenu(4),
-        onOpenProducts: () => _selectMenu(5),
-        onOpenOrders: () => _selectMenu(7),
-        onOpenChatbot: () => _selectMenu(10),
-        onOpenQuotations: () => _selectMenu(11),
-        onOpenUsers: () => _selectMenu(14),
-        onOpenNotifications: () => _selectMenu(15),
-        onOpenStockRequests: () => _selectMenu(21),
-      );
+  Widget _currentScreen() {
+    switch (currentIndex) {
+      case 0:
+        return AdminDashboardScreen(
+          onOpenLeads: () => _selectMenu(1),
+          onOpenFollowups: () => _selectMenu(2),
+          onOpenFranchises: () => _selectMenu(3),
+          onOpenInventory: () => _selectMenu(4),
+          onOpenProducts: () => _selectMenu(5),
+          onOpenOrders: () => _selectMenu(7),
+          onOpenChatbot: () => _selectMenu(10),
+          onOpenQuotations: () => _selectMenu(11),
+          onOpenUsers: () => _selectMenu(14),
+          onOpenNotifications: () => _selectMenu(15),
+          onOpenStockRequests: () => _selectMenu(21),
+        );
 
-    case 1:
-      return const AdminLeadsScreen();
+      case 1:
+        return const AdminLeadsScreen();
 
-    case 2:
-      return const AdminFollowupsScreen();
+      case 2:
+        return const AdminFollowupsScreen();
 
-    case 3:
-      return const AdminFranchisesScreen();
+      case 3:
+        return const AdminFranchisesScreen();
 
-    case 4:
-      return const CentralPlantInventoryScreen();
+      case 4:
+        return const CentralPlantInventoryScreen();
 
-    case 5:
-      return const BomRecipeScreen();
+      case 5:
+        return const BomRecipeScreen();
 
-    case 6:
-      return const AdminSuppliersScreen();
+      case 6:
+        return const AdminSuppliersScreen();
 
-    case 7:
-      return const AdminOrdersScreen();
+      case 7:
+        return const AdminOrdersScreen();
 
-    case 8:
-      return const AdminBillingScreen();
+      case 8:
+        return const AdminBillingScreen();
 
-    case 9:
-      return const DailyPlReportScreen();
+      case 9:
+        return const DailyPlReportScreen();
 
-    case 10:
-      return const AdminChatbotManagementScreen();
+      case 10:
+        return const AdminChatbotManagementScreen();
 
-    case 11:
-      return const AdminQuotationsScreen();
+      case 11:
+        return const AdminQuotationsScreen();
 
-    // case 12:
-    //   // Commented out per client request (can be re-enabled in future if needed):
-    //   return const AdminWhatsAppScreen();
+      // case 12:
+      //   // Commented out per client request (can be re-enabled in future if needed):
+      //   return const AdminWhatsAppScreen();
 
-    case 13:
-      return const AdminChatConversationsScreen();
+      case 13:
+        return const AdminChatConversationsScreen();
 
-    case 14:
-      return const AdminUsersScreen();
+      case 14:
+        return const AdminUsersScreen();
 
-    case 15:
-      return const AdminNotificationsScreen();
+      case 15:
+        return const AdminNotificationsScreen();
 
-    case 16:
-      return const AdminSettingsScreen();
+      case 16:
+        return const AdminSettingsScreen();
 
-    case 17:
-      return const AdminStockManagementScreen();
+      case 17:
+        return const AdminStockManagementScreen();
 
-    case 18:
-      return const AdminProfileScreen();
+      case 18:
+        return const AdminProfileScreen();
 
-    case 19:
-      return const AdminManagementTab();
+      case 19:
+        return const AdminManagementTab();
 
-    case 20:
-      return const AdminPerformanceScreen();
+      case 20:
+        return const AdminPerformanceScreen();
 
-    case 21:
-      return const CentralPlantInventoryScreen(initialTab: 2);
+      case 21:
+        return const CentralPlantInventoryScreen(initialTab: 2);
 
-    default:
-      return AdminDashboardScreen(
-        onOpenLeads: () => _selectMenu(1),
-        onOpenFollowups: () => _selectMenu(2),
-        onOpenFranchises: () => _selectMenu(3),
-        onOpenInventory: () => _selectMenu(4),
-        onOpenProducts: () => _selectMenu(5),
-        onOpenOrders: () => _selectMenu(7),
-        onOpenChatbot: () => _selectMenu(10),
-        onOpenQuotations: () => _selectMenu(11),
-        onOpenUsers: () => _selectMenu(14),
-        onOpenNotifications: () => _selectMenu(15),
-        onOpenStockRequests: () => _selectMenu(21),
-      );
+      default:
+        return AdminDashboardScreen(
+          onOpenLeads: () => _selectMenu(1),
+          onOpenFollowups: () => _selectMenu(2),
+          onOpenFranchises: () => _selectMenu(3),
+          onOpenInventory: () => _selectMenu(4),
+          onOpenProducts: () => _selectMenu(5),
+          onOpenOrders: () => _selectMenu(7),
+          onOpenChatbot: () => _selectMenu(10),
+          onOpenQuotations: () => _selectMenu(11),
+          onOpenUsers: () => _selectMenu(14),
+          onOpenNotifications: () => _selectMenu(15),
+        );
+    }
   }
-}
 
   // =========================================================
   // MENU SELECT
@@ -505,13 +518,9 @@ Widget _currentScreen() {
       }
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'No matching section found',
-        ),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('No matching section found')));
   }
 
   void _handleProfileMenu(String value) {
@@ -525,7 +534,6 @@ Widget _currentScreen() {
       _logout();
     }
   }
-
 
   // =========================================================
   // LOGOUT
@@ -552,10 +560,7 @@ Widget _currentScreen() {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        context,
-        constraints,
-      ) {
+      builder: (context, constraints) {
         final isDesktop = constraints.maxWidth >= 800;
 
         if (isDesktop) {
@@ -578,18 +583,12 @@ Widget _currentScreen() {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: 250,
-              child: _buildSidebar(),
-            ),
+            SizedBox(width: 250, child: _buildSidebar()),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
-                    height: 72,
-                    child: _buildHeader(),
-                  ),
+                  SizedBox(height: 72, child: _buildHeader()),
                   Expanded(
                     child: ColoredBox(
                       color: const Color(0xFFF5F7FB),
@@ -613,11 +612,7 @@ Widget _currentScreen() {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FB),
 
-      drawer: Drawer(
-        child: _buildSidebar(
-          isMobile: true,
-        ),
-      ),
+      drawer: Drawer(child: _buildSidebar(isMobile: true)),
 
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -640,7 +635,9 @@ Widget _currentScreen() {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                _currentTitle() == 'Dashboard' ? 'Shivnath Agency' : _currentTitle(),
+                _currentTitle() == 'Dashboard'
+                    ? 'Shivnath Agency'
+                    : _currentTitle(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -655,7 +652,8 @@ Widget _currentScreen() {
         actions: [
           IconButton(
             tooltip: 'AI Assistant',
-            onPressed: () => AiChatbotModal.show(context, mode: ChatbotMode.admin),
+            onPressed: () =>
+                AiChatbotModal.show(context, mode: ChatbotMode.admin),
             icon: const Icon(
               Icons.smart_toy_outlined,
               color: Color(0xFF0284C7),
@@ -668,41 +666,19 @@ Widget _currentScreen() {
                 currentIndex = 15;
               });
             },
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-            ),
+            icon: const Icon(Icons.notifications_none_rounded),
           ),
 
           PopupMenuButton<String>(
             onSelected: _handleProfileMenu,
             itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'profile',
-                child: Text(
-                  'My Profile',
-                ),
-              ),
-              PopupMenuItem(
-                value: 'settings',
-                child: Text(
-                  'Settings',
-                ),
-              ),
-              PopupMenuItem(
-                value: 'support',
-                child: Text(
-                  'Support Desk',
-                ),
-              ),
+              PopupMenuItem(value: 'profile', child: Text('My Profile')),
+              PopupMenuItem(value: 'settings', child: Text('Settings')),
+              PopupMenuItem(value: 'support', child: Text('Support Desk')),
               PopupMenuDivider(),
               PopupMenuItem(
                 value: 'logout',
-                child: Text(
-                  'Logout',
-                  style: TextStyle(
-                    color: Colors.red,
-                  ),
-                ),
+                child: Text('Logout', style: TextStyle(color: Colors.red)),
               ),
             ],
             icon: const CircleAvatar(
@@ -710,10 +686,7 @@ Widget _currentScreen() {
               backgroundColor: Color(0xFF0284C7),
               child: Text(
                 'AD',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 10),
               ),
             ),
           ),
@@ -728,9 +701,7 @@ Widget _currentScreen() {
   // SIDEBAR
   // =========================================================
 
-  Widget _buildSidebar({
-    bool isMobile = false,
-  }) {
+  Widget _buildSidebar({bool isMobile = false}) {
     return Material(
       color: const Color(0xFF111827),
       child: SafeArea(
@@ -741,11 +712,8 @@ Widget _currentScreen() {
             // =================================================
             // LOGO
             // =================================================
-
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
                   Image.asset(
@@ -756,7 +724,11 @@ Widget _currentScreen() {
                     errorBuilder: (_, __, ___) => const CircleAvatar(
                       radius: 16,
                       backgroundColor: Color(0xFFEF4444),
-                      child: Icon(Icons.water_drop, color: Colors.white, size: 18),
+                      child: Icon(
+                        Icons.water_drop,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -780,10 +752,14 @@ Widget _currentScreen() {
                               vertical: 1.5,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                              color: const Color(
+                                0xFFEF4444,
+                              ).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: const Color(0xFFEF4444).withValues(alpha: 0.6),
+                                color: const Color(
+                                  0xFFEF4444,
+                                ).withValues(alpha: 0.6),
                                 width: 0.8,
                               ),
                             ),
@@ -817,9 +793,7 @@ Widget _currentScreen() {
             const SizedBox(height: 28),
 
             const Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: 20,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 20),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -839,25 +813,17 @@ Widget _currentScreen() {
             // =================================================
             // MENU LIST
             // =================================================
-
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 itemCount: menuItems.length,
-                itemBuilder: (
-                  context,
-                  index,
-                ) {
+                itemBuilder: (context, index) {
                   final item = menuItems[index];
 
                   final selected = currentIndex == item.index;
 
                   return Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: 4,
-                    ),
+                    padding: const EdgeInsets.only(bottom: 4),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -871,9 +837,7 @@ Widget _currentScreen() {
                         },
                         child: Container(
                           height: 44,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 13,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 13),
                           decoration: BoxDecoration(
                             color: selected
                                 ? const Color(0xFF0284C7)
@@ -921,7 +885,6 @@ Widget _currentScreen() {
             // =================================================
             // LOGOUT
             // =================================================
-
             Padding(
               padding: const EdgeInsets.all(10),
               child: Material(
@@ -931,9 +894,7 @@ Widget _currentScreen() {
                   onTap: _logout,
                   child: Container(
                     height: 44,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 13),
                     child: const Row(
                       children: [
                         Icon(
@@ -971,15 +932,9 @@ Widget _currentScreen() {
       color: Colors.white,
       child: Container(
         height: 72,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 24,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         decoration: const BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: Color(0xFFE5E7EB),
-            ),
-          ),
+          border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -987,7 +942,6 @@ Widget _currentScreen() {
             // =================================================
             // SEARCH
             // =================================================
-
             SizedBox(
               width: 360,
               height: 44,
@@ -995,8 +949,7 @@ Widget _currentScreen() {
                 onSubmitted: _searchSection,
                 textAlignVertical: TextAlignVertical.center,
                 decoration: InputDecoration(
-                  hintText:
-                      'Search leads, franchise, orders...',
+                  hintText: 'Search leads, franchise, orders...',
                   hintStyle: const TextStyle(
                     fontSize: 14,
                     color: Color(0xFF64748B),
@@ -1014,15 +967,11 @@ Widget _currentScreen() {
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFE2E8F0),
-                    ),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFE2E8F0),
-                    ),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -1040,12 +989,15 @@ Widget _currentScreen() {
             // =================================================
             // AI ASSISTANT
             // =================================================
-
             InkWell(
               borderRadius: BorderRadius.circular(10),
-              onTap: () => AiChatbotModal.show(context, mode: ChatbotMode.admin),
+              onTap: () =>
+                  AiChatbotModal.show(context, mode: ChatbotMode.admin),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(10),
@@ -1054,7 +1006,11 @@ Widget _currentScreen() {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.smart_toy_rounded, size: 18, color: Color(0xFF0284C7)),
+                    Icon(
+                      Icons.smart_toy_rounded,
+                      size: 18,
+                      color: Color(0xFF0284C7),
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'AI Assistant',
@@ -1074,7 +1030,6 @@ Widget _currentScreen() {
             // =================================================
             // NOTIFICATIONS
             // =================================================
-
             SizedBox(
               width: 44,
               height: 72,
@@ -1123,13 +1078,9 @@ Widget _currentScreen() {
             // =================================================
             // ADMIN PROFILE
             // =================================================
-
             PopupMenuButton<String>(
               tooltip: '',
-              offset: const Offset(
-                0,
-                62,
-              ),
+              offset: const Offset(0, 62),
               color: Colors.white,
               elevation: 8,
               shape: RoundedRectangleBorder(
@@ -1174,10 +1125,7 @@ Widget _currentScreen() {
                   value: 'profile',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.person_outline,
-                        size: 18,
-                      ),
+                      Icon(Icons.person_outline, size: 18),
                       SizedBox(width: 10),
                       Text('My Profile'),
                     ],
@@ -1188,10 +1136,7 @@ Widget _currentScreen() {
                   value: 'settings',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.settings_outlined,
-                        size: 18,
-                      ),
+                      Icon(Icons.settings_outlined, size: 18),
                       SizedBox(width: 10),
                       Text('Settings'),
                     ],
@@ -1219,18 +1164,9 @@ Widget _currentScreen() {
                   value: 'logout',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.logout_rounded,
-                        color: Colors.red,
-                        size: 18,
-                      ),
+                      Icon(Icons.logout_rounded, color: Colors.red, size: 18),
                       SizedBox(width: 10),
-                      Text(
-                        'Logout',
-                        style: TextStyle(
-                          color: Colors.red,
-                        ),
-                      ),
+                      Text('Logout', style: TextStyle(color: Colors.red)),
                     ],
                   ),
                 ),
@@ -1239,7 +1175,6 @@ Widget _currentScreen() {
               // =================================================
               // VISIBLE PROFILE AREA
               // =================================================
-
               child: SizedBox(
                 height: 72,
                 child: Center(
@@ -1316,80 +1251,79 @@ Widget _currentScreen() {
     );
   }
 
-
   // =========================================================
   // CURRENT TITLE
   // =========================================================
 
   String _currentTitle() {
-  switch (currentIndex) {
-    case 0:
-      return 'Dashboard';
+    switch (currentIndex) {
+      case 0:
+        return 'Dashboard';
 
-    case 1:
-      return 'Leads';
+      case 1:
+        return 'Leads';
 
-    case 2:
-      return 'Follow-ups';
+      case 2:
+        return 'Follow-ups';
 
-    case 3:
-      return 'Franchises';
+      case 3:
+        return 'Franchises';
 
-    case 4:
-      return 'Inventory';
+      case 4:
+        return 'Inventory';
 
-    case 5:
-      return 'Products';
+      case 5:
+        return 'Products';
 
-    case 6:
-      return 'Suppliers';
+      case 6:
+        return 'Suppliers';
 
-    case 7:
-      return 'Orders';
+      case 7:
+        return 'Orders';
 
-    case 8:
-      return 'Billing & Accounts';
+      case 8:
+        return 'Billing & Accounts';
 
-    case 9:
-      return 'Reports & Analytics';
+      case 9:
+        return 'Reports & Analytics';
 
-    case 10:
-      return 'Chatbot Builder';
+      case 10:
+        return 'Chatbot Builder';
 
-    case 11:
-      return 'Quotations';
+      case 11:
+        return 'Quotations';
 
-    case 12:
-      return 'WhatsApp Settings';
+      case 12:
+        return 'WhatsApp Settings';
 
-    case 13:
-      return 'Customer Inquiries';
+      case 13:
+        return 'Customer Inquiries';
 
-    case 14:
-      return 'User Directory';
+      case 14:
+        return 'User Directory';
 
-    case 15:
-      return 'Notifications';
+      case 15:
+        return 'Notifications';
 
-    case 16:
-      return 'Settings';
+      case 16:
+        return 'Settings';
 
-    case 17:
-      return 'Customer Stocks';
+      case 17:
+        return 'Customer Stocks';
 
-    case 18:
-      return 'Profile';
+      case 18:
+        return 'Profile';
 
-    case 19:
-      return 'Admin Management';
+      case 19:
+        return 'Admin Management';
 
-    case 20:
-      return 'Staff Performance';
+      case 20:
+        return 'Staff Performance';
 
-    default:
-      return 'Admin';
+      default:
+        return 'Admin';
+    }
   }
-}
 }
 
 // ===========================================================

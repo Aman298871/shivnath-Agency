@@ -1,6 +1,10 @@
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from django.db.models import Q, F, Sum, DecimalField, ExpressionWrapper
 from django.utils import timezone
+import logging
+
+logger = logging.getLogger(__name__)
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -888,133 +892,153 @@ class DealerStockRequestListCreateAPIView(views.APIView):
 
             return product
 
-        # Handle batch items from Flutter franchise inventory screen
-        if isinstance(raw_items, list) and len(raw_items) > 0:
-            validated_items = []
-            validation_errors = []
-
-            for item in raw_items:
-                p_id = item.get('product_id') or item.get('product') or item.get('id')
-                product_sku = item.get('product_sku') or item.get('sku') or ''
-
-                qty_units = item.get('quantity_units')
-                qty_cases = item.get('quantity_cases')
-                qty_generic = item.get('requested_quantity') or item.get('quantity')
-
-                if qty_units is not None:
-                    qty = qty_units
-                elif qty_cases is not None:
-                    qty = qty_cases
-                else:
-                    qty = qty_generic
-
-                try:
-                    qty_int = int(qty) if qty is not None else 0
-                except (ValueError, TypeError):
-                    qty_int = 0
-
-                if qty_int <= 0:
-                    continue  # User left item at 0 quantity
-
-                product = _resolve_stock_product(p_id, product_sku)
-
-                if product is None:
-                    validation_errors.append(
-                        f"Item (sku={product_sku or p_id}): product not found in catalog."
-                    )
-                    continue
-
-                if product.status != 'Active':
-                    validation_errors.append(
-                        f"Item ({product.sku}): product is inactive or archived."
-                    )
-                    continue
-
-                validated_items.append((product, qty_int))
-
-            if validation_errors:
-                return Response(
-                    {
-                        'success': False,
-                        'message': f"Stock request validation failed: {'; '.join(validation_errors)}",
-                        'errors': validation_errors,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            if not validated_items:
-                return Response(
-                    {'success': False, 'message': 'Please enter a quantity greater than 0 for at least one active product.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            created_requests = []
-            with transaction.atomic():
-                for product, qty_int in validated_items:
-                    count = DealerStockRequest.objects.count() + 1
-                    req_number = f"SR-{timezone.now().strftime('%Y%m')}-{count:04d}"
-
-                    stock_req = DealerStockRequest.objects.create(
-                        request_number=req_number,
-                        dealer=dealer,
-                        product=product,
-                        requested_quantity=qty_int,
-                        dealer_notes=notes,
-                        status='REQUESTED'
-                    )
-                    created_requests.append(stock_req)
-
-            serialized_list = DealerStockRequestSerializer(created_requests, many=True).data
-            return Response({
-                'success': True,
-                'message': f'{len(created_requests)} stock request(s) submitted successfully.',
-                'requests': serialized_list,
-                'data': serialized_list,
-            }, status=status.HTTP_201_CREATED)
-
-        # Handle single product request
-        product_id = request.data.get('product') or request.data.get('product_id')
-        qty = request.data.get('requested_quantity') or request.data.get('quantity')
-        product_sku = request.data.get('sku') or request.data.get('product_sku')
-
-        if not product_id and not product_sku:
-            return Response({'success': False, 'error': 'Product identifier is required.', 'message': 'Product identifier is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not qty:
-            return Response({'success': False, 'error': 'Requested quantity is required.', 'message': 'Requested quantity is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        def _generate_stock_request_number():
+            prefix = f"SR-{timezone.now().strftime('%Y%m')}"
+            base_count = DealerStockRequest.objects.count() + 1
+            req_number = f"{prefix}-{base_count:04d}"
+            attempt = base_count
+            while DealerStockRequest.objects.filter(request_number=req_number).exists():
+                attempt += 1
+                req_number = f"{prefix}-{attempt:04d}"
+            return req_number
 
         try:
-            qty_int = int(qty)
-            if qty_int <= 0:
-                raise ValueError()
-        except (ValueError, TypeError):
-            return Response({'success': False, 'error': 'Requested quantity must be greater than 0.', 'message': 'Requested quantity must be greater than 0.'}, status=status.HTTP_400_BAD_REQUEST)
+            # Handle batch items from Flutter franchise inventory screen
+            if isinstance(raw_items, list) and len(raw_items) > 0:
+                validated_items = []
+                validation_errors = []
 
-        product = _resolve_stock_product(product_id, product_sku)
-        if not product:
-            return Response({'success': False, 'error': f'Product not found (id={product_id}, sku={product_sku}).', 'message': f'Product not found (id={product_id}, sku={product_sku}).'}, status=status.HTTP_400_BAD_REQUEST)
+                for item in raw_items:
+                    p_id = item.get('product_id') or item.get('product') or item.get('id')
+                    product_sku = item.get('product_sku') or item.get('sku') or ''
 
-        if product.status != 'Active':
-            return Response({'success': False, 'error': f'Product {product.sku} is inactive.', 'message': f'Product {product.sku} is inactive.'}, status=status.HTTP_400_BAD_REQUEST)
+                    qty_units = item.get('quantity_units')
+                    qty_cases = item.get('quantity_cases')
+                    qty_generic = item.get('requested_quantity') or item.get('quantity')
 
-        count = DealerStockRequest.objects.count() + 1
-        req_number = f"SR-{timezone.now().strftime('%Y%m')}-{count:04d}"
+                    if qty_units is not None:
+                        qty = qty_units
+                    elif qty_cases is not None:
+                        qty = qty_cases
+                    else:
+                        qty = qty_generic
 
-        stock_req = DealerStockRequest.objects.create(
-            request_number=req_number,
-            dealer=dealer,
-            product=product,
-            requested_quantity=qty_int,
-            dealer_notes=notes,
-            status='REQUESTED'
-        )
-        data = DealerStockRequestSerializer(stock_req).data
-        return Response({
-            'success': True,
-            'message': 'Stock request submitted successfully.',
-            'data': data,
-            **data,
-        }, status=status.HTTP_201_CREATED)
+                    try:
+                        qty_int = int(qty) if qty is not None else 0
+                    except (ValueError, TypeError):
+                        qty_int = 0
+
+                    if qty_int <= 0:
+                        continue  # User left item at 0 quantity
+
+                    product = _resolve_stock_product(p_id, product_sku)
+
+                    if product is None:
+                        validation_errors.append(
+                            f"Item (sku={product_sku or p_id}): product not found in catalog."
+                        )
+                        continue
+
+                    if product.status != 'Active':
+                        validation_errors.append(
+                            f"Item ({product.sku}): product is inactive or archived."
+                        )
+                        continue
+
+                    validated_items.append((product, qty_int))
+
+                if validation_errors:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': f"Stock request validation failed: {'; '.join(validation_errors)}",
+                            'errors': validation_errors,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if not validated_items:
+                    return Response(
+                        {'success': False, 'message': 'Please enter a quantity greater than 0 for at least one active product.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                created_requests = []
+                with transaction.atomic():
+                    for product, qty_int in validated_items:
+                        req_number = _generate_stock_request_number()
+
+                        stock_req = DealerStockRequest.objects.create(
+                            request_number=req_number,
+                            dealer=dealer,
+                            product=product,
+                            requested_quantity=qty_int,
+                            dealer_notes=notes,
+                            status='REQUESTED'
+                        )
+                        created_requests.append(stock_req)
+
+                serialized_list = DealerStockRequestSerializer(created_requests, many=True).data
+                return Response({
+                    'success': True,
+                    'message': f'{len(created_requests)} stock request(s) submitted successfully.',
+                    'requests': serialized_list,
+                    'data': serialized_list,
+                }, status=status.HTTP_201_CREATED)
+
+            # Handle single product request
+            product_id = request.data.get('product') or request.data.get('product_id')
+            qty = request.data.get('requested_quantity') or request.data.get('quantity')
+            product_sku = request.data.get('sku') or request.data.get('product_sku')
+
+            if not product_id and not product_sku:
+                return Response({'success': False, 'error': 'Product identifier is required.', 'message': 'Product identifier is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not qty:
+                return Response({'success': False, 'error': 'Requested quantity is required.', 'message': 'Requested quantity is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                qty_int = int(qty)
+                if qty_int <= 0:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                return Response({'success': False, 'error': 'Requested quantity must be greater than 0.', 'message': 'Requested quantity must be greater than 0.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            product = _resolve_stock_product(product_id, product_sku)
+            if not product:
+                return Response({'success': False, 'error': f'Product not found (id={product_id}, sku={product_sku}).', 'message': f'Product not found (id={product_id}, sku={product_sku}).'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if product.status != 'Active':
+                return Response({'success': False, 'error': f'Product {product.sku} is inactive.', 'message': f'Product {product.sku} is inactive.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            req_number = _generate_stock_request_number()
+
+            stock_req = DealerStockRequest.objects.create(
+                request_number=req_number,
+                dealer=dealer,
+                product=product,
+                requested_quantity=qty_int,
+                dealer_notes=notes,
+                status='REQUESTED'
+            )
+            data = DealerStockRequestSerializer(stock_req).data
+            return Response({
+                'success': True,
+                'message': 'Stock request submitted successfully.',
+                'data': data,
+                **data,
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.exception("Error creating dealer stock request: %s", str(e))
+            return Response(
+                {
+                    'success': False,
+                    'error': str(e),
+                    'message': f'Failed to create stock request: {str(e)}'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class DealerStockRequestDispatchAPIView(views.APIView):
@@ -1436,4 +1460,4 @@ class PendingStockExpiryAlertView(APIView):
             'alerts': alerts,
         }, status=status.HTTP_200_OK)
 
-
+

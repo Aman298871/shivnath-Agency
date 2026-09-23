@@ -562,6 +562,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 10),
                 DropdownButtonFormField<int>(
                   value: selectedFranchiseId,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.location_city_outlined),
                     labelText: 'Select Serving Franchise',

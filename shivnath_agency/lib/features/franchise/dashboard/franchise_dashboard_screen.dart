@@ -97,7 +97,9 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout from Wholesale Dealer Portal?'),
+        content: const Text(
+          'Are you sure you want to logout from Wholesale Dealer Portal?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx, false),
@@ -134,17 +136,72 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
 
   Widget _quickOperationsGrid(bool desktop) {
     final actions = [
-      {'title': 'Customer Orders', 'icon': Icons.shopping_bag_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenOrders},
-      {'title': 'Customers', 'icon': Icons.people_outline_rounded, 'color': const Color(0xFF10B981), 'action': widget.onOpenCustomers},
-      {'title': 'Company Catalog', 'icon': Icons.inventory_2_outlined, 'color': const Color(0xFF8B5CF6), 'action': widget.onOpenProducts},
-      {'title': 'My Stock', 'icon': Icons.warehouse_outlined, 'color': const Color(0xFFF59E0B), 'action': widget.onOpenInventory},
-      {'title': 'Stock Requests', 'icon': Icons.add_shopping_cart_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenFinishedProducts ?? widget.onOpenInventory},
-      {'title': 'Credit & Ledger', 'icon': Icons.account_balance_wallet_outlined, 'color': const Color(0xFF059669), 'action': widget.onOpenStock ?? widget.onOpenInventory},
-      {'title': 'Territory', 'icon': Icons.location_on_outlined, 'color': const Color(0xFF14B8A6), 'action': widget.onOpenTerritory},
-      {'title': 'Documents', 'icon': Icons.description_outlined, 'color': const Color(0xFF6366F1), 'action': widget.onOpenDocuments},
-      {'title': 'Reports', 'icon': Icons.bar_chart_outlined, 'color': const Color(0xFFF97316), 'action': widget.onOpenReports},
-      {'title': 'Support Desk', 'icon': Icons.headset_mic_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenSupport ?? () => SupportDeskModal.show(context)},
-      {'title': 'Settings', 'icon': Icons.settings_outlined, 'color': const Color(0xFF64748B), 'action': widget.onOpenSettings},
+      {
+        'title': 'Customer Orders',
+        'icon': Icons.shopping_bag_outlined,
+        'color': const Color(0xFF0284C7),
+        'action': widget.onOpenOrders,
+      },
+      {
+        'title': 'Customers',
+        'icon': Icons.people_outline_rounded,
+        'color': const Color(0xFF10B981),
+        'action': widget.onOpenCustomers,
+      },
+      {
+        'title': 'Company Catalog',
+        'icon': Icons.inventory_2_outlined,
+        'color': const Color(0xFF8B5CF6),
+        'action': widget.onOpenProducts,
+      },
+      {
+        'title': 'My Stock',
+        'icon': Icons.warehouse_outlined,
+        'color': const Color(0xFFF59E0B),
+        'action': widget.onOpenInventory,
+      },
+      {
+        'title': 'Stock Requests',
+        'icon': Icons.add_shopping_cart_outlined,
+        'color': const Color(0xFF0284C7),
+        'action': widget.onOpenFinishedProducts ?? widget.onOpenInventory,
+      },
+      {
+        'title': 'Credit & Ledger',
+        'icon': Icons.account_balance_wallet_outlined,
+        'color': const Color(0xFF059669),
+        'action': widget.onOpenStock ?? widget.onOpenInventory,
+      },
+      {
+        'title': 'Territory',
+        'icon': Icons.location_on_outlined,
+        'color': const Color(0xFF14B8A6),
+        'action': widget.onOpenTerritory,
+      },
+      {
+        'title': 'Documents',
+        'icon': Icons.description_outlined,
+        'color': const Color(0xFF6366F1),
+        'action': widget.onOpenDocuments,
+      },
+      {
+        'title': 'Reports',
+        'icon': Icons.bar_chart_outlined,
+        'color': const Color(0xFFF97316),
+        'action': widget.onOpenReports,
+      },
+      {
+        'title': 'Support Desk',
+        'icon': Icons.headset_mic_outlined,
+        'color': const Color(0xFF0284C7),
+        'action': widget.onOpenSupport ?? () => SupportDeskModal.show(context),
+      },
+      {
+        'title': 'Settings',
+        'icon': Icons.settings_outlined,
+        'color': const Color(0xFF64748B),
+        'action': widget.onOpenSettings,
+      },
     ];
 
     return Container(
@@ -166,7 +223,11 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
               ),
               Text(
                 'Direct Access',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -193,7 +254,10 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                     onTap: act['action'] as VoidCallback?,
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(12),
@@ -207,7 +271,11 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                               color: color.withAlpha(25),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Icon(act['icon'] as IconData, color: color, size: 16),
+                            child: Icon(
+                              act['icon'] as IconData,
+                              color: color,
+                              size: 16,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -221,7 +289,11 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF94A3B8)),
+                          const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 10,
+                            color: Color(0xFF94A3B8),
+                          ),
                         ],
                       ),
                     ),
@@ -250,20 +322,28 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                   actions: [
                     IconButton(
                       tooltip: 'AI Operations Assistant',
-                      icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF0077B6)),
-                      onPressed: () => AiChatbotModal.show(context, mode: ChatbotMode.franchise),
+                      icon: const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Color(0xFF0077B6),
+                      ),
+                      onPressed: () => AiChatbotModal.show(
+                        context,
+                        mode: ChatbotMode.franchise,
+                      ),
                     ),
                     IconButton(
                       tooltip: 'My Profile',
                       icon: const Icon(Icons.person_outline_rounded),
-                      onPressed: widget.onOpenProfile ?? () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const FranchiseProfileScreen(),
-                          ),
-                        );
-                      },
+                      onPressed:
+                          widget.onOpenProfile ??
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const FranchiseProfileScreen(),
+                              ),
+                            );
+                          },
                     ),
                     IconButton(
                       tooltip: 'Logout',
@@ -277,15 +357,14 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
             foregroundColor: Colors.white,
             icon: const Icon(Icons.auto_awesome_rounded),
             label: const Text('AI Assistant'),
-            onPressed: () => AiChatbotModal.show(context, mode: ChatbotMode.franchise),
+            onPressed: () =>
+                AiChatbotModal.show(context, mode: ChatbotMode.franchise),
           ),
           body: SingleChildScrollView(
             padding: EdgeInsets.all(desktop ? 28 : 16),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 1250,
-                ),
+                constraints: const BoxConstraints(maxWidth: 1250),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -300,9 +379,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                       const SizedBox(height: 4),
                       Text(
                         'Welcome back, $_displayName. Here is your wholesale dealership overview.',
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                        ),
+                        style: const TextStyle(color: Color(0xFF64748B)),
                       ),
                       const SizedBox(height: 24),
                     ],
@@ -312,7 +389,9 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                         padding: EdgeInsets.only(bottom: 16),
                         child: LinearProgressIndicator(
                           backgroundColor: Color(0xFFE2E8F0),
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF059669)),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFF059669),
+                          ),
                         ),
                       ),
 
@@ -366,13 +445,17 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                           title: 'Low Stock Alerts',
                           value: '${_stats['low_stock'] ?? 0}',
                           icon: Icons.warning_amber_rounded,
-                          onTap: widget.onOpenRawMaterials ?? widget.onOpenInventory,
+                          onTap:
+                              widget.onOpenRawMaterials ??
+                              widget.onOpenInventory,
                         ),
                         _StatCard(
                           title: 'Stock On Hold',
                           value: '${_stats['on_hold'] ?? 0}',
                           icon: Icons.pause_circle_outline_rounded,
-                          onTap: widget.onOpenFinishedProducts ?? widget.onOpenInventory,
+                          onTap:
+                              widget.onOpenFinishedProducts ??
+                              widget.onOpenInventory,
                         ),
                         _StatCard(
                           title: 'Expired Stock',
@@ -478,9 +561,7 @@ class _StatCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: const Color(0xFFE5E7EB),
-            ),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
           ),
           child: Row(
             children: [
@@ -491,11 +572,7 @@ class _StatCard extends StatelessWidget {
                   color: bgColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 20,
-                ),
+                child: Icon(icon, color: iconColor, size: 20),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -543,18 +620,30 @@ class _RecentOrders extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, String>> sampleOrders = [
-      {'id': '#ORD-701', 'item': '20L Water Jars (x50)', 'amount': '₹4,250', 'status': 'Processing'},
-      {'id': '#ORD-698', 'item': '1L Packaged Water Box (x20)', 'amount': '₹2,400', 'status': 'Delivered'},
-      {'id': '#ORD-694', 'item': '500ml Bottled Water (x15)', 'amount': '₹1,350', 'status': 'Delivered'},
+      {
+        'id': '#ORD-701',
+        'item': '20L Water Jars (x50)',
+        'amount': '₹4,250',
+        'status': 'Processing',
+      },
+      {
+        'id': '#ORD-698',
+        'item': '1L Packaged Water Box (x20)',
+        'amount': '₹2,400',
+        'status': 'Delivered',
+      },
+      {
+        'id': '#ORD-694',
+        'item': '500ml Bottled Water (x15)',
+        'amount': '₹1,350',
+        'status': 'Delivered',
+      },
     ];
 
     return _Card(
       title: 'Recent Orders',
       action: onTap != null
-          ? TextButton(
-              onPressed: onTap,
-              child: const Text('View All'),
-            )
+          ? TextButton(onPressed: onTap, child: const Text('View All'))
           : null,
       child: Column(
         children: sampleOrders
@@ -585,7 +674,9 @@ class _RecentOrders extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: order['status'] == 'Processing' ? const Color(0xFFD97706) : const Color(0xFF16A34A),
+                        color: order['status'] == 'Processing'
+                            ? const Color(0xFFD97706)
+                            : const Color(0xFF16A34A),
                       ),
                     ),
                     trailing: Text(
@@ -614,17 +705,16 @@ class _AccountSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final franchiseId = user?.id != null ? 'FR-${user!.id}' : 'FR-Approved';
-    final ownerName = user?.name.isNotEmpty == true ? user!.name : 'Franchise Partner';
+    final ownerName = user?.name.isNotEmpty == true
+        ? user!.name
+        : 'Franchise Partner';
     final email = user?.email.isNotEmpty == true ? user!.email : 'Not Provided';
     final status = 'Approved Partner';
 
     return _Card(
       title: 'Franchise Details',
       action: onTap != null
-          ? TextButton(
-              onPressed: onTap,
-              child: const Text('Profile'),
-            )
+          ? TextButton(onPressed: onTap, child: const Text('Profile'))
           : null,
       child: InkWell(
         onTap: onTap,
@@ -686,11 +776,7 @@ class _Card extends StatelessWidget {
   final Widget? action;
   final Widget child;
 
-  const _Card({
-    required this.title,
-    this.action,
-    required this.child,
-  });
+  const _Card({required this.title, this.action, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -699,9 +785,7 @@ class _Card extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -716,7 +800,7 @@ class _Card extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              if (action != null) action!,
+              ?action,
             ],
           ),
           const SizedBox(height: 14),
@@ -740,14 +824,29 @@ class _AuthoritativeTerritoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isAssigned = territoryInfo?['is_assigned'] == true ||
+    final bool isAssigned =
+        territoryInfo?['is_assigned'] == true ||
         (user?.isTerritoryAssigned == true) ||
-        ((territoryInfo?['territory'] != null && territoryInfo!['territory'].toString().isNotEmpty));
+        ((territoryInfo?['territory'] != null &&
+            territoryInfo!['territory'].toString().isNotEmpty));
 
-    final String district = territoryInfo?['district']?.toString() ?? user?.district ?? user?.city ?? 'Unassigned';
-    final String territory = territoryInfo?['territory']?.toString() ?? user?.zoneName ?? user?.territory ?? 'Unassigned';
-    final String serviceArea = territoryInfo?['service_area']?.toString() ?? user?.locality ?? user?.serviceArea ?? 'All Assigned Localities';
-    final String address = territoryInfo?['address']?.toString() ?? user?.address ?? '';
+    final String district =
+        territoryInfo?['district']?.toString() ??
+        user?.district ??
+        user?.city ??
+        'Unassigned';
+    final String territory =
+        territoryInfo?['territory']?.toString() ??
+        user?.zoneName ??
+        user?.territory ??
+        'Unassigned';
+    final String serviceArea =
+        territoryInfo?['service_area']?.toString() ??
+        user?.locality ??
+        user?.serviceArea ??
+        'All Assigned Localities';
+    final String address =
+        territoryInfo?['address']?.toString() ?? user?.address ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
@@ -761,7 +860,7 @@ class _AuthoritativeTerritoryCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -775,12 +874,16 @@ class _AuthoritativeTerritoryCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isAssigned ? const Color(0xFFE0F2FE) : const Color(0xFFFEF3C7),
+                  color: isAssigned
+                      ? const Color(0xFFE0F2FE)
+                      : const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   Icons.verified_user_rounded,
-                  color: isAssigned ? const Color(0xFF0284C7) : const Color(0xFFD97706),
+                  color: isAssigned
+                      ? const Color(0xFF0284C7)
+                      : const Color(0xFFD97706),
                   size: 20,
                 ),
               ),
@@ -798,10 +901,14 @@ class _AuthoritativeTerritoryCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      isAssigned ? 'Authoritative assignment managed by Admin' : 'Action Required: Initial territory unassigned',
+                      isAssigned
+                          ? 'Authoritative assignment managed by Admin'
+                          : 'Action Required: Initial territory unassigned',
                       style: TextStyle(
                         fontSize: 11,
-                        color: isAssigned ? const Color(0xFF64748B) : const Color(0xFFB45309),
+                        color: isAssigned
+                            ? const Color(0xFF64748B)
+                            : const Color(0xFFB45309),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -809,15 +916,22 @@ class _AuthoritativeTerritoryCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: isAssigned ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                  color: isAssigned
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   isAssigned ? 'ASSIGNED' : 'UNASSIGNED',
                   style: TextStyle(
-                    color: isAssigned ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                    color: isAssigned
+                        ? const Color(0xFF15803D)
+                        : const Color(0xFFB45309),
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -877,7 +991,9 @@ class _AuthoritativeTerritoryCard extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0284C7),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 icon: const Icon(Icons.add_location_alt_outlined, size: 18),
                 label: const Text('Complete Initial Territory Assignment'),

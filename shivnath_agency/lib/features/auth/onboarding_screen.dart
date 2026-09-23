@@ -20,7 +20,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<_OnboardingData> _pages = const [
     _OnboardingData(
       title: 'Welcome to Shivnath Agency',
-      subtitle: 'Manage your complete water business from one powerful platform.',
+      subtitle:
+          'Manage your complete water business from one powerful platform.',
       color: BrandColors.primaryBlue,
       bgColor: BrandColors.blueSoft,
       badgeText: 'Pure Water Platform',
@@ -28,7 +29,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingData(
       title: 'Order Water Products',
-      subtitle: 'Browse products, place orders and easily track your order status.',
+      subtitle:
+          'Browse products, place orders and easily track your order status.',
       color: BrandColors.waterBlue,
       bgColor: Color(0xFFE0F2FE),
       badgeText: 'Seamless Ordering',
@@ -36,7 +38,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingData(
       title: 'Grow With Shivnath',
-      subtitle: 'Manufacturing, franchise stock, customers and orders connected in one system.',
+      subtitle:
+          'Manufacturing, franchise stock, customers and orders connected in one system.',
       color: BrandColors.greenDark,
       bgColor: BrandColors.greenSoft,
       badgeText: 'Connected Network',
@@ -44,7 +47,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingData(
       title: 'Smart Business Management',
-      subtitle: 'Manage production, inventory, billing, CRM, reports and business operations.',
+      subtitle:
+          'Manage production, inventory, billing, CRM, reports and business operations.',
       color: BrandColors.redDark,
       bgColor: BrandColors.redSoft,
       badgeText: 'Operations & ERP',
@@ -129,21 +133,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
               // Main droplet
-              Icon(
-                Icons.water_drop_rounded,
-                size: 64,
-                color: primary,
-              ),
+              Icon(Icons.water_drop_rounded, size: 64, color: primary),
               // Packaged bottles badge
               Positioned(
                 bottom: 16,
                 right: 20,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFACC15), width: 1.5),
+                    border: Border.all(
+                      color: const Color(0xFFFACC15),
+                      width: 1.5,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.06),
@@ -154,11 +160,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.verified_rounded, size: 14, color: Color(0xFFEAB308)),
+                      Icon(
+                        Icons.verified_rounded,
+                        size: 14,
+                        color: Color(0xFFEAB308),
+                      ),
                       SizedBox(width: 4),
                       Text(
                         '100% Pure',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1E293B),
+                        ),
                       ),
                     ],
                   ),
@@ -169,7 +183,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 top: 16,
                 left: 20,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
@@ -182,7 +199,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       const SizedBox(width: 4),
                       Text(
                         'RO + UV Minerals',
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: primary),
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: primary,
+                        ),
                       ),
                     ],
                   ),
@@ -231,7 +252,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         const SizedBox(height: 2),
                         const Text(
                           '20L JAR',
-                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Color(0xFF0369A1)),
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0369A1),
+                          ),
                         ),
                       ],
                     ),
@@ -244,16 +269,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF0284C7), width: 1.5),
+                      border: Border.all(
+                        color: const Color(0xFF0284C7),
+                        width: 1.5,
+                      ),
                     ),
                     child: const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.liquor_rounded, size: 24, color: Color(0xFF0284C7)),
+                        Icon(
+                          Icons.liquor_rounded,
+                          size: 24,
+                          color: Color(0xFF0284C7),
+                        ),
                         SizedBox(height: 2),
                         Text(
                           '1L',
-                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Color(0xFF0369A1)),
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0369A1),
+                          ),
                         ),
                       ],
                     ),
@@ -266,7 +302,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 left: 20,
                 right: 20,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -280,15 +319,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.local_shipping_rounded, size: 16, color: Color(0xFF16A34A)),
+                      Icon(
+                        Icons.local_shipping_rounded,
+                        size: 16,
+                        color: Color(0xFF16A34A),
+                      ),
                       SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'Real-Time Dispatch Tracking',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E293B),
+                          ),
                         ),
                       ),
-                      Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 14,
+                        color: Color(0xFF16A34A),
+                      ),
                     ],
                   ),
                 ),
@@ -323,36 +374,61 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF0284C7), width: 1.5),
+                        border: Border.all(
+                          color: const Color(0xFF0284C7),
+                          width: 1.5,
+                        ),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.factory_rounded, size: 15, color: Color(0xFF0284C7)),
+                          Icon(
+                            Icons.factory_rounded,
+                            size: 15,
+                            color: Color(0xFF0284C7),
+                          ),
                           SizedBox(width: 6),
-                          Text('Plant Factory', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                          Text(
+                            'Plant Factory',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const Icon(Icons.arrow_downward_rounded, size: 18, color: Color(0xFF16A34A)),
+                const Icon(
+                  Icons.arrow_downward_rounded,
+                  size: 18,
+                  color: Color(0xFF16A34A),
+                ),
                 // Middle Node: Franchise Hub
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF16A34A),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF16A34A).withValues(alpha: 0.25),
+                            color: const Color(
+                              0xFF16A34A,
+                            ).withValues(alpha: 0.25),
                             blurRadius: 8,
                           ),
                         ],
@@ -360,32 +436,63 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.storefront_rounded, size: 16, color: Colors.white),
+                          Icon(
+                            Icons.storefront_rounded,
+                            size: 16,
+                            color: Colors.white,
+                          ),
                           SizedBox(width: 6),
-                          Text('Franchise Depot', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white)),
+                          Text(
+                            'Franchise Depot',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const Icon(Icons.arrow_downward_rounded, size: 18, color: Color(0xFFEAB308)),
+                const Icon(
+                  Icons.arrow_downward_rounded,
+                  size: 18,
+                  color: Color(0xFFEAB308),
+                ),
                 // Bottom Node: Customer Sales
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFEAB308), width: 1.5),
+                        border: Border.all(
+                          color: const Color(0xFFEAB308),
+                          width: 1.5,
+                        ),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.people_alt_rounded, size: 15, color: Color(0xFFEAB308)),
+                          Icon(
+                            Icons.people_alt_rounded,
+                            size: 15,
+                            color: Color(0xFFEAB308),
+                          ),
                           SizedBox(width: 6),
-                          Text('Customer Orders', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                          Text(
+                            'Customer Orders',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -426,14 +533,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: primary.withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: primary.withValues(alpha: 0.2),
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('REVENUE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: primary)),
+                            Text(
+                              'REVENUE',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                color: primary,
+                              ),
+                            ),
                             const SizedBox(height: 2),
-                            const Text('₹1,48,500', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                            const Text(
+                              '₹1,48,500',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -445,14 +568,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: const Color(
+                              0xFF16A34A,
+                            ).withValues(alpha: 0.2),
+                          ),
                         ),
                         child: const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('STOCK', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Color(0xFF16A34A))),
+                            Text(
+                              'STOCK',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF16A34A),
+                              ),
+                            ),
                             SizedBox(height: 2),
-                            Text('15,400 Units', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                            Text(
+                              '15,400 Units',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -465,7 +606,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
@@ -474,12 +618,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inventory_2_rounded, size: 12, color: Color(0xFFDC2626)),
+                            Icon(
+                              Icons.inventory_2_rounded,
+                              size: 12,
+                              color: Color(0xFFDC2626),
+                            ),
                             SizedBox(width: 4),
                             Flexible(
                               child: Text(
                                 'Batches & BOM',
-                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -491,7 +642,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
@@ -500,12 +654,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.pie_chart_rounded, size: 12, color: Color(0xFFEAB308)),
+                            Icon(
+                              Icons.pie_chart_rounded,
+                              size: 12,
+                              color: Color(0xFFEAB308),
+                            ),
                             SizedBox(width: 4),
                             Flexible(
                               child: Text(
                                 'P&L Daily',
-                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -520,7 +681,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 // Expiry alert pill
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFEF2F2),
                     borderRadius: BorderRadius.circular(8),
@@ -528,12 +692,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, size: 13, color: Color(0xFFDC2626)),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 13,
+                        color: Color(0xFFDC2626),
+                      ),
                       SizedBox(width: 5),
                       Expanded(
                         child: Text(
                           'Early Expiry Alert Protection Active',
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF991B1B)),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF991B1B),
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -570,7 +742,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         height: 28,
                         width: 28,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        errorBuilder: (_, _, _) => const Icon(
                           Icons.water_drop_rounded,
                           color: BrandColors.primaryBlue,
                           size: 26,
@@ -627,7 +799,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               children: [
                                 const Spacer(flex: 1),
                                 // Central Rich Custom Illustration
-                                _buildIllustration(data.type, data.color, data.bgColor),
+                                _buildIllustration(
+                                  data.type,
+                                  data.color,
+                                  data.bgColor,
+                                ),
                                 const SizedBox(height: 24),
 
                                 // Role / Feature Badge
@@ -671,7 +847,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                                 // Subtitle / Explanation
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
                                   child: Text(
                                     data.subtitle,
                                     textAlign: TextAlign.center,
@@ -739,10 +917,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               vertical: 14,
                             ),
                           ),
-                          child: const Icon(
-                            Icons.arrow_back_rounded,
-                            size: 20,
-                          ),
+                          child: const Icon(Icons.arrow_back_rounded, size: 20),
                         ),
                         const SizedBox(width: 12),
                       ],
@@ -780,12 +955,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-enum _IllustrationType {
-  welcome,
-  ordering,
-  franchiseNetwork,
-  smartManagement,
-}
+enum _IllustrationType { welcome, ordering, franchiseNetwork, smartManagement }
 
 class _OnboardingData {
   final String title;

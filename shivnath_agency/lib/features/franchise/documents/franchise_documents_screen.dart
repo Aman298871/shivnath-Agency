@@ -4,7 +4,8 @@ class FranchiseDocumentsScreen extends StatefulWidget {
   const FranchiseDocumentsScreen({super.key});
 
   @override
-  State<FranchiseDocumentsScreen> createState() => _FranchiseDocumentsScreenState();
+  State<FranchiseDocumentsScreen> createState() =>
+      _FranchiseDocumentsScreenState();
 }
 
 class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
@@ -84,13 +85,19 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                 color: const Color(0xFFE0F2FE),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.description_outlined, color: Color(0xFF0284C7)),
+              child: const Icon(
+                Icons.description_outlined,
+                color: Color(0xFF0284C7),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 doc['title'] as String,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -110,9 +117,15 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
               ),
               child: Column(
                 children: [
-                  _docRow('Document No.', doc['doc_number']?.toString() ?? 'N/A'),
+                  _docRow(
+                    'Document No.',
+                    doc['doc_number']?.toString() ?? 'N/A',
+                  ),
                   const Divider(height: 14),
-                  _docRow('File Name', doc['filename']?.toString() ?? 'document.pdf'),
+                  _docRow(
+                    'File Name',
+                    doc['filename']?.toString() ?? 'document.pdf',
+                  ),
                   const Divider(height: 14),
                   _docRow('Category', doc['type']?.toString() ?? 'General'),
                   const Divider(height: 14),
@@ -123,7 +136,13 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Verification Status', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      const Text(
+                        'Verification Status',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                       _statusBadge(doc['status']?.toString() ?? 'Verified'),
                     ],
                   ),
@@ -142,13 +161,24 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 38),
+                  const Icon(
+                    Icons.picture_as_pdf_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 38,
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     doc['filename']?.toString() ?? 'document.pdf',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1E293B),
+                    ),
                   ),
-                  const Text('Encrypted & verified on Shivnath Agency Cloud', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                  const Text(
+                    'Encrypted & verified on Shivnath Agency Cloud',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                  ),
                 ],
               ),
             ),
@@ -182,13 +212,20 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -213,7 +250,9 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
           Icon(
             isVerified ? Icons.check_circle_rounded : Icons.pending_rounded,
             size: 13,
-            color: isVerified ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+            color: isVerified
+                ? const Color(0xFF16A34A)
+                : const Color(0xFFD97706),
           ),
           const SizedBox(width: 5),
           Text(
@@ -221,7 +260,9 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: isVerified ? const Color(0xFF15803D) : const Color(0xFFB45309),
+              color: isVerified
+                  ? const Color(0xFF15803D)
+                  : const Color(0xFFB45309),
             ),
           ),
         ],
@@ -259,11 +300,18 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.upload_file_rounded, color: Color(0xFF0284C7), size: 24),
+                      Icon(
+                        Icons.upload_file_rounded,
+                        color: Color(0xFF0284C7),
+                        size: 24,
+                      ),
                       SizedBox(width: 10),
                       Text(
                         'Upload Franchise Document',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ],
                   ),
@@ -274,81 +322,140 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Text('Document Type', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const Text(
+                'Document Type',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                 ),
                 items: const [
-                  DropdownMenuItem(value: 'FSSAI License', child: Text('FSSAI Food Safety & Water License')),
-                  DropdownMenuItem(value: 'GST Certificate', child: Text('GST Registration Certificate')),
-                  DropdownMenuItem(value: 'Trade License', child: Text('Municipal Trade License')),
-                  DropdownMenuItem(value: 'Lab Test Report', child: Text('Water Mineral & TDS Lab Report')),
-                  DropdownMenuItem(value: 'Rent / Property Agreement', child: Text('Plant / Shop Rent Agreement')),
-                  DropdownMenuItem(value: 'Identity Proof', child: Text('Aadhaar / Voter ID')),
-                  DropdownMenuItem(value: 'PAN Card', child: Text('Business / Personal PAN Card')),
+                  DropdownMenuItem(
+                    value: 'FSSAI License',
+                    child: Text('FSSAI Food Safety & Water License'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'GST Certificate',
+                    child: Text('GST Registration Certificate'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Trade License',
+                    child: Text('Municipal Trade License'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Lab Test Report',
+                    child: Text('Water Mineral & TDS Lab Report'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Rent / Property Agreement',
+                    child: Text('Plant / Shop Rent Agreement'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Identity Proof',
+                    child: Text('Aadhaar / Voter ID'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'PAN Card',
+                    child: Text('Business / Personal PAN Card'),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) setModalState(() => selectedType = val);
                 },
               ),
               const SizedBox(height: 14),
-              const Text('Document / Registration Number', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const Text(
+                'Document / Registration Number',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: docNumberCtrl,
                 decoration: InputDecoration(
                   hintText: 'e.g. FSSAI-100220260012 or GSTIN',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Select Document File (PDF / Image)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const Text(
+                'Select Document File (PDF / Image)',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
               const SizedBox(height: 8),
               InkWell(
                 onTap: () {
                   // Safe simulation without throwing platform exceptions
                   setModalState(() {
-                    selectedFileName = '${selectedType.replaceAll(' ', '_')}_Upload_${DateTime.now().millisecondsSinceEpoch % 10000}.pdf';
+                    selectedFileName =
+                        '${selectedType.replaceAll(' ', '_')}_Upload_${DateTime.now().millisecondsSinceEpoch % 10000}.pdf';
                   });
                 },
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 20,
+                    horizontal: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: selectedFileName.isNotEmpty ? const Color(0xFF0284C7) : const Color(0xFFCBD5E1),
+                      color: selectedFileName.isNotEmpty
+                          ? const Color(0xFF0284C7)
+                          : const Color(0xFFCBD5E1),
                       style: BorderStyle.solid,
                     ),
                   ),
                   child: Column(
                     children: [
                       Icon(
-                        selectedFileName.isNotEmpty ? Icons.check_circle_rounded : Icons.cloud_upload_outlined,
-                        color: selectedFileName.isNotEmpty ? const Color(0xFF16A34A) : const Color(0xFF0284C7),
+                        selectedFileName.isNotEmpty
+                            ? Icons.check_circle_rounded
+                            : Icons.cloud_upload_outlined,
+                        color: selectedFileName.isNotEmpty
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFF0284C7),
                         size: 34,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        selectedFileName.isNotEmpty ? selectedFileName : 'Tap to browse or attach document file',
+                        selectedFileName.isNotEmpty
+                            ? selectedFileName
+                            : 'Tap to browse or attach document file',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: selectedFileName.isNotEmpty ? const Color(0xFF0F172A) : const Color(0xFF475569),
+                          color: selectedFileName.isNotEmpty
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFF475569),
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        selectedFileName.isNotEmpty ? 'File ready for upload (1.5 MB)' : 'Supports PDF, JPG, PNG up to 10 MB',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        selectedFileName.isNotEmpty
+                            ? 'File ready for upload (1.5 MB)'
+                            : 'Supports PDF, JPG, PNG up to 10 MB',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ),
                     ],
                   ),
@@ -363,7 +470,8 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                       ? null
                       : () {
                           if (selectedFileName.isEmpty) {
-                            selectedFileName = '${selectedType.replaceAll(' ', '_')}_Document.pdf';
+                            selectedFileName =
+                                '${selectedType.replaceAll(' ', '_')}_Document.pdf';
                           }
 
                           setModalState(() => isUploading = true);
@@ -378,7 +486,10 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                                 'status': 'Under Review',
                                 'date': 'Today',
                                 'size': '1.4 MB',
-                                'doc_number': docNumberCtrl.text.trim().isNotEmpty ? docNumberCtrl.text.trim() : 'SHIV-DOC-${DateTime.now().millisecondsSinceEpoch % 10000}',
+                                'doc_number':
+                                    docNumberCtrl.text.trim().isNotEmpty
+                                    ? docNumberCtrl.text.trim()
+                                    : 'SHIV-DOC-${DateTime.now().millisecondsSinceEpoch % 10000}',
                                 'type': selectedType,
                               });
                             });
@@ -389,26 +500,46 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                               SnackBar(
                                 content: Row(
                                   children: [
-                                    const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
-                                      child: Text('$selectedType uploaded successfully! Sent for verification.'),
+                                      child: Text(
+                                        '$selectedType uploaded successfully! Sent for verification.',
+                                      ),
                                     ),
                                   ],
                                 ),
                                 backgroundColor: const Color(0xFF0284C7),
                                 behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                             );
                           });
                         },
                   icon: isUploading
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
                       : const Icon(Icons.cloud_done_rounded),
                   label: Text(
-                    isUploading ? 'Uploading & Encrypting...' : 'Upload & Submit Document',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                    isUploading
+                        ? 'Uploading & Encrypting...'
+                        : 'Upload & Submit Document',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),
@@ -443,9 +574,7 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
             padding: EdgeInsets.all(desktop ? 28 : 16),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 1100,
-                ),
+                constraints: const BoxConstraints(maxWidth: 1100),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -466,9 +595,7 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                               SizedBox(height: 4),
                               Text(
                                 'Manage verified compliance certificates, licenses and agreements.',
-                                style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                ),
+                                style: TextStyle(color: Color(0xFF64748B)),
                               ),
                             ],
                           ),
@@ -527,8 +654,10 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           doc['title'] as String,
@@ -552,11 +681,16 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                                         const SizedBox(height: 6),
                                         Row(
                                           children: [
-                                            _statusBadge(doc['status'] as String),
+                                            _statusBadge(
+                                              doc['status'] as String,
+                                            ),
                                             const SizedBox(width: 8),
                                             Text(
                                               doc['date'] as String,
-                                              style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Color(0xFF94A3B8),
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -587,9 +721,7 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                         height: 46,
                         child: OutlinedButton.icon(
                           onPressed: _openUploadDialog,
-                          icon: const Icon(
-                            Icons.upload_file_rounded,
-                          ),
+                          icon: const Icon(Icons.upload_file_rounded),
                           label: const Text(
                             'Upload New Document',
                             style: TextStyle(fontWeight: FontWeight.w700),

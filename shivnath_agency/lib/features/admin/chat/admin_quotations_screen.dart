@@ -48,23 +48,49 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
   }
 
   void _showAddEditQuotationDialog([Map<String, dynamic>? quotation]) {
-    final titleCtrl = TextEditingController(text: quotation?['title']?.toString() ?? '');
-    final tierCtrl = TextEditingController(text: quotation?['quantity_tier']?.toString() ?? '50+ Units');
-    final unitPriceCtrl = TextEditingController(text: (quotation?['unit_price'] ?? 0).toString());
-    final totalPriceCtrl = TextEditingController(text: (quotation?['total_price'] ?? 0).toString());
-    final termsCtrl = TextEditingController(text: quotation?['applicable_terms']?.toString() ?? 'Standard delivery and purity warranty terms apply.');
-    final notesCtrl = TextEditingController(text: quotation?['notes']?.toString() ?? '');
-    final validityCtrl = TextEditingController(text: quotation?['validity']?.toString() ?? 'Valid for 30 days from generation');
+    final titleCtrl = TextEditingController(
+      text: quotation?['title']?.toString() ?? '',
+    );
+    final tierCtrl = TextEditingController(
+      text: quotation?['quantity_tier']?.toString() ?? '50+ Units',
+    );
+    final unitPriceCtrl = TextEditingController(
+      text: (quotation?['unit_price'] ?? 0).toString(),
+    );
+    final totalPriceCtrl = TextEditingController(
+      text: (quotation?['total_price'] ?? 0).toString(),
+    );
+    final termsCtrl = TextEditingController(
+      text:
+          quotation?['applicable_terms']?.toString() ??
+          'Standard delivery and purity warranty terms apply.',
+    );
+    final notesCtrl = TextEditingController(
+      text: quotation?['notes']?.toString() ?? '',
+    );
+    final validityCtrl = TextEditingController(
+      text:
+          quotation?['validity']?.toString() ??
+          'Valid for 30 days from generation',
+    );
 
-    String quotationType = quotation?['quotation_type']?.toString() ?? 'customer';
-    String targetAudience = quotation?['target_audience']?.toString() ?? 'customer';
-    int? selectedProductId = quotation?['product'] != null ? (quotation!['product'] is Map ? quotation!['product']['id'] : quotation!['product']) : null;
+    String quotationType =
+        quotation?['quotation_type']?.toString() ?? 'customer';
+    String targetAudience =
+        quotation?['target_audience']?.toString() ?? 'customer';
+    int? selectedProductId = quotation?['product'] != null
+        ? (quotation!['product'] is Map
+              ? quotation['product']['id']
+              : quotation['product'])
+        : null;
     bool isActive = quotation?['is_active'] ?? true;
 
     // PDF Management State
     String? existingPdfUrl = quotation?['pdf_url']?.toString();
     String? existingPdfName = quotation?['pdf_name']?.toString();
-    bool hasExistingPdf = (quotation?['has_pdf'] == true || (existingPdfUrl != null && existingPdfUrl.isNotEmpty));
+    bool hasExistingPdf =
+        (quotation?['has_pdf'] == true ||
+        (existingPdfUrl != null && existingPdfUrl.isNotEmpty));
 
     String? selectedPdfPath;
     String? selectedPdfName;
@@ -97,7 +123,9 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
           }
 
           List<int>? bytes = file.bytes;
-          if ((bytes == null || bytes.isEmpty) && file.path != null && file.path!.isNotEmpty) {
+          if ((bytes == null || bytes.isEmpty) &&
+              file.path != null &&
+              file.path!.isNotEmpty) {
             try {
               bytes = await File(file.path!).readAsBytes();
             } catch (e) {
@@ -109,7 +137,9 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Could not read file data. Please try selecting the file again.'),
+                  content: Text(
+                    'Could not read file data. Please try selecting the file again.',
+                  ),
                   backgroundColor: Colors.orange,
                 ),
               );
@@ -152,8 +182,12 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(quotation == null ? 'Create Quotation' : 'Edit Quotation'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            quotation == null ? 'Create Quotation' : 'Edit Quotation',
+          ),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
             child: SingleChildScrollView(
@@ -165,7 +199,8 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                     controller: titleCtrl,
                     decoration: const InputDecoration(
                       labelText: 'Quotation Title *',
-                      hintText: 'e.g. 50+ Jars Commercial Rate, Bulk 500ml Bottle Tier',
+                      hintText:
+                          'e.g. 50+ Jars Commercial Rate, Bulk 500ml Bottle Tier',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -174,39 +209,68 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: quotationType,
+                          initialValue: quotationType,
                           decoration: const InputDecoration(
                             labelText: 'Quotation Type',
                             border: OutlineInputBorder(),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'customer', child: Text('Customer Quotation')),
-                            DropdownMenuItem(value: 'bottle', child: Text('Bottle Quotation')),
-                            DropdownMenuItem(value: 'jar', child: Text('Jar Quotation')),
-                            DropdownMenuItem(value: 'franchise', child: Text('Franchise Quotation')),
-                            DropdownMenuItem(value: 'bulk', child: Text('Bulk Quantity Quotation')),
-                            DropdownMenuItem(value: 'custom', child: Text('Custom Quotation')),
+                            DropdownMenuItem(
+                              value: 'customer',
+                              child: Text('Customer Quotation'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'bottle',
+                              child: Text('Bottle Quotation'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'jar',
+                              child: Text('Jar Quotation'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'franchise',
+                              child: Text('Franchise Quotation'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'bulk',
+                              child: Text('Bulk Quantity Quotation'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'custom',
+                              child: Text('Custom Quotation'),
+                            ),
                           ],
                           onChanged: (val) {
-                            if (val != null) setDlgState(() => quotationType = val);
+                            if (val != null)
+                              setDlgState(() => quotationType = val);
                           },
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: targetAudience,
+                          initialValue: targetAudience,
                           decoration: const InputDecoration(
                             labelText: 'Target Audience',
                             border: OutlineInputBorder(),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'customer', child: Text('Customer')),
-                            DropdownMenuItem(value: 'franchise', child: Text('Franchise')),
-                            DropdownMenuItem(value: 'both', child: Text('Both')),
+                            DropdownMenuItem(
+                              value: 'customer',
+                              child: Text('Customer'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'franchise',
+                              child: Text('Franchise'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'both',
+                              child: Text('Both'),
+                            ),
                           ],
                           onChanged: (val) {
-                            if (val != null) setDlgState(() => targetAudience = val);
+                            if (val != null)
+                              setDlgState(() => targetAudience = val);
                           },
                         ),
                       ),
@@ -214,19 +278,27 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int?>(
-                    value: selectedProductId,
+                    initialValue: selectedProductId,
                     decoration: const InputDecoration(
                       labelText: 'Related Product (Optional)',
                       border: OutlineInputBorder(),
                     ),
                     items: [
-                      const DropdownMenuItem<int?>(value: null, child: Text('None (General / Bulk Tier)')),
-                      ..._products.map((p) => DropdownMenuItem<int?>(
-                            value: int.tryParse(p.id),
-                            child: Text('${p.name} (${p.size}) - Regular: ₹${p.price}'),
-                          )),
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('None (General / Bulk Tier)'),
+                      ),
+                      ..._products.map(
+                        (p) => DropdownMenuItem<int?>(
+                          value: int.tryParse(p.id),
+                          child: Text(
+                            '${p.name} (${p.size}) - Regular: ₹${p.price}',
+                          ),
+                        ),
+                      ),
                     ],
-                    onChanged: (val) => setDlgState(() => selectedProductId = val),
+                    onChanged: (val) =>
+                        setDlgState(() => selectedProductId = val),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -243,7 +315,9 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                       Expanded(
                         child: TextField(
                           controller: unitPriceCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           decoration: const InputDecoration(
                             labelText: 'Unit Price (₹)',
                             border: OutlineInputBorder(),
@@ -254,7 +328,9 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                       Expanded(
                         child: TextField(
                           controller: totalPriceCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           decoration: const InputDecoration(
                             labelText: 'Total Price / Package Rate (₹)',
                             border: OutlineInputBorder(),
@@ -307,50 +383,79 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFE11D48), size: 20),
+                            const Icon(
+                              Icons.picture_as_pdf_rounded,
+                              color: Color(0xFFE11D48),
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text(
                                 'Quotation PDF Document',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             const SizedBox(width: 8),
-                            if (hasExistingPdf && !removeExistingPdf && selectedPdfName == null)
+                            if (hasExistingPdf &&
+                                !removeExistingPdf &&
+                                selectedPdfName == null)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.green.withAlpha(30),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text(
                                   'PDF Attached',
-                                  style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               )
                             else if (selectedPdfName != null)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.blue.withAlpha(30),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text(
                                   'New File Selected',
-                                  style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    color: Colors.blue,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               )
                             else
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.withAlpha(30),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text(
                                   'No PDF attached',
-                                  style: TextStyle(color: Colors.grey, fontSize: 11),
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ),
                           ],
@@ -359,20 +464,37 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                         if (selectedPdfName != null) ...[
                           Text(
                             '📄 Selected: $selectedPdfName',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Row(
                             children: [
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.refresh, size: 16),
-                                label: const Text('Change PDF', style: TextStyle(fontSize: 12)),
+                                label: const Text(
+                                  'Change PDF',
+                                  style: TextStyle(fontSize: 12),
+                                ),
                                 onPressed: () => pickPdfFile(setDlgState),
                               ),
                               const SizedBox(width: 8),
                               TextButton.icon(
-                                icon: const Icon(Icons.close, color: Colors.red, size: 16),
-                                label: const Text('Clear Selection', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.red,
+                                  size: 16,
+                                ),
+                                label: const Text(
+                                  'Clear Selection',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                  ),
+                                ),
                                 onPressed: () {
                                   setDlgState(() {
                                     selectedPdfPath = null;
@@ -386,37 +508,63 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                         ] else if (hasExistingPdf && !removeExistingPdf) ...[
                           Text(
                             '📄 Current: ${existingPdfName ?? 'quotation.pdf'}',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF334155),
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              if (existingPdfUrl != null && existingPdfUrl.isNotEmpty)
+                              if (existingPdfUrl != null &&
+                                  existingPdfUrl.isNotEmpty)
                                 ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF0284C7),
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
                                   ),
                                   icon: const Icon(Icons.open_in_new, size: 14),
-                                  label: const Text('View PDF', style: TextStyle(fontSize: 11)),
+                                  label: const Text(
+                                    'View PDF',
+                                    style: TextStyle(fontSize: 11),
+                                  ),
                                   onPressed: () async {
                                     final uri = Uri.parse(existingPdfUrl);
                                     if (await canLaunchUrl(uri)) {
-                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                      await launchUrl(
+                                        uri,
+                                        mode: LaunchMode.externalApplication,
+                                      );
                                     }
                                   },
                                 ),
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.upload_file, size: 14),
-                                label: const Text('Replace PDF', style: TextStyle(fontSize: 11)),
+                                label: const Text(
+                                  'Replace PDF',
+                                  style: TextStyle(fontSize: 11),
+                                ),
                                 onPressed: () => pickPdfFile(setDlgState),
                               ),
                               TextButton.icon(
-                                icon: const Icon(Icons.delete_outline, color: Colors.red, size: 14),
-                                label: const Text('Remove PDF', style: TextStyle(color: Colors.red, fontSize: 11)),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                  size: 14,
+                                ),
+                                label: const Text(
+                                  'Remove PDF',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 11,
+                                  ),
+                                ),
                                 onPressed: () {
                                   setDlgState(() {
                                     removeExistingPdf = true;
@@ -434,12 +582,21 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                   foregroundColor: Colors.white,
                                 ),
                                 icon: const Icon(Icons.upload_file, size: 16),
-                                label: const Text('Upload Quotation PDF', style: TextStyle(fontSize: 12)),
+                                label: const Text(
+                                  'Upload Quotation PDF',
+                                  style: TextStyle(fontSize: 12),
+                                ),
                                 onPressed: () => pickPdfFile(setDlgState),
                               ),
                               if (removeExistingPdf) ...[
                                 const SizedBox(width: 8),
-                                const Text('(Marked for removal)', style: TextStyle(fontSize: 11, color: Colors.red)),
+                                const Text(
+                                  '(Marked for removal)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.red,
+                                  ),
+                                ),
                               ],
                             ],
                           ),
@@ -451,7 +608,13 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                   const SizedBox(height: 12),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Active Quotation (Visible to Chatbot & Inquiries)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    title: const Text(
+                      'Active Quotation (Visible to Chatbot & Inquiries)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     value: isActive,
                     onChanged: (v) => setDlgState(() => isActive = v),
                   ),
@@ -460,12 +623,17 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: () async {
                 final title = titleCtrl.text.trim();
                 if (title.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Title is required')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Title is required')),
+                  );
                   return;
                 }
 
@@ -475,8 +643,10 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                   'target_audience': targetAudience,
                   'product': selectedProductId,
                   'quantity_tier': tierCtrl.text.trim(),
-                  'unit_price': double.tryParse(unitPriceCtrl.text.trim()) ?? 0.0,
-                  'total_price': double.tryParse(totalPriceCtrl.text.trim()) ?? 0.0,
+                  'unit_price':
+                      double.tryParse(unitPriceCtrl.text.trim()) ?? 0.0,
+                  'total_price':
+                      double.tryParse(totalPriceCtrl.text.trim()) ?? 0.0,
                   'validity': validityCtrl.text.trim(),
                   'applicable_terms': termsCtrl.text.trim(),
                   'notes': notesCtrl.text.trim(),
@@ -526,9 +696,9 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error launching PDF: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error launching PDF: $e')));
       }
     }
   }
@@ -540,9 +710,15 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
         title: const Text('Delete Quotation'),
         content: Text('Are you sure you want to delete quotation "$title"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
               await _chatService.deleteQuotation(id);
@@ -562,7 +738,8 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
 
     final filteredQuotes = _quotations.where((q) {
       if (_targetFilter == 'all') return true;
-      return q['target_audience'] == _targetFilter || q['target_audience'] == 'both';
+      return q['target_audience'] == _targetFilter ||
+          q['target_audience'] == 'both';
     }).toList();
 
     return Scaffold(
@@ -593,7 +770,10 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Audience Filter: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Text(
+                    'Audience Filter: ',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                   const SizedBox(width: 8),
                   ChoiceChip(
                     label: const Text('All Quotations'),
@@ -604,13 +784,15 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                   ChoiceChip(
                     label: const Text('Customer Tiers'),
                     selected: _targetFilter == 'customer',
-                    onSelected: (_) => setState(() => _targetFilter = 'customer'),
+                    onSelected: (_) =>
+                        setState(() => _targetFilter = 'customer'),
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
                     label: const Text('Franchise Tiers'),
                     selected: _targetFilter == 'franchise',
-                    onSelected: (_) => setState(() => _targetFilter = 'franchise'),
+                    onSelected: (_) =>
+                        setState(() => _targetFilter = 'franchise'),
                   ),
                 ],
               ),
@@ -620,196 +802,314 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : filteredQuotes.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.request_quote_outlined, size: 64, color: Colors.grey),
-                            const SizedBox(height: 12),
-                            const Text('No quotations configured.', style: TextStyle(fontSize: 16, color: Colors.grey)),
-                            const SizedBox(height: 12),
-                            ElevatedButton.icon(
-                              onPressed: () => _showAddEditQuotationDialog(),
-                              icon: const Icon(Icons.add),
-                              label: const Text('Add Quotation Template'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.request_quote_outlined,
+                          size: 64,
+                          color: Colors.grey,
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(14),
-                        itemCount: filteredQuotes.length,
-                        itemBuilder: (context, index) {
-                          final q = filteredQuotes[index];
-                          final qId = q['id'] as int;
-                          final audience = q['target_audience']?.toString().toUpperCase() ?? 'CUSTOMER';
-                          final unitP = q['unit_price'] ?? 0;
-                          final totalP = q['total_price'] ?? 0;
-                          final hasPdf = q['has_pdf'] == true || (q['pdf_url'] != null && q['pdf_url'].toString().isNotEmpty);
-                          final pdfName = q['pdf_name']?.toString() ?? 'Quotation.pdf';
+                        const SizedBox(height: 12),
+                        const Text(
+                          'No quotations configured.',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: () => _showAddEditQuotationDialog(),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Quotation Template'),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(14),
+                    itemCount: filteredQuotes.length,
+                    itemBuilder: (context, index) {
+                      final q = filteredQuotes[index];
+                      final qId = q['id'] as int;
+                      final audience =
+                          q['target_audience']?.toString().toUpperCase() ??
+                          'CUSTOMER';
+                      final unitP = q['unit_price'] ?? 0;
+                      final totalP = q['total_price'] ?? 0;
+                      final hasPdf =
+                          q['has_pdf'] == true ||
+                          (q['pdf_url'] != null &&
+                              q['pdf_url'].toString().isNotEmpty);
+                      final pdfName =
+                          q['pdf_name']?.toString() ?? 'Quotation.pdf';
 
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              side: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFE0F2FE),
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        child: const Icon(Icons.request_quote_rounded, color: Color(0xFF0284C7), size: 22),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              q['title']?.toString() ?? '',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                            ),
-                                            Text(
-                                              'Type: ${q['quotation_type']} • Tier: ${q['quantity_tier']}',
-                                              style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: audience == 'FRANCHISE' ? Colors.orange.withAlpha(25) : const Color(0xFF0284C7).withAlpha(25),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          audience,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: audience == 'FRANCHISE' ? Colors.orange : const Color(0xFF0284C7),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  const Divider(height: 1),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text('Unit Rate', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                          Text('₹$unitP', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF0284C7))),
-                                        ],
-                                      ),
-                                      if (totalP > 0)
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('Package Rate', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                            Text('₹$totalP', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Colors.green)),
-                                          ],
-                                        ),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text('Validity', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                          Text(q['validity']?.toString() ?? '30 Days', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  if (q['applicable_terms'] != null && q['applicable_terms'].toString().isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Text('Terms: ${q['applicable_terms']}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                                  ],
-
-                                  // PDF Status Banner
-                                  const SizedBox(height: 10),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: hasPdf ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: hasPdf ? const Color(0xFFBBF7D0) : const Color(0xFFE2E8F0),
-                                      ),
+                                      color: const Color(0xFFE0F2FE),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: Row(
+                                    child: const Icon(
+                                      Icons.request_quote_rounded,
+                                      color: Color(0xFF0284C7),
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Icon(
-                                          hasPdf ? Icons.picture_as_pdf_rounded : Icons.insert_drive_file_outlined,
-                                          size: 16,
-                                          color: hasPdf ? const Color(0xFF16A34A) : Colors.grey,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(
-                                            hasPdf ? 'PDF: $pdfName' : 'No PDF document attached',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: hasPdf ? FontWeight.w600 : FontWeight.normal,
-                                              color: hasPdf ? const Color(0xFF15803D) : const Color(0xFF64748B),
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
+                                        Text(
+                                          q['title']?.toString() ?? '',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
                                           ),
                                         ),
-                                        if (hasPdf)
-                                          GestureDetector(
-                                            onTap: () => _downloadPdf(qId),
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(horizontal: 4),
-                                              child: Text(
-                                                'View PDF',
-                                                style: TextStyle(
-                                                  color: Color(0xFF0284C7),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                  decoration: TextDecoration.underline,
-                                                ),
-                                              ),
-                                            ),
+                                        Text(
+                                          'Type: ${q['quotation_type']} • Tier: ${q['quantity_tier']}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
                                           ),
+                                        ),
                                       ],
                                     ),
                                   ),
-
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.edit_outlined, size: 18),
-                                        label: const Text('Edit'),
-                                        onPressed: () => _showAddEditQuotationDialog(q),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: audience == 'FRANCHISE'
+                                          ? Colors.orange.withAlpha(25)
+                                          : const Color(
+                                              0xFF0284C7,
+                                            ).withAlpha(25),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      audience,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: audience == 'FRANCHISE'
+                                            ? Colors.orange
+                                            : const Color(0xFF0284C7),
                                       ),
-                                      const SizedBox(width: 8),
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                        label: const Text('Delete', style: TextStyle(color: Colors.red)),
-                                        onPressed: () => _deleteQuotation(qId, q['title']?.toString() ?? ''),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              const Divider(height: 1),
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Unit Rate',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      Text(
+                                        '₹$unitP',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: Color(0xFF0284C7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (totalP > 0)
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Package Rate',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                        Text(
+                                          '₹$totalP',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15,
+                                            color: Colors.green,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Validity',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      Text(
+                                        q['validity']?.toString() ?? '30 Days',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ],
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                              if (q['applicable_terms'] != null &&
+                                  q['applicable_terms']
+                                      .toString()
+                                      .isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Terms: ${q['applicable_terms']}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+
+                              // PDF Status Banner
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: hasPdf
+                                      ? const Color(0xFFF0FDF4)
+                                      : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: hasPdf
+                                        ? const Color(0xFFBBF7D0)
+                                        : const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      hasPdf
+                                          ? Icons.picture_as_pdf_rounded
+                                          : Icons.insert_drive_file_outlined,
+                                      size: 16,
+                                      color: hasPdf
+                                          ? const Color(0xFF16A34A)
+                                          : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        hasPdf
+                                            ? 'PDF: $pdfName'
+                                            : 'No PDF document attached',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: hasPdf
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                          color: hasPdf
+                                              ? const Color(0xFF15803D)
+                                              : const Color(0xFF64748B),
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (hasPdf)
+                                      GestureDetector(
+                                        onTap: () => _downloadPdf(qId),
+                                        child: const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                          ),
+                                          child: Text(
+                                            'View PDF',
+                                            style: TextStyle(
+                                              color: Color(0xFF0284C7),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton.icon(
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Edit'),
+                                    onPressed: () =>
+                                        _showAddEditQuotationDialog(q),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red,
+                                      size: 18,
+                                    ),
+                                    label: const Text(
+                                      'Delete',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                    onPressed: () => _deleteQuotation(
+                                      qId,
+                                      q['title']?.toString() ?? '',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

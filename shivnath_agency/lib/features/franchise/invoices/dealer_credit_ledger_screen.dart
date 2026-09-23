@@ -88,7 +88,10 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
         elevation: 0.5,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: BrandColors.greenDark),
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: BrandColors.greenDark,
+            ),
             onPressed: _loadData,
             tooltip: 'Refresh',
           ),
@@ -99,59 +102,61 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
               child: CircularProgressIndicator(color: BrandColors.greenDark),
             )
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: BrandColors.error),
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: _loadData,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: BrandColors.greenDark,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.all(16),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildCreditOverviewCard(),
-                    const SizedBox(height: 16),
-                    _buildAgingBreakdownCard(),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Franchise Invoices & Billing Ledger',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                      ),
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: BrandColors.error),
                     ),
-                    const SizedBox(height: 10),
-                    _buildInvoicesList(),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _loadData,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: BrandColors.greenDark,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Retry'),
+                    ),
                   ],
                 ),
+              ),
+            )
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildCreditOverviewCard(),
+                const SizedBox(height: 16),
+                _buildAgingBreakdownCard(),
+                const SizedBox(height: 20),
+                const Text(
+                  'Franchise Invoices & Billing Ledger',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildInvoicesList(),
+              ],
+            ),
     );
   }
 
   Widget _buildCreditOverviewCard() {
     final creditLimit =
         double.tryParse(_creditProfile?['credit_limit']?.toString() ?? '0') ??
-            0.0;
+        0.0;
     final currentBalance =
-        double.tryParse(_creditProfile?['current_balance']?.toString() ?? '0') ??
-            0.0;
+        double.tryParse(
+          _creditProfile?['current_balance']?.toString() ?? '0',
+        ) ??
+        0.0;
     final availableCredit = creditLimit - currentBalance;
     final paymentTerms =
         _creditProfile?['payment_terms_days']?.toString() ?? '15';
@@ -162,11 +167,12 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
         double.tryParse(_agingReport?['days_16_30']?.toString() ?? '0') ?? 0.0;
     final dOver30 =
         double.tryParse(_agingReport?['days_over_30']?.toString() ?? '0') ??
-            0.0;
+        0.0;
     final overdueAmount = d16_30 + dOver30;
 
-    final percentUsed =
-        creditLimit > 0 ? (currentBalance / creditLimit).clamp(0.0, 1.0) : 0.0;
+    final percentUsed = creditLimit > 0
+        ? (currentBalance / creditLimit).clamp(0.0, 1.0)
+        : 0.0;
 
     final isOverdue = overdueAmount > 0;
     final creditStatus = isOverdue
@@ -193,8 +199,10 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
               Row(
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: isOverdue
                           ? BrandColors.redSoft
@@ -217,8 +225,10 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: BrandColors.greenSoft,
                       borderRadius: BorderRadius.circular(6),
@@ -272,8 +282,11 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
               padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 16, color: BrandColors.red),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: BrandColors.red,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     'Overdue Amount: ₹${overdueAmount.toStringAsFixed(0)}',
@@ -356,7 +369,7 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
         double.tryParse(_agingReport?['days_16_30']?.toString() ?? '0') ?? 0.0;
     final dOver30 =
         double.tryParse(_agingReport?['days_over_30']?.toString() ?? '0') ??
-            0.0;
+        0.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -370,7 +383,11 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.history_rounded, size: 18, color: BrandColors.greenDark),
+              Icon(
+                Icons.history_rounded,
+                size: 18,
+                color: BrandColors.greenDark,
+              ),
               SizedBox(width: 8),
               Text(
                 'Payment Aging Analysis',
@@ -398,9 +415,9 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 3),
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.25)),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
         ),
         child: Column(
           children: [
@@ -464,8 +481,9 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           elevation: 0,
           color: Colors.white,
           child: Container(
@@ -484,9 +502,12 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                       children: [
                         CircleAvatar(
                           radius: 16,
-                          backgroundColor: statusColor.withOpacity(0.12),
-                          child: Icon(Icons.receipt_long_rounded,
-                              color: statusColor, size: 18),
+                          backgroundColor: statusColor.withValues(alpha: 0.12),
+                          child: Icon(
+                            Icons.receipt_long_rounded,
+                            color: statusColor,
+                            size: 18,
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Column(
@@ -539,9 +560,11 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 3),
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.12),
+                            color: statusColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -569,10 +592,13 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                               ),
                             ),
                             onPressed: () => _openRecordPaymentDialog(inv),
-                            child: const Text('Pay',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700)),
+                            child: const Text(
+                              'Pay',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ],
                       ],
@@ -622,8 +648,9 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
               children: [
                 TextField(
                   controller: amtCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Amount (INR)',
                     border: OutlineInputBorder(),
@@ -631,7 +658,7 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: method,
+                  initialValue: method,
                   decoration: const InputDecoration(
                     labelText: 'Payment Method',
                     border: OutlineInputBorder(),
@@ -639,8 +666,9 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                   items: const [
                     DropdownMenuItem(value: 'UPI', child: Text('UPI')),
                     DropdownMenuItem(
-                        value: 'Bank Transfer',
-                        child: Text('NEFT / RTGS / IMPS')),
+                      value: 'Bank Transfer',
+                      child: Text('NEFT / RTGS / IMPS'),
+                    ),
                     DropdownMenuItem(value: 'Cash', child: Text('Cash')),
                     DropdownMenuItem(value: 'Cheque', child: Text('Cheque')),
                   ],
@@ -698,8 +726,10 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(res['message']?.toString() ??
-                                  'Failed to record payment'),
+                              content: Text(
+                                res['message']?.toString() ??
+                                    'Failed to record payment',
+                              ),
                               backgroundColor: BrandColors.error,
                             ),
                           );

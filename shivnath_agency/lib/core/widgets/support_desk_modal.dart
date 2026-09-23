@@ -90,7 +90,8 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
           _contact = contact;
           _isLoading = false;
           if (contact == null && _adminAllContacts.isEmpty) {
-            _errorMessage = 'Unable to load support contact details. Please check connection.';
+            _errorMessage =
+                'Unable to load support contact details. Please check connection.';
           }
         });
       }
@@ -109,7 +110,8 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
       context,
       phone: phone,
       supportName: name,
-      userName: widget.leadName ?? _currentUser?.name ?? _currentUser?.businessName,
+      userName:
+          widget.leadName ?? _currentUser?.name ?? _currentUser?.businessName,
       userMobile: widget.leadPhone ?? _currentUser?.phone,
       userEmail: widget.leadEmail ?? _currentUser?.email,
       userRole: widget.leadRole ?? _currentUser?.role,
@@ -119,7 +121,9 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
 
   Future<void> _onEmailTapped(String email) async {
     if (email.trim().isEmpty) return;
-    final Uri mailUri = Uri.parse('mailto:${email.trim()}?subject=Enquiry regarding Shivnath Drinking Water');
+    final Uri mailUri = Uri.parse(
+      'mailto:${email.trim()}?subject=Enquiry regarding Shivnath Drinking Water',
+    );
     try {
       if (await canLaunchUrl(mailUri)) {
         await launchUrl(mailUri, mode: LaunchMode.externalApplication);
@@ -147,7 +151,9 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
       builder: (dlgCtx) => StatefulBuilder(
         builder: (context, setDlgState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             title: Row(
               children: [
                 const Icon(Icons.edit_note_rounded, color: Color(0xFF0284C7)),
@@ -155,7 +161,10 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                 Expanded(
                   child: Text(
                     'Edit ${c.roleDisplay.isNotEmpty ? c.roleDisplay : c.role} Contact',
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
@@ -214,32 +223,40 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0284C7),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: isSaving
                     ? null
                     : () async {
-                        if (nameCtrl.text.trim().isEmpty || phoneCtrl.text.trim().isEmpty) {
+                        if (nameCtrl.text.trim().isEmpty ||
+                            phoneCtrl.text.trim().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Name and Phone are required.')),
+                            const SnackBar(
+                              content: Text('Name and Phone are required.'),
+                            ),
                           );
                           return;
                         }
                         setDlgState(() => isSaving = true);
-                        final res = await SupportDeskService.updateSupportContact(
-                          role: c.role,
-                          name: nameCtrl.text.trim(),
-                          phone: phoneCtrl.text.trim(),
-                          email: emailCtrl.text.trim(),
-                          messageTemplate: templateCtrl.text.trim(),
-                        );
+                        final res =
+                            await SupportDeskService.updateSupportContact(
+                              role: c.role,
+                              name: nameCtrl.text.trim(),
+                              phone: phoneCtrl.text.trim(),
+                              email: emailCtrl.text.trim(),
+                              messageTemplate: templateCtrl.text.trim(),
+                            );
                         setDlgState(() => isSaving = false);
                         if (res['success'] == true) {
                           if (mounted) {
                             Navigator.pop(dlgCtx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Support contact updated successfully.'),
+                                content: Text(
+                                  'Support contact updated successfully.',
+                                ),
                                 backgroundColor: Colors.green,
                               ),
                             );
@@ -249,7 +266,9 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(res['message'] ?? 'Failed to update contact'),
+                                content: Text(
+                                  res['message'] ?? 'Failed to update contact',
+                                ),
                                 backgroundColor: Colors.redAccent,
                               ),
                             );
@@ -260,7 +279,10 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('Save Changes'),
               ),
@@ -310,7 +332,7 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0284C7).withOpacity(0.12),
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -363,10 +385,14 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 40),
                       child: Center(
-                        child: CircularProgressIndicator(color: Color(0xFF0284C7)),
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF0284C7),
+                        ),
                       ),
                     )
-                  else if (_errorMessage != null && _contact == null && _adminAllContacts.isEmpty)
+                  else if (_errorMessage != null &&
+                      _contact == null &&
+                      _adminAllContacts.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -376,19 +402,35 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                       ),
                       child: Column(
                         children: [
-                          Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 36),
+                          Icon(
+                            Icons.error_outline_rounded,
+                            color: Colors.red.shade700,
+                            size: 36,
+                          ),
                           const SizedBox(height: 10),
                           Text(
                             _errorMessage!,
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.red.shade900, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              color: Colors.red.shade900,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           const SizedBox(height: 14),
                           ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade700,
+                            ),
                             onPressed: _loadData,
-                            icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
-                            label: const Text('Retry', style: TextStyle(color: Colors.white)),
+                            icon: const Icon(
+                              Icons.refresh,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              'Retry',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ),
                         ],
                       ),
@@ -415,9 +457,14 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0284C7).withOpacity(0.12),
+                              color: const Color(
+                                0xFF0284C7,
+                              ).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text(
@@ -432,10 +479,12 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      ..._adminAllContacts.map((c) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildAdminContactTile(c),
-                          )),
+                      ..._adminAllContacts.map(
+                        (c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildAdminContactTile(c),
+                        ),
+                      ),
                     ],
 
                     // Operating Hours & Assurance Note
@@ -451,7 +500,9 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withOpacity(0.12),
+                              color: const Color(
+                                0xFF10B981,
+                              ).withValues(alpha: 0.12),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -501,17 +552,22 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
     final displayRole = contact.target == 'franchise'
         ? 'Assigned Franchise Support'
         : (contact.roleDisplay.isNotEmpty
-            ? contact.roleDisplay
-            : (contact.target == 'admin' ? 'Central Administration Desk' : 'Shivnath Official Care'));
+              ? contact.roleDisplay
+              : (contact.target == 'admin'
+                    ? 'Central Administration Desk'
+                    : 'Shivnath Official Care'));
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.2), width: 1.5),
+        border: Border.all(
+          color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0284C7).withOpacity(0.06),
+            color: const Color(0xFF0284C7).withValues(alpha: 0.06),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -524,8 +580,10 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF0284C7).withOpacity(0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
             ),
             child: Row(
               children: [
@@ -546,15 +604,21 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.15),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircleAvatar(radius: 3, backgroundColor: Color(0xFF10B981)),
+                      CircleAvatar(
+                        radius: 3,
+                        backgroundColor: Color(0xFF10B981),
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'ACTIVE',
@@ -585,7 +649,8 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                     color: Color(0xFF0F172A),
                   ),
                 ),
-                if (contact.ownerName != null && contact.ownerName!.isNotEmpty) ...[
+                if (contact.ownerName != null &&
+                    contact.ownerName!.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
                     'Partner: ${contact.ownerName}',
@@ -605,12 +670,15 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                     onTap: () => _onPhoneTapped(contact.phone, contact.name),
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7).withOpacity(0.06),
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: const Color(0xFF0284C7).withOpacity(0.3),
+                          color: const Color(0xFF0284C7).withValues(alpha: 0.3),
                           width: 1.2,
                         ),
                       ),
@@ -643,7 +711,9 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  contact.phone.isNotEmpty ? contact.phone : 'Not configured',
+                                  contact.phone.isNotEmpty
+                                      ? contact.phone
+                                      : 'Not configured',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
@@ -655,7 +725,10 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFF0284C7),
                               borderRadius: BorderRadius.circular(8),
@@ -663,7 +736,11 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.touch_app_rounded, color: Colors.white, size: 14),
+                                Icon(
+                                  Icons.touch_app_rounded,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'Connect',
@@ -691,10 +768,17 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                       onTap: () => _onEmailTapped(contact.email),
                       borderRadius: BorderRadius.circular(12),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 6,
+                        ),
                         child: Row(
                           children: [
-                            const Icon(Icons.mail_outline_rounded, color: Color(0xFF64748B), size: 18),
+                            const Icon(
+                              Icons.mail_outline_rounded,
+                              color: Color(0xFF64748B),
+                              size: 18,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -707,7 +791,11 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                                 ),
                               ),
                             ),
-                            const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey),
+                            const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 12,
+                              color: Colors.grey,
+                            ),
                           ],
                         ),
                       ),
@@ -748,7 +836,11 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
               IconButton(
                 constraints: const BoxConstraints(),
                 padding: const EdgeInsets.all(4),
-                icon: const Icon(Icons.edit_rounded, color: Color(0xFF0284C7), size: 18),
+                icon: const Icon(
+                  Icons.edit_rounded,
+                  color: Color(0xFF0284C7),
+                  size: 18,
+                ),
                 onPressed: () => _showEditContactDialog(c),
               ),
             ],
@@ -756,7 +848,11 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
           const SizedBox(height: 4),
           Text(
             c.name,
-            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade800, fontSize: 13),
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade800,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 8),
           Row(
@@ -765,7 +861,11 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                 onTap: () => _onPhoneTapped(c.phone, c.name),
                 child: Row(
                   children: [
-                    const Icon(Icons.phone_outlined, size: 14, color: Color(0xFF0284C7)),
+                    const Icon(
+                      Icons.phone_outlined,
+                      size: 14,
+                      color: Color(0xFF0284C7),
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       c.phone,
@@ -785,13 +885,20 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                     onTap: () => _onEmailTapped(c.email),
                     child: Row(
                       children: [
-                        const Icon(Icons.email_outlined, size: 14, color: Colors.grey),
+                        const Icon(
+                          Icons.email_outlined,
+                          size: 14,
+                          color: Colors.grey,
+                        ),
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
                             c.email,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
                           ),
                         ),
                       ],

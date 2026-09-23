@@ -25,8 +25,7 @@ class FranchiseMainScreen extends StatefulWidget {
   const FranchiseMainScreen({super.key});
 
   @override
-  State<FranchiseMainScreen> createState() =>
-      _FranchiseMainScreenState();
+  State<FranchiseMainScreen> createState() => _FranchiseMainScreenState();
 }
 
 class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
@@ -273,24 +272,17 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
             // =========================
             // LEFT SIDEBAR
             // =========================
-            SizedBox(
-              width: 250,
-              child: _buildSidebar(),
-            ),
+            SizedBox(width: 250, child: _buildSidebar()),
 
             // =========================
             // RIGHT AREA
             // =========================
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // HEADER
-                  SizedBox(
-                    height: 72,
-                    child: _buildHeader(),
-                  ),
+                  SizedBox(height: 72, child: _buildHeader()),
 
                   // SCREEN CONTENT
                   Expanded(
@@ -320,8 +312,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       child: SafeArea(
         right: false,
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // =========================
             // LOGO
@@ -329,9 +320,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
             SizedBox(
               height: 76,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
                     Container(
@@ -339,8 +328,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                       height: 42,
                       decoration: BoxDecoration(
                         color: const Color(0xFF059669),
-                        borderRadius:
-                            BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.water_drop_rounded,
@@ -353,29 +341,24 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
 
                     const Expanded(
                       child: Column(
-                        mainAxisAlignment:
-                            MainAxisAlignment.center,
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Shivnath Agency',
                             maxLines: 1,
-                            overflow:
-                                TextOverflow.ellipsis,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,
-                              fontWeight:
-                                  FontWeight.w800,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                           SizedBox(height: 3),
                           Text(
                             'Franchise Portal',
                             style: TextStyle(
-                              color:
-                                  Color(0xFF94A3B8),
+                              color: Color(0xFF94A3B8),
                               fontSize: 9,
                             ),
                           ),
@@ -387,41 +370,24 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
               ),
             ),
 
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: Color(0xFF1F2937),
-            ),
+            const Divider(height: 1, thickness: 1, color: Color(0xFF1F2937)),
 
             // =========================
             // FRANCHISE USER CARD
             // =========================
             Container(
-              margin: const EdgeInsets.fromLTRB(
-                14,
-                16,
-                14,
-                10,
-              ),
+              margin: const EdgeInsets.fromLTRB(14, 16, 14, 10),
               padding: const EdgeInsets.all(11),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(
-                  alpha: 0.055,
-                ),
-                borderRadius:
-                    BorderRadius.circular(11),
-                border: Border.all(
-                  color: Colors.white.withValues(
-                    alpha: 0.06,
-                  ),
-                ),
+                color: Colors.white.withValues(alpha: 0.055),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 19,
-                    backgroundColor:
-                        const Color(0xFF0EA5E9),
+                    backgroundColor: const Color(0xFF0EA5E9),
                     child: Text(
                       _currentUser?.name.isNotEmpty == true
                           ? _currentUser!.name.substring(0, 1).toUpperCase()
@@ -429,8 +395,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 10,
-                        fontWeight:
-                            FontWeight.w700,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -439,21 +404,18 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
 
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           _currentUser?.name.isNotEmpty == true
                               ? _currentUser!.name
                               : 'Franchise',
                           maxLines: 1,
-                          overflow:
-                              TextOverflow.ellipsis,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
-                            fontWeight:
-                                FontWeight.w700,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: 3),
@@ -462,8 +424,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                               ? _currentUser!.phone
                               : 'Authorized Franchise',
                           style: const TextStyle(
-                            color:
-                                Color(0xFF94A3B8),
+                            color: Color(0xFF94A3B8),
                             fontSize: 9,
                           ),
                         ),
@@ -479,7 +440,10 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
             // =========================
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 4,
+                ),
                 children: [
                   for (final group in navGroups) ...[
                     Padding(
@@ -514,9 +478,13 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               height: 40,
-                              padding: const EdgeInsets.symmetric(horizontal: 11),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 11,
+                              ),
                               decoration: BoxDecoration(
-                                color: (!item.isLogout && currentIndex == item.index)
+                                color:
+                                    (!item.isLogout &&
+                                        currentIndex == item.index)
                                     ? const Color(0xFF059669)
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(9),
@@ -524,15 +492,17 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                               child: Row(
                                 children: [
                                   Icon(
-                                    (!item.isLogout && currentIndex == item.index)
+                                    (!item.isLogout &&
+                                            currentIndex == item.index)
                                         ? item.selectedIcon
                                         : item.icon,
                                     size: 19,
                                     color: item.isLogout
                                         ? const Color(0xFFFCA5A5)
-                                        : ((!item.isLogout && currentIndex == item.index)
-                                            ? Colors.white
-                                            : const Color(0xFF9CA3AF)),
+                                        : ((!item.isLogout &&
+                                                  currentIndex == item.index)
+                                              ? Colors.white
+                                              : const Color(0xFF9CA3AF)),
                                   ),
                                   const SizedBox(width: 11),
                                   Expanded(
@@ -541,11 +511,15 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                                       style: TextStyle(
                                         color: item.isLogout
                                             ? const Color(0xFFFCA5A5)
-                                            : ((!item.isLogout && currentIndex == item.index)
-                                                ? Colors.white
-                                                : const Color(0xFF9CA3AF)),
+                                            : ((!item.isLogout &&
+                                                      currentIndex ==
+                                                          item.index)
+                                                  ? Colors.white
+                                                  : const Color(0xFF9CA3AF)),
                                         fontSize: 11,
-                                        fontWeight: (!item.isLogout && currentIndex == item.index)
+                                        fontWeight:
+                                            (!item.isLogout &&
+                                                currentIndex == item.index)
                                             ? FontWeight.w700
                                             : FontWeight.w500,
                                       ),
@@ -576,17 +550,9 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
     return Material(
       color: Colors.white,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal: 28,
-        ),
-        decoration:
-            const BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: Color(0xFFE8EBF0),
-            ),
-          ),
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0xFFE8EBF0))),
         ),
         child: Row(
           children: [
@@ -599,29 +565,21 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
             const SizedBox(width: 11),
 
             const Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Franchise Portal',
                   style: TextStyle(
                     fontSize: 15,
-                    fontWeight:
-                        FontWeight.w800,
-                    color:
-                        Color(0xFF111827),
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF111827),
                   ),
                 ),
                 SizedBox(height: 2),
                 Text(
                   'Manage orders, payments and franchise operations',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color:
-                        Color(0xFF94A3B8),
-                  ),
+                  style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
                 ),
               ],
             ),
@@ -632,49 +590,20 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
               width: 280,
               height: 42,
               child: TextField(
-                decoration:
-                    InputDecoration(
-                  hintText:
-                      'Search orders, products...',
-                  hintStyle:
-                      const TextStyle(
-                    fontSize: 12,
-                  ),
-                  prefixIcon:
-                      const Icon(
-                    Icons.search_rounded,
-                    size: 20,
-                  ),
+                decoration: InputDecoration(
+                  hintText: 'Search orders, products...',
+                  hintStyle: const TextStyle(fontSize: 12),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
                   filled: true,
-                  fillColor:
-                      const Color(
-                    0xFFF8FAFC,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding: EdgeInsets.zero,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
-                  contentPadding:
-                      EdgeInsets.zero,
-                  enabledBorder:
-                      OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(
-                      10,
-                    ),
-                    borderSide:
-                        const BorderSide(
-                      color:
-                          Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  focusedBorder:
-                      OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(
-                      10,
-                    ),
-                    borderSide:
-                        const BorderSide(
-                      color:
-                          Color(0xFF0EA5E9),
-                    ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFF0EA5E9)),
                   ),
                 ),
               ),
@@ -688,8 +617,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        const FranchiseNotificationsScreen(),
+                    builder: (_) => const FranchiseNotificationsScreen(),
                   ),
                 );
               },
@@ -722,17 +650,12 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                     break;
                 }
               },
-              itemBuilder: (_) =>
-                  const [
+              itemBuilder: (_) => const [
                 PopupMenuItem<String>(
                   value: 'profile',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons
-                            .person_outline_rounded,
-                        size: 20,
-                      ),
+                      Icon(Icons.person_outline_rounded, size: 20),
                       SizedBox(width: 10),
                       Text('My Profile'),
                     ],
@@ -743,11 +666,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                   value: 'settings',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons
-                            .settings_outlined,
-                        size: 20,
-                      ),
+                      Icon(Icons.settings_outlined, size: 20),
                       SizedBox(width: 10),
                       Text('Settings'),
                     ],
@@ -760,18 +679,9 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                   value: 'logout',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.logout_rounded,
-                        color: Colors.red,
-                        size: 20,
-                      ),
+                      Icon(Icons.logout_rounded, color: Colors.red, size: 20),
                       SizedBox(width: 10),
-                      Text(
-                        'Logout',
-                        style: TextStyle(
-                          color: Colors.red,
-                        ),
-                      ),
+                      Text('Logout', style: TextStyle(color: Colors.red)),
                     ],
                   ),
                 ),
@@ -780,18 +690,15 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                 children: [
                   CircleAvatar(
                     radius: 19,
-                    backgroundColor:
-                        const Color(0xFFE0F2FE),
+                    backgroundColor: const Color(0xFFE0F2FE),
                     child: Text(
                       _currentUser?.name.isNotEmpty == true
                           ? _currentUser!.name.substring(0, 1).toUpperCase()
                           : 'FP',
                       style: const TextStyle(
-                        color:
-                            Color(0xFF0284C7),
+                        color: Color(0xFF0284C7),
                         fontSize: 10,
-                        fontWeight:
-                            FontWeight.w700,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -799,10 +706,8 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                   const SizedBox(width: 9),
 
                   Column(
-                    mainAxisAlignment:
-                        MainAxisAlignment.center,
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         _currentUser?.name.isNotEmpty == true
@@ -810,31 +715,21 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                             : 'Franchise Partner',
                         style: const TextStyle(
                           fontSize: 11,
-                          fontWeight:
-                              FontWeight.w700,
-                          color:
-                              Color(0xFF111827),
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF111827),
                         ),
                       ),
                       const SizedBox(height: 2),
                       const Text(
                         'Franchise',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color:
-                              Color(0xFF94A3B8),
-                        ),
+                        style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
                       ),
                     ],
                   ),
 
                   const SizedBox(width: 5),
 
-                  const Icon(
-                    Icons
-                        .keyboard_arrow_down_rounded,
-                    size: 18,
-                  ),
+                  const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
                 ],
               ),
             ),
@@ -856,13 +751,15 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
-        leading: Builder(builder: (ctx) {
-          return IconButton(
-            icon: const Icon(Icons.menu_rounded, color: Color(0xFF111827)),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-            tooltip: 'Menu',
-          );
-        }),
+        leading: Builder(
+          builder: (ctx) {
+            return IconButton(
+              icon: const Icon(Icons.menu_rounded, color: Color(0xFF111827)),
+              onPressed: () => Scaffold.of(ctx).openDrawer(),
+              tooltip: 'Menu',
+            );
+          },
+        ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -871,7 +768,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
               height: 26,
               width: 26,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Icon(
+              errorBuilder: (_, _, _) => const Icon(
                 Icons.water_drop_rounded,
                 color: Color(0xFF059669),
                 size: 24,
@@ -894,10 +791,15 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
         actions: [
           IconButton(
             tooltip: 'Notifications',
-            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF475569)),
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: Color(0xFF475569),
+            ),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const FranchiseNotificationsScreen()),
+              MaterialPageRoute(
+                builder: (_) => const FranchiseNotificationsScreen(),
+              ),
             ),
           ),
           const SizedBox(width: 4),
@@ -913,7 +815,10 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
             children: [
               // LOGO + BRAND
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 18,
+                ),
                 child: Row(
                   children: [
                     Container(
@@ -958,7 +863,10 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
               // USER INFO
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1F2937),
                   borderRadius: BorderRadius.circular(10),
@@ -972,7 +880,11 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                         _currentUser?.name.isNotEmpty == true
                             ? _currentUser!.name.substring(0, 1).toUpperCase()
                             : 'FP',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -984,13 +896,20 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                             _currentUser?.name.isNotEmpty == true
                                 ? _currentUser!.name
                                 : 'Franchise Partner',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const Text(
                             'Franchise',
-                            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 10),
+                            style: TextStyle(
+                              color: Color(0xFF9CA3AF),
+                              fontSize: 10,
+                            ),
                           ),
                         ],
                       ),
@@ -1040,9 +959,13 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 150),
                                 height: 42,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: (!item.isLogout && currentIndex == item.index)
+                                  color:
+                                      (!item.isLogout &&
+                                          currentIndex == item.index)
                                       ? const Color(0xFF059669)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(9),
@@ -1050,15 +973,17 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                                 child: Row(
                                   children: [
                                     Icon(
-                                      (!item.isLogout && currentIndex == item.index)
+                                      (!item.isLogout &&
+                                              currentIndex == item.index)
                                           ? item.selectedIcon
                                           : item.icon,
                                       size: 19,
                                       color: item.isLogout
                                           ? const Color(0xFFFCA5A5)
-                                          : ((!item.isLogout && currentIndex == item.index)
-                                              ? Colors.white
-                                              : const Color(0xFF9CA3AF)),
+                                          : ((!item.isLogout &&
+                                                    currentIndex == item.index)
+                                                ? Colors.white
+                                                : const Color(0xFF9CA3AF)),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -1067,11 +992,15 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
                                         style: TextStyle(
                                           color: item.isLogout
                                               ? const Color(0xFFFCA5A5)
-                                              : ((!item.isLogout && currentIndex == item.index)
-                                                  ? Colors.white
-                                                  : const Color(0xFF9CA3AF)),
+                                              : ((!item.isLogout &&
+                                                        currentIndex ==
+                                                            item.index)
+                                                    ? Colors.white
+                                                    : const Color(0xFF9CA3AF)),
                                           fontSize: 13,
-                                          fontWeight: (!item.isLogout && currentIndex == item.index)
+                                          fontWeight:
+                                              (!item.isLogout &&
+                                                  currentIndex == item.index)
                                               ? FontWeight.w700
                                               : FontWeight.w500,
                                         ),
@@ -1101,38 +1030,24 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
   // =========================================================
 
   Future<void> _logout() async {
-    final bool? shouldLogout =
-        await showDialog<bool>(
+    final bool? shouldLogout = await showDialog<bool>(
       context: context,
-      builder: (
-        dialogContext,
-      ) {
+      builder: (dialogContext) {
         return AlertDialog(
-          title:
-              const Text('Logout'),
-          content: const Text(
-            'Are you sure you want to logout?',
-          ),
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
+                Navigator.pop(dialogContext, false);
               },
-              child:
-                  const Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
+                Navigator.pop(dialogContext, true);
               },
-              child:
-                  const Text('Logout'),
+              child: const Text('Logout'),
             ),
           ],
         );
@@ -1165,10 +1080,7 @@ class _FranchiseNavGroup {
   final String title;
   final List<_FranchiseNavItem> items;
 
-  const _FranchiseNavGroup({
-    required this.title,
-    required this.items,
-  });
+  const _FranchiseNavGroup({required this.title, required this.items});
 }
 
 class _FranchiseNavItem {
@@ -1185,6 +1097,5 @@ class _FranchiseNavItem {
     required this.icon,
     required this.selectedIcon,
     this.isLogout = false,
-    this.isSupport = false,
-  });
+  }) : isSupport = false;
 }

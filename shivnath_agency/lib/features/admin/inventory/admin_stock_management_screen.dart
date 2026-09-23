@@ -6,14 +6,17 @@ class AdminStockManagementScreen extends StatefulWidget {
   const AdminStockManagementScreen({super.key});
 
   @override
-  State<AdminStockManagementScreen> createState() => _AdminStockManagementScreenState();
+  State<AdminStockManagementScreen> createState() =>
+      _AdminStockManagementScreenState();
 }
 
-class _AdminStockManagementScreenState extends State<AdminStockManagementScreen> {
+class _AdminStockManagementScreenState
+    extends State<AdminStockManagementScreen> {
   final StockService _stockService = StockService();
 
   bool _isLoading = true;
-  String _selectedFilter = 'all'; // all, active, low_stock, expiring_7_days, expired, held
+  String _selectedFilter =
+      'all'; // all, active, low_stock, expiring_7_days, expired, held
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
@@ -97,13 +100,20 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             const SizedBox(height: 14),
             Row(
               children: [
-                const Icon(Icons.history_toggle_off_rounded, color: Color(0xFF9333EA), size: 24),
+                const Icon(
+                  Icons.history_toggle_off_rounded,
+                  color: Color(0xFF9333EA),
+                  size: 24,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -111,11 +121,17 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                     children: [
                       const Text(
                         'Service Hold / Resume Audit Log',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
                       ),
                       Text(
                         '$custName • $prodName',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ],
                   ),
@@ -144,19 +160,25 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                     final item = holdHistory[i] as Map<String, dynamic>;
                     final action = item['action']?.toString() ?? '';
                     final isHold = action == 'hold';
-                    final reason = item['reason']?.toString() ?? 'No reason provided';
+                    final reason =
+                        item['reason']?.toString() ?? 'No reason provided';
                     final remainingDays = item['remaining_days'];
                     final createdAt = item['created_at']?.toString() ?? '';
-                    final actorName = item['actor_name']?.toString() ?? 'System';
+                    final actorName =
+                        item['actor_name']?.toString() ?? 'System';
                     final actorRole = item['actor_role']?.toString() ?? '';
 
                     return Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isHold ? const Color(0xFFFDF2F8) : const Color(0xFFF0FDF4),
+                        color: isHold
+                            ? const Color(0xFFFDF2F8)
+                            : const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: isHold ? const Color(0xFFFBCFE8) : const Color(0xFFBBF7D0),
+                          color: isHold
+                              ? const Color(0xFFFBCFE8)
+                              : const Color(0xFFBBF7D0),
                         ),
                       ),
                       child: Column(
@@ -168,9 +190,13 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                               Row(
                                 children: [
                                   Icon(
-                                    isHold ? Icons.pause_circle_filled : Icons.play_circle_fill,
+                                    isHold
+                                        ? Icons.pause_circle_filled
+                                        : Icons.play_circle_fill,
                                     size: 16,
-                                    color: isHold ? const Color(0xFFBE185D) : const Color(0xFF15803D),
+                                    color: isHold
+                                        ? const Color(0xFFBE185D)
+                                        : const Color(0xFF15803D),
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
@@ -178,31 +204,48 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                                     style: TextStyle(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 12,
-                                      color: isHold ? const Color(0xFFBE185D) : const Color(0xFF15803D),
+                                      color: isHold
+                                          ? const Color(0xFFBE185D)
+                                          : const Color(0xFF15803D),
                                     ),
                                   ),
                                 ],
                               ),
                               if (remainingDays != null)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     '$remainingDays days preserved',
-                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text('Reason: $reason', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          Text(
+                            'Reason: $reason',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             'By $actorName ($actorRole) on $createdAt',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
                         ],
                       ),
@@ -217,7 +260,9 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0284C7),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Close'),
@@ -241,12 +286,12 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FA),
       appBar: AppBar(
-        title: const Text('Stock Management & Monitoring', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text(
+          'Stock Management & Monitoring',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchStocks,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchStocks),
         ],
       ),
       body: Column(
@@ -263,7 +308,8 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search by customer, product, order #, or franchise...',
+                hintText:
+                    'Search by customer, product, order #, or franchise...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
@@ -277,9 +323,18 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                     : null,
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 0,
+                  horizontal: 16,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                ),
               ),
               onSubmitted: (val) {
                 setState(() => _searchQuery = val);
@@ -291,33 +346,43 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
           // Main list
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF0284C7)),
+                  )
                 : _stocks.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.inventory_2_outlined, size: 54, color: Color(0xFFCBD5E1)),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No stock cycles found for filter "$_selectedFilter"',
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
-                              ),
-                            ],
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.inventory_2_outlined,
+                            size: 54,
+                            color: Color(0xFFCBD5E1),
                           ),
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _fetchStocks,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
-                          itemCount: _stocks.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
-                          itemBuilder: (_, i) => _buildStockCard(_stocks[i]),
-                        ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No stock cycles found for filter "$_selectedFilter"',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _fetchStocks,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
+                      itemCount: _stocks.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (_, i) => _buildStockCard(_stocks[i]),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -332,17 +397,47 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _metricItem('Total Stocks', '${_metrics['total_stocks'] ?? 0}', Icons.inventory_2_rounded, const Color(0xFF0284C7)),
+            _metricItem(
+              'Total Stocks',
+              '${_metrics['total_stocks'] ?? 0}',
+              Icons.inventory_2_rounded,
+              const Color(0xFF0284C7),
+            ),
             const SizedBox(width: 10),
-            _metricItem('Active', '${_metrics['active_stocks'] ?? 0}', Icons.check_circle_rounded, const Color(0xFF16A34A)),
+            _metricItem(
+              'Active',
+              '${_metrics['active_stocks'] ?? 0}',
+              Icons.check_circle_rounded,
+              const Color(0xFF16A34A),
+            ),
             const SizedBox(width: 10),
-            _metricItem('Low Stock (≤7d)', '${_metrics['low_stock_alerts'] ?? 0}', Icons.warning_amber_rounded, const Color(0xFFD97706)),
+            _metricItem(
+              'Low Stock (≤7d)',
+              '${_metrics['low_stock_alerts'] ?? 0}',
+              Icons.warning_amber_rounded,
+              const Color(0xFFD97706),
+            ),
             const SizedBox(width: 10),
-            _metricItem('Expiring in 7d', '${_metrics['expiring_in_7_days'] ?? 0}', Icons.timer_outlined, const Color(0xFFEA580C)),
+            _metricItem(
+              'Expiring in 7d',
+              '${_metrics['expiring_in_7_days'] ?? 0}',
+              Icons.timer_outlined,
+              const Color(0xFFEA580C),
+            ),
             const SizedBox(width: 10),
-            _metricItem('On Hold', '${_metrics['held_stocks'] ?? 0}', Icons.pause_circle_filled, const Color(0xFF9333EA)),
+            _metricItem(
+              'On Hold',
+              '${_metrics['held_stocks'] ?? 0}',
+              Icons.pause_circle_filled,
+              const Color(0xFF9333EA),
+            ),
             const SizedBox(width: 10),
-            _metricItem('Expired', '${_metrics['expired_stocks'] ?? 0}', Icons.cancel_rounded, const Color(0xFFDC2626)),
+            _metricItem(
+              'Expired',
+              '${_metrics['expired_stocks'] ?? 0}',
+              Icons.cancel_rounded,
+              const Color(0xFFDC2626),
+            ),
           ],
         ),
       ),
@@ -353,9 +448,9 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -364,8 +459,22 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(val, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: color)),
-              Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              Text(
+                val,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: color,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ],
@@ -402,9 +511,17 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
     final isSelected = _selectedFilter == key;
     return ChoiceChip(
       selected: isSelected,
-      label: Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, fontSize: 11)),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+          fontSize: 11,
+        ),
+      ),
       selectedColor: const Color(0xFF0284C7),
-      labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF475569)),
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : const Color(0xFF475569),
+      ),
       backgroundColor: const Color(0xFFF1F5F9),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       side: BorderSide.none,
@@ -421,7 +538,8 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
     final customer = stock['customer'] as Map<String, dynamic>? ?? {};
     final custName = customer['name']?.toString() ?? 'Customer';
     final custPhone = customer['phone']?.toString() ?? '';
-    final custCode = customer['customer_code']?.toString() ?? 'CUST-${customer['id']}';
+    final custCode =
+        customer['customer_code']?.toString() ?? 'CUST-${customer['id']}';
 
     final productName = stock['product_name'] ?? 'Pure Drinking Water';
     final variantSize = stock['variant_size'] ?? '';
@@ -435,8 +553,10 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
     final isLowStock = stock['is_low_stock'] == true;
     final status = stock['service_status'] ?? 'active';
 
-    final servingFranchise = stock['serving_franchise'] as Map<String, dynamic>?;
-    final registeredFranchise = stock['registered_franchise'] as Map<String, dynamic>?;
+    final servingFranchise =
+        stock['serving_franchise'] as Map<String, dynamic>?;
+    final registeredFranchise =
+        stock['registered_franchise'] as Map<String, dynamic>?;
     final territory = stock['territory'] as Map<String, dynamic>?;
     final holdHistory = stock['hold_history'] as List? ?? [];
 
@@ -447,7 +567,9 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isLowStock && status != 'hold' ? const Color(0xFFF59E0B) : const Color(0xFFE5E7EB),
+          color: isLowStock && status != 'hold'
+              ? const Color(0xFFF59E0B)
+              : const Color(0xFFE5E7EB),
           width: isLowStock && status != 'hold' ? 1.5 : 1,
         ),
       ),
@@ -464,7 +586,10 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                 backgroundColor: const Color(0xFFE0F2FE),
                 child: Text(
                   custName.isNotEmpty ? custName[0].toUpperCase() : 'C',
-                  style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0284C7)),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0284C7),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -472,10 +597,19 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(custName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    Text(
+                      custName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
                     Text(
                       '$custCode • $custPhone',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ),
@@ -483,16 +617,16 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
+                  color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: statusColor.withOpacity(0.3)),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   status == 'hold'
                       ? 'ON HOLD'
                       : isLowStock
-                          ? '$daysRemaining DAYS LEFT'
-                          : status.toUpperCase(),
+                      ? '$daysRemaining DAYS LEFT'
+                      : status.toUpperCase(),
                   style: TextStyle(
                     color: statusColor,
                     fontSize: 10,
@@ -519,11 +653,18 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                   children: [
                     Text(
                       '$productName ($variantSize) x $quantity',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
                     ),
                     Text(
                       '$daysRemaining Days Left',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: statusColor),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        color: statusColor,
+                      ),
                     ),
                   ],
                 ),
@@ -531,10 +672,22 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Order: $orderNumber', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                     Text(
-                      durationChoice.isNotEmpty ? durationChoice.toUpperCase() : '$durationDays Days',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                      'Order: $orderNumber',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    Text(
+                      durationChoice.isNotEmpty
+                          ? durationChoice.toUpperCase()
+                          : '$durationDays Days',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
+                      ),
                     ),
                   ],
                 ),
@@ -542,8 +695,20 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Started: $startDate', style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
-                    Text('Expected: $expectedEndDate', style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                    Text(
+                      'Started: $startDate',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                    Text(
+                      'Expected: $expectedEndDate',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -554,18 +719,31 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
           // Territory & Franchise Mapping
           Row(
             children: [
-              const Icon(Icons.storefront_outlined, size: 14, color: Color(0xFF0284C7)),
+              const Icon(
+                Icons.storefront_outlined,
+                size: 14,
+                color: Color(0xFF0284C7),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Serving: ${servingFranchise?['business_name'] ?? servingFranchise?['name'] ?? 'Franchise'}',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                  ),
                 ),
               ),
               if (servingFranchise?['phone'] != null)
                 InkWell(
-                  onTap: () => _callPhone(servingFranchise!['phone']?.toString()),
-                  child: const Icon(Icons.phone, size: 14, color: Color(0xFF0284C7)),
+                  onTap: () =>
+                      _callPhone(servingFranchise!['phone']?.toString()),
+                  child: const Icon(
+                    Icons.phone,
+                    size: 14,
+                    color: Color(0xFF0284C7),
+                  ),
                 ),
             ],
           ),
@@ -574,12 +752,19 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
             const SizedBox(height: 2),
             Row(
               children: [
-                const Icon(Icons.verified_user_outlined, size: 14, color: Color(0xFF64748B)),
+                const Icon(
+                  Icons.verified_user_outlined,
+                  size: 14,
+                  color: Color(0xFF64748B),
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'Registered: ${registeredFranchise['business_name'] ?? registeredFranchise['name'] ?? 'Franchise'}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ),
               ],
@@ -589,12 +774,19 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
             const SizedBox(height: 2),
             Row(
               children: [
-                const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 14,
+                  color: Color(0xFF64748B),
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'Zone: ${territory['zone'] ?? ''}, ${territory['district'] ?? ''} (${territory['pincode'] ?? ''})',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ),
               ],
@@ -607,14 +799,26 @@ class _AdminStockManagementScreenState extends State<AdminStockManagementScreen>
               onTap: () => _showHoldHistoryDialog(stock),
               child: Row(
                 children: [
-                  const Icon(Icons.history_toggle_off_rounded, size: 14, color: Color(0xFF9333EA)),
+                  const Icon(
+                    Icons.history_toggle_off_rounded,
+                    size: 14,
+                    color: Color(0xFF9333EA),
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     'View Hold History (${holdHistory.length} events)',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF9333EA)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF9333EA),
+                    ),
                   ),
                   const Spacer(),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF9333EA)),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 10,
+                    color: Color(0xFF9333EA),
+                  ),
                 ],
               ),
             ),

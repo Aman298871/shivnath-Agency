@@ -210,11 +210,7 @@ class AppBarLogo extends StatelessWidget {
   final double size;
   final String? subtitle;
 
-  const AppBarLogo({
-    super.key,
-    this.size = 32.0,
-    this.subtitle,
-  });
+  const AppBarLogo({super.key, this.size = 32.0, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +224,7 @@ class AppBarLogo extends StatelessWidget {
           height: size,
           width: size,
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => Icon(
+          errorBuilder: (_, _, _) => Icon(
             Icons.water_drop_rounded,
             color: BrandColors.primaryBlue,
             size: size * 0.9,
@@ -305,15 +301,15 @@ class SafeAreaScaffold extends StatelessWidget {
       floatingActionButton: floatingActionButton,
       floatingActionButtonLocation: floatingActionButtonLocation,
       bottomNavigationBar: bottomNavigationBar != null
-          ? SafeArea(
-              top: false,
-              bottom: true,
-              child: bottomNavigationBar!,
-            )
+          ? SafeArea(top: false, bottom: true, child: bottomNavigationBar!)
           : null,
       body: SafeArea(
-        top: appBar == null ? top : false, // Avoid double padding if AppBar exists
-        bottom: bottomNavigationBar == null ? bottom : false, // Avoid double padding if bottomNavigationBar exists
+        top: appBar == null
+            ? top
+            : false, // Avoid double padding if AppBar exists
+        bottom: bottomNavigationBar == null
+            ? bottom
+            : false, // Avoid double padding if bottomNavigationBar exists
         child: body,
       ),
     );

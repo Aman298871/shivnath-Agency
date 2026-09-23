@@ -91,7 +91,11 @@ class SupportDeskService {
       final list = res['data']['contacts'];
       if (list is List) {
         return list
-            .map((item) => SupportContactInfo.fromJson(Map<String, dynamic>.from(item as Map)))
+            .map(
+              (item) => SupportContactInfo.fromJson(
+                Map<String, dynamic>.from(item as Map),
+              ),
+            )
             .toList();
       }
     }
@@ -125,10 +129,11 @@ class SupportDeskService {
   }) async {
     UserModel? currentUser = await _sessionService.getUser();
 
-    final resolvedName = (name ?? currentUser?.name ?? currentUser?.businessName ?? '').trim();
+    final resolvedName =
+        (name ?? currentUser?.name ?? currentUser?.businessName ?? '').trim();
     final resolvedMobile = (mobile ?? currentUser?.phone ?? '').trim();
     final resolvedEmail = (email ?? currentUser?.email ?? '').trim();
-    
+
     String resolvedRole = (role ?? '').trim();
     if (resolvedRole.isEmpty && currentUser != null) {
       if (currentUser.role.toLowerCase() == 'customer') {
@@ -149,7 +154,9 @@ class SupportDeskService {
 
     final buffer = StringBuffer();
     buffer.writeln('Namaste, my name is $greetingName.');
-    buffer.writeln('I am contacting Shivnath Agency Support regarding an enquiry.');
+    buffer.writeln(
+      'I am contacting Shivnath Agency Support regarding an enquiry.',
+    );
     buffer.writeln();
     buffer.writeln('My details:');
     if (resolvedName.isNotEmpty) {
@@ -226,7 +233,7 @@ class SupportDeskService {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0284C7).withOpacity(0.12),
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -341,11 +348,16 @@ class SupportDeskService {
       if (await canLaunchUrl(callUri)) {
         await launchUrl(callUri, mode: LaunchMode.externalApplication);
       } else {
-        final launched = await launchUrl(callUri, mode: LaunchMode.platformDefault);
+        final launched = await launchUrl(
+          callUri,
+          mode: LaunchMode.platformDefault,
+        );
         if (!launched && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No phone or calling application available on this device.'),
+              content: Text(
+                'No phone or calling application available on this device.',
+              ),
               backgroundColor: Colors.redAccent,
             ),
           );
@@ -426,7 +438,10 @@ class SupportDeskService {
 
               // WhatsApp Option
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                   side: BorderSide(color: Colors.green.shade200, width: 1.5),
@@ -434,20 +449,32 @@ class SupportDeskService {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF25D366).withOpacity(0.15),
+                    color: const Color(0xFF25D366).withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366), size: 24),
+                  child: const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    color: Color(0xFF25D366),
+                    size: 24,
+                  ),
                 ),
                 title: const Text(
                   'WhatsApp',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                 ),
                 subtitle: const Text('Chat instantly on WhatsApp'),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+                trailing: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: Colors.grey,
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  launchWhatsApp(context, phone: phone, message: prefilledMessage);
+                  launchWhatsApp(
+                    context,
+                    phone: phone,
+                    message: prefilledMessage,
+                  );
                 },
               ),
 
@@ -455,7 +482,10 @@ class SupportDeskService {
 
               // SMS Option
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                   side: BorderSide(color: Colors.blue.shade200, width: 1.5),
@@ -463,17 +493,25 @@ class SupportDeskService {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0284C7).withOpacity(0.15),
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.sms_outlined, color: Color(0xFF0284C7), size: 24),
+                  child: const Icon(
+                    Icons.sms_outlined,
+                    color: Color(0xFF0284C7),
+                    size: 24,
+                  ),
                 ),
                 title: const Text(
                   'SMS Message',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                 ),
                 subtitle: const Text('Send standard text message (SMS)'),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+                trailing: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: Colors.grey,
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   launchSMS(context, phone: phone, message: prefilledMessage);
@@ -483,7 +521,10 @@ class SupportDeskService {
               const SizedBox(height: 14),
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
@@ -501,8 +542,12 @@ class SupportDeskService {
     final cleanPhone = formatWhatsAppPhone(phone);
     final encodedMessage = Uri.encodeComponent(message);
 
-    final Uri waMeUri = Uri.parse('https://wa.me/$cleanPhone?text=$encodedMessage');
-    final Uri waNativeUri = Uri.parse('whatsapp://send?phone=$cleanPhone&text=$encodedMessage');
+    final Uri waMeUri = Uri.parse(
+      'https://wa.me/$cleanPhone?text=$encodedMessage',
+    );
+    final Uri waNativeUri = Uri.parse(
+      'whatsapp://send?phone=$cleanPhone&text=$encodedMessage',
+    );
 
     try {
       if (await canLaunchUrl(waNativeUri)) {
@@ -513,17 +558,23 @@ class SupportDeskService {
         await launchUrl(waMeUri, mode: LaunchMode.externalApplication);
         return;
       }
-      
+
       // Fallback
-      final launched = await launchUrl(waMeUri, mode: LaunchMode.platformDefault);
+      final launched = await launchUrl(
+        waMeUri,
+        mode: LaunchMode.platformDefault,
+      );
       if (!launched && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('WhatsApp is not available on your device. Launching SMS instead...'),
+            content: const Text(
+              'WhatsApp is not available on your device. Launching SMS instead...',
+            ),
             action: SnackBarAction(
               label: 'Open SMS',
               textColor: Colors.amber,
-              onPressed: () => launchSMS(context, phone: phone, message: message),
+              onPressed: () =>
+                  launchSMS(context, phone: phone, message: message),
             ),
           ),
         );
@@ -555,11 +606,16 @@ class SupportDeskService {
       if (await canLaunchUrl(smsUri)) {
         await launchUrl(smsUri, mode: LaunchMode.externalApplication);
       } else {
-        final launched = await launchUrl(smsUri, mode: LaunchMode.platformDefault);
+        final launched = await launchUrl(
+          smsUri,
+          mode: LaunchMode.platformDefault,
+        );
         if (!launched && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No supported SMS application available on this device.'),
+              content: Text(
+                'No supported SMS application available on this device.',
+              ),
               backgroundColor: Colors.redAccent,
             ),
           );
@@ -569,7 +625,9 @@ class SupportDeskService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Could not launch SMS app. Please send an SMS manually.'),
+            content: Text(
+              'Could not launch SMS app. Please send an SMS manually.',
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );

@@ -11,80 +11,68 @@ class AdminSettingsScreen extends StatefulWidget {
 class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   String activeTab = 'Business';
 
-  final businessName =
-      TextEditingController(text: 'Pure Water Industries');
+  final businessName = TextEditingController(text: 'Pure Water Industries');
   final phone = TextEditingController(text: '9876543210');
-  final email =
-      TextEditingController(text: 'admin@purewater.com');
-  final gst =
-      TextEditingController(text: '22ABCDE1234F1Z5');
-  final invoicePrefix =
-      TextEditingController(text: 'INV');
-  final orderPrefix =
-      TextEditingController(text: 'ORD');
-  final address =
-      TextEditingController(text: 'Raipur, Chhattisgarh');
+  final email = TextEditingController(text: 'admin@purewater.com');
+  final gst = TextEditingController(text: '22ABCDE1234F1Z5');
+  final invoicePrefix = TextEditingController(text: 'INV');
+  final orderPrefix = TextEditingController(text: 'ORD');
+  final address = TextEditingController(text: 'Raipur, Chhattisgarh');
 
   bool lowStock = true;
   bool followup = true;
   bool payment = true;
   bool newOrder = true;
   bool franchiseRenewal = true;
-  final defaultGstController =
-    TextEditingController(text: '18');
+  final defaultGstController = TextEditingController(text: '18');
 
-final lowStockPercentController =
-    TextEditingController(text: '20');
+  final lowStockPercentController = TextEditingController(text: '20');
 
-String creditPeriod = '7 Days';
-String currency = 'INR - Indian Rupee';
+  String creditPeriod = '7 Days';
+  String currency = 'INR - Indian Rupee';
 
-String lastBackup = 'No backup created yet';
+  String lastBackup = 'No backup created yet';
 
-final List<Map<String, dynamic>> backupHistory = [];
+  final List<Map<String, dynamic>> backupHistory = [];
 
-final List<Map<String, dynamic>> activityLogs = [
-  {
-    'id': 1,
-    'title': 'Franchise updated',
-    'description':
-        'Rahul Sharma franchise information updated by Admin',
-    'user': 'Admin User',
-    'module': 'Franchises',
-    'date': '10 Sep 2026',
-    'time': '10:45 AM',
-  },
-  {
-    'id': 2,
-    'title': 'Payment recorded',
-    'description':
-        '₹5,000 payment recorded for INV-2002',
-    'user': 'Accounts Team',
-    'module': 'Billing',
-    'date': '10 Sep 2026',
-    'time': '10:23 AM',
-  },
-  {
-    'id': 3,
-    'title': 'Stock adjusted',
-    'description':
-        '500ml Water Bottle stock updated',
-    'user': 'Admin User',
-    'module': 'Inventory',
-    'date': '10 Sep 2026',
-    'time': '09:55 AM',
-  },
-  {
-    'id': 4,
-    'title': 'New lead added',
-    'description':
-        'New franchise enquiry received from Raipur',
-    'user': 'Aman Verma',
-    'module': 'Leads',
-    'date': '10 Sep 2026',
-    'time': '09:20 AM',
-  },
-];
+  final List<Map<String, dynamic>> activityLogs = [
+    {
+      'id': 1,
+      'title': 'Franchise updated',
+      'description': 'Rahul Sharma franchise information updated by Admin',
+      'user': 'Admin User',
+      'module': 'Franchises',
+      'date': '10 Sep 2026',
+      'time': '10:45 AM',
+    },
+    {
+      'id': 2,
+      'title': 'Payment recorded',
+      'description': '₹5,000 payment recorded for INV-2002',
+      'user': 'Accounts Team',
+      'module': 'Billing',
+      'date': '10 Sep 2026',
+      'time': '10:23 AM',
+    },
+    {
+      'id': 3,
+      'title': 'Stock adjusted',
+      'description': '500ml Water Bottle stock updated',
+      'user': 'Admin User',
+      'module': 'Inventory',
+      'date': '10 Sep 2026',
+      'time': '09:55 AM',
+    },
+    {
+      'id': 4,
+      'title': 'New lead added',
+      'description': 'New franchise enquiry received from Raipur',
+      'user': 'Aman Verma',
+      'module': 'Leads',
+      'date': '10 Sep 2026',
+      'time': '09:20 AM',
+    },
+  ];
 
   final List<Map<String, dynamic>> users = [
     {
@@ -189,7 +177,7 @@ final List<Map<String, dynamic>> activityLogs = [
     orderPrefix.dispose();
     address.dispose();
     defaultGstController.dispose();
-  lowStockPercentController.dispose();
+    lowStockPercentController.dispose();
 
     super.dispose();
   }
@@ -208,11 +196,9 @@ final List<Map<String, dynamic>> activityLogs = [
             padding: EdgeInsets.all(desktop ? 28 : 16),
             child: Center(
               child: ConstrainedBox(
-                constraints:
-                    const BoxConstraints(maxWidth: 1350),
+                constraints: const BoxConstraints(maxWidth: 1350),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Settings',
@@ -225,26 +211,17 @@ final List<Map<String, dynamic>> activityLogs = [
                     const SizedBox(height: 5),
                     const Text(
                       'Manage business configuration, users and permissions',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                     ),
                     const SizedBox(height: 22),
 
                     if (desktop)
                       Row(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(
-                            width: 235,
-                            child: _menu(),
-                          ),
+                          SizedBox(width: 235, child: _menu()),
                           const SizedBox(width: 18),
-                          Expanded(
-                            child: _content(true),
-                          ),
+                          Expanded(child: _content(true)),
                         ],
                       )
                     else
@@ -275,30 +252,12 @@ final List<Map<String, dynamic>> activityLogs = [
       decoration: _settingsCard(),
       child: Column(
         children: [
-          _menuItem(
-            'Business',
-            Icons.business_outlined,
-          ),
-          _menuItem(
-            'Users',
-            Icons.people_outline,
-          ),
-          _menuItem(
-            'Roles & Permissions',
-            Icons.admin_panel_settings_outlined,
-          ),
-          _menuItem(
-            'Notifications',
-            Icons.notifications_none_rounded,
-          ),
-          _menuItem(
-            'System Configuration',
-            Icons.settings_outlined,
-          ),
-          _menuItem(
-            'Backup & Logs',
-            Icons.storage_outlined,
-          ),
+          _menuItem('Business', Icons.business_outlined),
+          _menuItem('Users', Icons.people_outline),
+          _menuItem('Roles & Permissions', Icons.admin_panel_settings_outlined),
+          _menuItem('Notifications', Icons.notifications_none_rounded),
+          _menuItem('System Configuration', Icons.settings_outlined),
+          _menuItem('Backup & Logs', Icons.storage_outlined),
         ],
       ),
     );
@@ -308,38 +267,35 @@ final List<Map<String, dynamic>> activityLogs = [
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: [
-          'Business',
-          'Users',
-          'Roles & Permissions',
-          'Notifications',
-          'System Configuration',
-          'Backup & Logs',
-        ].map((tab) {
-          final selected = activeTab == tab;
+        children:
+            [
+              'Business',
+              'Users',
+              'Roles & Permissions',
+              'Notifications',
+              'System Configuration',
+              'Backup & Logs',
+            ].map((tab) {
+              final selected = activeTab == tab;
 
-          return Padding(
-            padding:
-                const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(tab),
-              selected: selected,
-              onSelected: (_) {
-                setState(() {
-                  activeTab = tab;
-                });
-              },
-            ),
-          );
-        }).toList(),
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(tab),
+                  selected: selected,
+                  onSelected: (_) {
+                    setState(() {
+                      activeTab = tab;
+                    });
+                  },
+                ),
+              );
+            }).toList(),
       ),
     );
   }
 
-  Widget _menuItem(
-    String title,
-    IconData icon,
-  ) {
+  Widget _menuItem(String title, IconData icon) {
     final selected = activeTab == title;
 
     return InkWell(
@@ -351,14 +307,9 @@ final List<Map<String, dynamic>> activityLogs = [
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 4),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFFE0F2FE)
-              : Colors.transparent,
+          color: selected ? const Color(0xFFE0F2FE) : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
         ),
         child: Row(
@@ -376,9 +327,7 @@ final List<Map<String, dynamic>> activityLogs = [
                 title,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: selected
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: selected
                       ? const Color(0xFF0284C7)
                       : const Color(0xFF334155),
@@ -427,8 +376,7 @@ final List<Map<String, dynamic>> activityLogs = [
       padding: const EdgeInsets.all(20),
       decoration: _settingsCard(),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(
             'Business Information',
@@ -437,44 +385,21 @@ final List<Map<String, dynamic>> activityLogs = [
 
           const SizedBox(height: 20),
 
-          _formGrid(
-            desktop,
-            [
-              _input(
-                businessName,
-                'Business Name',
-              ),
-              _input(
-                phone,
-                'Phone',
-              ),
-              _input(
-                email,
-                'Email',
-              ),
-              _input(
-                gst,
-                'GST Number',
-              ),
-              _input(
-                invoicePrefix,
-                'Invoice Prefix',
-              ),
-              _input(
-                orderPrefix,
-                'Order Prefix',
-              ),
-            ],
-          ),
+          _formGrid(desktop, [
+            _input(businessName, 'Business Name'),
+            _input(phone, 'Phone'),
+            _input(email, 'Email'),
+            _input(gst, 'GST Number'),
+            _input(invoicePrefix, 'Invoice Prefix'),
+            _input(orderPrefix, 'Order Prefix'),
+          ]),
 
           const SizedBox(height: 14),
 
           TextField(
             controller: address,
             maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Business Address',
-            ),
+            decoration: const InputDecoration(labelText: 'Business Address'),
           ),
 
           const SizedBox(height: 20),
@@ -485,17 +410,12 @@ final List<Map<String, dynamic>> activityLogs = [
               width: 150,
               height: 44,
               child: ElevatedButton.icon(
-                style:
-                    ElevatedButton.styleFrom(
-                  minimumSize:
-                      const Size(0, 44),
-                  maximumSize:
-                      const Size(150, 44),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  maximumSize: const Size(150, 44),
                 ),
                 onPressed: () {
-                  if (businessName.text
-                      .trim()
-                      .isEmpty) {
+                  if (businessName.text.trim().isEmpty) {
                     AppToast.error(
                       context,
                       'Business name is required.',
@@ -510,13 +430,8 @@ final List<Map<String, dynamic>> activityLogs = [
                     title: 'Settings Saved',
                   );
                 },
-                icon: const Icon(
-                  Icons.save_outlined,
-                  size: 18,
-                ),
-                label: const Text(
-                  'Save Changes',
-                ),
+                icon: const Icon(Icons.save_outlined, size: 18),
+                label: const Text('Save Changes'),
               ),
             ),
           ),
@@ -532,19 +447,15 @@ final List<Map<String, dynamic>> activityLogs = [
   Widget _users() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final desktop =
-            constraints.maxWidth >= 700;
+        final desktop = constraints.maxWidth >= 700;
 
         return Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // HEADER
             Container(
               width: double.infinity,
-              padding: EdgeInsets.all(
-                desktop ? 20 : 16,
-              ),
+              padding: EdgeInsets.all(desktop ? 20 : 16),
               decoration: _settingsCard(),
               child: desktop
                   ? Row(
@@ -559,58 +470,31 @@ final List<Map<String, dynamic>> activityLogs = [
                         SizedBox(
                           width: 145,
                           height: 44,
-                          child:
-                              ElevatedButton.icon(
-                            style:
-                                ElevatedButton
-                                    .styleFrom(
-                              minimumSize:
-                                  const Size(
-                                0,
-                                44,
-                              ),
-                              maximumSize:
-                                  const Size(
-                                145,
-                                44,
-                              ),
-                              backgroundColor:
-                                  const Color(
-                                0xFF0284C7,
-                              ),
-                              foregroundColor:
-                                  Colors.white,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(0, 44),
+                              maximumSize: const Size(145, 44),
+                              backgroundColor: const Color(0xFF0284C7),
+                              foregroundColor: Colors.white,
                               elevation: 0,
-                              shape:
-                                  RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                  10,
-                                ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
                             onPressed: _addUser,
-                            icon: const Icon(
-                              Icons.add_rounded,
-                              size: 19,
-                            ),
+                            icon: const Icon(Icons.add_rounded, size: 19),
                             label: const Text(
                               'Add User',
                               maxLines: 1,
                               softWrap: false,
-                              style: TextStyle(
-                                fontWeight:
-                                    FontWeight.w600,
-                              ),
+                              style: TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),
                       ],
                     )
                   : Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _sectionTitle(
                           'User Management',
@@ -620,24 +504,13 @@ final List<Map<String, dynamic>> activityLogs = [
                         SizedBox(
                           width: double.infinity,
                           height: 44,
-                          child:
-                              ElevatedButton.icon(
-                            style:
-                                ElevatedButton
-                                    .styleFrom(
-                              minimumSize:
-                                  const Size(
-                                0,
-                                44,
-                              ),
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(0, 44),
                             ),
                             onPressed: _addUser,
-                            icon: const Icon(
-                              Icons.add_rounded,
-                            ),
-                            label: const Text(
-                              'Add User',
-                            ),
+                            icon: const Icon(Icons.add_rounded),
+                            label: const Text('Add User'),
                           ),
                         ),
                       ],
@@ -650,9 +523,7 @@ final List<Map<String, dynamic>> activityLogs = [
               width: double.infinity,
               decoration: _settingsCard(),
               clipBehavior: Clip.antiAlias,
-              child: desktop
-                  ? _desktopUsersTable()
-                  : _mobileUsersList(),
+              child: desktop ? _desktopUsersTable() : _mobileUsersList(),
             ),
           ],
         );
@@ -665,39 +536,22 @@ final List<Map<String, dynamic>> activityLogs = [
       children: [
         // HEADER
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           color: const Color(0xFFF8FAFC),
           child: const Row(
             children: [
               Expanded(
                 flex: 3,
-                child: Text(
-                  'USER',
-                  style: _settingsHeaderStyle,
-                ),
+                child: Text('USER', style: _settingsHeaderStyle),
               ),
               Expanded(
                 flex: 2,
-                child: Text(
-                  'ROLE',
-                  style: _settingsHeaderStyle,
-                ),
+                child: Text('ROLE', style: _settingsHeaderStyle),
               ),
-              Expanded(
-                child: Text(
-                  'STATUS',
-                  style: _settingsHeaderStyle,
-                ),
-              ),
+              Expanded(child: Text('STATUS', style: _settingsHeaderStyle)),
               SizedBox(
                 width: 100,
-                child: Text(
-                  'ACTIONS',
-                  style: _settingsHeaderStyle,
-                ),
+                child: Text('ACTIONS', style: _settingsHeaderStyle),
               ),
             ],
           ),
@@ -705,17 +559,10 @@ final List<Map<String, dynamic>> activityLogs = [
 
         ...users.map((user) {
           return Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 15,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(
-                top: BorderSide(
-                  color: Color(0xFFF1F5F9),
-                ),
-              ),
+              border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
             ),
             child: Row(
               children: [
@@ -726,30 +573,17 @@ final List<Map<String, dynamic>> activityLogs = [
                       Container(
                         width: 40,
                         height: 40,
-                        alignment:
-                            Alignment.center,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: const Color(
-                            0xFFE0F2FE,
-                          ),
-                          borderRadius:
-                              BorderRadius.circular(
-                            10,
-                          ),
+                          color: const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          _userInitials(
-                            user['name']
-                                .toString(),
-                          ),
-                          style:
-                              const TextStyle(
-                            color: Color(
-                              0xFF0284C7,
-                            ),
+                          _userInitials(user['name'].toString()),
+                          style: const TextStyle(
+                            color: Color(0xFF0284C7),
                             fontSize: 13,
-                            fontWeight:
-                                FontWeight.w800,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
@@ -758,44 +592,26 @@ final List<Map<String, dynamic>> activityLogs = [
 
                       Expanded(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              user['name']
-                                  .toString(),
+                              user['name'].toString(),
                               maxLines: 1,
-                              overflow:
-                                  TextOverflow
-                                      .ellipsis,
-                              style:
-                                  const TextStyle(
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
                                 fontSize: 13,
-                                fontWeight:
-                                    FontWeight
-                                        .w700,
-                                color: Color(
-                                  0xFF111827,
-                                ),
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF111827),
                               ),
                             ),
-                            const SizedBox(
-                              height: 4,
-                            ),
+                            const SizedBox(height: 4),
                             Text(
-                              user['email']
-                                  .toString(),
+                              user['email'].toString(),
                               maxLines: 1,
-                              overflow:
-                                  TextOverflow
-                                      .ellipsis,
-                              style:
-                                  const TextStyle(
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
                                 fontSize: 11,
-                                color: Color(
-                                  0xFF64748B,
-                                ),
+                                color: Color(0xFF64748B),
                               ),
                             ),
                           ],
@@ -811,22 +627,16 @@ final List<Map<String, dynamic>> activityLogs = [
                     user['role'].toString(),
                     style: const TextStyle(
                       fontSize: 12,
-                      fontWeight:
-                          FontWeight.w500,
-                      color:
-                          Color(0xFF334155),
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF334155),
                     ),
                   ),
                 ),
 
                 Expanded(
                   child: Align(
-                    alignment:
-                        Alignment.centerLeft,
-                    child: _userStatusBadge(
-                      user['status']
-                          .toString(),
-                    ),
+                    alignment: Alignment.centerLeft,
+                    child: _userStatusBadge(user['status'].toString()),
                   ),
                 ),
 
@@ -839,18 +649,14 @@ final List<Map<String, dynamic>> activityLogs = [
                         height: 38,
                         child: IconButton(
                           tooltip: 'Edit User',
-                          padding:
-                              EdgeInsets.zero,
+                          padding: EdgeInsets.zero,
                           onPressed: () {
                             _editUser(user);
                           },
                           icon: const Icon(
-                            Icons
-                                .edit_outlined,
+                            Icons.edit_outlined,
                             size: 18,
-                            color: Color(
-                              0xFF475569,
-                            ),
+                            color: Color(0xFF475569),
                           ),
                         ),
                       ),
@@ -859,20 +665,15 @@ final List<Map<String, dynamic>> activityLogs = [
                         width: 38,
                         height: 38,
                         child: IconButton(
-                          tooltip:
-                              'Delete User',
-                          padding:
-                              EdgeInsets.zero,
+                          tooltip: 'Delete User',
+                          padding: EdgeInsets.zero,
                           onPressed: () {
                             _deleteUser(user);
                           },
                           icon: const Icon(
-                            Icons
-                                .delete_outline_rounded,
+                            Icons.delete_outline_rounded,
                             size: 18,
-                            color: Color(
-                              0xFFEF4444,
-                            ),
+                            color: Color(0xFFEF4444),
                           ),
                         ),
                       ),
@@ -894,41 +695,26 @@ final List<Map<String, dynamic>> activityLogs = [
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: const BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: Color(0xFFF1F5F9),
-              ),
-            ),
+            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
           ),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
                     width: 42,
                     height: 42,
-                    alignment:
-                        Alignment.center,
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: const Color(
-                        0xFFE0F2FE,
-                      ),
-                      borderRadius:
-                          BorderRadius.circular(
-                        10,
-                      ),
+                      color: const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      _userInitials(
-                        user['name'].toString(),
-                      ),
+                      _userInitials(user['name'].toString()),
                       style: const TextStyle(
-                        color:
-                            Color(0xFF0284C7),
-                        fontWeight:
-                            FontWeight.w800,
+                        color: Color(0xFF0284C7),
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
@@ -937,15 +723,13 @@ final List<Map<String, dynamic>> activityLogs = [
 
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           user['name'].toString(),
                           style: const TextStyle(
                             fontSize: 14,
-                            fontWeight:
-                                FontWeight.w700,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: 3),
@@ -953,18 +737,14 @@ final List<Map<String, dynamic>> activityLogs = [
                           user['email'].toString(),
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Color(
-                              0xFF64748B,
-                            ),
+                            color: Color(0xFF64748B),
                           ),
                         ),
                       ],
                     ),
                   ),
 
-                  _userStatusBadge(
-                    user['status'].toString(),
-                  ),
+                  _userStatusBadge(user['status'].toString()),
                 ],
               ),
 
@@ -976,11 +756,7 @@ final List<Map<String, dynamic>> activityLogs = [
                     width: 75,
                     child: Text(
                       'Role',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color:
-                            Color(0xFF64748B),
-                      ),
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                   ),
                   Expanded(
@@ -988,8 +764,7 @@ final List<Map<String, dynamic>> activityLogs = [
                       user['role'].toString(),
                       style: const TextStyle(
                         fontSize: 12,
-                        fontWeight:
-                            FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -999,8 +774,7 @@ final List<Map<String, dynamic>> activityLogs = [
               const SizedBox(height: 8),
 
               Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   IconButton(
                     tooltip: 'Edit',
@@ -1009,8 +783,7 @@ final List<Map<String, dynamic>> activityLogs = [
                     },
                     icon: const Icon(
                       Icons.edit_outlined,
-                      color:
-                          Color(0xFF475569),
+                      color: Color(0xFF475569),
                     ),
                   ),
                   IconButton(
@@ -1019,10 +792,8 @@ final List<Map<String, dynamic>> activityLogs = [
                       _deleteUser(user);
                     },
                     icon: const Icon(
-                      Icons
-                          .delete_outline_rounded,
-                      color:
-                          Color(0xFFEF4444),
+                      Icons.delete_outline_rounded,
+                      color: Color(0xFFEF4444),
                     ),
                   ),
                 ],
@@ -1038,36 +809,24 @@ final List<Map<String, dynamic>> activityLogs = [
     final active = status == 'Active';
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: active
-            ? const Color(0xFFECFDF5)
-            : const Color(0xFFF1F5F9),
-        borderRadius:
-            BorderRadius.circular(20),
+        color: active ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         status,
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: active
-              ? const Color(0xFF15803D)
-              : const Color(0xFF64748B),
+          color: active ? const Color(0xFF15803D) : const Color(0xFF64748B),
         ),
       ),
     );
   }
 
   String _userInitials(String name) {
-    final parts = name
-        .trim()
-        .split(' ')
-        .where((e) => e.isNotEmpty)
-        .toList();
+    final parts = name.trim().split(' ').where((e) => e.isNotEmpty).toList();
 
     if (parts.isEmpty) return 'U';
 
@@ -1075,8 +834,7 @@ final List<Map<String, dynamic>> activityLogs = [
       return parts.first[0].toUpperCase();
     }
 
-    return '${parts.first[0]}${parts.last[0]}'
-        .toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   // =========================================================
@@ -1089,18 +847,15 @@ final List<Map<String, dynamic>> activityLogs = [
       padding: const EdgeInsets.all(20),
       decoration: _settingsCard(),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           LayoutBuilder(
             builder: (_, constraints) {
-              final wide =
-                  constraints.maxWidth >= 550;
+              final wide = constraints.maxWidth >= 550;
 
               if (!wide) {
                 return Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _sectionTitle(
                       'Roles & Permissions',
@@ -1111,11 +866,8 @@ final List<Map<String, dynamic>> activityLogs = [
                       width: 140,
                       height: 40,
                       child: OutlinedButton(
-                        onPressed:
-                            _resetPermissions,
-                        child: const Text(
-                          'Reset Defaults',
-                        ),
+                        onPressed: _resetPermissions,
+                        child: const Text('Reset Defaults'),
                       ),
                     ),
                   ],
@@ -1134,18 +886,12 @@ final List<Map<String, dynamic>> activityLogs = [
                     width: 140,
                     height: 40,
                     child: OutlinedButton(
-                      style:
-                          OutlinedButton.styleFrom(
-                        minimumSize:
-                            const Size(0, 40),
-                        maximumSize:
-                            const Size(140, 40),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 40),
+                        maximumSize: const Size(140, 40),
                       ),
-                      onPressed:
-                          _resetPermissions,
-                      child: const Text(
-                        'Reset Defaults',
-                      ),
+                      onPressed: _resetPermissions,
+                      child: const Text('Reset Defaults'),
                     ),
                   ),
                 ],
@@ -1165,99 +911,53 @@ final List<Map<String, dynamic>> activityLogs = [
                     children: [
                       Expanded(
                         flex: 2,
-                        child: Text(
-                          'MODULE',
-                          style:
-                              _settingsHeaderStyle,
-                        ),
+                        child: Text('MODULE', style: _settingsHeaderStyle),
                       ),
                       Expanded(
-                        child: Text(
-                          'ADMIN',
-                          style:
-                              _settingsHeaderStyle,
-                        ),
+                        child: Text('ADMIN', style: _settingsHeaderStyle),
                       ),
                       Expanded(
-                        child: Text(
-                          'SALES',
-                          style:
-                              _settingsHeaderStyle,
-                        ),
+                        child: Text('SALES', style: _settingsHeaderStyle),
                       ),
                       Expanded(
-                        child: Text(
-                          'ACCOUNTS',
-                          style:
-                              _settingsHeaderStyle,
-                        ),
+                        child: Text('ACCOUNTS', style: _settingsHeaderStyle),
                       ),
                       Expanded(
-                        child: Text(
-                          'INVENTORY',
-                          style:
-                              _settingsHeaderStyle,
-                        ),
+                        child: Text('INVENTORY', style: _settingsHeaderStyle),
                       ),
                     ],
                   ),
 
                   const Divider(height: 24),
 
-                  ...permissions.entries.map(
-                    (entry) {
-                      return Container(
-                        padding:
-                            const EdgeInsets
-                                .symmetric(
-                          vertical: 5,
+                  ...permissions.entries.map((entry) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Color(0xFFF8FAFC)),
                         ),
-                        decoration:
-                            const BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Color(
-                                0xFFF8FAFC,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              entry.key,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
                               ),
                             ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                entry.key,
-                                style:
-                                    const TextStyle(
-                                  fontWeight:
-                                      FontWeight
-                                          .w600,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            _permissionCheck(
-                              entry.key,
-                              'Admin',
-                            ),
-                            _permissionCheck(
-                              entry.key,
-                              'Sales',
-                            ),
-                            _permissionCheck(
-                              entry.key,
-                              'Accounts',
-                            ),
-                            _permissionCheck(
-                              entry.key,
-                              'Inventory',
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                          _permissionCheck(entry.key, 'Admin'),
+                          _permissionCheck(entry.key, 'Sales'),
+                          _permissionCheck(entry.key, 'Accounts'),
+                          _permissionCheck(entry.key, 'Inventory'),
+                        ],
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -1354,21 +1054,15 @@ final List<Map<String, dynamic>> activityLogs = [
     );
   }
 
-  Widget _permissionCheck(
-    String module,
-    String role,
-  ) {
+  Widget _permissionCheck(String module, String role) {
     return Expanded(
       child: Align(
         alignment: Alignment.centerLeft,
         child: Checkbox(
-          value:
-              permissions[module]?[role] ??
-                  false,
+          value: permissions[module]?[role] ?? false,
           onChanged: (value) {
             setState(() {
-              permissions[module]?[role] =
-                  value ?? false;
+              permissions[module]?[role] = value ?? false;
             });
           },
         ),
@@ -1386,13 +1080,9 @@ final List<Map<String, dynamic>> activityLogs = [
       padding: const EdgeInsets.all(20),
       decoration: _settingsCard(),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle(
-            'Notification Settings',
-            'Configure system alerts',
-          ),
+          _sectionTitle('Notification Settings', 'Configure system alerts'),
 
           const SizedBox(height: 15),
 
@@ -1459,28 +1149,19 @@ final List<Map<String, dynamic>> activityLogs = [
               width: 165,
               height: 44,
               child: ElevatedButton.icon(
-                style:
-                    ElevatedButton.styleFrom(
-                  minimumSize:
-                      const Size(0, 44),
-                  maximumSize:
-                      const Size(165, 44),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  maximumSize: const Size(165, 44),
                 ),
                 onPressed: () {
                   AppToast.success(
                     context,
                     'Notification preferences saved successfully.',
-                    title:
-                        'Notifications Saved',
+                    title: 'Notifications Saved',
                   );
                 },
-                icon: const Icon(
-                  Icons.save_outlined,
-                  size: 18,
-                ),
-                label: const Text(
-                  'Save Preferences',
-                ),
+                icon: const Icon(Icons.save_outlined, size: 18),
+                label: const Text('Save Preferences'),
               ),
             ),
           ),
@@ -1493,73 +1174,51 @@ final List<Map<String, dynamic>> activityLogs = [
   // SYSTEM CONFIGURATION
   // =========================================================
 
-Widget _systemConfiguration(
-  bool desktop,
-) {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(20),
-    decoration: _settingsCard(),
-    child: Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-      children: [
-        _sectionTitle(
-          'System Configuration',
-          'Manage default business rules and application settings',
-        ),
+  Widget _systemConfiguration(bool desktop) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: _settingsCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(
+            'System Configuration',
+            'Manage default business rules and application settings',
+          ),
 
-        const SizedBox(height: 20),
+          const SizedBox(height: 20),
 
-        _formGrid(
-          desktop,
-          [
+          _formGrid(desktop, [
             TextFormField(
-              controller:
-                  defaultGstController,
-              keyboardType:
-                  const TextInputType
-                      .numberWithOptions(
+              controller: defaultGstController,
+              keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration:
-                  const InputDecoration(
-                labelText:
-                    'Default GST %',
-                prefixIcon: Icon(
-                  Icons.percent,
-                ),
+              decoration: const InputDecoration(
+                labelText: 'Default GST %',
+                prefixIcon: Icon(Icons.percent),
               ),
             ),
 
-            DropdownButtonFormField<
-                String>(
-              value: creditPeriod,
+            DropdownButtonFormField<String>(
+              initialValue: creditPeriod,
               isExpanded: true,
-              decoration:
-                  const InputDecoration(
-                labelText:
-                    'Default Credit Period',
-                prefixIcon: Icon(
-                  Icons
-                      .credit_score_outlined,
-                ),
+              decoration: const InputDecoration(
+                labelText: 'Default Credit Period',
+                prefixIcon: Icon(Icons.credit_score_outlined),
               ),
-              items: const [
-                'Immediate',
-                '7 Days',
-                '15 Days',
-                '30 Days',
-                '45 Days',
-                '60 Days',
-              ].map(
-                (value) {
-                  return DropdownMenuItem(
-                    value: value,
-                    child: Text(value),
-                  );
-                },
-              ).toList(),
+              items:
+                  const [
+                    'Immediate',
+                    '7 Days',
+                    '15 Days',
+                    '30 Days',
+                    '45 Days',
+                    '60 Days',
+                  ].map((value) {
+                    return DropdownMenuItem(value: value, child: Text(value));
+                  }).toList(),
               onChanged: (value) {
                 if (value == null) {
                   return;
@@ -1572,43 +1231,24 @@ Widget _systemConfiguration(
             ),
 
             TextFormField(
-              controller:
-                  lowStockPercentController,
-              keyboardType:
-                  TextInputType.number,
-              decoration:
-                  const InputDecoration(
-                labelText:
-                    'Low Stock Alert %',
-                prefixIcon: Icon(
-                  Icons
-                      .warning_amber_outlined,
-                ),
+              controller: lowStockPercentController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Low Stock Alert %',
+                prefixIcon: Icon(Icons.warning_amber_outlined),
               ),
             ),
 
-            DropdownButtonFormField<
-                String>(
-              value: currency,
+            DropdownButtonFormField<String>(
+              initialValue: currency,
               isExpanded: true,
-              decoration:
-                  const InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Currency',
-                prefixIcon: Icon(
-                  Icons
-                      .currency_rupee,
-                ),
+                prefixIcon: Icon(Icons.currency_rupee),
               ),
-              items: const [
-                'INR - Indian Rupee',
-              ].map(
-                (value) {
-                  return DropdownMenuItem(
-                    value: value,
-                    child: Text(value),
-                  );
-                },
-              ).toList(),
+              items: const ['INR - Indian Rupee'].map((value) {
+                return DropdownMenuItem(value: value, child: Text(value));
+              }).toList(),
               onChanged: (value) {
                 if (value == null) {
                   return;
@@ -1619,587 +1259,378 @@ Widget _systemConfiguration(
                 });
               },
             ),
-          ],
-        ),
+          ]),
 
-        const SizedBox(height: 20),
+          const SizedBox(height: 20),
 
-        Container(
-          width: double.infinity,
-          padding:
-              const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color:
-                const Color(0xFFF8FAFC),
-            borderRadius:
-                BorderRadius.circular(12),
-            border: Border.all(
-              color:
-                  const Color(0xFFE2E8F0),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Current Configuration',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight:
-                      FontWeight.w700,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Current Configuration',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                 ),
-              ),
 
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              _configurationLine(
-                'Default GST',
-                '${defaultGstController.text}%',
-              ),
+                _configurationLine(
+                  'Default GST',
+                  '${defaultGstController.text}%',
+                ),
 
-              _configurationLine(
-                'Credit Period',
-                creditPeriod,
-              ),
+                _configurationLine('Credit Period', creditPeriod),
 
-              _configurationLine(
-                'Low Stock Alert',
-                '${lowStockPercentController.text}%',
-              ),
+                _configurationLine(
+                  'Low Stock Alert',
+                  '${lowStockPercentController.text}%',
+                ),
 
-              _configurationLine(
-                'Currency',
-                currency,
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        SizedBox(
-          width: 190,
-          height: 44,
-          child: ElevatedButton.icon(
-            style:
-                ElevatedButton.styleFrom(
-              minimumSize:
-                  const Size(0, 44),
-              maximumSize:
-                  const Size(190, 44),
-            ),
-            onPressed:
-                _saveSystemConfiguration,
-            icon: const Icon(
-              Icons.save_outlined,
-              size: 18,
-            ),
-            label: const Text(
-              'Save Configuration',
+                _configurationLine('Currency', currency),
+              ],
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
-void _saveSystemConfiguration() {
-  final gstValue =
-      double.tryParse(
-    defaultGstController.text.trim(),
-  );
 
-  final stockValue =
-      int.tryParse(
-    lowStockPercentController.text
-        .trim(),
-  );
+          const SizedBox(height: 20),
 
-  if (gstValue == null ||
-      gstValue < 0 ||
-      gstValue > 100) {
-    AppToast.error(
-      context,
-      'Enter a valid GST percentage.',
-      title: 'Invalid GST',
+          SizedBox(
+            width: 190,
+            height: 44,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 44),
+                maximumSize: const Size(190, 44),
+              ),
+              onPressed: _saveSystemConfiguration,
+              icon: const Icon(Icons.save_outlined, size: 18),
+              label: const Text('Save Configuration'),
+            ),
+          ),
+        ],
+      ),
     );
-    return;
   }
 
-  if (stockValue == null ||
-      stockValue < 0 ||
-      stockValue > 100) {
-    AppToast.error(
-      context,
-      'Enter valid low stock percentage.',
-      title: 'Invalid Stock Alert',
-    );
-    return;
-  }
+  void _saveSystemConfiguration() {
+    final gstValue = double.tryParse(defaultGstController.text.trim());
 
-  setState(() {
-    activityLogs.insert(
-      0,
-      {
-        'id': DateTime.now()
-            .millisecondsSinceEpoch,
-        'title':
-            'System configuration updated',
+    final stockValue = int.tryParse(lowStockPercentController.text.trim());
+
+    if (gstValue == null || gstValue < 0 || gstValue > 100) {
+      AppToast.error(
+        context,
+        'Enter a valid GST percentage.',
+        title: 'Invalid GST',
+      );
+      return;
+    }
+
+    if (stockValue == null || stockValue < 0 || stockValue > 100) {
+      AppToast.error(
+        context,
+        'Enter valid low stock percentage.',
+        title: 'Invalid Stock Alert',
+      );
+      return;
+    }
+
+    setState(() {
+      activityLogs.insert(0, {
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'title': 'System configuration updated',
         'description':
             'GST ${gstValue.toStringAsFixed(gstValue.truncateToDouble() == gstValue ? 0 : 1)}%, Credit $creditPeriod, Low Stock $stockValue%',
         'user': 'Admin User',
-        'module':
-            'System Configuration',
-        'date':
-            _settingsDate(),
-        'time':
-            _settingsTime(),
-      },
-    );
-  });
+        'module': 'System Configuration',
+        'date': _settingsDate(),
+        'time': _settingsTime(),
+      });
+    });
 
-  AppToast.success(
-    context,
-    'System configuration saved successfully.',
-    title: 'Configuration Saved',
-  );
-}
-Widget _configurationLine(
-  String label,
-  String value,
-) {
-  return Padding(
-    padding:
-        const EdgeInsets.only(
-      bottom: 8,
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style:
-                const TextStyle(
-              fontSize: 11,
-              color:
-                  Color(
-                0xFF64748B,
-              ),
+    AppToast.success(
+      context,
+      'System configuration saved successfully.',
+      title: 'Configuration Saved',
+    );
+  }
+
+  Widget _configurationLine(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ),
-        ),
-        Text(
-          value,
-          style:
-              const TextStyle(
-            fontSize: 11,
-            fontWeight:
-                FontWeight.w700,
+          Text(
+            value,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   // =========================================================
   // BACKUP & LOGS
   // =========================================================
 
   Widget _backup() {
-  return Column(
-    children: [
-      _backupManagementCard(),
-
-      const SizedBox(height: 18),
-
-      _activityLogCard(),
-    ],
-  );
-}
-Widget _backupManagementCard() {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(20),
-    decoration: _settingsCard(),
-    child: Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+    return Column(
       children: [
-        _sectionTitle(
-          'Backup Management',
-          'Create and manage system backup snapshots',
-        ),
+        _backupManagementCard(),
 
         const SizedBox(height: 18),
 
-        Container(
-          width: double.infinity,
-          padding:
-              const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color:
-                const Color(0xFFF8FAFC),
-            borderRadius:
-                BorderRadius.circular(12),
-            border: Border.all(
-              color:
-                  const Color(0xFFE2E8F0),
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      const Color(
-                    0xFFE0F2FE,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(
-                    10,
-                  ),
-                ),
-                child: const Icon(
-                  Icons
-                      .cloud_done_outlined,
-                  color:
-                      Color(
-                    0xFF0284C7,
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 12),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
-                  children: [
-                    const Text(
-                      'Last Backup',
-                      style:
-                          TextStyle(
-                        fontSize: 11,
-                        color:
-                            Color(
-                          0xFF64748B,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(
-                      height: 3,
-                    ),
-                    Text(
-                      lastBackup,
-                      style:
-                          const TextStyle(
-                        fontSize: 13,
-                        fontWeight:
-                            FontWeight
-                                .w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            SizedBox(
-              width: 165,
-              height: 44,
-              child:
-                  ElevatedButton.icon(
-                style:
-                    ElevatedButton
-                        .styleFrom(
-                  minimumSize:
-                      const Size(
-                    0,
-                    44,
-                  ),
-                  maximumSize:
-                      const Size(
-                    165,
-                    44,
-                  ),
-                ),
-                onPressed:
-                    _createBackup,
-                icon: const Icon(
-                  Icons
-                      .backup_outlined,
-                  size: 18,
-                ),
-                label:
-                    const Text(
-                  'Create Backup',
-                ),
-              ),
-            ),
-
-            if (backupHistory
-                .isNotEmpty)
-              SizedBox(
-                width: 160,
-                height: 44,
-                child:
-                    OutlinedButton.icon(
-                  onPressed:
-                      _viewBackupHistory,
-                  icon: const Icon(
-                    Icons.history,
-                    size: 18,
-                  ),
-                  label:
-                      const Text(
-                    'Backup History',
-                  ),
-                ),
-              ),
-          ],
-        ),
+        _activityLogCard(),
       ],
-    ),
-  );
-}
-Future<void> _createBackup() async {
-  final confirmed =
-      await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: const Text(
-          'Create System Backup',
-        ),
-        content: const Text(
-          'Create a new backup snapshot of current application data and configuration?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(
-                dialogContext,
-                false,
-              );
-            },
-            child:
-                const Text('Cancel'),
-          ),
-          SizedBox(
-            width: 120,
-            height: 42,
-            child:
-                ElevatedButton.icon(
-              style:
-                  ElevatedButton
-                      .styleFrom(
-                minimumSize:
-                    const Size(
-                  0,
-                  42,
-                ),
-                maximumSize:
-                    const Size(
-                  120,
-                  42,
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
-              },
-              icon: const Icon(
-                Icons
-                    .backup_outlined,
-                size: 16,
-              ),
-              label:
-                  const Text(
-                'Backup',
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  );
-
-  if (confirmed != true) {
-    return;
+    );
   }
 
-  final now =
-      DateTime.now();
+  Widget _backupManagementCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: _settingsCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(
+            'Backup Management',
+            'Create and manage system backup snapshots',
+          ),
 
-  final backupId =
-      'BKP-${now.year}'
-      '${now.month.toString().padLeft(2, '0')}'
-      '${now.day.toString().padLeft(2, '0')}'
-      '-${now.millisecondsSinceEpoch.toString().substring(7)}';
+          const SizedBox(height: 18),
 
-  final date =
-      _settingsDate();
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.cloud_done_outlined,
+                    color: Color(0xFF0284C7),
+                  ),
+                ),
 
-  final time =
-      _settingsTime();
+                const SizedBox(width: 12),
 
-  setState(() {
-    lastBackup = '$date • $time';
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Last Backup',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        lastBackup,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-    backupHistory.insert(
-      0,
-      {
+          const SizedBox(height: 16),
+
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              SizedBox(
+                width: 165,
+                height: 44,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                    maximumSize: const Size(165, 44),
+                  ),
+                  onPressed: _createBackup,
+                  icon: const Icon(Icons.backup_outlined, size: 18),
+                  label: const Text('Create Backup'),
+                ),
+              ),
+
+              if (backupHistory.isNotEmpty)
+                SizedBox(
+                  width: 160,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: _viewBackupHistory,
+                    icon: const Icon(Icons.history, size: 18),
+                    label: const Text('Backup History'),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _createBackup() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Create System Backup'),
+          content: const Text(
+            'Create a new backup snapshot of current application data and configuration?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Cancel'),
+            ),
+            SizedBox(
+              width: 120,
+              height: 42,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 42),
+                  maximumSize: const Size(120, 42),
+                ),
+                onPressed: () {
+                  Navigator.pop(dialogContext, true);
+                },
+                icon: const Icon(Icons.backup_outlined, size: 16),
+                label: const Text('Backup'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final now = DateTime.now();
+
+    final backupId =
+        'BKP-${now.year}'
+        '${now.month.toString().padLeft(2, '0')}'
+        '${now.day.toString().padLeft(2, '0')}'
+        '-${now.millisecondsSinceEpoch.toString().substring(7)}';
+
+    final date = _settingsDate();
+
+    final time = _settingsTime();
+
+    setState(() {
+      lastBackup = '$date • $time';
+
+      backupHistory.insert(0, {
         'id': backupId,
         'date': date,
         'time': time,
-        'createdBy':
-            'Admin User',
-        'status':
-            'Completed',
-      },
-    );
+        'createdBy': 'Admin User',
+        'status': 'Completed',
+      });
 
-    activityLogs.insert(
-      0,
-      {
-        'id': DateTime.now()
-            .millisecondsSinceEpoch,
-        'title':
-            'System backup created',
-        'description':
-            '$backupId backup snapshot created successfully.',
-        'user':
-            'Admin User',
-        'module':
-            'Backup',
+      activityLogs.insert(0, {
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'title': 'System backup created',
+        'description': '$backupId backup snapshot created successfully.',
+        'user': 'Admin User',
+        'module': 'Backup',
         'date': date,
         'time': time,
-      },
+      });
+    });
+
+    if (!mounted) return;
+
+    AppToast.success(
+      context,
+      'Backup snapshot created successfully.',
+      title: 'Backup Created',
     );
-  });
+  }
 
-  if (!mounted) return;
-
-  AppToast.success(
-    context,
-    'Backup snapshot created successfully.',
-    title: 'Backup Created',
-  );
-}
-void _viewBackupHistory() {
-  showDialog(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title:
-            const Text(
-          'Backup History',
-        ),
-        content: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
-          ),
-          child:
-              SingleChildScrollView(
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
-              children:
-                  backupHistory.map(
-                (backup) {
+  void _viewBackupHistory() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Backup History'),
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: backupHistory.map((backup) {
                   return Container(
-                    width:
-                        double.infinity,
-                    padding:
-                        const EdgeInsets
-                            .all(
-                      14,
-                    ),
-                    margin:
-                        const EdgeInsets
-                            .only(
-                      bottom: 10,
-                    ),
-                    decoration:
-                        BoxDecoration(
-                      color:
-                          const Color(
-                        0xFFF8FAFC,
-                      ),
-                      borderRadius:
-                          BorderRadius
-                              .circular(
-                        10,
-                      ),
-                      border:
-                          Border.all(
-                        color:
-                            const Color(
-                          0xFFE2E8F0,
-                        ),
-                      ),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: Row(
                       children: [
                         const Icon(
-                          Icons
-                              .storage_outlined,
-                          color:
-                              Color(
-                            0xFF0284C7,
-                          ),
+                          Icons.storage_outlined,
+                          color: Color(0xFF0284C7),
                         ),
 
-                        const SizedBox(
-                          width: 12,
-                        ),
+                        const SizedBox(width: 12),
 
                         Expanded(
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment
-                                    .start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                backup['id']
-                                    .toString(),
-                                style:
-                                    const TextStyle(
-                                  fontWeight:
-                                      FontWeight
-                                          .w700,
+                                backup['id'].toString(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(
-                                height: 3,
-                              ),
+                              const SizedBox(height: 3),
                               Text(
                                 '${backup['date']} • ${backup['time']} • ${backup['createdBy']}',
-                                style:
-                                    const TextStyle(
-                                  fontSize:
-                                      10,
-                                  color:
-                                      Color(
-                                    0xFF64748B,
-                                  ),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF64748B),
                                 ),
                               ),
                             ],
@@ -2207,248 +1638,147 @@ void _viewBackupHistory() {
                         ),
 
                         Container(
-                          padding:
-                              const EdgeInsets
-                                  .symmetric(
-                            horizontal:
-                                8,
-                            vertical:
-                                5,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 5,
                           ),
-                          decoration:
-                              BoxDecoration(
-                            color:
-                                const Color(
-                              0xFFECFDF5,
-                            ),
-                            borderRadius:
-                                BorderRadius
-                                    .circular(
-                              14,
-                            ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: Text(
-                            backup['status']
-                                .toString(),
-                            style:
-                                const TextStyle(
+                            backup['status'].toString(),
+                            style: const TextStyle(
                               fontSize: 9,
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
-                              color:
-                                  Color(
-                                0xFF15803D,
-                              ),
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF15803D),
                             ),
                           ),
                         ),
                       ],
                     ),
                   );
-                },
-              ).toList(),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(
-                dialogContext,
-              );
-            },
-            child:
-                const Text('Close'),
-          ),
-        ],
-      );
-    },
-  );
-}
-Widget _activityLogCard() {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(20),
-    decoration: _settingsCard(),
-    child: Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _sectionTitle(
-                'Activity Logs',
-                'Recent admin and system activities',
+                }).toList(),
               ),
             ),
-
-            Text(
-              '${activityLogs.length} Activities',
-              style:
-                  const TextStyle(
-                fontSize: 10,
-                color:
-                    Color(
-                  0xFF64748B,
-                ),
-              ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Close'),
             ),
           ],
-        ),
+        );
+      },
+    );
+  }
 
-        const SizedBox(height: 18),
-
-        if (activityLogs.isEmpty)
-          const Padding(
-            padding:
-                EdgeInsets.all(30),
-            child: Center(
-              child: Text(
-                'No activity logs available.',
-                style:
-                    TextStyle(
-                  color:
-                      Color(
-                    0xFF64748B,
-                  ),
+  Widget _activityLogCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: _settingsCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _sectionTitle(
+                  'Activity Logs',
+                  'Recent admin and system activities',
                 ),
               ),
-            ),
-          )
-        else
-          ...activityLogs.map(
-            (activity) {
+
+              Text(
+                '${activityLogs.length} Activities',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          if (activityLogs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(30),
+              child: Center(
+                child: Text(
+                  'No activity logs available.',
+                  style: TextStyle(color: Color(0xFF64748B)),
+                ),
+              ),
+            )
+          else
+            ...activityLogs.map((activity) {
               return Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  vertical: 13,
-                ),
-                decoration:
-                    const BoxDecoration(
-                  border: Border(
-                    bottom:
-                        BorderSide(
-                      color:
-                          Color(
-                        0xFFF1F5F9,
-                      ),
-                    ),
-                  ),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
                 ),
                 child: Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       width: 38,
                       height: 38,
-                      decoration:
-                          BoxDecoration(
-                        color:
-                            const Color(
-                          0xFFE0F2FE,
-                        ),
-                        borderRadius:
-                            BorderRadius
-                                .circular(
-                          10,
-                        ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child:
-                          const Icon(
-                        Icons
-                            .history_outlined,
+                      child: const Icon(
+                        Icons.history_outlined,
                         size: 18,
-                        color:
-                            Color(
-                          0xFF0284C7,
-                        ),
+                        color: Color(0xFF0284C7),
                       ),
                     ),
 
-                    const SizedBox(
-                      width: 12,
-                    ),
+                    const SizedBox(width: 12),
 
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            activity[
-                                    'title']
-                                .toString(),
-                            style:
-                                const TextStyle(
+                            activity['title'].toString(),
+                            style: const TextStyle(
                               fontSize: 12,
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
 
-                          const SizedBox(
-                            height: 3,
-                          ),
+                          const SizedBox(height: 3),
 
                           Text(
-                            activity[
-                                    'description']
-                                .toString(),
-                            style:
-                                const TextStyle(
+                            activity['description'].toString(),
+                            style: const TextStyle(
                               fontSize: 10,
-                              color:
-                                  Color(
-                                0xFF64748B,
-                              ),
+                              color: Color(0xFF64748B),
                             ),
                           ),
 
-                          const SizedBox(
-                            height: 5,
-                          ),
+                          const SizedBox(height: 5),
 
                           Wrap(
                             spacing: 8,
                             children: [
                               Text(
-                                activity[
-                                        'user']
-                                    .toString(),
-                                style:
-                                    const TextStyle(
-                                  fontSize:
-                                      9,
-                                  fontWeight:
-                                      FontWeight
-                                          .w600,
-                                  color:
-                                      Color(
-                                    0xFF0284C7,
-                                  ),
+                                activity['user'].toString(),
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0284C7),
                                 ),
                               ),
 
                               Text(
-                                activity[
-                                        'module']
-                                    .toString(),
-                                style:
-                                    const TextStyle(
-                                  fontSize:
-                                      9,
-                                  color:
-                                      Color(
-                                    0xFF64748B,
-                                  ),
+                                activity['module'].toString(),
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  color: Color(0xFF64748B),
                                 ),
                               ),
                             ],
@@ -2457,42 +1787,26 @@ Widget _activityLogCard() {
                       ),
                     ),
 
-                    const SizedBox(
-                      width: 10,
-                    ),
+                    const SizedBox(width: 10),
 
                     Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment
-                              .end,
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          activity['date']
-                              .toString(),
-                          style:
-                              const TextStyle(
+                          activity['date'].toString(),
+                          style: const TextStyle(
                             fontSize: 9,
-                            color:
-                                Color(
-                              0xFF64748B,
-                            ),
+                            color: Color(0xFF64748B),
                           ),
                         ),
 
-                        const SizedBox(
-                          height: 3,
-                        ),
+                        const SizedBox(height: 3),
 
                         Text(
-                          activity['time']
-                              .toString(),
-                          style:
-                              const TextStyle(
+                          activity['time'].toString(),
+                          style: const TextStyle(
                             fontSize: 9,
-                            color:
-                                Color(
-                              0xFF94A3B8,
-                            ),
+                            color: Color(0xFF94A3B8),
                           ),
                         ),
                       ],
@@ -2500,53 +1814,52 @@ Widget _activityLogCard() {
                   ],
                 ),
               );
-            },
-          ),
-      ],
-    ),
-  );
-}
-String _settingsDate() {
-  final now = DateTime.now();
-
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  return '${now.day.toString().padLeft(2, '0')} '
-      '${months[now.month - 1]} '
-      '${now.year}';
-}
-
-String _settingsTime() {
-  final now = DateTime.now();
-
-  var hour = now.hour;
-
-  final period =
-      hour >= 12 ? 'PM' : 'AM';
-
-  if (hour == 0) {
-    hour = 12;
-  } else if (hour > 12) {
-    hour -= 12;
+            }),
+        ],
+      ),
+    );
   }
 
-  return '${hour.toString().padLeft(2, '0')}:'
-      '${now.minute.toString().padLeft(2, '0')} '
-      '$period';
-}
+  String _settingsDate() {
+    final now = DateTime.now();
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${now.day.toString().padLeft(2, '0')} '
+        '${months[now.month - 1]} '
+        '${now.year}';
+  }
+
+  String _settingsTime() {
+    final now = DateTime.now();
+
+    var hour = now.hour;
+
+    final period = hour >= 12 ? 'PM' : 'AM';
+
+    if (hour == 0) {
+      hour = 12;
+    } else if (hour > 12) {
+      hour -= 12;
+    }
+
+    return '${hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')} '
+        '$period';
+  }
   // =========================================================
   // ADD / EDIT USER
   // =========================================================
@@ -2555,31 +1868,20 @@ String _settingsTime() {
     await _userForm();
   }
 
-  Future<void> _editUser(
-    Map<String, dynamic> user,
-  ) async {
+  Future<void> _editUser(Map<String, dynamic> user) async {
     await _userForm(user: user);
   }
 
-  Future<void> _userForm({
-    Map<String, dynamic>? user,
-  }) async {
+  Future<void> _userForm({Map<String, dynamic>? user}) async {
     final editing = user != null;
 
-    final name = TextEditingController(
-      text: user?['name'] ?? '',
-    );
+    final name = TextEditingController(text: user?['name'] ?? '');
 
-    final emailController =
-        TextEditingController(
-      text: user?['email'] ?? '',
-    );
+    final emailController = TextEditingController(text: user?['email'] ?? '');
 
-    String role =
-        user?['role'] ?? 'Sales Executive';
+    String role = user?['role'] ?? 'Sales Executive';
 
-    String status =
-        user?['status'] ?? 'Active';
+    String status = user?['status'] ?? 'Active';
 
     await showDialog(
       context: context,
@@ -2588,107 +1890,68 @@ String _settingsTime() {
         return StatefulBuilder(
           builder: (_, updateDialog) {
             return Dialog(
-              backgroundColor:
-                  Colors.transparent,
-              insetPadding:
-                  const EdgeInsets.all(16),
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(16),
               child: Container(
                 constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.9 > 520 ? 520 : MediaQuery.of(context).size.width * 0.9,
+                  maxWidth: MediaQuery.of(context).size.width * 0.9 > 520
+                      ? 520
+                      : MediaQuery.of(context).size.width * 0.9,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black
-                          .withValues(
-                        alpha: 0.10,
-                      ),
+                      color: Colors.black.withValues(alpha: 0.10),
                       blurRadius: 30,
-                      offset:
-                          const Offset(0, 10),
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
                 child: Column(
-                  mainAxisSize:
-                      MainAxisSize.min,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // HEADER
                     Padding(
-                      padding:
-                          const EdgeInsets
-                              .fromLTRB(
-                        22,
-                        20,
-                        14,
-                        18,
-                      ),
+                      padding: const EdgeInsets.fromLTRB(22, 20, 14, 18),
                       child: Row(
                         children: [
                           Container(
                             width: 42,
                             height: 42,
-                            decoration:
-                                BoxDecoration(
-                              color: const Color(
-                                0xFFE0F2FE,
-                              ),
-                              borderRadius:
-                                  BorderRadius
-                                      .circular(
-                                11,
-                              ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE0F2FE),
+                              borderRadius: BorderRadius.circular(11),
                             ),
                             child: Icon(
                               editing
-                                  ? Icons
-                                      .manage_accounts_outlined
-                                  : Icons
-                                      .person_add_alt_1_outlined,
-                              color:
-                                  const Color(
-                                0xFF0284C7,
-                              ),
+                                  ? Icons.manage_accounts_outlined
+                                  : Icons.person_add_alt_1_outlined,
+                              color: const Color(0xFF0284C7),
                             ),
                           ),
 
-                          const SizedBox(
-                            width: 12,
-                          ),
+                          const SizedBox(width: 12),
 
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment
-                                      .start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  editing
-                                      ? 'Edit User'
-                                      : 'Add New User',
-                                  style:
-                                      const TextStyle(
+                                  editing ? 'Edit User' : 'Add New User',
+                                  style: const TextStyle(
                                     fontSize: 18,
-                                    fontWeight:
-                                        FontWeight
-                                            .w800,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                const SizedBox(
-                                  height: 3,
-                                ),
+                                const SizedBox(height: 3),
                                 Text(
                                   editing
                                       ? 'Update staff account information'
                                       : 'Create a new admin or staff account',
-                                  style:
-                                      const TextStyle(
-                                    color: Color(
-                                      0xFF64748B,
-                                    ),
+                                  style: const TextStyle(
+                                    color: Color(0xFF64748B),
                                     fontSize: 11,
                                   ),
                                 ),
@@ -2698,13 +1961,9 @@ String _settingsTime() {
 
                           IconButton(
                             onPressed: () {
-                              Navigator.pop(
-                                dialogContext,
-                              );
+                              Navigator.pop(dialogContext);
                             },
-                            icon: const Icon(
-                              Icons.close_rounded,
-                            ),
+                            icon: const Icon(Icons.close_rounded),
                           ),
                         ],
                       ),
@@ -2713,50 +1972,33 @@ String _settingsTime() {
                     const Divider(height: 1),
 
                     Flexible(
-                      child:
-                          SingleChildScrollView(
-                        padding:
-                            const EdgeInsets
-                                .all(22),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(22),
                         child: Column(
                           children: [
                             _dialogInput(
                               controller: name,
-                              label:
-                                  'Full Name *',
-                              hint:
-                                  'Enter full name',
-                              icon: Icons
-                                  .person_outline,
+                              label: 'Full Name *',
+                              hint: 'Enter full name',
+                              icon: Icons.person_outline,
                             ),
 
-                            const SizedBox(
-                              height: 16,
-                            ),
+                            const SizedBox(height: 16),
 
                             _dialogInput(
-                              controller:
-                                  emailController,
-                              label:
-                                  'Email Address *',
-                              hint:
-                                  'name@company.com',
-                              icon: Icons
-                                  .email_outlined,
-                              keyboardType:
-                                  TextInputType
-                                      .emailAddress,
+                              controller: emailController,
+                              label: 'Email Address *',
+                              hint: 'name@company.com',
+                              icon: Icons.email_outlined,
+                              keyboardType: TextInputType.emailAddress,
                             ),
 
-                            const SizedBox(
-                              height: 16,
-                            ),
+                            const SizedBox(height: 16),
 
                             _dialogDropdown(
                               label: 'Role',
                               value: role,
-                              icon: Icons
-                                  .admin_panel_settings_outlined,
+                              icon: Icons.admin_panel_settings_outlined,
                               items: const [
                                 'Sales Executive',
                                 'Accounts',
@@ -2764,48 +2006,32 @@ String _settingsTime() {
                                 'Admin',
                                 'Super Admin',
                               ],
-                              onChanged:
-                                  (value) {
-                                if (value ==
-                                    null) {
+                              onChanged: (value) {
+                                if (value == null) {
                                   return;
                                 }
 
-                                updateDialog(
-                                  () {
-                                    role =
-                                        value;
-                                  },
-                                );
+                                updateDialog(() {
+                                  role = value;
+                                });
                               },
                             ),
 
-                            const SizedBox(
-                              height: 16,
-                            ),
+                            const SizedBox(height: 16),
 
                             _dialogDropdown(
                               label: 'Status',
                               value: status,
-                              icon: Icons
-                                  .verified_user_outlined,
-                              items: const [
-                                'Active',
-                                'Inactive',
-                              ],
-                              onChanged:
-                                  (value) {
-                                if (value ==
-                                    null) {
+                              icon: Icons.verified_user_outlined,
+                              items: const ['Active', 'Inactive'],
+                              onChanged: (value) {
+                                if (value == null) {
                                   return;
                                 }
 
-                                updateDialog(
-                                  () {
-                                    status =
-                                        value;
-                                  },
-                                );
+                                updateDialog(() {
+                                  status = value;
+                                });
                               },
                             ),
                           ],
@@ -2816,148 +2042,84 @@ String _settingsTime() {
                     const Divider(height: 1),
 
                     Padding(
-                      padding:
-                          const EdgeInsets
-                              .all(18),
+                      padding: const EdgeInsets.all(18),
                       child: Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.end,
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           SizedBox(
                             width: 90,
                             height: 44,
                             child: TextButton(
-                              style: TextButton
-                                  .styleFrom(
-                                minimumSize:
-                                    const Size(
-                                  0,
-                                  44,
-                                ),
-                                maximumSize:
-                                    const Size(
-                                  90,
-                                  44,
-                                ),
+                              style: TextButton.styleFrom(
+                                minimumSize: const Size(0, 44),
+                                maximumSize: const Size(90, 44),
                               ),
                               onPressed: () {
-                                Navigator.pop(
-                                  dialogContext,
-                                );
+                                Navigator.pop(dialogContext);
                               },
-                              child: const Text(
-                                'Cancel',
-                              ),
+                              child: const Text('Cancel'),
                             ),
                           ),
 
-                          const SizedBox(
-                            width: 10,
-                          ),
+                          const SizedBox(width: 10),
 
                           SizedBox(
-                            width: editing
-                                ? 130
-                                : 115,
+                            width: editing ? 130 : 115,
                             height: 44,
-                            child:
-                                ElevatedButton(
-                              style:
-                                  ElevatedButton
-                                      .styleFrom(
-                                minimumSize:
-                                    const Size(
-                                  0,
-                                  44,
-                                ),
-                                maximumSize:
-                                    Size(
-                                  editing
-                                      ? 130
-                                      : 115,
-                                  44,
-                                ),
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(0, 44),
+                                maximumSize: Size(editing ? 130 : 115, 44),
                               ),
                               onPressed: () {
-                                final userName =
-                                    name.text
-                                        .trim();
+                                final userName = name.text.trim();
 
-                                final userEmail =
-                                    emailController
-                                        .text
-                                        .trim();
+                                final userEmail = emailController.text.trim();
 
-                                if (userName
-                                    .isEmpty) {
-                                  AppToast
-                                      .error(
+                                if (userName.isEmpty) {
+                                  AppToast.error(
                                     context,
                                     'Please enter user name.',
-                                    title:
-                                        'Name Required',
+                                    title: 'Name Required',
                                   );
                                   return;
                                 }
 
-                                if (userEmail
-                                        .isEmpty ||
-                                    !userEmail
-                                        .contains(
-                                      '@',
-                                    )) {
-                                  AppToast
-                                      .error(
+                                if (userEmail.isEmpty ||
+                                    !userEmail.contains('@')) {
+                                  AppToast.error(
                                     context,
                                     'Please enter a valid email address.',
-                                    title:
-                                        'Invalid Email',
+                                    title: 'Invalid Email',
                                   );
                                   return;
                                 }
 
                                 final data = {
-                                  'id': user?[
-                                          'id'] ??
-                                      DateTime
-                                          .now()
-                                          .millisecondsSinceEpoch,
-                                  'name':
-                                      userName,
-                                  'email':
-                                      userEmail,
+                                  'id':
+                                      user?['id'] ??
+                                      DateTime.now().millisecondsSinceEpoch,
+                                  'name': userName,
+                                  'email': userEmail,
                                   'role': role,
-                                  'status':
-                                      status,
+                                  'status': status,
                                 };
 
                                 setState(() {
                                   if (!editing) {
-                                    users.insert(
-                                      0,
-                                      data,
-                                    );
+                                    users.insert(0, data);
                                   } else {
-                                    final index =
-                                        users
-                                            .indexWhere(
-                                      (item) =>
-                                          item['id'] ==
-                                          user[
-                                              'id'],
+                                    final index = users.indexWhere(
+                                      (item) => item['id'] == user['id'],
                                     );
 
-                                    if (index !=
-                                        -1) {
-                                      users[index] =
-                                          data;
+                                    if (index != -1) {
+                                      users[index] = data;
                                     }
                                   }
                                 });
 
-                                Navigator.pop(
-                                  dialogContext,
-                                );
+                                Navigator.pop(dialogContext);
 
                                 AppToast.success(
                                   context,
@@ -2969,11 +2131,7 @@ String _settingsTime() {
                                       : 'User Added',
                                 );
                               },
-                              child: Text(
-                                editing
-                                    ? 'Update User'
-                                    : 'Add User',
-                              ),
+                              child: Text(editing ? 'Update User' : 'Add User'),
                             ),
                           ),
                         ],
@@ -2992,62 +2150,38 @@ String _settingsTime() {
     emailController.dispose();
   }
 
-  Future<void> _deleteUser(
-    Map<String, dynamic> user,
-  ) async {
-    final result =
-        await showDialog<bool>(
+  Future<void> _deleteUser(Map<String, dynamic> user) async {
+    final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text(
-            'Delete User',
-          ),
-          content: Text(
-            'Are you sure you want to delete ${user['name']}?',
-          ),
+          title: const Text('Delete User'),
+          content: Text('Are you sure you want to delete ${user['name']}?'),
           actions: [
             SizedBox(
               width: 90,
               height: 42,
               child: TextButton(
                 onPressed: () {
-                  Navigator.pop(
-                    dialogContext,
-                    false,
-                  );
+                  Navigator.pop(dialogContext, false);
                 },
-                child: const Text(
-                  'Cancel',
-                ),
+                child: const Text('Cancel'),
               ),
             ),
             SizedBox(
               width: 95,
               height: 42,
               child: ElevatedButton(
-                style:
-                    ElevatedButton.styleFrom(
-                  minimumSize:
-                      const Size(0, 42),
-                  maximumSize:
-                      const Size(95, 42),
-                  backgroundColor:
-                      const Color(
-                    0xFFEF4444,
-                  ),
-                  foregroundColor:
-                      Colors.white,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 42),
+                  maximumSize: const Size(95, 42),
+                  backgroundColor: const Color(0xFFEF4444),
+                  foregroundColor: Colors.white,
                 ),
                 onPressed: () {
-                  Navigator.pop(
-                    dialogContext,
-                    true,
-                  );
+                  Navigator.pop(dialogContext, true);
                 },
-                child: const Text(
-                  'Delete',
-                ),
+                child: const Text('Delete'),
               ),
             ),
           ],
@@ -3057,14 +2191,10 @@ String _settingsTime() {
 
     if (result != true) return;
 
-    final userName =
-        user['name'].toString();
+    final userName = user['name'].toString();
 
     setState(() {
-      users.removeWhere(
-        (item) =>
-            item['id'] == user['id'],
-      );
+      users.removeWhere((item) => item['id'] == user['id']);
     });
 
     if (!mounted) return;
@@ -3080,13 +2210,9 @@ String _settingsTime() {
   // HELPERS
   // =========================================================
 
-  Widget _sectionTitle(
-    String title,
-    String subtitle,
-  ) {
+  Widget _sectionTitle(String title, String subtitle) {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
@@ -3099,39 +2225,25 @@ String _settingsTime() {
         const SizedBox(height: 3),
         Text(
           subtitle,
-          style: const TextStyle(
-            color: Color(0xFF64748B),
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
         ),
       ],
     );
   }
 
-  Widget _input(
-    TextEditingController controller,
-    String label,
-  ) {
+  Widget _input(TextEditingController controller, String label) {
     return TextField(
       controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-      ),
+      decoration: InputDecoration(labelText: label),
     );
   }
 
-  Widget _formGrid(
-    bool desktop,
-    List<Widget> fields,
-  ) {
+  Widget _formGrid(bool desktop, List<Widget> fields) {
     if (!desktop) {
       return Column(
         children: fields.map((field) {
           return Padding(
-            padding:
-                const EdgeInsets.only(
-              bottom: 12,
-            ),
+            padding: const EdgeInsets.only(bottom: 12),
             child: field,
           );
         }).toList(),
@@ -3140,18 +2252,13 @@ String _settingsTime() {
 
     return LayoutBuilder(
       builder: (_, constraints) {
-        final width =
-            (constraints.maxWidth - 14) /
-                2;
+        final width = (constraints.maxWidth - 14) / 2;
 
         return Wrap(
           spacing: 14,
           runSpacing: 14,
           children: fields.map((field) {
-            return SizedBox(
-              width: width,
-              child: field,
-            );
+            return SizedBox(width: width, child: field);
           }).toList(),
         );
       },
@@ -3165,37 +2272,25 @@ String _settingsTime() {
     ValueChanged<bool> changed,
   ) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        vertical: 13,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 13),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFF1F5F9),
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
       ),
       child: Row(
         children: [
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontWeight:
-                        FontWeight.w600,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: const TextStyle(
-                    color:
-                        Color(0xFF64748B),
+                    color: Color(0xFF64748B),
                     fontSize: 11,
                   ),
                 ),
@@ -3203,26 +2298,21 @@ String _settingsTime() {
             ),
           ),
           const SizedBox(width: 12),
-          Switch(
-            value: value,
-            onChanged: changed,
-          ),
+          Switch(value: value, onChanged: changed),
         ],
       ),
     );
   }
 
   Widget _dialogInput({
-    required TextEditingController
-        controller,
+    required TextEditingController controller,
     required String label,
     required String hint,
     required IconData icon,
     TextInputType? keyboardType,
   }) {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -3238,40 +2328,21 @@ String _settingsTime() {
           keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: Icon(
-              icon,
-              size: 19,
-              color: const Color(
-                0xFF64748B,
-              ),
-            ),
+            prefixIcon: Icon(icon, size: 19, color: const Color(0xFF64748B)),
             filled: true,
             fillColor: Colors.white,
-            contentPadding:
-                const EdgeInsets.symmetric(
+            contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 14,
             ),
-            enabledBorder:
-                OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(10),
-              borderSide:
-                  const BorderSide(
-                color: Color(
-                  0xFFE2E8F0,
-                ),
-              ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
             ),
-            focusedBorder:
-                OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(10),
-              borderSide:
-                  const BorderSide(
-                color: Color(
-                  0xFF0284C7,
-                ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFF0284C7),
                 width: 1.4,
               ),
             ),
@@ -3286,12 +2357,10 @@ String _settingsTime() {
     required String value,
     required IconData icon,
     required List<String> items,
-    required ValueChanged<String?>
-        onChanged,
+    required ValueChanged<String?> onChanged,
   }) {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -3303,52 +2372,30 @@ String _settingsTime() {
         ),
         const SizedBox(height: 7),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           isExpanded: true,
           decoration: InputDecoration(
-            prefixIcon: Icon(
-              icon,
-              size: 19,
-              color: const Color(
-                0xFF64748B,
-              ),
-            ),
+            prefixIcon: Icon(icon, size: 19, color: const Color(0xFF64748B)),
             filled: true,
             fillColor: Colors.white,
-            contentPadding:
-                const EdgeInsets.symmetric(
+            contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 14,
             ),
-            enabledBorder:
-                OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(10),
-              borderSide:
-                  const BorderSide(
-                color: Color(
-                  0xFFE2E8F0,
-                ),
-              ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
             ),
-            focusedBorder:
-                OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(10),
-              borderSide:
-                  const BorderSide(
-                color: Color(
-                  0xFF0284C7,
-                ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFF0284C7),
                 width: 1.4,
               ),
             ),
           ),
           items: items.map((item) {
-            return DropdownMenuItem(
-              value: item,
-              child: Text(item),
-            );
+            return DropdownMenuItem(value: item, child: Text(item));
           }).toList(),
           onChanged: onChanged,
         ),
@@ -3364,16 +2411,12 @@ String _settingsTime() {
 BoxDecoration _settingsCard() {
   return BoxDecoration(
     color: Colors.white,
-    borderRadius:
-        BorderRadius.circular(14),
-    border: Border.all(
-      color: const Color(0xFFE5E7EB),
-    ),
+    borderRadius: BorderRadius.circular(14),
+    border: Border.all(color: const Color(0xFFE5E7EB)),
   );
 }
 
-const TextStyle _settingsHeaderStyle =
-    TextStyle(
+const TextStyle _settingsHeaderStyle = TextStyle(
   fontSize: 9.5,
   fontWeight: FontWeight.w700,
   color: Color(0xFF64748B),

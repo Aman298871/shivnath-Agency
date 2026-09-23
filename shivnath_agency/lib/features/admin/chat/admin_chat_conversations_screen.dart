@@ -132,185 +132,182 @@ class _AdminChatConversationsScreenState
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredConversations.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.chat_bubble_outline,
-                              size: 56,
-                              color: isDark ? Colors.white38 : Colors.grey,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'No conversation logs found',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: isDark ? Colors.white70 : Colors.black54,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Inquiries and chatbot dialogues will appear here live.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: isDark ? Colors.white38 : Colors.grey,
-                              ),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 56,
+                          color: isDark ? Colors.white38 : Colors.grey,
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadConversations,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _filteredConversations.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (ctx, idx) {
-                            final c = _filteredConversations[idx];
-                            final appType = (c['app_type'] ?? 'customer')
-                                .toString()
-                                .toUpperCase();
-                            final name = (c['customer_name'] ??
+                        const SizedBox(height: 12),
+                        Text(
+                          'No conversation logs found',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: isDark ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Inquiries and chatbot dialogues will appear here live.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: isDark ? Colors.white38 : Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _loadConversations,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _filteredConversations.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (ctx, idx) {
+                        final c = _filteredConversations[idx];
+                        final appType = (c['app_type'] ?? 'customer')
+                            .toString()
+                            .toUpperCase();
+                        final name =
+                            (c['customer_name'] ??
                                     c['user_name'] ??
                                     c['user_username'] ??
                                     'Guest User')
                                 .toString();
-                            final phone =
-                                (c['customer_phone'] ?? '').toString();
-                            final lastMsg = (c['last_message'] ??
-                                    'No messages yet')
-                                .toString();
-                            final msgCount = c['message_count'] ?? 0;
-                            final updatedAt =
-                                (c['updated_at'] ?? '').toString();
+                        final phone = (c['customer_phone'] ?? '').toString();
+                        final lastMsg = (c['last_message'] ?? 'No messages yet')
+                            .toString();
+                        final msgCount = c['message_count'] ?? 0;
+                        final updatedAt = (c['updated_at'] ?? '').toString();
 
-                            return Card(
-                              elevation: 1,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () => _openConversationDetail(c),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(14),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                        return Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => _openConversationDetail(c),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Row(
+                                          CircleAvatar(
+                                            radius: 18,
+                                            backgroundColor: primaryBlue
+                                                .withAlpha(30),
+                                            child: Icon(
+                                              appType == 'FRANCHISE'
+                                                  ? Icons.store
+                                                  : Icons.person,
+                                              color: primaryBlue,
+                                              size: 20,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
-                                              CircleAvatar(
-                                                radius: 18,
-                                                backgroundColor:
-                                                    primaryBlue.withAlpha(30),
-                                                child: Icon(
-                                                  appType == 'FRANCHISE'
-                                                      ? Icons.store
-                                                      : Icons.person,
-                                                  color: primaryBlue,
-                                                  size: 20,
+                                              Text(
+                                                name,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15,
                                                 ),
                                               ),
-                                              const SizedBox(width: 10),
-                                              Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    name,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 15,
-                                                    ),
+                                              if (phone.isNotEmpty)
+                                                Text(
+                                                  phone,
+                                                  style: TextStyle(
+                                                    color: isDark
+                                                        ? Colors.white60
+                                                        : Colors.black54,
+                                                    fontSize: 12,
                                                   ),
-                                                  if (phone.isNotEmpty)
-                                                    Text(
-                                                      phone,
-                                                      style: TextStyle(
-                                                        color: isDark
-                                                            ? Colors.white60
-                                                            : Colors.black54,
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
+                                                ),
                                             ],
                                           ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: _getRoleColor(appType)
-                                                  .withAlpha(38),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              appType,
-                                              style: TextStyle(
-                                                color: _getRoleColor(appType),
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ),
                                         ],
                                       ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        lastMsg,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: isDark
-                                              ? Colors.white70
-                                              : Colors.black87,
-                                          fontSize: 13,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
                                         ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            '$msgCount messages',
-                                            style: TextStyle(
-                                              color: isDark
-                                                  ? Colors.white38
-                                                  : Colors.grey,
-                                              fontSize: 11,
-                                            ),
+                                        decoration: BoxDecoration(
+                                          color: _getRoleColor(
+                                            appType,
+                                          ).withAlpha(38),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
                                           ),
-                                          if (updatedAt.isNotEmpty)
-                                            Text(
-                                              _formatTimestamp(updatedAt),
-                                              style: TextStyle(
-                                                color: isDark
-                                                    ? Colors.white38
-                                                    : Colors.grey,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                        ],
+                                        ),
+                                        child: Text(
+                                          appType,
+                                          style: TextStyle(
+                                            color: _getRoleColor(appType),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
-                                ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    lastMsg,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.white70
+                                          : Colors.black87,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '$msgCount messages',
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white38
+                                              : Colors.grey,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                      if (updatedAt.isNotEmpty)
+                                        Text(
+                                          _formatTimestamp(updatedAt),
+                                          style: TextStyle(
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.grey,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            );
-                          },
-                        ),
-                      ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
           ),
         ],
       ),
@@ -382,8 +379,9 @@ class _ConversationDetailSheetState extends State<_ConversationDetailSheet> {
   }
 
   Future<void> _fetchDetail() async {
-    final res =
-        await widget.chatService.getAdminConversationDetail(widget.sessionId);
+    final res = await widget.chatService.getAdminConversationDetail(
+      widget.sessionId,
+    );
     if (mounted) {
       setState(() {
         _detail = res;
@@ -396,11 +394,12 @@ class _ConversationDetailSheetState extends State<_ConversationDetailSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final name = (widget.summary['customer_name'] ??
-            widget.summary['user_name'] ??
-            widget.summary['user_username'] ??
-            'Guest User')
-        .toString();
+    final name =
+        (widget.summary['customer_name'] ??
+                widget.summary['user_name'] ??
+                widget.summary['user_username'] ??
+                'Guest User')
+            .toString();
     final phone = (widget.summary['customer_phone'] ?? '').toString();
     final email = (widget.summary['customer_email'] ?? '').toString();
     final messages =
@@ -441,8 +440,10 @@ class _ConversationDetailSheetState extends State<_ConversationDetailSheet> {
                       if (phone.isNotEmpty || email.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
-                          [if (phone.isNotEmpty) phone, if (email.isNotEmpty) email]
-                              .join(' • '),
+                          [
+                            if (phone.isNotEmpty) phone,
+                            if (email.isNotEmpty) email,
+                          ].join(' • '),
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.white60 : Colors.black54,
@@ -464,74 +465,71 @@ class _ConversationDetailSheetState extends State<_ConversationDetailSheet> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : messages.isEmpty
-                    ? const Center(child: Text('No messages recorded.'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: messages.length,
-                        itemBuilder: (ctx, idx) {
-                          final msg = messages[idx];
-                          final isBot = msg['sender'] == 'bot';
-                          final text = (msg['message'] ?? '').toString();
-                          final ts = (msg['created_at'] ?? '').toString();
+                ? const Center(child: Text('No messages recorded.'))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: messages.length,
+                    itemBuilder: (ctx, idx) {
+                      final msg = messages[idx];
+                      final isBot = msg['sender'] == 'bot';
+                      final text = (msg['message'] ?? '').toString();
+                      final ts = (msg['created_at'] ?? '').toString();
 
-                          return Align(
-                            alignment: isBot
-                                ? Alignment.centerLeft
-                                : Alignment.centerRight,
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(vertical: 6),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
+                      return Align(
+                        alignment: isBot
+                            ? Alignment.centerLeft
+                            : Alignment.centerRight,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.78,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isBot
+                                ? (isDark
+                                      ? const Color(0xFF1E293B)
+                                      : const Color(0xFFF1F5F9))
+                                : primaryBlue,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: isBot
+                                ? CrossAxisAlignment.start
+                                : CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                text,
+                                style: TextStyle(
+                                  color: isBot
+                                      ? (isDark ? Colors.white : Colors.black87)
+                                      : Colors.white,
+                                  fontSize: 14,
+                                ),
                               ),
-                              constraints: BoxConstraints(
-                                maxWidth:
-                                    MediaQuery.of(context).size.width * 0.78,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isBot
-                                    ? (isDark
-                                        ? const Color(0xFF1E293B)
-                                        : const Color(0xFFF1F5F9))
-                                    : primaryBlue,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: isBot
-                                    ? CrossAxisAlignment.start
-                                    : CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    text,
-                                    style: TextStyle(
-                                      color: isBot
-                                          ? (isDark
-                                              ? Colors.white
-                                              : Colors.black87)
-                                          : Colors.white,
-                                      fontSize: 14,
-                                    ),
+                              if (ts.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatTime(ts),
+                                  style: TextStyle(
+                                    color: isBot
+                                        ? (isDark
+                                              ? Colors.white38
+                                              : Colors.black38)
+                                        : Colors.white70,
+                                    fontSize: 10,
                                   ),
-                                  if (ts.isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _formatTime(ts),
-                                      style: TextStyle(
-                                        color: isBot
-                                            ? (isDark
-                                                ? Colors.white38
-                                                : Colors.black38)
-                                            : Colors.white70,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

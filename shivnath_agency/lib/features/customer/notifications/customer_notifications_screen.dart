@@ -5,10 +5,12 @@ class CustomerNotificationsScreen extends StatefulWidget {
   const CustomerNotificationsScreen({super.key});
 
   @override
-  State<CustomerNotificationsScreen> createState() => _CustomerNotificationsScreenState();
+  State<CustomerNotificationsScreen> createState() =>
+      _CustomerNotificationsScreenState();
 }
 
-class _CustomerNotificationsScreenState extends State<CustomerNotificationsScreen> {
+class _CustomerNotificationsScreenState
+    extends State<CustomerNotificationsScreen> {
   final StockService _stockService = StockService();
   bool _isLoading = true;
   List<Map<String, dynamic>> _notifications = [];
@@ -85,93 +87,110 @@ class _CustomerNotificationsScreenState extends State<CustomerNotificationsScree
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _notifications.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.notifications_none_rounded, size: 64, color: Colors.grey.shade400),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'No notifications',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Updates on your stock, daily deliveries, and orders will appear here.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.notifications_none_rounded,
+                    size: 64,
+                    color: Colors.grey.shade400,
                   ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _notifications.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final item = _notifications[index];
-                    final isRead = item['is_read'] == true;
-                    final notifType = item['notification_type']?.toString();
-                    final title = item['title']?.toString() ?? 'Notification';
-                    final message = item['message']?.toString() ?? '';
-                    final createdAt = item['created_at']?.toString() ?? '';
-                    final iconColor = _getIconColor(notifType);
+                  const SizedBox(height: 12),
+                  const Text(
+                    'No notifications',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Updates on your stock, daily deliveries, and orders will appear here.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: _notifications.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final item = _notifications[index];
+                final isRead = item['is_read'] == true;
+                final notifType = item['notification_type']?.toString();
+                final title = item['title']?.toString() ?? 'Notification';
+                final message = item['message']?.toString() ?? '';
+                final createdAt = item['created_at']?.toString() ?? '';
+                final iconColor = _getIconColor(notifType);
 
-                    return Card(
-                      elevation: isRead ? 0 : 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: isRead ? const Color(0xFFE2E8F0) : iconColor.withOpacity(0.4),
-                          width: isRead ? 1 : 1.5,
-                        ),
+                return Card(
+                  elevation: isRead ? 0 : 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: isRead
+                          ? const Color(0xFFE2E8F0)
+                          : iconColor.withValues(alpha: 0.4),
+                      width: isRead ? 1 : 1.5,
+                    ),
+                  ),
+                  color: isRead ? Colors.white : const Color(0xFFFFFBEB),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(14),
+                    leading: CircleAvatar(
+                      backgroundColor: iconColor.withValues(alpha: 0.12),
+                      child: Icon(_getIcon(notifType), color: iconColor),
+                    ),
+                    title: Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: isRead ? FontWeight.w600 : FontWeight.w800,
+                        color: const Color(0xFF0F172A),
                       ),
-                      color: isRead ? Colors.white : const Color(0xFFFFFBEB),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(14),
-                        leading: CircleAvatar(
-                          backgroundColor: iconColor.withOpacity(0.12),
-                          child: Icon(
-                            _getIcon(notifType),
-                            color: iconColor,
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            message,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF475569),
+                            ),
                           ),
-                        ),
-                        title: Text(
-                          title,
-                          style: TextStyle(
-                            fontWeight: isRead ? FontWeight.w600 : FontWeight.w800,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                message,
-                                style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                          if (createdAt.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              createdAt,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF94A3B8),
                               ),
-                              if (createdAt.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  createdAt,
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        trailing: !isRead
-                            ? IconButton(
-                                icon: const Icon(Icons.check_circle_outline, size: 20, color: Color(0xFF16A34A)),
-                                tooltip: 'Mark as read',
-                                onPressed: () => _markAsRead(item['id']),
-                              )
-                            : null,
+                            ),
+                          ],
+                        ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                    trailing: !isRead
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.check_circle_outline,
+                              size: 20,
+                              color: Color(0xFF16A34A),
+                            ),
+                            tooltip: 'Mark as read',
+                            onPressed: () => _markAsRead(item['id']),
+                          )
+                        : null,
+                  ),
+                );
+              },
+            ),
     );
   }
 }

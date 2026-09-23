@@ -22,7 +22,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   final AuthService _authService = AuthService();
   UserModel? _currentUser;
   bool _isLoading = true;
-  String _savedAddress = 'Farishta Complex, G.E. Road, Raipur, Chhattisgarh - 492001';
+  String _savedAddress =
+      'Farishta Complex, G.E. Road, Raipur, Chhattisgarh - 492001';
 
   Map<String, dynamic>? _territoryData;
   Map<String, dynamic>? _stockCycleData;
@@ -67,7 +68,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           _currentUser = user;
         } catch (_) {}
         setState(() {
-          _territoryData = (d['territory_info'] ?? d['territory']) as Map<String, dynamic>?;
+          _territoryData =
+              (d['territory_info'] ?? d['territory']) as Map<String, dynamic>?;
           _stockCycleData = d['stock_cycle'] as Map<String, dynamic>?;
         });
       }
@@ -113,7 +115,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return _displayName.substring(0, _displayName.length >= 2 ? 2 : 1).toUpperCase();
+    return _displayName
+        .substring(0, _displayName.length >= 2 ? 2 : 1)
+        .toUpperCase();
   }
 
   // =========================================================
@@ -132,7 +136,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           children: [
             Icon(Icons.person_outline, color: Color(0xFF0284C7)),
             SizedBox(width: 10),
-            Text('Personal Information', style: TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              'Personal Information',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ],
         ),
         content: Column(
@@ -140,28 +147,42 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           children: [
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.badge_outlined)),
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                prefixIcon: Icon(Icons.badge_outlined),
+              ),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: phoneController,
-              decoration: const InputDecoration(labelText: 'Phone Number', prefixIcon: Icon(Icons.phone_outlined)),
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: TextEditingController(text: _displayEmail),
               enabled: false,
-              decoration: const InputDecoration(labelText: 'Email Address (Registered)', prefixIcon: Icon(Icons.email_outlined)),
+              decoration: const InputDecoration(
+                labelText: 'Email Address (Registered)',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0284C7),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () async {
               if (_currentUser != null) {
@@ -217,7 +238,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
                 const Spacer(),
-                IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+                IconButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.close),
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -232,7 +256,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               decoration: InputDecoration(
                 labelText: 'Complete Street / Office Address',
                 alignLabelWithHint: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
             const SizedBox(height: 18),
@@ -243,7 +269,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0284C7),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: () async {
                   final newAddr = addressController.text.trim();
@@ -278,7 +306,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           : (_territoryData?['territory']?.toString() ?? ''),
     );
     final districtController = TextEditingController(
-      text: _currentUser?.district?.isNotEmpty == true
+      text: _currentUser?.district.isNotEmpty == true
           ? _currentUser!.district
           : (_territoryData?['district']?.toString() ?? 'Raipur'),
     );
@@ -319,15 +347,24 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.add_location_alt_outlined, color: Color(0xFF0284C7)),
+                      const Icon(
+                        Icons.add_location_alt_outlined,
+                        color: Color(0xFF0284C7),
+                      ),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
                           'Delivery Territory & Location',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                      IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -390,7 +427,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0284C7),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       onPressed: () async {
                         final terr = territoryController.text.trim();
@@ -400,7 +439,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         if (terr.isEmpty) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
                             const SnackBar(
-                              content: Text('Please enter your delivery territory (e.g. North Raipur)'),
+                              content: Text(
+                                'Please enter your delivery territory (e.g. North Raipur)',
+                              ),
                               backgroundColor: Colors.orange,
                             ),
                           );
@@ -422,21 +463,29 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           Navigator.pop(ctx);
                           final prefs = await SharedPreferences.getInstance();
                           if (addr.isNotEmpty) {
-                            await prefs.setString('customer_delivery_address', addr);
+                            await prefs.setString(
+                              'customer_delivery_address',
+                              addr,
+                            );
                             setState(() => _savedAddress = addr);
                           }
                           await _refreshFromNetwork();
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Territory and location saved successfully!'),
+                              content: Text(
+                                'Territory and location saved successfully!',
+                              ),
                               backgroundColor: Color(0xFF0284C7),
                             ),
                           );
                         } else {
                           ScaffoldMessenger.of(ctx).showSnackBar(
                             SnackBar(
-                              content: Text(res['message']?.toString() ?? 'Failed to update territory'),
+                              content: Text(
+                                res['message']?.toString() ??
+                                    'Failed to update territory',
+                              ),
                               backgroundColor: Colors.red.shade700,
                             ),
                           );
@@ -464,7 +513,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           children: [
             Icon(Icons.settings_outlined, color: Color(0xFF0284C7)),
             SizedBox(width: 10),
-            Text('App Preferences', style: TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              'App Preferences',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ],
         ),
         content: Column(
@@ -472,7 +524,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.water_drop_outlined, color: Color(0xFF0284C7)),
+              leading: const Icon(
+                Icons.water_drop_outlined,
+                color: Color(0xFF0284C7),
+              ),
               title: const Text('Water Brand Theme'),
               subtitle: const Text('Shivnath Pure Blue'),
               trailing: Container(
@@ -487,12 +542,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             const Divider(),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.notifications_active_outlined, color: Color(0xFF0284C7)),
+              leading: const Icon(
+                Icons.notifications_active_outlined,
+                color: Color(0xFF0284C7),
+              ),
               title: const Text('Order Tracking Updates'),
               subtitle: const Text('Real-time delivery status'),
               trailing: Switch(
                 value: true,
-                activeColor: const Color(0xFF0284C7),
+                activeThumbColor: const Color(0xFF0284C7),
                 onChanged: (_) {},
               ),
             ),
@@ -525,7 +583,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(isHold ? 'Resume Water Delivery' : 'Pause Water Delivery (Hold)', style: const TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(
+          isHold ? 'Resume Water Delivery' : 'Pause Water Delivery (Hold)',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -541,17 +602,24 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               controller: reasonController,
               decoration: InputDecoration(
                 labelText: isHold ? 'Notes (Optional)' : 'Reason for Hold *',
-                hintText: isHold ? 'e.g. Back from trip' : 'e.g. Out of station for 10 days',
+                hintText: isHold
+                    ? 'e.g. Back from trip'
+                    : 'e.g. Out of station for 10 days',
                 border: const OutlineInputBorder(),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: isHold ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
+              backgroundColor: isHold
+                  ? const Color(0xFF16A34A)
+                  : const Color(0xFFE11D48),
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
@@ -575,25 +643,45 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     if (res['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['data']?['message']?.toString() ?? 'Service status updated successfully.'),
-          backgroundColor: isHold ? const Color(0xFF16A34A) : const Color(0xFF0284C7),
+          content: Text(
+            res['data']?['message']?.toString() ??
+                'Service status updated successfully.',
+          ),
+          backgroundColor: isHold
+              ? const Color(0xFF16A34A)
+              : const Color(0xFF0284C7),
         ),
       );
       _loadUserData();
     } else {
       final msg = res['message'] ?? 'Failed to update service status';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red.shade700),
+        SnackBar(
+          content: Text(msg.toString()),
+          backgroundColor: Colors.red.shade700,
+        ),
       );
     }
   }
 
   Widget _buildServiceTerritoryCard() {
-    final district = _currentUser?.district ?? _territoryData?['district']?.toString() ?? 'Unassigned';
-    final zone = _currentUser?.zoneName ?? _territoryData?['zone_name']?.toString() ?? _territoryData?['territory']?.toString() ?? 'Unassigned';
-    final locality = _currentUser?.locality ?? _territoryData?['locality']?.toString() ?? _territoryData?['service_area']?.toString() ?? 'Unassigned';
+    final district =
+        _currentUser?.district ??
+        _territoryData?['district']?.toString() ??
+        'Unassigned';
+    final zone =
+        _currentUser?.zoneName ??
+        _territoryData?['zone_name']?.toString() ??
+        _territoryData?['territory']?.toString() ??
+        'Unassigned';
+    final locality =
+        _currentUser?.locality ??
+        _territoryData?['locality']?.toString() ??
+        _territoryData?['service_area']?.toString() ??
+        'Unassigned';
     final address = _currentUser?.address ?? _savedAddress;
-    final franchise = _territoryData?['current_serving_franchise_name']?.toString() ??
+    final franchise =
+        _territoryData?['current_serving_franchise_name']?.toString() ??
         _territoryData?['registered_franchise_name']?.toString() ??
         'Shivnath Agency (Direct Company Fulfillment)';
 
@@ -609,7 +697,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: hasTerritory ? const Color(0xFFBAE6FD) : const Color(0xFFFED7AA), width: 1.5),
+        border: Border.all(
+          color: hasTerritory
+              ? const Color(0xFFBAE6FD)
+              : const Color(0xFFFED7AA),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(8),
@@ -628,40 +721,70 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 children: [
                   Icon(Icons.water_drop, color: Color(0xFF0284C7), size: 20),
                   SizedBox(width: 8),
-                  Text('Delivery Territory & Location', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  Text(
+                    'Delivery Territory & Location',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                  ),
                 ],
               ),
               if (cycleStatus == 'active')
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF0FDF4),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFF86EFAC)),
                   ),
-                  child: const Text('ACTIVE', style: TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.w800, fontSize: 11)),
+                  child: const Text(
+                    'ACTIVE',
+                    style: TextStyle(
+                      color: Color(0xFF15803D),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                    ),
+                  ),
                 )
               else if (cycleStatus == 'hold')
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFFBEB),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFFFDE68A)),
                   ),
-                  child: const Text('ON HOLD', style: TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.w800, fontSize: 11)),
+                  child: const Text(
+                    'ON HOLD',
+                    style: TextStyle(
+                      color: Color(0xFFB45309),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                    ),
+                  ),
                 )
               else
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: hasTerritory ? const Color(0xFFE0F2FE) : const Color(0xFFFFF7ED),
+                    color: hasTerritory
+                        ? const Color(0xFFE0F2FE)
+                        : const Color(0xFFFFF7ED),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     hasTerritory ? 'CONFIGURED' : 'ACTION REQUIRED',
                     style: TextStyle(
-                      color: hasTerritory ? const Color(0xFF0284C7) : const Color(0xFFC2410C),
+                      color: hasTerritory
+                          ? const Color(0xFF0284C7)
+                          : const Color(0xFFC2410C),
                       fontWeight: FontWeight.w800,
                       fontSize: 10,
                     ),
@@ -672,12 +795,19 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.location_city_outlined, size: 16, color: Color(0xFF64748B)),
+              const Icon(
+                Icons.location_city_outlined,
+                size: 16,
+                color: Color(0xFF64748B),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Territory: $zone ($district)',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -685,12 +815,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.near_me_outlined, size: 16, color: Color(0xFF64748B)),
+              const Icon(
+                Icons.near_me_outlined,
+                size: 16,
+                color: Color(0xFF64748B),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Locality / Service Area: $locality',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF475569),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -699,12 +837,19 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.home_outlined, size: 16, color: Color(0xFF64748B)),
+              const Icon(
+                Icons.home_outlined,
+                size: 16,
+                color: Color(0xFF64748B),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Address: $address',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF475569),
+                  ),
                 ),
               ),
             ],
@@ -712,12 +857,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.storefront_outlined, size: 16, color: Color(0xFF64748B)),
+              const Icon(
+                Icons.storefront_outlined,
+                size: 16,
+                color: Color(0xFF64748B),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Serving Supply: $franchise',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF0284C7),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -729,11 +882,17 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0284C7),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 10),
               ),
               icon: const Icon(Icons.edit_location_alt_outlined, size: 18),
-              label: Text(hasTerritory ? 'Change Delivery Territory & Location' : 'Set Delivery Territory & Location'),
+              label: Text(
+                hasTerritory
+                    ? 'Change Delivery Territory & Location'
+                    : 'Set Delivery Territory & Location',
+              ),
               onPressed: _showTerritoryLocationDialog,
             ),
           ),
@@ -742,14 +901,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: cycleStatus == 'active' ? const Color(0xFFF0F9FF) : const Color(0xFFFFFBEB),
+                color: cycleStatus == 'active'
+                    ? const Color(0xFFF0F9FF)
+                    : const Color(0xFFFFFBEB),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
                   Icon(
-                    cycleStatus == 'active' ? Icons.timer_outlined : Icons.pause_circle_outline,
-                    color: cycleStatus == 'active' ? const Color(0xFF0284C7) : const Color(0xFFD97706),
+                    cycleStatus == 'active'
+                        ? Icons.timer_outlined
+                        : Icons.pause_circle_outline,
+                    color: cycleStatus == 'active'
+                        ? const Color(0xFF0284C7)
+                        : const Color(0xFFD97706),
                     size: 20,
                   ),
                   const SizedBox(width: 10),
@@ -764,32 +929,56 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 12,
-                            color: cycleStatus == 'active' ? const Color(0xFF0369A1) : const Color(0xFF92400E),
+                            color: cycleStatus == 'active'
+                                ? const Color(0xFF0369A1)
+                                : const Color(0xFF92400E),
                           ),
                         ),
                         if (expectedEnd.isNotEmpty)
                           Text(
-                            cycleStatus == 'active' ? 'Ends around $expectedEnd' : 'Countdown paused safely',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            cycleStatus == 'active'
+                                ? 'Ends around $expectedEnd'
+                                : 'Countdown paused safely',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
                       ],
                     ),
                   ),
                   _isUpdatingStatus
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: cycleStatus == 'active' ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                            foregroundColor: cycleStatus == 'active'
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF16A34A),
                             side: BorderSide(
-                              color: cycleStatus == 'active' ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC),
+                              color: cycleStatus == 'active'
+                                  ? const Color(0xFFFCA5A5)
+                                  : const Color(0xFF86EFAC),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                          onPressed: () => _handleCustomerServiceStatusChange(cycleStatus),
+                          onPressed: () =>
+                              _handleCustomerServiceStatusChange(cycleStatus),
                           child: Text(
                             cycleStatus == 'active' ? 'Hold' : 'Resume',
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
                 ],
@@ -817,7 +1006,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     ),
                   ),
                   SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF0284C7)),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 14,
+                    color: Color(0xFF0284C7),
+                  ),
                 ],
               ),
             ),
@@ -919,7 +1112,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                             const SizedBox(height: 16),
                             Text(
                               _displayName,
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                             const SizedBox(height: 5),
                             Text(
@@ -929,11 +1125,17 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                             const SizedBox(height: 6),
                             Text(
                               _displayPhone,
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                             const SizedBox(height: 16),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE0F2FE),
                                 borderRadius: BorderRadius.circular(20),
@@ -978,18 +1180,23 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const CustomerWalletScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => const CustomerWalletScreen(),
+                                ),
                               );
                             },
                           ),
                           _ProfileTile(
                             icon: Icons.water_drop_outlined,
                             title: 'My Water Stock',
-                            subtitle: 'Active stock cycles, countdown & refills',
+                            subtitle:
+                                'Active stock cycles, countdown & refills',
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const CustomerStockScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => const CustomerStockScreen(),
+                                ),
                               );
                             },
                           ),
@@ -1000,7 +1207,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const CustomerNotificationsScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const CustomerNotificationsScreen(),
+                                ),
                               );
                             },
                           ),
@@ -1013,7 +1223,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           _ProfileTile(
                             icon: Icons.support_agent,
                             title: 'Help & Admin Support',
-                            subtitle: 'Admin Helpline: +91 98062 47194 (Call / Chat)',
+                            subtitle:
+                                'Admin Helpline: +91 98062 47194 (Call / Chat)',
                             onTap: _showHelpSupportDialog,
                           ),
                           const SizedBox(height: 12),
@@ -1022,12 +1233,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                             child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: Colors.red),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                                 minimumSize: const Size(double.infinity, 48),
                               ),
                               onPressed: _logout,
                               icon: const Icon(Icons.logout, color: Colors.red),
-                              label: const Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+                              label: const Text(
+                                'Logout',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -1126,7 +1345,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const CustomerNotificationsScreen()),
+              MaterialPageRoute(
+                builder: (_) => const CustomerNotificationsScreen(),
+              ),
             );
           },
         ),
@@ -1146,12 +1367,17 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: Colors.red),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
             minimumSize: const Size(double.infinity, 48),
           ),
           onPressed: _logout,
           icon: const Icon(Icons.logout, color: Colors.red),
-          label: const Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+          label: const Text(
+            'Logout',
+            style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     );
@@ -1203,7 +1429,11 @@ class _ProfileTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
               ),
-        trailing: const Icon(Icons.chevron_right, size: 20, color: Color(0xFF94A3B8)),
+        trailing: const Icon(
+          Icons.chevron_right,
+          size: 20,
+          color: Color(0xFF94A3B8),
+        ),
         onTap: onTap,
       ),
     );

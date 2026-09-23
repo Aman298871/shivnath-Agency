@@ -30,26 +30,26 @@ class ShivnathLogo extends StatelessWidget {
     this.showSubtitle = false,
     this.textColor,
     this.useAssetImage = false,
-  })  : isHorizontal = true,
-        isIconOnly = false;
+  }) : isHorizontal = true,
+       isIconOnly = false;
 
   const ShivnathLogo.appBar({
     super.key,
     this.size = 28.0,
     this.showSubtitle = false,
     this.textColor,
-  })  : isHorizontal = true,
-        isIconOnly = false,
-        useAssetImage = true;
+  }) : isHorizontal = true,
+       isIconOnly = false,
+       useAssetImage = true;
 
   const ShivnathLogo.icon({
     super.key,
     this.size = 40.0,
     this.useAssetImage = false,
-  })  : showSubtitle = false,
-        isHorizontal = false,
-        isIconOnly = true,
-        textColor = null;
+  }) : showSubtitle = false,
+       isHorizontal = false,
+       isIconOnly = true,
+       textColor = null;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +59,7 @@ class ShivnathLogo extends StatelessWidget {
         width: size * 2.2,
         height: size * 2.2,
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _buildFallbackVertical(),
+        errorBuilder: (_, _, _) => _buildFallbackVertical(),
       );
     }
 
@@ -78,7 +78,7 @@ class ShivnathLogo extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => _buildWaterDropletMark(size),
+              errorBuilder: (_, _, _) => _buildWaterDropletMark(size),
             )
           else
             _buildWaterDropletMark(size),
@@ -281,10 +281,7 @@ class _ShivnathDropletPainter extends CustomPainter {
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          BrandColors.green,
-          BrandColors.greenDark,
-        ],
+        colors: [BrandColors.green, BrandColors.greenDark],
       ).createShader(Rect.fromLTWH(0, 0, w, h));
     canvas.drawPath(greenPath, greenPaint);
 
@@ -296,8 +293,7 @@ class _ShivnathDropletPainter extends CustomPainter {
     whiteWave.cubicTo(w * 0.88, h * 0.7, w * 0.28, h * 0.3, w * 0.5, 0);
     whiteWave.close();
 
-    final whitePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.95);
+    final whitePaint = Paint()..color = Colors.white.withValues(alpha: 0.95);
     canvas.drawPath(whiteWave, whitePaint);
 
     // 4. Subtle Specular Highlight on Top

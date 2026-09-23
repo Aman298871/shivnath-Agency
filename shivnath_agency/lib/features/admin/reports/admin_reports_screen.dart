@@ -30,7 +30,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   List<Map<String, dynamic>> leadActivity = [];
   List<Map<String, dynamic>> reportsLog = [];
 
-  int _selectedActivityTab = 0; // 0: Customer Orders, 1: Franchise Stock, 2: CRM Leads, 3: Daily Reports
+  int _selectedActivityTab =
+      0; // 0: Customer Orders, 1: Franchise Stock, 2: CRM Leads, 3: Daily Reports
 
   @override
   void initState() {
@@ -89,10 +90,18 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
       setState(() {
         summary = Map<String, dynamic>.from(data['summary'] ?? {});
-        monthlySales = List<Map<String, dynamic>>.from(data['monthly_sales'] ?? []);
-        customerActivity = List<Map<String, dynamic>>.from(data['customer_activity'] ?? []);
-        franchiseActivity = List<Map<String, dynamic>>.from(data['franchise_activity'] ?? []);
-        leadActivity = List<Map<String, dynamic>>.from(data['lead_activity'] ?? []);
+        monthlySales = List<Map<String, dynamic>>.from(
+          data['monthly_sales'] ?? [],
+        );
+        customerActivity = List<Map<String, dynamic>>.from(
+          data['customer_activity'] ?? [],
+        );
+        franchiseActivity = List<Map<String, dynamic>>.from(
+          data['franchise_activity'] ?? [],
+        );
+        leadActivity = List<Map<String, dynamic>>.from(
+          data['lead_activity'] ?? [],
+        );
         reportsLog = List<Map<String, dynamic>>.from(data['reports'] ?? []);
       });
     } catch (e) {
@@ -165,7 +174,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                         borderRadius: BorderRadius.all(Radius.circular(4)),
                         child: LinearProgressIndicator(
                           backgroundColor: Color(0xFFE2E8F0),
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0284C7)),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFF0284C7),
+                          ),
                           minHeight: 4,
                         ),
                       ),
@@ -195,19 +206,22 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     final periodSelector = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: desktop ? 190 : 160,
-          child: _periodDropdown(),
-        ),
+        SizedBox(width: desktop ? 190 : 160, child: _periodDropdown()),
         if (period == 'CUSTOM DATE RANGE') ...[
           const SizedBox(width: 8),
           IconButton(
             tooltip: 'Select Custom Date Range',
             style: IconButton.styleFrom(
               backgroundColor: const Color(0xFFE0F2FE),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            icon: const Icon(Icons.calendar_month, color: Color(0xFF0284C7), size: 20),
+            icon: const Icon(
+              Icons.calendar_month,
+              color: Color(0xFF0284C7),
+              size: 20,
+            ),
             onPressed: _pickCustomDateRange,
           ),
         ],
@@ -217,7 +231,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           style: IconButton.styleFrom(
             backgroundColor: Colors.white,
             side: const BorderSide(color: Color(0xFFE2E8F0)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
           icon: const Icon(Icons.refresh, color: Color(0xFF475569), size: 20),
           onPressed: _fetchReports,
@@ -231,12 +247,17 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0284C7),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         onPressed: _exportReport,
         icon: const Icon(Icons.download_outlined, size: 18),
-        label: const Text('Export CSV', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        label: const Text(
+          'Export CSV',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        ),
       ),
     );
 
@@ -246,7 +267,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         children: [
           const Text(
             'Reports & Analytics',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF111827),
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -273,7 +298,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             children: [
               const Text(
                 'Reports & Analytics',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111827),
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -291,7 +320,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   }
 
   String _dateSubtitle() {
-    if (period == 'CUSTOM DATE RANGE' && customStartDate != null && customEndDate != null) {
+    if (period == 'CUSTOM DATE RANGE' &&
+        customStartDate != null &&
+        customEndDate != null) {
       final df = DateFormat('dd MMM yyyy');
       return 'Data range: ${df.format(customStartDate!)} - ${df.format(customEndDate!)}';
     }
@@ -308,12 +339,15 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     ];
 
     return DropdownButtonFormField<String>(
-      value: period,
+      initialValue: period,
       isExpanded: true,
       decoration: InputDecoration(
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -328,7 +362,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           value: val,
           child: Text(
             val,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1E293B),
+            ),
           ),
         );
       }).toList(),
@@ -353,9 +391,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   Widget _summaryCards(bool desktop) {
     final grossRev = (summary['gross_revenue'] as num?)?.toDouble() ?? 0.0;
     final totalOrders = (summary['total_orders'] as num?)?.toInt() ?? 0;
-    final franchiseReqs = (summary['franchise_requests_count'] as num?)?.toInt() ?? 0;
+    final franchiseReqs =
+        (summary['franchise_requests_count'] as num?)?.toInt() ?? 0;
     final newLeads = (summary['new_leads_count'] as num?)?.toInt() ?? 0;
-    final prodUnits = (summary['production_volume_units'] as num?)?.toInt() ?? 0;
+    final prodUnits =
+        (summary['production_volume_units'] as num?)?.toInt() ?? 0;
     final dispUnits = (summary['dealer_dispatch_units'] as num?)?.toInt() ?? 0;
     final expenses = (summary['expenses'] as num?)?.toDouble() ?? 0.0;
     final netProfit = (summary['net_profit'] as num?)?.toDouble() ?? 0.0;
@@ -446,10 +486,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       spacing: 14,
       runSpacing: 14,
       children: data.map((item) {
-        return SizedBox(
-          width: 310,
-          child: _statCard(item),
-        );
+        return SizedBox(width: 310, child: _statCard(item));
       }).toList(),
     );
   }
@@ -483,7 +520,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   item['title'].toString(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 FittedBox(
@@ -491,7 +532,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     item['value'].toString(),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF111827),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -499,7 +544,10 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   item['subtitle'].toString(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8)),
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    color: Color(0xFF94A3B8),
+                  ),
                 ),
               ],
             ),
@@ -514,15 +562,14 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   // =========================================================
 
   Widget _monthlySalesCard() {
-    final hasData = monthlySales.isNotEmpty && monthlySales.any((e) => (e['amount'] as num? ?? 0) > 0);
+    final hasData =
+        monthlySales.isNotEmpty &&
+        monthlySales.any((e) => (e['amount'] as num? ?? 0) > 0);
 
-    final maxValue = monthlySales.fold<double>(
-      0.0,
-      (max, item) {
-        final val = (item['amount'] as num?)?.toDouble() ?? 0.0;
-        return val > max ? val : max;
-      },
-    );
+    final maxValue = monthlySales.fold<double>(0.0, (max, item) {
+      final val = (item['amount'] as num?)?.toDouble() ?? 0.0;
+      return val > max ? val : max;
+    });
 
     return Container(
       width: double.infinity,
@@ -560,7 +607,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: monthlySales.map((item) {
                   final amount = (item['amount'] as num?)?.toDouble() ?? 0.0;
-                  final ratio = maxValue == 0 ? 0.0 : (amount / maxValue).clamp(0.0, 1.0);
+                  final ratio = maxValue == 0
+                      ? 0.0
+                      : (amount / maxValue).clamp(0.0, 1.0);
 
                   return Expanded(
                     child: Padding(
@@ -572,7 +621,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                             fit: BoxFit.scaleDown,
                             child: Text(
                               _compactCurrency(amount.toInt()),
-                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1E293B),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -581,13 +634,17 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                             height: (140 * ratio).clamp(8.0, 140.0),
                             decoration: BoxDecoration(
                               color: const Color(0xFF0284C7),
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(5),
+                              ),
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
                                   const Color(0xFF0284C7),
-                                  const Color(0xFF0284C7).withOpacity(0.7),
+                                  const Color(
+                                    0xFF0284C7,
+                                  ).withValues(alpha: 0.7),
                                 ],
                               ),
                             ),
@@ -595,7 +652,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                           const SizedBox(height: 6),
                           Text(
                             item['month'].toString(),
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
                         ],
                       ),
@@ -643,13 +704,29 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _tabChip(0, 'Customer Orders (${customerActivity.length})', Icons.shopping_bag_outlined),
+                  _tabChip(
+                    0,
+                    'Customer Orders (${customerActivity.length})',
+                    Icons.shopping_bag_outlined,
+                  ),
                   const SizedBox(width: 8),
-                  _tabChip(1, 'Franchise Stock Requests (${franchiseActivity.length})', Icons.storefront_outlined),
+                  _tabChip(
+                    1,
+                    'Franchise Stock Requests (${franchiseActivity.length})',
+                    Icons.storefront_outlined,
+                  ),
                   const SizedBox(width: 8),
-                  _tabChip(2, 'CRM & Chatbot Leads (${leadActivity.length})', Icons.people_outline),
+                  _tabChip(
+                    2,
+                    'CRM & Chatbot Leads (${leadActivity.length})',
+                    Icons.people_outline,
+                  ),
                   const SizedBox(width: 8),
-                  _tabChip(3, 'Daily Reports History (${reportsLog.length})', Icons.auto_graph_outlined),
+                  _tabChip(
+                    3,
+                    'Daily Reports History (${reportsLog.length})',
+                    Icons.auto_graph_outlined,
+                  ),
                 ],
               ),
             ),
@@ -737,27 +814,56 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               color: const Color(0xFFF1F5F9),
               child: const Row(
                 children: [
-                  Expanded(flex: 2, child: Text('ORDER ID', style: _reportHeader)),
-                  Expanded(flex: 3, child: Text('CUSTOMER', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('QUANTITY / ITEMS', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('AMOUNT', style: _reportHeader)),
-                  Expanded(flex: 3, child: Text('FULFILLMENT SOURCE', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('STATUS', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('DATE / TIME', style: _reportHeader)),
+                  Expanded(
+                    flex: 2,
+                    child: Text('ORDER ID', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Text('CUSTOMER', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('QUANTITY / ITEMS', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('AMOUNT', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Text('FULFILLMENT SOURCE', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('STATUS', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('DATE / TIME', style: _reportHeader),
+                  ),
                 ],
               ),
             ),
             ...customerActivity.map((order) {
-              final orderCode = order['order_code']?.toString() ?? '#${order['id']}';
+              final orderCode =
+                  order['order_code']?.toString() ?? '#${order['id']}';
               final customer = order['customer']?.toString() ?? 'Customer';
               final qty = order['quantity'] ?? order['items_count'] ?? 0;
               final amount = (order['amount'] as num?)?.toDouble() ?? 0.0;
-              final source = order['serving_franchise']?.toString() ?? 'Direct Company';
-              final status = order['status_display']?.toString() ?? order['status']?.toString() ?? 'Placed';
+              final source =
+                  order['serving_franchise']?.toString() ?? 'Direct Company';
+              final status =
+                  order['status_display']?.toString() ??
+                  order['status']?.toString() ??
+                  'Placed';
               final date = order['created_at']?.toString() ?? '';
 
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
                 ),
@@ -765,11 +871,25 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   children: [
                     Expanded(
                       flex: 2,
-                      child: Text(orderCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0284C7))),
+                      child: Text(
+                        orderCode,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0284C7),
+                        ),
+                      ),
                     ),
                     Expanded(
                       flex: 3,
-                      child: Text(customer, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+                      child: Text(
+                        customer,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
                     ),
                     Expanded(
                       flex: 2,
@@ -777,19 +897,26 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                     ),
                     Expanded(
                       flex: 2,
-                      child: Text('₹${amount.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+                      child: Text(
+                        '₹${amount.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
                     ),
-                    Expanded(
-                      flex: 3,
-                      child: Text(source, style: _reportCell),
-                    ),
+                    Expanded(flex: 3, child: Text(source, style: _reportCell)),
+                    Expanded(flex: 2, child: _statusBadge(status)),
                     Expanded(
                       flex: 2,
-                      child: _statusBadge(status),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Text(date, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                      child: Text(
+                        date,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -821,22 +948,39 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               color: const Color(0xFFF1F5F9),
               child: const Row(
                 children: [
-                  Expanded(flex: 2, child: Text('REQ NUMBER', style: _reportHeader)),
-                  Expanded(flex: 3, child: Text('FRANCHISE', style: _reportHeader)),
-                  Expanded(flex: 3, child: Text('PRODUCT', style: _reportHeader)),
+                  Expanded(
+                    flex: 2,
+                    child: Text('REQ NUMBER', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Text('FRANCHISE', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Text('PRODUCT', style: _reportHeader),
+                  ),
                   Expanded(flex: 1, child: Text('REQ', style: _reportHeader)),
                   Expanded(flex: 1, child: Text('APPR', style: _reportHeader)),
                   Expanded(flex: 1, child: Text('DISP', style: _reportHeader)),
                   Expanded(flex: 1, child: Text('RECV', style: _reportHeader)),
                   Expanded(flex: 1, child: Text('PEND', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('STATUS', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('DATE / TIME', style: _reportHeader)),
+                  Expanded(
+                    flex: 2,
+                    child: Text('STATUS', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('DATE / TIME', style: _reportHeader),
+                  ),
                 ],
               ),
             ),
             ...franchiseActivity.map((req) {
-              final reqNumber = req['request_number']?.toString() ?? 'REQ-${req['id']}';
-              final franchise = req['franchise_name']?.toString() ?? 'Franchise';
+              final reqNumber =
+                  req['request_number']?.toString() ?? 'REQ-${req['id']}';
+              final franchise =
+                  req['franchise_name']?.toString() ?? 'Franchise';
               final product = req['product_name']?.toString() ?? 'Product';
               final requested = req['requested_quantity'] ?? 0;
               final approved = req['approved_quantity'] ?? 0;
@@ -847,7 +991,10 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               final date = req['created_at']?.toString() ?? '';
 
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
                 ),
@@ -855,28 +1002,66 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   children: [
                     Expanded(
                       flex: 2,
-                      child: Text(reqNumber, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF7C3AED))),
+                      child: Text(
+                        reqNumber,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF7C3AED),
+                        ),
+                      ),
                     ),
                     Expanded(
                       flex: 3,
-                      child: Text(franchise, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+                      child: Text(
+                        franchise,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                    ),
+                    Expanded(flex: 3, child: Text(product, style: _reportCell)),
+                    Expanded(
+                      flex: 1,
+                      child: Text('$requested', style: _reportCell),
                     ),
                     Expanded(
-                      flex: 3,
-                      child: Text(product, style: _reportCell),
+                      flex: 1,
+                      child: Text('$approved', style: _reportCell),
                     ),
-                    Expanded(flex: 1, child: Text('$requested', style: _reportCell)),
-                    Expanded(flex: 1, child: Text('$approved', style: _reportCell)),
-                    Expanded(flex: 1, child: Text('$dispatched', style: _reportCell)),
-                    Expanded(flex: 1, child: Text('$received', style: _reportCell)),
-                    Expanded(flex: 1, child: Text('$pending', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: pending > 0 ? const Color(0xFFDC2626) : const Color(0xFF16A34A)))),
+                    Expanded(
+                      flex: 1,
+                      child: Text('$dispatched', style: _reportCell),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text('$received', style: _reportCell),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        '$pending',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: pending > 0
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFF16A34A),
+                        ),
+                      ),
+                    ),
+                    Expanded(flex: 2, child: _statusBadge(status)),
                     Expanded(
                       flex: 2,
-                      child: _statusBadge(status),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Text(date, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                      child: Text(
+                        date,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -909,12 +1094,30 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               child: const Row(
                 children: [
                   Expanded(flex: 3, child: Text('NAME', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('MOBILE', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('SOURCE', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('STATUS', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('SCORE / INTENT', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('CITY / TERRITORY', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('DATE / TIME', style: _reportHeader)),
+                  Expanded(
+                    flex: 2,
+                    child: Text('MOBILE', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('SOURCE', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('STATUS', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('SCORE / INTENT', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('CITY / TERRITORY', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('DATE / TIME', style: _reportHeader),
+                  ),
                 ],
               ),
             ),
@@ -924,13 +1127,19 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               final source = lead['source']?.toString() ?? 'PUBLIC_CHATBOT';
               final status = lead['status']?.toString() ?? 'NEW_LEAD';
               final score = lead['score_category']?.toString() ?? 'WARM';
-              final city = lead['city']?.toString() ?? lead['territory']?.toString() ?? 'Raipur';
+              final city =
+                  lead['city']?.toString() ??
+                  lead['territory']?.toString() ??
+                  'Raipur';
               final date = lead['created_at']?.toString() ?? '';
 
               final isChatbot = source == 'PUBLIC_CHATBOT';
 
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
                 ),
@@ -938,18 +1147,27 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   children: [
                     Expanded(
                       flex: 3,
-                      child: Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
                     ),
-                    Expanded(
-                      flex: 2,
-                      child: Text(phone, style: _reportCell),
-                    ),
+                    Expanded(flex: 2, child: Text(phone, style: _reportCell)),
                     Expanded(
                       flex: 2,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
-                          color: isChatbot ? const Color(0xFFE0F2FE) : const Color(0xFFF1F5F9),
+                          color: isChatbot
+                              ? const Color(0xFFE0F2FE)
+                              : const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -957,26 +1175,25 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
-                            color: isChatbot ? const Color(0xFF0284C7) : const Color(0xFF475569),
+                            color: isChatbot
+                                ? const Color(0xFF0284C7)
+                                : const Color(0xFF475569),
                           ),
                         ),
                       ),
                     ),
+                    Expanded(flex: 2, child: _statusBadge(status)),
+                    Expanded(flex: 2, child: Text(score, style: _reportCell)),
+                    Expanded(flex: 2, child: Text(city, style: _reportCell)),
                     Expanded(
                       flex: 2,
-                      child: _statusBadge(status),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Text(score, style: _reportCell),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Text(city, style: _reportCell),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Text(date, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                      child: Text(
+                        date,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -994,7 +1211,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
   Widget _dailyReportsLogTable() {
     if (reportsLog.isEmpty) {
-      return _emptyState('No daily business reports stored for this period yet.');
+      return _emptyState(
+        'No daily business reports stored for this period yet.',
+      );
     }
 
     return SingleChildScrollView(
@@ -1009,13 +1228,34 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               child: const Row(
                 children: [
                   Expanded(flex: 2, child: Text('DATE', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('PROD UNITS', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('DISP UNITS', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('DEALER REV', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('DIRECT REV', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('GROSS REV', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('EXPENSES', style: _reportHeader)),
-                  Expanded(flex: 2, child: Text('NET PROFIT', style: _reportHeader)),
+                  Expanded(
+                    flex: 2,
+                    child: Text('PROD UNITS', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('DISP UNITS', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('DEALER REV', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('DIRECT REV', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('GROSS REV', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('EXPENSES', style: _reportHeader),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('NET PROFIT', style: _reportHeader),
+                  ),
                 ],
               ),
             ),
@@ -1023,27 +1263,92 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               final rDate = r['report_date']?.toString() ?? '';
               final pUnits = r['total_production_volume_units'] ?? 0;
               final dUnits = r['total_dealer_dispatch_units'] ?? 0;
-              final dealerRev = (r['total_dealer_sales_revenue_inr'] as num?)?.toDouble() ?? 0.0;
-              final directRev = (r['total_direct_company_revenue_inr'] as num?)?.toDouble() ?? 0.0;
-              final gross = (r['total_gross_revenue_inr'] as num?)?.toDouble() ?? 0.0;
-              final exp = (r['total_operating_expenses_inr'] as num?)?.toDouble() ?? 0.0;
+              final dealerRev =
+                  (r['total_dealer_sales_revenue_inr'] as num?)?.toDouble() ??
+                  0.0;
+              final directRev =
+                  (r['total_direct_company_revenue_inr'] as num?)?.toDouble() ??
+                  0.0;
+              final gross =
+                  (r['total_gross_revenue_inr'] as num?)?.toDouble() ?? 0.0;
+              final exp =
+                  (r['total_operating_expenses_inr'] as num?)?.toDouble() ??
+                  0.0;
               final net = (r['net_profit_inr'] as num?)?.toDouble() ?? 0.0;
 
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
                 ),
                 child: Row(
                   children: [
-                    Expanded(flex: 2, child: Text(rDate, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)))),
-                    Expanded(flex: 2, child: Text('$pUnits', style: _reportCell)),
-                    Expanded(flex: 2, child: Text('$dUnits', style: _reportCell)),
-                    Expanded(flex: 2, child: Text('₹${dealerRev.toStringAsFixed(0)}', style: _reportCell)),
-                    Expanded(flex: 2, child: Text('₹${directRev.toStringAsFixed(0)}', style: _reportCell)),
-                    Expanded(flex: 2, child: Text('₹${gross.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))),
-                    Expanded(flex: 2, child: Text('₹${exp.toStringAsFixed(0)}', style: _reportCell)),
-                    Expanded(flex: 2, child: Text('₹${net.toStringAsFixed(0)}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: net >= 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626)))),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        rDate,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text('$pUnits', style: _reportCell),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text('$dUnits', style: _reportCell),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '₹${dealerRev.toStringAsFixed(0)}',
+                        style: _reportCell,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '₹${directRev.toStringAsFixed(0)}',
+                        style: _reportCell,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '₹${gross.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '₹${exp.toStringAsFixed(0)}',
+                        style: _reportCell,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '₹${net.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: net >= 0
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFDC2626),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -1062,9 +1367,16 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.folder_open_outlined, size: 36, color: Color(0xFF94A3B8)),
+          const Icon(
+            Icons.folder_open_outlined,
+            size: 36,
+            color: Color(0xFF94A3B8),
+          ),
           const SizedBox(height: 8),
-          Text(message, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          Text(
+            message,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
         ],
       ),
     );
@@ -1079,13 +1391,18 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     Color bg = const Color(0xFFE2E8F0);
     Color fg = const Color(0xFF475569);
 
-    if (status.contains('APPROVED') || status.contains('CONFIRMED') || status.contains('DELIVERED') || status.contains('COMPLETED')) {
+    if (status.contains('APPROVED') ||
+        status.contains('CONFIRMED') ||
+        status.contains('DELIVERED') ||
+        status.contains('COMPLETED')) {
       bg = const Color(0xFFDCFCE7);
       fg = const Color(0xFF16A34A);
     } else if (status.contains('DISPATCH') || status.contains('IN TRANSIT')) {
       bg = const Color(0xFFFFEDD5);
       fg = const Color(0xFFEA580C);
-    } else if (status.contains('PENDING') || status.contains('REQUESTED') || status.contains('NEW')) {
+    } else if (status.contains('PENDING') ||
+        status.contains('REQUESTED') ||
+        status.contains('NEW')) {
       bg = const Color(0xFFFEF3C7);
       fg = const Color(0xFFD97706);
     } else if (status.contains('CANCEL') || status.contains('REJECT')) {
@@ -1097,10 +1414,17 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       alignment: Alignment.centerLeft,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+        ),
         child: Text(
           rawStatus,
-          style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: fg),
+          style: TextStyle(
+            fontSize: 8.5,
+            fontWeight: FontWeight.w700,
+            color: fg,
+          ),
         ),
       ),
     );
@@ -1116,7 +1440,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       buffer.writeln('SHIVNATH AGENCY - BUSINESS REPORT');
       buffer.writeln('Period,$period');
       if (customStartDate != null && customEndDate != null) {
-        buffer.writeln('Custom Date Range,${DateFormat('yyyy-MM-dd').format(customStartDate!)} to ${DateFormat('yyyy-MM-dd').format(customEndDate!)}');
+        buffer.writeln(
+          'Custom Date Range,${DateFormat('yyyy-MM-dd').format(customStartDate!)} to ${DateFormat('yyyy-MM-dd').format(customEndDate!)}',
+        );
       }
       buffer.writeln('Exported At,${DateTime.now().toIso8601String()}');
       buffer.writeln();
@@ -1125,37 +1451,52 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       buffer.writeln('Metric,Value');
       buffer.writeln('Total Revenue,${summary['gross_revenue'] ?? 0}');
       buffer.writeln('Customer Orders Count,${summary['total_orders'] ?? 0}');
-      buffer.writeln('Franchise Requests Count,${summary['franchise_requests_count'] ?? 0}');
+      buffer.writeln(
+        'Franchise Requests Count,${summary['franchise_requests_count'] ?? 0}',
+      );
       buffer.writeln('New CRM Leads,${summary['new_leads_count'] ?? 0}');
-      buffer.writeln('Production Units,${summary['production_volume_units'] ?? 0}');
+      buffer.writeln(
+        'Production Units,${summary['production_volume_units'] ?? 0}',
+      );
       buffer.writeln('Dispatch Units,${summary['dealer_dispatch_units'] ?? 0}');
       buffer.writeln('Operating Expenses,${summary['expenses'] ?? 0}');
       buffer.writeln('Net Profit,${summary['net_profit'] ?? 0}');
       buffer.writeln();
 
       buffer.writeln('--- CUSTOMER ORDERS ---');
-      buffer.writeln('Order Code,Customer,Quantity,Amount,Fulfillment,Status,Date');
+      buffer.writeln(
+        'Order Code,Customer,Quantity,Amount,Fulfillment,Status,Date',
+      );
       for (final o in customerActivity) {
-        buffer.writeln('"${o['order_code']}","${o['customer']}",${o['quantity'] ?? o['items_count']},${o['amount']},"${o['serving_franchise']}","${o['status']}","${o['created_at']}"');
+        buffer.writeln(
+          '"${o['order_code']}","${o['customer']}",${o['quantity'] ?? o['items_count']},${o['amount']},"${o['serving_franchise']}","${o['status']}","${o['created_at']}"',
+        );
       }
       buffer.writeln();
 
       buffer.writeln('--- FRANCHISE STOCK REQUESTS ---');
-      buffer.writeln('Request #,Franchise,Product,Requested,Approved,Dispatched,Received,Pending,Status,Date');
+      buffer.writeln(
+        'Request #,Franchise,Product,Requested,Approved,Dispatched,Received,Pending,Status,Date',
+      );
       for (final f in franchiseActivity) {
-        buffer.writeln('"${f['request_number']}","${f['franchise_name']}","${f['product_name']}",${f['requested_quantity']},${f['approved_quantity']},${f['dispatched_quantity']},${f['received_quantity']},${f['pending_quantity']},"${f['status']}","${f['created_at']}"');
+        buffer.writeln(
+          '"${f['request_number']}","${f['franchise_name']}","${f['product_name']}",${f['requested_quantity']},${f['approved_quantity']},${f['dispatched_quantity']},${f['received_quantity']},${f['pending_quantity']},"${f['status']}","${f['created_at']}"',
+        );
       }
       buffer.writeln();
 
       buffer.writeln('--- CRM & PUBLIC CHATBOT LEADS ---');
       buffer.writeln('Name,Phone,Source,Status,Score,City,Date');
       for (final l in leadActivity) {
-        buffer.writeln('"${l['name']}","${l['phone']}","${l['source']}","${l['status']}","${l['score_category']}","${l['city']}","${l['created_at']}"');
+        buffer.writeln(
+          '"${l['name']}","${l['phone']}","${l['source']}","${l['status']}","${l['score_category']}","${l['city']}","${l['created_at']}"',
+        );
       }
 
       final bytes = Uint8List.fromList(utf8.encode(buffer.toString()));
       final now = DateTime.now();
-      final fileName = 'shivnath_report_${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}';
+      final fileName =
+          'shivnath_report_${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}';
 
       await FileSaver.instance.saveFile(
         name: fileName,
@@ -1165,7 +1506,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       );
 
       if (!mounted) return;
-      AppToast.success(context, '$period report exported successfully.', title: 'Export Complete');
+      AppToast.success(
+        context,
+        '$period report exported successfully.',
+        title: 'Export Complete',
+      );
     } catch (e) {
       if (!mounted) return;
       AppToast.error(context, 'Export failed: $e', title: 'Export Error');
@@ -1195,7 +1540,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111827),
+                ),
               ),
               const SizedBox(height: 2),
               Text(

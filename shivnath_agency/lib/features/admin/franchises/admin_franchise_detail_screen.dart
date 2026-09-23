@@ -17,8 +17,8 @@ class AdminFranchiseDetailScreen extends StatefulWidget {
       _AdminFranchiseDetailScreenState();
 }
 
-class _AdminFranchiseDetailScreenState
-    extends State<AdminFranchiseDetailScreen> with SingleTickerProviderStateMixin {
+class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
+    with SingleTickerProviderStateMixin {
   final FranchiseService _franchiseService = FranchiseService();
   bool isLoading = true;
   String? errorMessage;
@@ -55,7 +55,8 @@ class _AdminFranchiseDetailScreenState
     } else {
       setState(() {
         isLoading = false;
-        errorMessage = res['message']?.toString() ?? 'Unable to load franchise details.';
+        errorMessage =
+            res['message']?.toString() ?? 'Unable to load franchise details.';
       });
     }
   }
@@ -77,25 +78,29 @@ class _AdminFranchiseDetailScreenState
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : errorMessage != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                        const SizedBox(height: 12),
-                        Text(errorMessage!, style: const TextStyle(fontSize: 14)),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadDetail,
-                          child: const Text('Try Again'),
-                        ),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: Colors.red,
                     ),
-                  ),
-                )
-              : _buildContent(),
+                    const SizedBox(height: 12),
+                    Text(errorMessage!, style: const TextStyle(fontSize: 14)),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _loadDetail,
+                      child: const Text('Try Again'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : _buildContent(),
     );
   }
 
@@ -103,7 +108,8 @@ class _AdminFranchiseDetailScreenState
     final franchise = detailData?['franchise'] as Map? ?? {};
     final summary = detailData?['summary'] as Map? ?? {};
     final servedCustomers = (detailData?['served_customers'] as List? ?? []);
-    final registeredCustomers = (detailData?['registered_customers'] as List? ?? []);
+    final registeredCustomers =
+        (detailData?['registered_customers'] as List? ?? []);
     final orders = (detailData?['orders'] as List? ?? []);
     final stockCycles = (detailData?['stock_cycles'] as List? ?? []);
 
@@ -124,7 +130,11 @@ class _AdminFranchiseDetailScreenState
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                   boxShadow: const [
-                    BoxShadow(color: Color(0x08000000), blurRadius: 10, offset: Offset(0, 4)),
+                    BoxShadow(
+                      color: Color(0x08000000),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
                   ],
                 ),
                 child: Row(
@@ -136,7 +146,11 @@ class _AdminFranchiseDetailScreenState
                         color: const Color(0xFFE0F2FE),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(Icons.storefront_rounded, color: Color(0xFF0284C7), size: 30),
+                      child: const Icon(
+                        Icons.storefront_rounded,
+                        color: Color(0xFF0284C7),
+                        size: 30,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -146,12 +160,19 @@ class _AdminFranchiseDetailScreenState
                           Row(
                             children: [
                               Text(
-                                franchise['business_name']?.toString() ?? widget.franchiseName,
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                                franchise['business_name']?.toString() ??
+                                    widget.franchiseName,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                               const SizedBox(width: 10),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: franchise['status'] == 'approved'
                                       ? const Color(0xFFDCFCE7)
@@ -159,7 +180,8 @@ class _AdminFranchiseDetailScreenState
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  (franchise['status']?.toString() ?? 'Pending').toUpperCase(),
+                                  (franchise['status']?.toString() ?? 'Pending')
+                                      .toUpperCase(),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -174,12 +196,18 @@ class _AdminFranchiseDetailScreenState
                           const SizedBox(height: 4),
                           Text(
                             'Owner: ${franchise['owner_name'] ?? 'N/A'} • Territory: ${franchise['territory'] ?? 'Unassigned'} • City: ${franchise['city'] ?? ''}',
-                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 13,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Phone: ${franchise['phone'] ?? 'N/A'} • Email: ${franchise['email'] ?? 'N/A'}',
-                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -196,7 +224,8 @@ class _AdminFranchiseDetailScreenState
                   Expanded(
                     child: _metricCard(
                       title: 'Customers Served',
-                      value: '${summary['customers_served_count'] ?? servedCustomers.length}',
+                      value:
+                          '${summary['customers_served_count'] ?? servedCustomers.length}',
                       subtitle: 'Currently fulfilling orders',
                       icon: Icons.local_shipping_outlined,
                       color: const Color(0xFF0284C7),
@@ -206,7 +235,8 @@ class _AdminFranchiseDetailScreenState
                   Expanded(
                     child: _metricCard(
                       title: 'Registered Cust.',
-                      value: '${summary['registered_customers_count'] ?? registeredCustomers.length}',
+                      value:
+                          '${summary['registered_customers_count'] ?? registeredCustomers.length}',
                       subtitle: 'Direct registration',
                       icon: Icons.how_to_reg_outlined,
                       color: const Color(0xFF16A34A),
@@ -216,7 +246,8 @@ class _AdminFranchiseDetailScreenState
                   Expanded(
                     child: _metricCard(
                       title: 'Total Orders',
-                      value: '${summary['total_orders_count'] ?? orders.length}',
+                      value:
+                          '${summary['total_orders_count'] ?? orders.length}',
                       subtitle: 'Historical orders fulfilled',
                       icon: Icons.shopping_bag_outlined,
                       color: const Color(0xFFD97706),
@@ -306,7 +337,11 @@ class _AdminFranchiseDetailScreenState
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -315,7 +350,11 @@ class _AdminFranchiseDetailScreenState
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -327,9 +366,14 @@ class _AdminFranchiseDetailScreenState
     );
   }
 
-  Widget _buildCustomersTab(List<dynamic> servedList, List<dynamic> registeredList) {
+  Widget _buildCustomersTab(
+    List<dynamic> servedList,
+    List<dynamic> registeredList,
+  ) {
     if (servedList.isEmpty && registeredList.isEmpty) {
-      return const Center(child: Text('No customers associated with this franchise yet.'));
+      return const Center(
+        child: Text('No customers associated with this franchise yet.'),
+      );
     }
 
     return Container(
@@ -341,10 +385,13 @@ class _AdminFranchiseDetailScreenState
       child: ListView.separated(
         padding: const EdgeInsets.all(12),
         itemCount: servedList.length,
-        separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        separatorBuilder: (_, _) =>
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
         itemBuilder: (ctx, index) {
           final c = servedList[index] as Map? ?? {};
-          final isRegisteredToThis = registeredList.any((r) => r['id'] == c['id']);
+          final isRegisteredToThis = registeredList.any(
+            (r) => r['id'] == c['id'],
+          );
 
           return ListTile(
             leading: CircleAvatar(
@@ -355,21 +402,33 @@ class _AdminFranchiseDetailScreenState
               children: [
                 Text(
                   c['name']?.toString() ?? 'Customer',
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: isRegisteredToThis ? const Color(0xFFDCFCE7) : const Color(0xFFEFF6FF),
+                    color: isRegisteredToThis
+                        ? const Color(0xFFDCFCE7)
+                        : const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    isRegisteredToThis ? 'Registered & Serving' : 'Served (Registered to Other)',
+                    isRegisteredToThis
+                        ? 'Registered & Serving'
+                        : 'Served (Registered to Other)',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: isRegisteredToThis ? const Color(0xFF16A34A) : const Color(0xFF1D4ED8),
+                      color: isRegisteredToThis
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFF1D4ED8),
                     ),
                   ),
                 ),
@@ -381,7 +440,11 @@ class _AdminFranchiseDetailScreenState
             ),
             trailing: Text(
               '${c['active_stock'] ?? 0} active jars',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0284C7)),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0284C7),
+              ),
             ),
           );
         },
@@ -397,26 +460,42 @@ class _AdminFranchiseDetailScreenState
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: orders.isEmpty
-          ? const Center(child: Text('No order records fulfilled by this franchise yet.'))
+          ? const Center(
+              child: Text('No order records fulfilled by this franchise yet.'),
+            )
           : ListView.separated(
               padding: const EdgeInsets.all(12),
               itemCount: orders.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              separatorBuilder: (_, _) =>
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
               itemBuilder: (ctx, index) {
                 final o = orders[index] as Map? ?? {};
                 return ListTile(
-                  leading: const Icon(Icons.receipt_outlined, color: Color(0xFF64748B)),
+                  leading: const Icon(
+                    Icons.receipt_outlined,
+                    color: Color(0xFF64748B),
+                  ),
                   title: Text(
                     'Order #${o['id']} • Customer: ${o['customer_name'] ?? 'Direct Customer'}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
                   ),
                   subtitle: Text(
                     'Items: ${o['items']} • Status: ${o['status']} • Date: ${o['created_at'] ?? ''}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   trailing: Text(
                     '₹${o['amount'] ?? 0}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF0F172A)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                 );
               },

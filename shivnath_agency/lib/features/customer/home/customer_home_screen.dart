@@ -31,13 +31,11 @@ class CustomerHomeScreen extends StatefulWidget {
   });
 
   @override
-  State<CustomerHomeScreen> createState() =>
-      _CustomerHomeScreenState();
+  State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
 
-class _CustomerHomeScreenState
-    extends State<CustomerHomeScreen> {
-  int _currentBannerIndex = 0;
+class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
+  final int _currentBannerIndex = 0;
   UserModel? _currentUser;
   bool _isLoading = true;
   String search = '';
@@ -115,7 +113,10 @@ class _CustomerHomeScreenState
           children: [
             Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 26),
             SizedBox(width: 10),
-            Text('Purity & Quality Standards', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            Text(
+              'Purity & Quality Standards',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            ),
           ],
         ),
         content: Column(
@@ -141,12 +142,20 @@ class _CustomerHomeScreenState
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.health_and_safety_rounded, color: Color(0xFF0284C7), size: 18),
+                  Icon(
+                    Icons.health_and_safety_rounded,
+                    color: Color(0xFF0284C7),
+                    size: 18,
+                  ),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'BIS & FSSAI certified 100% safe packaged drinking water.',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0369A1)),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0369A1),
+                      ),
                     ),
                   ),
                 ],
@@ -180,10 +189,22 @@ class _CustomerHomeScreenState
           CircleAvatar(
             radius: 10,
             backgroundColor: const Color(0xFF0284C7),
-            child: Text(num, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+            child: Text(
+              num,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
@@ -196,9 +217,16 @@ class _CustomerHomeScreenState
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF0284C7), size: 24),
+            Icon(
+              Icons.account_balance_wallet_rounded,
+              color: Color(0xFF0284C7),
+              size: 24,
+            ),
             SizedBox(width: 10),
-            Text('Customer Water Wallet', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            Text(
+              'Customer Water Wallet',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            ),
           ],
         ),
         content: Column(
@@ -208,30 +236,57 @@ class _CustomerHomeScreenState
               padding: const EdgeInsets.all(18),
               width: double.infinity,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF0284C7), Color(0xFF0EA5E9)]),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0284C7), Color(0xFF0EA5E9)],
+                ),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Column(
                 children: [
-                  Text('Available Balance', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text(
+                    'Available Balance',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
                   SizedBox(height: 6),
-                  Text('₹1,250.00', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+                  Text(
+                    '₹1,250.00',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   SizedBox(height: 6),
-                  Text('Auto-applied on next water order checkout', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                  Text(
+                    'Auto-applied on next water order checkout',
+                    style: TextStyle(color: Colors.white70, fontSize: 10),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 14),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const CircleAvatar(backgroundColor: Color(0xFFDCFCE7), child: Icon(Icons.add_card_rounded, color: Color(0xFF16A34A))),
-              title: const Text('Instant Cashback', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-              subtitle: const Text('Get 5% extra on recharges above ₹1,000', style: TextStyle(fontSize: 11)),
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFFDCFCE7),
+                child: Icon(Icons.add_card_rounded, color: Color(0xFF16A34A)),
+              ),
+              title: const Text(
+                'Instant Cashback',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+              subtitle: const Text(
+                'Get 5% extra on recharges above ₹1,000',
+                style: TextStyle(fontSize: 11),
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -253,7 +308,10 @@ class _CustomerHomeScreenState
           children: [
             Icon(Icons.stars_rounded, color: Color(0xFF9333EA), size: 24),
             SizedBox(width: 10),
-            Text('Shivnath Hydration Rewards', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            Text(
+              'Shivnath Hydration Rewards',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            ),
           ],
         ),
         content: Column(
@@ -270,14 +328,31 @@ class _CustomerHomeScreenState
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.military_tech_rounded, color: Color(0xFF9333EA), size: 36),
+                  Icon(
+                    Icons.military_tech_rounded,
+                    color: Color(0xFF9333EA),
+                    size: 36,
+                  ),
                   SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Silver Member', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF6B21A8))),
-                        Text('320 Hydration Points available', style: TextStyle(fontSize: 12, color: Color(0xFF7E22CE))),
+                        Text(
+                          'Silver Member',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: Color(0xFF6B21A8),
+                          ),
+                        ),
+                        Text(
+                          '320 Hydration Points available',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF7E22CE),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -285,11 +360,21 @@ class _CustomerHomeScreenState
               ),
             ),
             const SizedBox(height: 14),
-            const Text('• Earn 1 point for every ₹10 spent on drinking water.\n• Redeem 100 points for ₹50 off on 20L water jars.\n• Free doorstep priority delivery on orders with Gold Tier.', style: TextStyle(fontSize: 12, height: 1.5, color: Color(0xFF475569))),
+            const Text(
+              '• Earn 1 point for every ₹10 spent on drinking water.\n• Redeem 100 points for ₹50 off on 20L water jars.\n• Free doorstep priority delivery on orders with Gold Tier.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: Color(0xFF475569),
+              ),
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -322,7 +407,6 @@ class _CustomerHomeScreenState
     if (mounted) setState(() {});
   }
 
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -346,9 +430,7 @@ class _CustomerHomeScreenState
     final allProducts = ProductService.products;
 
     final filteredProducts = allProducts.where((product) {
-      return product.name.toLowerCase().contains(
-            search.toLowerCase().trim(),
-          );
+      return product.name.toLowerCase().contains(search.toLowerCase().trim());
     }).toList();
 
     final products = search.trim().isEmpty
@@ -366,7 +448,7 @@ class _CustomerHomeScreenState
               height: 28,
               width: 28,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Icon(
+              errorBuilder: (_, _, _) => const Icon(
                 Icons.water_drop_rounded,
                 color: Color(0xFF0284C7),
                 size: 26,
@@ -378,17 +460,11 @@ class _CustomerHomeScreenState
               children: [
                 Text(
                   'Shivnath Agency',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                 ),
                 Text(
                   'Pure Water. Delivered.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
-                  ),
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                 ),
               ],
             ),
@@ -400,31 +476,27 @@ class _CustomerHomeScreenState
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const CustomerNotificationsScreen(),
+                  builder: (_) => const CustomerNotificationsScreen(),
                 ),
               );
             },
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-            ),
+            icon: const Icon(Icons.notifications_none_rounded),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF0284C7),
         foregroundColor: Colors.white,
-        onPressed: () => AiChatbotModal.show(context, mode: ChatbotMode.customer),
+        onPressed: () =>
+            AiChatbotModal.show(context, mode: ChatbotMode.customer),
         icon: const Icon(Icons.smart_toy_rounded),
-        label: const Text('AI Assistant', style: TextStyle(fontWeight: FontWeight.w700)),
+        label: const Text(
+          'AI Assistant',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          18,
-          10,
-          18,
-          100,
-        ),
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 100),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -436,9 +508,7 @@ class _CustomerHomeScreenState
               },
               decoration: InputDecoration(
                 hintText: 'Search water products...',
-                prefixIcon: const Icon(
-                  Icons.search_rounded,
-                ),
+                prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: search.isNotEmpty
                     ? IconButton(
                         onPressed: () {
@@ -446,16 +516,11 @@ class _CustomerHomeScreenState
                             search = '';
                           });
 
-                          FocusScope.of(context)
-                              .unfocus();
+                          FocusScope.of(context).unfocus();
                         },
-                        icon: const Icon(
-                          Icons.close_rounded,
-                        ),
+                        icon: const Icon(Icons.close_rounded),
                       )
-                    : const Icon(
-                        Icons.tune_rounded,
-                      ),
+                    : const Icon(Icons.tune_rounded),
               ),
             ),
 
@@ -472,10 +537,7 @@ class _CustomerHomeScreenState
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF0284C7),
-                        Color(0xFF06B6D4),
-                      ],
+                      colors: [Color(0xFF0284C7), Color(0xFF06B6D4)],
                     ),
                     borderRadius: BorderRadius.circular(22),
                   ),
@@ -483,8 +545,7 @@ class _CustomerHomeScreenState
                     children: [
                       Expanded(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Pure Water,\nHealthy Life',
@@ -537,9 +598,7 @@ class _CustomerHomeScreenState
 
             const SizedBox(height: 26),
 
-            const _SectionTitle(
-              title: 'Categories',
-            ),
+            const _SectionTitle(title: 'Categories'),
 
             const SizedBox(height: 12),
 
@@ -619,29 +678,23 @@ class _CustomerHomeScreenState
             const SizedBox(height: 28),
 
             _SectionTitle(
-              title: search.isEmpty
-                  ? 'Popular Products'
-                  : 'Search Results',
+              title: search.isEmpty ? 'Popular Products' : 'Search Results',
             ),
 
             const SizedBox(height: 12),
 
             GridView.builder(
               shrinkWrap: true,
-              physics:
-                  const NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: products.length,
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
                 childAspectRatio: 0.65,
               ),
               itemBuilder: (context, index) {
-                return _ProductCard(
-                  product: products[index],
-                );
+                return _ProductCard(product: products[index]);
               },
             ),
           ],
@@ -663,9 +716,7 @@ class _CustomerHomeScreenState
         padding: const EdgeInsets.all(24),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 1180,
-            ),
+            constraints: const BoxConstraints(maxWidth: 1180),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -683,10 +734,7 @@ class _CustomerHomeScreenState
 
                 const Text(
                   'Here’s what’s happening with your orders today.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF64748B),
-                  ),
+                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                 ),
 
                 const SizedBox(height: 24),
@@ -699,10 +747,8 @@ class _CustomerHomeScreenState
                         title: 'Active Orders',
                         value: '2',
                         icon: Icons.local_shipping_outlined,
-                        background:
-                            const Color(0xFFE0F2FE),
-                        iconColor:
-                            const Color(0xFF0284C7),
+                        background: const Color(0xFFE0F2FE),
+                        iconColor: const Color(0xFF0284C7),
                         onTap: _handleOpenOrders,
                       ),
                     ),
@@ -712,10 +758,8 @@ class _CustomerHomeScreenState
                         title: 'Delivered',
                         value: '18',
                         icon: Icons.check_circle_outline,
-                        background:
-                            const Color(0xFFDCFCE7),
-                        iconColor:
-                            const Color(0xFF16A34A),
+                        background: const Color(0xFFDCFCE7),
+                        iconColor: const Color(0xFF16A34A),
                         onTap: _handleOpenOrders,
                       ),
                     ),
@@ -724,12 +768,9 @@ class _CustomerHomeScreenState
                       child: _DesktopStatCard(
                         title: 'Wallet Balance',
                         value: '₹1,250',
-                        icon:
-                            Icons.account_balance_wallet_outlined,
-                        background:
-                            const Color(0xFFFEF3C7),
-                        iconColor:
-                            const Color(0xFFD97706),
+                        icon: Icons.account_balance_wallet_outlined,
+                        background: const Color(0xFFFEF3C7),
+                        iconColor: const Color(0xFFD97706),
                         onTap: _showWalletDialog,
                       ),
                     ),
@@ -739,10 +780,8 @@ class _CustomerHomeScreenState
                         title: 'Reward Points',
                         value: '320',
                         icon: Icons.stars_outlined,
-                        background:
-                            const Color(0xFFF3E8FF),
-                        iconColor:
-                            const Color(0xFF9333EA),
+                        background: const Color(0xFFF3E8FF),
+                        iconColor: const Color(0xFF9333EA),
                         onTap: _showRewardsDialog,
                       ),
                     ),
@@ -765,28 +804,22 @@ class _CustomerHomeScreenState
                       ),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF0284C7),
-                            Color(0xFF06B6D4),
-                          ],
+                          colors: [Color(0xFF0284C7), Color(0xFF06B6D4)],
                         ),
-                        borderRadius:
-                            BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         children: [
                           const Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   'Pure Water. Better Life.',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 28,
-                                    fontWeight:
-                                        FontWeight.w800,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                                 SizedBox(height: 8),
@@ -801,8 +834,7 @@ class _CustomerHomeScreenState
                                 Row(
                                   children: [
                                     Icon(
-                                      Icons
-                                          .local_shipping_outlined,
+                                      Icons.local_shipping_outlined,
                                       color: Colors.white,
                                       size: 18,
                                     ),
@@ -811,8 +843,7 @@ class _CustomerHomeScreenState
                                       'Fast doorstep delivery',
                                       style: TextStyle(
                                         color: Colors.white,
-                                        fontWeight:
-                                            FontWeight.w600,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ],
@@ -824,8 +855,7 @@ class _CustomerHomeScreenState
                             width: 120,
                             height: 120,
                             decoration: BoxDecoration(
-                              color: Colors.white
-                                  .withValues(alpha: 0.15),
+                              color: Colors.white.withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -845,10 +875,7 @@ class _CustomerHomeScreenState
                 // QUICK ORDER
                 const Text(
                   'Quick Order',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
 
                 const SizedBox(height: 14),
@@ -857,11 +884,8 @@ class _CustomerHomeScreenState
                   children: products.map((product) {
                     return Expanded(
                       child: Padding(
-                        padding:
-                            const EdgeInsets.only(right: 12),
-                        child: _DesktopQuickProduct(
-                          product: product,
-                        ),
+                        padding: const EdgeInsets.only(right: 12),
+                        child: _DesktopQuickProduct(product: product),
                       ),
                     );
                   }).toList(),
@@ -871,17 +895,14 @@ class _CustomerHomeScreenState
 
                 // BOTTOM TWO COLUMNS
                 Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       flex: 2,
                       child: _RecentOrdersCard(onTap: _handleOpenOrders),
                     ),
                     const SizedBox(width: 18),
-                    Expanded(
-                      child: _SupportCard(onTap: _handleOpenSupport),
-                    ),
+                    Expanded(child: _SupportCard(onTap: _handleOpenSupport)),
                   ],
                 ),
               ],
@@ -900,18 +921,13 @@ class _CustomerHomeScreenState
 class _SectionTitle extends StatelessWidget {
   final String title;
 
-  const _SectionTitle({
-    required this.title,
-  });
+  const _SectionTitle({required this.title});
 
   @override
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w800,
-      ),
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
     );
   }
 }
@@ -945,9 +961,7 @@ class _MobileCategoryCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFFE2E8F0),
-            ),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -959,10 +973,7 @@ class _MobileCategoryCard extends StatelessWidget {
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: const Color(0xFF0284C7),
-                ),
+                child: Icon(icon, color: const Color(0xFF0284C7)),
               ),
               const SizedBox(height: 12),
               Text(
@@ -974,10 +985,7 @@ class _MobileCategoryCard extends StatelessWidget {
               ),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF64748B),
-                ),
+                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
               ),
             ],
           ),
@@ -1008,22 +1016,15 @@ class _MobileBenefitCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: const Color(0xFFE2E8F0),
-            ),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Column(
             children: [
-              Icon(
-                icon,
-                color: const Color(0xFF0284C7),
-              ),
+              Icon(icon, color: const Color(0xFF0284C7)),
               const SizedBox(height: 7),
               Text(
                 title,
@@ -1034,10 +1035,7 @@ class _MobileBenefitCard extends StatelessWidget {
               ),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  fontSize: 9,
-                  color: Color(0xFF64748B),
-                ),
+                style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
               ),
             ],
           ),
@@ -1080,9 +1078,7 @@ class _DesktopStatCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFFE2E8F0),
-            ),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Row(
             children: [
@@ -1093,15 +1089,11 @@ class _DesktopStatCard extends StatelessWidget {
                   color: background,
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                ),
+                child: Icon(icon, color: iconColor),
               ),
               const SizedBox(width: 13),
               Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
@@ -1136,9 +1128,7 @@ class _DesktopStatCard extends StatelessWidget {
 class _DesktopQuickProduct extends StatelessWidget {
   final ProductModel product;
 
-  const _DesktopQuickProduct({
-    required this.product,
-  });
+  const _DesktopQuickProduct({required this.product});
 
   @override
   Widget build(BuildContext context) {
@@ -1149,9 +1139,7 @@ class _DesktopQuickProduct extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ProductDetailScreen(
-                product: product,
-              ),
+              builder: (_) => ProductDetailScreen(product: product),
             ),
           );
         },
@@ -1161,13 +1149,10 @@ class _DesktopQuickProduct extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFFE2E8F0),
-            ),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 height: 90,
@@ -1189,9 +1174,7 @@ class _DesktopQuickProduct extends StatelessWidget {
                 product.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
 
               const SizedBox(height: 6),
@@ -1210,9 +1193,7 @@ class _DesktopQuickProduct extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    context
-                        .read<CartProvider>()
-                        .addProduct(product);
+                    context.read<CartProvider>().addProduct(product);
 
                     ScaffoldMessenger.of(context)
                       ..hideCurrentSnackBar()
@@ -1259,13 +1240,8 @@ class _DesktopQuickProduct extends StatelessWidget {
                         ),
                       );
                   },
-                  icon: const Icon(
-                    Icons.add_shopping_cart,
-                    size: 17,
-                  ),
-                  label: const Text(
-                    'Add',
-                  ),
+                  icon: const Icon(Icons.add_shopping_cart, size: 17),
+                  label: const Text('Add'),
                 ),
               ),
             ],
@@ -1313,29 +1289,20 @@ class _RecentOrdersCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: const Color(0xFFE2E8F0),
-        ),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 'Recent Orders',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
               ),
               if (onTap != null)
-                TextButton(
-                  onPressed: onTap,
-                  child: const Text('View All'),
-                ),
+                TextButton(onPressed: onTap, child: const Text('View All')),
             ],
           ),
 
@@ -1346,23 +1313,17 @@ class _RecentOrdersCard extends StatelessWidget {
               onTap: onTap,
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                margin: const EdgeInsets.only(
-                  bottom: 10,
-                ),
+                margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(13),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
-                  borderRadius:
-                      BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFFF1F5F9),
-                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF1F5F9)),
                 ),
                 child: Row(
                   children: [
                     const CircleAvatar(
-                      backgroundColor:
-                          Color(0xFFE0F2FE),
+                      backgroundColor: Color(0xFFE0F2FE),
                       child: Icon(
                         Icons.inventory_2_outlined,
                         color: Color(0xFF0284C7),
@@ -1373,22 +1334,17 @@ class _RecentOrdersCard extends StatelessWidget {
 
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             order['id']!,
-                            style: const TextStyle(
-                              fontWeight:
-                                  FontWeight.w700,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           Text(
                             order['date']!,
                             style: const TextStyle(
                               fontSize: 10,
-                              color:
-                                  Color(0xFF64748B),
+                              color: Color(0xFF64748B),
                             ),
                           ),
                         ],
@@ -1396,23 +1352,18 @@ class _RecentOrdersCard extends StatelessWidget {
                     ),
 
                     Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
                           order['amount']!,
-                          style: const TextStyle(
-                            fontWeight:
-                                FontWeight.w800,
-                          ),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 3),
                         Text(
                           order['status']!,
                           style: const TextStyle(
                             fontSize: 10,
-                            color:
-                                Color(0xFF0284C7),
+                            color: Color(0xFF0284C7),
                           ),
                         ),
                       ],
@@ -1449,13 +1400,10 @@ class _SupportCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(17),
-            border: Border.all(
-              color: const Color(0xFFE2E8F0),
-            ),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const CircleAvatar(
                 radius: 25,
@@ -1470,10 +1418,7 @@ class _SupportCard extends StatelessWidget {
 
               const Text(
                 'Need Help?',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
               ),
 
               const SizedBox(height: 7),
@@ -1521,9 +1466,7 @@ class _SupportCard extends StatelessWidget {
 class _ProductCard extends StatelessWidget {
   final ProductModel product;
 
-  const _ProductCard({
-    required this.product,
-  });
+  const _ProductCard({required this.product});
 
   @override
   Widget build(BuildContext context) {
@@ -1535,25 +1478,21 @@ class _ProductCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ProductDetailScreen(
-                product: product,
-              ),
+              builder: (_) => ProductDetailScreen(product: product),
             ),
           );
         },
         child: Padding(
           padding: const EdgeInsets.all(11),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: const Color(0xFFE0F2FE),
-                    borderRadius:
-                        BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
                     Icons.local_drink_rounded,
@@ -1593,14 +1532,16 @@ class _ProductCard extends StatelessWidget {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(0, 38),
-                    backgroundColor: product.stock <= 0 ? Colors.grey.shade400 : null,
+                    backgroundColor: product.stock <= 0
+                        ? Colors.grey.shade400
+                        : null,
                   ),
                   onPressed: product.stock <= 0
                       ? null
                       : () {
-                          final error = context
-                              .read<CartProvider>()
-                              .addProduct(product);
+                          final error = context.read<CartProvider>().addProduct(
+                            product,
+                          );
                           if (error != null) {
                             ScaffoldMessenger.of(context)
                               ..hideCurrentSnackBar()

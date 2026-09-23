@@ -91,13 +91,14 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
         final bomMap = (decoded is Map && decoded['bom'] is Map)
             ? decoded['bom'] as Map<String, dynamic>
             : (decoded is Map && decoded['data'] is Map)
-                ? decoded['data'] as Map<String, dynamic>
-                : (decoded is Map)
-                    ? Map<String, dynamic>.from(decoded)
-                    : <String, dynamic>{};
+            ? decoded['data'] as Map<String, dynamic>
+            : (decoded is Map)
+            ? Map<String, dynamic>.from(decoded)
+            : <String, dynamic>{};
 
         _currentBOM = bomMap;
-        final rawItems = bomMap['items'] ?? (decoded is Map ? decoded['items'] : null);
+        final rawItems =
+            bomMap['items'] ?? (decoded is Map ? decoded['items'] : null);
         if (rawItems is List && rawItems.isNotEmpty) {
           final safeItems = <Map<String, dynamic>>[];
           for (final it in rawItems) {
@@ -114,15 +115,22 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
           _bomItems = _getFallbackBOMItems(_selectedProduct?.name ?? '');
         }
 
-        final pricing = bomMap['pricing'] as Map<String, dynamic>? ??
-            (decoded is Map ? decoded['pricing'] as Map<String, dynamic>? : null);
+        final pricing =
+            bomMap['pricing'] as Map<String, dynamic>? ??
+            (decoded is Map
+                ? decoded['pricing'] as Map<String, dynamic>?
+                : null);
         final defaultPrice = _selectedProduct?.price ?? 12.0;
-        wholesalePriceCtrl.text = pricing?['dealer_wholesale_price']?.toString() ??
+        wholesalePriceCtrl.text =
+            pricing?['dealer_wholesale_price']?.toString() ??
             defaultPrice.toStringAsFixed(2);
-        retailMrpCtrl.text = pricing?['retail_mrp']?.toString() ??
+        retailMrpCtrl.text =
+            pricing?['retail_mrp']?.toString() ??
             (defaultPrice * 1.5).toStringAsFixed(2);
-        moqCtrl.text = pricing?['minimum_order_quantity_cases']?.toString() ?? '10';
-        thresholdCtrl.text = bomMap['minimum_stock_threshold']?.toString() ?? '500';
+        moqCtrl.text =
+            pricing?['minimum_order_quantity_cases']?.toString() ?? '10';
+        thresholdCtrl.text =
+            bomMap['minimum_stock_threshold']?.toString() ?? '500';
       } else {
         _bomItems = _getFallbackBOMItems(_selectedProduct?.name ?? '');
       }
@@ -176,7 +184,9 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
     final waterL = is1L ? '1.00' : (is200 ? '0.20' : '0.50');
     final waterCost = is1L ? '0.08' : (is200 ? '0.02' : '0.04');
     final preformCost = is1L ? '1.80' : (is200 ? '0.90' : '1.35');
-    final preformSku = is1L ? 'RM-PRF-1000' : (is200 ? 'RM-PRF-200' : 'RM-PRF-500');
+    final preformSku = is1L
+        ? 'RM-PRF-1000'
+        : (is200 ? 'RM-PRF-200' : 'RM-PRF-500');
     final preformName = is1L
         ? 'PET Preform 1000ml (28g)'
         : (is200 ? 'PET Preform 200ml (9.5g)' : 'PET Preform 500ml (14.5g)');
@@ -215,7 +225,9 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
       {
         'id': 204,
         'raw_material_name': 'BOPP Metallized Glossy Label',
-        'raw_material_sku': is1L ? 'RM-LBL-1000' : (is200 ? 'RM-LBL-200' : 'RM-LBL-500'),
+        'raw_material_sku': is1L
+            ? 'RM-LBL-1000'
+            : (is200 ? 'RM-LBL-200' : 'RM-LBL-500'),
         'raw_material_category': 'Label',
         'quantity_required_per_unit': '1.00',
         'raw_material_unit': 'pcs',
@@ -224,7 +236,9 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
       },
       {
         'id': 205,
-        'raw_material_name': is1L ? 'Outer Master Box (12 Bottles)' : 'Outer Master Box (24 Bottles)',
+        'raw_material_name': is1L
+            ? 'Outer Master Box (12 Bottles)'
+            : 'Outer Master Box (24 Bottles)',
         'raw_material_sku': is1L ? 'RM-BOX-12' : 'RM-BOX-24',
         'raw_material_category': 'Box',
         'quantity_required_per_unit': is1L ? '0.0833' : '0.0417',
@@ -262,7 +276,10 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
           labelColor: const Color(0xFF0284C7),
           unselectedLabelColor: const Color(0xFF64748B),
           indicatorColor: const Color(0xFF0284C7),
-          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
           tabs: const [
             Tab(text: 'BOM Formula (Raw Materials)'),
             Tab(text: 'Master Pricing & Stock Rules'),
@@ -270,23 +287,22 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0284C7)),
+            )
           : _error != null
-              ? Center(child: Text(_error!))
-              : Column(
-                  children: [
-                    _buildProductSelectorHeader(),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildBOMFormulaTab(),
-                          _buildPricingTab(),
-                        ],
-                      ),
-                    ),
-                  ],
+          ? Center(child: Text(_error!))
+          : Column(
+              children: [
+                _buildProductSelectorHeader(),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [_buildBOMFormulaTab(), _buildPricingTab()],
+                  ),
                 ),
+              ],
+            ),
     );
   }
 
@@ -303,13 +319,18 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
           const SizedBox(width: 14),
           Expanded(
             child: DropdownButtonFormField<ProductModel>(
-              value: (_selectedProduct != null && _products.contains(_selectedProduct))
+              initialValue:
+                  (_selectedProduct != null &&
+                      _products.contains(_selectedProduct))
                   ? _selectedProduct
                   : (_products.isNotEmpty ? _products.first : null),
               isExpanded: true,
               decoration: const InputDecoration(
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 border: OutlineInputBorder(),
               ),
               items: _products.map((p) {
@@ -317,7 +338,12 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                   value: p,
                   child: Text(
                     '${p.name} (${p.category})',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                 );
               }).toList(),
@@ -339,11 +365,25 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
   // =========================================================================
 
   Widget _buildBOMFormulaTab() {
-    double totalUnitCost = double.tryParse((_currentBOM?['total_production_cost_per_unit'] ?? _currentBOM?['estimated_unit_cost'])?.toString() ?? '0') ?? 0.0;
+    double totalUnitCost =
+        double.tryParse(
+          (_currentBOM?['total_production_cost_per_unit'] ??
+                      _currentBOM?['estimated_unit_cost'])
+                  ?.toString() ??
+              '0',
+        ) ??
+        0.0;
     if (totalUnitCost <= 0 && _bomItems.isNotEmpty) {
       totalUnitCost = _bomItems.fold<double>(
         0.0,
-        (sum, itm) => sum + (double.tryParse((itm['calculated_cost_per_unit'] ?? itm['cost_basis'])?.toString() ?? '0') ?? 0.0),
+        (sum, itm) =>
+            sum +
+            (double.tryParse(
+                  (itm['calculated_cost_per_unit'] ?? itm['cost_basis'])
+                          ?.toString() ??
+                      '0',
+                ) ??
+                0.0),
       );
     }
 
@@ -377,7 +417,11 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                       color: const Color(0xFFF0F9FF),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.calculate_rounded, color: Color(0xFF0284C7), size: 22),
+                    child: const Icon(
+                      Icons.calculate_rounded,
+                      color: Color(0xFF0284C7),
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -409,11 +453,22 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                       backgroundColor: const Color(0xFF0284C7),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     icon: const Icon(Icons.add_rounded, size: 16),
-                    label: const Text('Add Material', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                    label: const Text(
+                      'Add Material',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
                     onPressed: _openAddBOMItemDialog,
                   ),
                 ],
@@ -428,7 +483,11 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
           children: [
             const Text(
               'Recipe Ingredients (BOM):',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -438,7 +497,11 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
               ),
               child: Text(
                 '${_bomItems.length} Materials',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0284C7)),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0284C7),
+                ),
               ),
             ),
           ],
@@ -476,35 +539,53 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                 : int.tryParse(item['raw_material']?.toString() ?? '');
             final matchedRm = (rawMatId != null)
                 ? _rawMaterials.firstWhere(
-                    (rm) => rm is Map && rm['id'] == rawMatId,
+                    (rm) => rm['id'] == rawMatId,
                     orElse: () => <String, dynamic>{},
                   )
                 : <String, dynamic>{};
 
-            final rmName = item['raw_material_name']?.toString() ??
+            final rmName =
+                item['raw_material_name']?.toString() ??
                 rawMat?['name']?.toString() ??
-                (matchedRm is Map ? matchedRm['name']?.toString() : null) ??
+                (matchedRm['name']?.toString()) ??
                 'Material';
-            final rmSku = item['raw_material_sku']?.toString() ??
+            final rmSku =
+                item['raw_material_sku']?.toString() ??
                 rawMat?['sku']?.toString() ??
-                (matchedRm is Map ? (matchedRm['code'] ?? matchedRm['sku'])?.toString() : null) ??
+                ((matchedRm['code'] ?? matchedRm['sku'])?.toString()) ??
                 '';
-            final rmCategory = (item['raw_material_category'] ??
-                rawMat?['category'] ??
-                (matchedRm is Map ? matchedRm['category'] : null) ??
-                '').toString();
-            final qtyReq = (item['quantity_required_per_unit'] ??
-                item['quantity_required'])?.toString() ?? '1';
-            final uom = item['raw_material_unit']?.toString() ??
+            final rmCategory =
+                (item['raw_material_category'] ??
+                        rawMat?['category'] ??
+                        (matchedRm['category']) ??
+                        '')
+                    .toString();
+            final qtyReq =
+                (item['quantity_required_per_unit'] ??
+                        item['quantity_required'])
+                    ?.toString() ??
+                '1';
+            final uom =
+                item['raw_material_unit']?.toString() ??
                 item['unit_of_measure']?.toString() ??
                 rawMat?['unit_of_measure']?.toString() ??
-                (matchedRm is Map ? matchedRm['unit_of_measure']?.toString() : null) ??
+                (matchedRm['unit_of_measure']?.toString()) ??
                 'pcs';
-            final unitCost = double.tryParse((item['unit_cost_snapshot'] ??
-                item['unit_cost'] ??
-                (matchedRm is Map ? matchedRm['unit_cost'] : null))?.toString() ?? '0') ?? 0.0;
-            final costBasis = double.tryParse((item['calculated_cost_per_unit'] ??
-                item['cost_basis'])?.toString() ?? '0') ??
+            final unitCost =
+                double.tryParse(
+                  (item['unit_cost_snapshot'] ??
+                              item['unit_cost'] ??
+                              (matchedRm['unit_cost']))
+                          ?.toString() ??
+                      '0',
+                ) ??
+                0.0;
+            final costBasis =
+                double.tryParse(
+                  (item['calculated_cost_per_unit'] ?? item['cost_basis'])
+                          ?.toString() ??
+                      '0',
+                ) ??
                 (unitCost * (double.tryParse(qtyReq) ?? 1.0));
 
             Color catColor = const Color(0xFF0284C7);
@@ -569,11 +650,16 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                       ),
                       if (rmCategory.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: catBg,
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: catColor.withValues(alpha: 0.2)),
+                            border: Border.all(
+                              color: catColor.withValues(alpha: 0.2),
+                            ),
                           ),
                           child: Text(
                             rmCategory.toUpperCase(),
@@ -588,7 +674,11 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                       IconButton(
                         constraints: const BoxConstraints(),
                         padding: const EdgeInsets.all(4),
-                        icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: Color(0xFFEF4444),
+                          size: 18,
+                        ),
                         onPressed: () => _deleteBOMItem(id),
                         tooltip: 'Remove',
                       ),
@@ -596,7 +686,10 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                   ),
                   const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(8),
@@ -609,12 +702,20 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                           children: [
                             const Text(
                               'QTY / UNIT',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '$qtyReq $uom',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1E293B),
+                              ),
                             ),
                           ],
                         ),
@@ -623,12 +724,20 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                           children: [
                             const Text(
                               'UNIT COST',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '₹${unitCost.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF334155),
+                              ),
                             ),
                           ],
                         ),
@@ -637,12 +746,20 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                           children: [
                             const Text(
                               'COST BASIS',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '₹${costBasis.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0284C7)),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0284C7),
+                              ),
                             ),
                           ],
                         ),
@@ -656,8 +773,6 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
       ],
     );
   }
-
-
 
   void _openAddBOMItemDialog() {
     if (_selectedProduct == null) return;
@@ -678,17 +793,47 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<Map<String, dynamic>>(
-                    decoration: const InputDecoration(labelText: 'Select Raw Material *'),
-                    items: _rawMaterials.whereType<Map<String, dynamic>>().map((rm) {
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Select Raw Material *',
+                    ),
+                    items: _rawMaterials.whereType<Map<String, dynamic>>().map((
+                      rm,
+                    ) {
                       final name = rm['name']?.toString() ?? 'Material';
-                      final code = rm['code']?.toString() ?? rm['sku']?.toString();
+                      final code =
+                          rm['code']?.toString() ?? rm['sku']?.toString();
                       final cat = rm['category']?.toString() ?? '';
-                      final tag = (code != null && code.isNotEmpty) ? code : cat;
+                      final tag = (code != null && code.isNotEmpty)
+                          ? code
+                          : cat;
                       return DropdownMenuItem(
                         value: rm,
-                        child: Text('$name ($tag)'),
+                        child: Text(
+                          '$name ($tag)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       );
                     }).toList(),
+                    selectedItemBuilder: (context) {
+                      return _rawMaterials
+                          .whereType<Map<String, dynamic>>()
+                          .map((rm) {
+                        final name = rm['name']?.toString() ?? 'Material';
+                        final code =
+                            rm['code']?.toString() ?? rm['sku']?.toString();
+                        final cat = rm['category']?.toString() ?? '';
+                        final tag = (code != null && code.isNotEmpty)
+                            ? code
+                            : cat;
+                        return Text(
+                          '$name ($tag)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        );
+                      }).toList();
+                    },
                     onChanged: (val) {
                       setDlgState(() {
                         selectedRM = val;
@@ -699,48 +844,68 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                   const SizedBox(height: 12),
                   TextField(
                     controller: qtyCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Quantity Required (per finished unit) *'),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Quantity Required (per finished unit) *',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: costCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Cost Basis per unit (INR)'),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Cost Basis per unit (INR)',
+                    ),
                   ),
                 ],
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(dlgCtx), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () => Navigator.pop(dlgCtx),
+                child: const Text('Cancel'),
+              ),
               ElevatedButton(
                 onPressed: isSaving
                     ? null
                     : () async {
                         if (selectedRM == null) return;
                         final qty = double.tryParse(qtyCtrl.text.trim()) ?? 1.0;
-                        final cost = double.tryParse(costCtrl.text.trim()) ?? 0.0;
+                        final cost =
+                            double.tryParse(costCtrl.text.trim()) ?? 0.0;
 
                         setDlgState(() => isSaving = true);
-                        final res = await _invService.addProductBOMItem(_selectedProductId, {
-                          'raw_material_id': selectedRM!['id'],
-                          'quantity_required': qty,
-                          'cost_basis': cost,
-                        });
+                        final res = await _invService
+                            .addProductBOMItem(_selectedProductId, {
+                              'raw_material_id': selectedRM!['id'],
+                              'quantity_required': qty,
+                              'cost_basis': cost,
+                            });
                         setDlgState(() => isSaving = false);
 
                         if (res['success'] == true) {
                           if (mounted) {
                             Navigator.pop(dlgCtx);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Item added to BOM!'), backgroundColor: Colors.green),
+                              const SnackBar(
+                                content: Text('Item added to BOM!'),
+                                backgroundColor: Colors.green,
+                              ),
                             );
                             _loadBOMForProduct(_selectedProductId);
                           }
                         }
                       },
                 child: isSaving
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Text('Add to BOM'),
               ),
             ],
@@ -752,10 +917,16 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
 
   Future<void> _deleteBOMItem(int itemId) async {
     if (_selectedProduct == null) return;
-    final res = await _invService.deleteProductBOMItem(_selectedProductId, itemId);
+    final res = await _invService.deleteProductBOMItem(
+      _selectedProductId,
+      itemId,
+    );
     if (res['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Raw material removed from BOM!'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Raw material removed from BOM!'),
+          backgroundColor: Colors.green,
+        ),
       );
       _loadBOMForProduct(_selectedProductId);
     }
@@ -776,7 +947,7 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -787,7 +958,10 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
             children: [
               const Row(
                 children: [
-                  Icon(Icons.monetization_on_outlined, color: Color(0xFF0284C7)),
+                  Icon(
+                    Icons.monetization_on_outlined,
+                    color: Color(0xFF0284C7),
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Master Pricing Rules',
@@ -798,9 +972,12 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
               const SizedBox(height: 16),
               TextField(
                 controller: wholesalePriceCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
-                  labelText: 'Wholesale Transfer Price to Franchises (INR per unit) *',
+                  labelText:
+                      'Wholesale Transfer Price to Franchises (INR per unit) *',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.storefront_outlined),
                 ),
@@ -808,7 +985,9 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
               const SizedBox(height: 14),
               TextField(
                 controller: retailMrpCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
                   labelText: 'Retail MRP (INR per unit) *',
                   border: OutlineInputBorder(),
@@ -835,7 +1014,10 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   icon: const Icon(Icons.save_rounded),
-                  label: const Text('Update Pricing Rules', style: TextStyle(fontWeight: FontWeight.w700)),
+                  label: const Text(
+                    'Update Pricing Rules',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   onPressed: _savePricing,
                 ),
               ),
@@ -851,7 +1033,7 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -862,7 +1044,10 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
             children: [
               const Row(
                 children: [
-                  Icon(Icons.notifications_active_outlined, color: Colors.orange),
+                  Icon(
+                    Icons.notifications_active_outlined,
+                    color: Colors.orange,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Safety Stock Thresholds',
@@ -895,7 +1080,10 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   icon: const Icon(Icons.shield_outlined),
-                  label: const Text('Save Stock Threshold', style: TextStyle(fontWeight: FontWeight.w700)),
+                  label: const Text(
+                    'Save Stock Threshold',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   onPressed: _saveThreshold,
                 ),
               ),
@@ -920,7 +1108,10 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
 
     if (res['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pricing rules updated!'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Pricing rules updated!'),
+          backgroundColor: Colors.green,
+        ),
       );
     }
   }
@@ -929,13 +1120,17 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
     if (_selectedProduct == null) return;
     final th = int.tryParse(thresholdCtrl.text.trim()) ?? 500;
 
-    final res = await _invService.updateProductStockThreshold(_selectedProductId, {
-      'minimum_stock_threshold': th,
-    });
+    final res = await _invService.updateProductStockThreshold(
+      _selectedProductId,
+      {'minimum_stock_threshold': th},
+    );
 
     if (res['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Stock threshold saved!'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Stock threshold saved!'),
+          backgroundColor: Colors.green,
+        ),
       );
     }
   }

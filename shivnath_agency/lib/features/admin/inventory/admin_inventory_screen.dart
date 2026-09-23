@@ -7,14 +7,11 @@ class AdminInventoryScreen extends StatefulWidget {
   const AdminInventoryScreen({super.key});
 
   @override
-  State<AdminInventoryScreen> createState() =>
-      _AdminInventoryScreenState();
+  State<AdminInventoryScreen> createState() => _AdminInventoryScreenState();
 }
 
-class _AdminInventoryScreenState
-    extends State<AdminInventoryScreen> {
-  final InventoryService _inventoryService =
-      InventoryService();
+class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
+  final InventoryService _inventoryService = InventoryService();
 
   List<Map<String, dynamic>> inventory = [];
   List<Map<String, dynamic>> stockRequests = [];
@@ -35,34 +32,29 @@ class _AdminInventoryScreenState
     }
 
     final itemsResult = await _inventoryService.getItems();
-    final requestsResult =
-        await _inventoryService.getStockRequests();
+    final requestsResult = await _inventoryService.getStockRequests();
 
     if (!mounted) return;
 
     if (itemsResult['success'] == true) {
-      final List<dynamic> items =
-          itemsResult['data']['items'] ?? [];
+      final List<dynamic> items = itemsResult['data']['items'] ?? [];
 
       inventory = items
           .map(
-            (item) => _inventoryService.mapItem(
-              Map<String, dynamic>.from(item),
-            ),
+            (item) =>
+                _inventoryService.mapItem(Map<String, dynamic>.from(item)),
           )
           .toList();
     } else {
       AppToast.error(
         context,
-        itemsResult['message'] ??
-            'Failed to load inventory.',
+        itemsResult['message'] ?? 'Failed to load inventory.',
         title: 'Unable to Load',
       );
     }
 
     if (requestsResult['success'] == true) {
-      final List<dynamic> requests =
-          requestsResult['data']['requests'] ?? [];
+      final List<dynamic> requests = requestsResult['data']['requests'] ?? [];
 
       stockRequests = requests
           .map(
@@ -79,9 +71,7 @@ class _AdminInventoryScreenState
   }
 
   int get pendingApprovals {
-    return stockRequests
-        .where((e) => e['status'] == 'Pending')
-        .length;
+    return stockRequests.where((e) => e['status'] == 'Pending').length;
   }
 
   String search = '';
@@ -93,22 +83,11 @@ class _AdminInventoryScreenState
     return inventory.where((item) {
       final matchesSearch =
           key.isEmpty ||
-          item['name']
-              .toString()
-              .toLowerCase()
-              .contains(key) ||
-          item['sku']
-              .toString()
-              .toLowerCase()
-              .contains(key) ||
-          item['supplier']
-              .toString()
-              .toLowerCase()
-              .contains(key);
+          item['name'].toString().toLowerCase().contains(key) ||
+          item['sku'].toString().toLowerCase().contains(key) ||
+          item['supplier'].toString().toLowerCase().contains(key);
 
-      final matchesType =
-          typeFilter == 'All' ||
-          item['type'] == typeFilter;
+      final matchesType = typeFilter == 'All' || item['type'] == typeFilter;
 
       return matchesSearch && matchesType;
     }).toList();
@@ -116,11 +95,7 @@ class _AdminInventoryScreenState
 
   int get lowStock {
     return inventory
-        .where(
-          (item) =>
-              (item['stock'] as num) <=
-              (item['minStock'] as num),
-        )
+        .where((item) => (item['stock'] as num) <= (item['minStock'] as num))
         .length;
   }
 
@@ -130,38 +105,27 @@ class _AdminInventoryScreenState
       (sum, item) =>
           sum +
           ((item['stock'] as num).toDouble() *
-              (item['purchaseRate'] as num)
-                  .toDouble()),
+              (item['purchaseRate'] as num).toDouble()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        context,
-        constraints,
-      ) {
-        final desktop =
-            constraints.maxWidth >= 900;
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= 900;
 
         return Container(
           width: double.infinity,
           height: double.infinity,
           color: const Color(0xFFF5F7FB),
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(
-              desktop ? 28 : 16,
-            ),
+            padding: EdgeInsets.all(desktop ? 28 : 16),
             child: Center(
               child: ConstrainedBox(
-                constraints:
-                    const BoxConstraints(
-                  maxWidth: 1350,
-                ),
+                constraints: const BoxConstraints(maxWidth: 1350),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _header(desktop),
                     const SizedBox(height: 14),
@@ -173,18 +137,11 @@ class _AdminInventoryScreenState
                     const SizedBox(height: 14),
                     if (isLoading)
                       const Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: 60,
-                        ),
-                        child: Center(
-                          child:
-                              CircularProgressIndicator(),
-                        ),
+                        padding: EdgeInsets.symmetric(vertical: 60),
+                        child: Center(child: CircularProgressIndicator()),
                       )
                     else ...[
-                      desktop
-                          ? _table()
-                          : _mobileList(),
+                      desktop ? _table() : _mobileList(),
                       const SizedBox(height: 22),
                       _stockApprovalSection(desktop),
                     ],
@@ -203,24 +160,16 @@ class _AdminInventoryScreenState
       children: [
         const Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Inventory',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight:
-                      FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
               ),
               SizedBox(height: 5),
               Text(
                 'Manage raw materials and finished products',
-                style: TextStyle(
-                  color:
-                      Color(0xFF64748B),
-                ),
+                style: TextStyle(color: Color(0xFF64748B)),
               ),
             ],
           ),
@@ -243,10 +192,7 @@ class _AdminInventoryScreenState
                       ),
                     );
                   },
-                  icon: const Icon(
-                    Icons.water_drop_outlined,
-                    size: 18,
-                  ),
+                  icon: const Icon(Icons.water_drop_outlined, size: 18),
                   label: const Text(
                     'Customer Stocks',
                     maxLines: 1,
@@ -258,29 +204,13 @@ class _AdminInventoryScreenState
               SizedBox(
                 width: 145,
                 height: 44,
-                child:
-                    OutlinedButton.icon(
-                  style:
-                      OutlinedButton
-                          .styleFrom(
-                    minimumSize:
-                        const Size(
-                      145,
-                      44,
-                    ),
-                    maximumSize:
-                        const Size(
-                      145,
-                      44,
-                    ),
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(145, 44),
+                    maximumSize: const Size(145, 44),
                   ),
-                  onPressed:
-                      _stockEntry,
-                  icon: const Icon(
-                    Icons
-                        .move_to_inbox_outlined,
-                    size: 18,
-                  ),
+                  onPressed: _stockEntry,
+                  icon: const Icon(Icons.move_to_inbox_outlined, size: 18),
                   label: const Text(
                     'Stock Entry',
                     maxLines: 1,
@@ -292,35 +222,16 @@ class _AdminInventoryScreenState
               SizedBox(
                 width: 135,
                 height: 44,
-                child:
-                    ElevatedButton.icon(
-                  style:
-                      ElevatedButton
-                          .styleFrom(
-                    minimumSize:
-                        const Size(
-                      135,
-                      44,
-                    ),
-                    maximumSize:
-                        const Size(
-                      135,
-                      44,
-                    ),
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(135, 44),
+                    maximumSize: const Size(135, 44),
                   ),
                   onPressed: () {
                     _openItemForm();
                   },
-                  icon: const Icon(
-                    Icons.add,
-                    size: 18,
-                  ),
-                  label:
-                      const Text(
-                    'Add Item',
-                    maxLines: 1,
-                    softWrap: false,
-                  ),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Item', maxLines: 1, softWrap: false),
                 ),
               ),
             ],
@@ -334,9 +245,7 @@ class _AdminInventoryScreenState
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const AdminStockManagementScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const AdminStockManagementScreen()),
         );
       },
       borderRadius: BorderRadius.circular(14),
@@ -350,7 +259,7 @@ class _AdminInventoryScreenState
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0284C7).withOpacity(0.25),
+              color: const Color(0xFF0284C7).withValues(alpha: 0.25),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -375,15 +284,16 @@ class _AdminInventoryScreenState
                   SizedBox(height: 3),
                   Text(
                     'Monitor customer countdowns, 7-day low-stock alerts & hold audit log',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: Colors.white70, fontSize: 11),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.white,
+              size: 14,
+            ),
           ],
         ),
       ),
@@ -392,21 +302,9 @@ class _AdminInventoryScreenState
 
   Widget _stats(bool desktop) {
     final data = [
-      [
-        'Total Items',
-        '${inventory.length}',
-        Icons.inventory_2_outlined,
-      ],
-      [
-        'Low Stock',
-        '$lowStock',
-        Icons.warning_amber,
-      ],
-      [
-        'Pending Approval',
-        '$pendingApprovals',
-        Icons.approval_outlined,
-      ],
+      ['Total Items', '${inventory.length}', Icons.inventory_2_outlined],
+      ['Low Stock', '$lowStock', Icons.warning_amber],
+      ['Pending Approval', '$pendingApprovals', Icons.approval_outlined],
       [
         'Stock Value',
         '₹${totalValue.toStringAsFixed(0)}',
@@ -421,22 +319,12 @@ class _AdminInventoryScreenState
           (index) => Expanded(
             child: Padding(
               padding: EdgeInsets.only(
-                right:
-                    index ==
-                            data.length - 1
-                        ? 0
-                        : 14,
+                right: index == data.length - 1 ? 0 : 14,
               ),
               child: _InventoryStat(
-                title:
-                    data[index][0]
-                        .toString(),
-                value:
-                    data[index][1]
-                        .toString(),
-                icon:
-                    data[index][2]
-                        as IconData,
+                title: data[index][0].toString(),
+                value: data[index][1].toString(),
+                icon: data[index][2] as IconData,
               ),
             ),
           ),
@@ -448,17 +336,11 @@ class _AdminInventoryScreenState
       children: data
           .map(
             (item) => Padding(
-              padding:
-                  const EdgeInsets.only(
-                bottom: 10,
-              ),
+              padding: const EdgeInsets.only(bottom: 10),
               child: _InventoryStat(
-                title:
-                    item[0].toString(),
-                value:
-                    item[1].toString(),
-                icon:
-                    item[2] as IconData,
+                title: item[0].toString(),
+                value: item[1].toString(),
+                icon: item[2] as IconData,
               ),
             ),
           )
@@ -468,75 +350,46 @@ class _AdminInventoryScreenState
 
   Widget _toolbar(bool desktop) {
     return Container(
-      padding:
-          const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(14),
-        border: Border.all(
-          color:
-              const Color(0xFFE5E7EB),
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: desktop
           ? Row(
               children: [
-                Expanded(
-                  child: _searchBox(),
-                ),
-                const SizedBox(
-                  width: 14,
-                ),
-                SizedBox(
-                  width: 190,
-                  child: _typeDropdown(),
-                ),
+                Expanded(child: _searchBox()),
+                const SizedBox(width: 14),
+                SizedBox(width: 190, child: _typeDropdown()),
               ],
             )
           : Column(
               children: [
                 _searchBox(),
-                const SizedBox(
-                  height: 10,
-                ),
+                const SizedBox(height: 10),
                 _typeDropdown(),
-                const SizedBox(
-                  height: 10,
-                ),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
-                      child:
-                          OutlinedButton(
-                        onPressed:
-                            _stockEntry,
-                        child:
-                            const Text(
-                          'Stock Entry',
-                        ),
+                      child: OutlinedButton(
+                        onPressed: _stockEntry,
+                        child: const Text('Stock Entry'),
                       ),
                     ),
-                    const SizedBox(
-                      width: 10,
-                    ),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child:
-                          ElevatedButton(
+                      child: ElevatedButton(
                         onPressed: () {
                           _openItemForm();
                         },
-                        child:
-                            const Text(
-                          'Add Item',
-                        ),
+                        child: const Text('Add Item'),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(
-                  height: 10,
-                ),
+                const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
                   height: 44,
@@ -578,44 +431,27 @@ class _AdminInventoryScreenState
           search = value;
         });
       },
-      decoration:
-          const InputDecoration(
-        hintText:
-            'Search item, SKU or supplier...',
-        prefixIcon:
-            Icon(Icons.search),
+      decoration: const InputDecoration(
+        hintText: 'Search item, SKU or supplier...',
+        prefixIcon: Icon(Icons.search),
       ),
     );
   }
 
   Widget _typeDropdown() {
-    return DropdownButtonFormField<
-        String>(
-      value: typeFilter,
+    return DropdownButtonFormField<String>(
+      initialValue: typeFilter,
       items: const [
+        DropdownMenuItem(value: 'All', child: Text('All Types')),
+        DropdownMenuItem(value: 'Raw Material', child: Text('Raw Material')),
         DropdownMenuItem(
-          value: 'All',
-          child:
-              Text('All Types'),
-        ),
-        DropdownMenuItem(
-          value:
-              'Raw Material',
-          child:
-              Text('Raw Material'),
-        ),
-        DropdownMenuItem(
-          value:
-              'Finished Product',
-          child: Text(
-            'Finished Product',
-          ),
+          value: 'Finished Product',
+          child: Text('Finished Product'),
         ),
       ],
       onChanged: (value) {
         setState(() {
-          typeFilter =
-              value ?? 'All';
+          typeFilter = value ?? 'All';
         });
       },
     );
@@ -626,168 +462,78 @@ class _AdminInventoryScreenState
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(14),
-        border: Border.all(
-          color:
-              const Color(0xFFE5E7EB),
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         children: [
           Container(
-            padding:
-                const EdgeInsets.all(
-              14,
-            ),
-            color:
-                const Color(0xFFF8FAFC),
+            padding: const EdgeInsets.all(14),
+            color: const Color(0xFFF8FAFC),
             child: const Row(
               children: [
+                Expanded(flex: 2, child: Text('ITEM', style: _inventoryHeader)),
+                Expanded(child: Text('TYPE', style: _inventoryHeader)),
+                Expanded(child: Text('STOCK', style: _inventoryHeader)),
+                Expanded(child: Text('MIN STOCK', style: _inventoryHeader)),
+                Expanded(child: Text('RATE', style: _inventoryHeader)),
+                Expanded(child: Text('BATCH', style: _inventoryHeader)),
                 Expanded(
                   flex: 2,
-                  child: Text(
-                    'ITEM',
-                    style:
-                        _inventoryHeader,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'TYPE',
-                    style:
-                        _inventoryHeader,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'STOCK',
-                    style:
-                        _inventoryHeader,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'MIN STOCK',
-                    style:
-                        _inventoryHeader,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'RATE',
-                    style:
-                        _inventoryHeader,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'BATCH',
-                    style:
-                        _inventoryHeader,
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'SUPPLIER',
-                    style:
-                        _inventoryHeader,
-                  ),
+                  child: Text('SUPPLIER', style: _inventoryHeader),
                 ),
                 SizedBox(
                   width: 90,
-                  child: Text(
-                    'ACTIONS',
-                    style:
-                        _inventoryHeader,
-                  ),
+                  child: Text('ACTIONS', style: _inventoryHeader),
                 ),
               ],
             ),
           ),
           if (filtered.isEmpty)
             const Padding(
-              padding:
-                  EdgeInsets.symmetric(
-                vertical: 50,
-              ),
-              child: Text(
-                'No inventory item found.',
-              ),
+              padding: EdgeInsets.symmetric(vertical: 50),
+              child: Text('No inventory item found.'),
             )
           else
-            ...filtered.map(
-              _tableRow,
-            ),
+            ...filtered.map(_tableRow),
         ],
       ),
     );
   }
 
-  Widget _tableRow(
-    Map<String, dynamic> item,
-  ) {
-    final low =
-        (item['stock'] as num) <=
-        (item['minStock'] as num);
+  Widget _tableRow(Map<String, dynamic> item) {
+    final low = (item['stock'] as num) <= (item['minStock'] as num);
 
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 13,
-      ),
-      decoration:
-          const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color:
-                Color(0xFFF1F5F9),
-          ),
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
       ),
       child: Row(
         children: [
           Expanded(
             flex: 2,
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item['name']
-                      .toString(),
-                  style:
-                      const TextStyle(
+                  item['name'].toString(),
+                  style: const TextStyle(
                     fontSize: 11,
-                    fontWeight:
-                        FontWeight.w700,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
-                  item['sku']
-                      .toString(),
-                  style:
-                      const TextStyle(
-                    fontSize: 9,
-                    color:
-                        Color(
-                      0xFF94A3B8,
-                    ),
-                  ),
+                  item['sku'].toString(),
+                  style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
                 ),
               ],
             ),
           ),
           Expanded(
             child: Text(
-              item['type']
-                  .toString(),
-              style:
-                  const TextStyle(
-                fontSize: 10,
-              ),
+              item['type'].toString(),
+              style: const TextStyle(fontSize: 10),
             ),
           ),
           Expanded(
@@ -795,38 +541,15 @@ class _AdminInventoryScreenState
               '${item['stock']} ${item['unit']}',
               style: TextStyle(
                 fontSize: 10,
-                color: low
-                    ? Colors.red
-                    : Colors.black87,
-                fontWeight: low
-                    ? FontWeight.w700
-                    : FontWeight.w400,
+                color: low ? Colors.red : Colors.black87,
+                fontWeight: low ? FontWeight.w700 : FontWeight.w400,
               ),
             ),
           ),
-          Expanded(
-            child: Text(
-              '${item['minStock']}',
-            ),
-          ),
-          Expanded(
-            child: Text(
-              '₹${item['purchaseRate']}',
-            ),
-          ),
-          Expanded(
-            child: Text(
-              item['batch']
-                  .toString(),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              item['supplier']
-                  .toString(),
-            ),
-          ),
+          Expanded(child: Text('${item['minStock']}')),
+          Expanded(child: Text('₹${item['purchaseRate']}')),
+          Expanded(child: Text(item['batch'].toString())),
+          Expanded(flex: 2, child: Text(item['supplier'].toString())),
           SizedBox(
             width: 90,
             child: Row(
@@ -834,28 +557,18 @@ class _AdminInventoryScreenState
                 IconButton(
                   tooltip: 'Edit',
                   onPressed: () {
-                    _openItemForm(
-                      item: item,
-                    );
+                    _openItemForm(item: item);
                   },
-                  icon:
-                      const Icon(
-                    Icons.edit_outlined,
-                    size: 17,
-                  ),
+                  icon: const Icon(Icons.edit_outlined, size: 17),
                 ),
                 IconButton(
                   tooltip: 'Delete',
                   onPressed: () {
-                    _deleteItem(
-                      item,
-                    );
+                    _deleteItem(item);
                   },
-                  icon:
-                      const Icon(
+                  icon: const Icon(
                     Icons.delete_outline,
-                    color:
-                        Colors.red,
+                    color: Colors.red,
                     size: 17,
                   ),
                 ),
@@ -871,108 +584,57 @@ class _AdminInventoryScreenState
     if (filtered.isEmpty) {
       return Container(
         width: double.infinity,
-        padding:
-            const EdgeInsets.all(35),
+        padding: const EdgeInsets.all(35),
         alignment: Alignment.center,
-        child: const Text(
-          'No inventory item found.',
-        ),
+        child: const Text('No inventory item found.'),
       );
     }
 
     return Column(
-      children:
-          filtered.map((item) {
-        final low =
-            (item['stock'] as num) <=
-            (item['minStock'] as num);
+      children: filtered.map((item) {
+        final low = (item['stock'] as num) <= (item['minStock'] as num);
 
         return Container(
           width: double.infinity,
-          margin:
-              const EdgeInsets.only(
-            bottom: 12,
-          ),
-          padding:
-              const EdgeInsets.all(
-            15,
-          ),
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius:
-                BorderRadius.circular(
-              14,
-            ),
-            border: Border.all(
-              color:
-                  const Color(
-                0xFFE5E7EB,
-              ),
-            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
           ),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                item['name']
-                    .toString(),
-                style:
-                    const TextStyle(
-                  fontWeight:
-                      FontWeight.w700,
-                ),
+                item['name'].toString(),
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              const SizedBox(
-                height: 4,
-              ),
-              Text(
-                '${item['sku']} • ${item['type']}',
-              ),
-              const SizedBox(
-                height: 8,
-              ),
+              const SizedBox(height: 4),
+              Text('${item['sku']} • ${item['type']}'),
+              const SizedBox(height: 8),
               Text(
                 'Stock: ${item['stock']} ${item['unit']}',
                 style: TextStyle(
-                  color: low
-                      ? Colors.red
-                      : Colors.black87,
-                  fontWeight: low
-                      ? FontWeight.w700
-                      : FontWeight.w400,
+                  color: low ? Colors.red : Colors.black87,
+                  fontWeight: low ? FontWeight.w700 : FontWeight.w400,
                 ),
               ),
-              Text(
-                'Supplier: ${item['supplier']}',
-              ),
+              Text('Supplier: ${item['supplier']}'),
               Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   IconButton(
                     onPressed: () {
-                      _openItemForm(
-                        item: item,
-                      );
+                      _openItemForm(item: item);
                     },
-                    icon:
-                        const Icon(
-                      Icons.edit_outlined,
-                    ),
+                    icon: const Icon(Icons.edit_outlined),
                   ),
                   IconButton(
                     onPressed: () {
-                      _deleteItem(
-                        item,
-                      );
+                      _deleteItem(item);
                     },
-                    icon:
-                        const Icon(
-                      Icons.delete_outline,
-                      color:
-                          Colors.red,
-                    ),
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
                   ),
                 ],
               ),
@@ -1014,10 +676,7 @@ class _AdminInventoryScreenState
                 const Expanded(
                   child: Text(
                     'No Inventory Items',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                 ),
               ],
@@ -1074,98 +733,47 @@ class _AdminInventoryScreenState
       return;
     }
 
-    int selectedId =
-        inventory.first['id'] as int;
+    int selectedId = inventory.first['id'] as int;
 
-    String action =
-        'Stock In';
+    String action = 'Stock In';
 
-    final qtyController =
-        TextEditingController();
-    final reasonController =
-        TextEditingController();
+    final qtyController = TextEditingController();
+    final reasonController = TextEditingController();
 
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (
-        dialogContext,
-      ) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (
-            context,
-            setDialogState,
-          ) {
+          builder: (context, setDialogState) {
             return Dialog(
-              backgroundColor:
-                  Colors.transparent,
-              child:
-                  ConstrainedBox(
-                constraints:
-                    const BoxConstraints(
-                  maxWidth: 520,
-                ),
+              backgroundColor: Colors.transparent,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
                 child: Container(
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        const Color(
-                      0xFFF8FAFC,
-                    ),
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      18,
-                    ),
-                    boxShadow:
-                        const [
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: const [
                       BoxShadow(
-                        color:
-                            Color(
-                          0x22000000,
-                        ),
-                        blurRadius:
-                            25,
-                        offset:
-                            Offset(
-                          0,
-                          10,
-                        ),
+                        color: Color(0x22000000),
+                        blurRadius: 25,
+                        offset: Offset(0, 10),
                       ),
                     ],
                   ),
                   child: Column(
-                    mainAxisSize:
-                        MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding:
-                            const EdgeInsets
-                                .all(
-                          20,
-                        ),
-                        decoration:
-                            const BoxDecoration(
-                          color:
-                              Colors.white,
-                          borderRadius:
-                              BorderRadius
-                                  .vertical(
-                            top:
-                                Radius
-                                    .circular(
-                              18,
-                            ),
+                        padding: const EdgeInsets.all(20),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(18),
                           ),
-                          border:
-                              Border(
-                            bottom:
-                                BorderSide(
-                              color:
-                                  Color(
-                                0xFFE5E7EB,
-                              ),
-                            ),
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFFE5E7EB)),
                           ),
                         ),
                         child: Row(
@@ -1173,55 +781,31 @@ class _AdminInventoryScreenState
                             Container(
                               width: 42,
                               height: 42,
-                              decoration:
-                                  BoxDecoration(
-                                color:
-                                    const Color(
-                                  0xFFE0F2FE,
-                                ),
-                                borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                  12,
-                                ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE0F2FE),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child:
-                                  const Icon(
-                                Icons
-                                    .sync_alt_rounded,
-                                color:
-                                    Color(
-                                  0xFF0284C7,
-                                ),
+                              child: const Icon(
+                                Icons.sync_alt_rounded,
+                                color: Color(0xFF0284C7),
                               ),
                             ),
-                            const SizedBox(
-                              width: 12,
-                            ),
+                            const SizedBox(width: 12),
                             const Expanded(
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment
-                                        .start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     'Stock Entry',
-                                    style:
-                                        TextStyle(
+                                    style: TextStyle(
                                       fontSize: 19,
-                                      fontWeight:
-                                          FontWeight
-                                              .w800,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
                                   Text(
                                     'Add or remove inventory quantity',
-                                    style:
-                                        TextStyle(
-                                      color:
-                                          Color(
-                                        0xFF64748B,
-                                      ),
+                                    style: TextStyle(
+                                      color: Color(0xFF64748B),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -1230,72 +814,39 @@ class _AdminInventoryScreenState
                             ),
                             IconButton(
                               onPressed: () {
-                                Navigator.pop(
-                                  dialogContext,
-                                );
+                                Navigator.pop(dialogContext);
                               },
-                              icon:
-                                  const Icon(
-                                Icons
-                                    .close_rounded,
-                              ),
+                              icon: const Icon(Icons.close_rounded),
                             ),
                           ],
                         ),
                       ),
 
                       Padding(
-                        padding:
-                            const EdgeInsets
-                                .all(
-                          22,
-                        ),
+                        padding: const EdgeInsets.all(22),
                         child: Column(
                           children: [
-                            DropdownButtonFormField<
-                                int>(
-                              value:
-                                  selectedId,
-                              isExpanded:
-                                  true,
-                              decoration:
-                                  _dialogInputDecoration(
+                            DropdownButtonFormField<int>(
+                              initialValue: selectedId,
+                              isExpanded: true,
+                              decoration: _dialogInputDecoration(
                                 'Inventory Item',
-                                Icons
-                                    .inventory_2_outlined,
+                                Icons.inventory_2_outlined,
                               ),
-                              items:
-                                  inventory
-                                      .map(
-                                (item) {
-                                  return DropdownMenuItem<
-                                      int>(
-                                    value:
-                                        item['id']
-                                            as int,
-                                    child:
-                                        Text(
-                                      item['name']
-                                          .toString(),
-                                    ),
-                                  );
-                                },
-                              ).toList(),
-                              onChanged:
-                                  (
-                                value,
-                              ) {
-                                if (value ==
-                                    null) {
+                              items: inventory.map((item) {
+                                return DropdownMenuItem<int>(
+                                  value: item['id'] as int,
+                                  child: Text(item['name'].toString()),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                if (value == null) {
                                   return;
                                 }
 
-                                setDialogState(
-                                  () {
-                                    selectedId =
-                                        value;
-                                  },
-                                );
+                                setDialogState(() {
+                                  selectedId = value;
+                                });
                               },
                             ),
 
@@ -1344,87 +895,53 @@ class _AdminInventoryScreenState
                               },
                             ),
 
-                            const SizedBox(
-                              height: 14,
-                            ),
+                            const SizedBox(height: 14),
 
-                            DropdownButtonFormField<
-                                String>(
-                              value:
-                                  action,
-                              decoration:
-                                  _dialogInputDecoration(
+                            DropdownButtonFormField<String>(
+                              initialValue: action,
+                              decoration: _dialogInputDecoration(
                                 'Transaction Type',
-                                Icons
-                                    .swap_vert_rounded,
+                                Icons.swap_vert_rounded,
                               ),
-                              items:
-                                  const [
+                              items: const [
                                 DropdownMenuItem(
-                                  value:
-                                      'Stock In',
-                                  child:
-                                      Text(
-                                    'Stock In',
-                                  ),
+                                  value: 'Stock In',
+                                  child: Text('Stock In'),
                                 ),
                                 DropdownMenuItem(
-                                  value:
-                                      'Stock Out',
-                                  child:
-                                      Text(
-                                    'Stock Out',
-                                  ),
+                                  value: 'Stock Out',
+                                  child: Text('Stock Out'),
                                 ),
                               ],
-                              onChanged:
-                                  (
-                                value,
-                              ) {
-                                if (value ==
-                                    null) {
+                              onChanged: (value) {
+                                if (value == null) {
                                   return;
                                 }
 
-                                setDialogState(
-                                  () {
-                                    action =
-                                        value;
-                                  },
-                                );
+                                setDialogState(() {
+                                  action = value;
+                                });
                               },
                             ),
 
-                            const SizedBox(
-                              height: 14,
-                            ),
+                            const SizedBox(height: 14),
 
                             TextField(
-                              controller:
-                                  qtyController,
-                              keyboardType:
-                                  TextInputType
-                                      .number,
-                              decoration:
-                                  _dialogInputDecoration(
+                              controller: qtyController,
+                              keyboardType: TextInputType.number,
+                              decoration: _dialogInputDecoration(
                                 'Quantity',
-                                Icons
-                                    .numbers_rounded,
+                                Icons.numbers_rounded,
                               ),
                             ),
 
-                            const SizedBox(
-                              height: 14,
-                            ),
+                            const SizedBox(height: 14),
 
                             TextField(
-                              controller:
-                                  reasonController,
-                              decoration:
-                                  _dialogInputDecoration(
+                              controller: reasonController,
+                              decoration: _dialogInputDecoration(
                                 'Reason / Notes (Optional)',
-                                Icons
-                                    .edit_note_rounded,
+                                Icons.edit_note_rounded,
                               ),
                             ),
                           ],
@@ -1432,168 +949,96 @@ class _AdminInventoryScreenState
                       ),
 
                       Container(
-                        padding:
-                            const EdgeInsets
-                                .all(
-                          18,
-                        ),
-                        decoration:
-                            const BoxDecoration(
-                          color:
-                              Colors.white,
-                          borderRadius:
-                              BorderRadius
-                                  .vertical(
-                            bottom:
-                                Radius
-                                    .circular(
-                              18,
-                            ),
+                        padding: const EdgeInsets.all(18),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.vertical(
+                            bottom: Radius.circular(18),
                           ),
-                          border:
-                              Border(
-                            top:
-                                BorderSide(
-                              color:
-                                  Color(
-                                0xFFE5E7EB,
-                              ),
-                            ),
+                          border: Border(
+                            top: BorderSide(color: Color(0xFFE5E7EB)),
                           ),
                         ),
                         child: Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment
-                                  .end,
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             SizedBox(
                               width: 90,
                               height: 44,
-                              child:
-                                  TextButton(
+                              child: TextButton(
                                 onPressed: () {
-                                  Navigator.pop(
-                                    dialogContext,
-                                  );
+                                  Navigator.pop(dialogContext);
                                 },
-                                child:
-                                    const Text(
-                                  'Cancel',
-                                ),
+                                child: const Text('Cancel'),
                               ),
                             ),
-                            const SizedBox(
-                              width: 10,
-                            ),
+                            const SizedBox(width: 10),
                             SizedBox(
                               width: 145,
                               height: 44,
-                              child:
-                                  ElevatedButton
-                                      .icon(
-                                style:
-                                    ElevatedButton
-                                        .styleFrom(
-                                  minimumSize:
-                                      const Size(
-                                    145,
-                                    44,
-                                  ),
-                                  maximumSize:
-                                      const Size(
-                                    145,
-                                    44,
-                                  ),
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size(145, 44),
+                                  maximumSize: const Size(145, 44),
                                 ),
-                                onPressed:
-                                    () async {
+                                onPressed: () async {
                                   final qty =
-                                      int.tryParse(
-                                            qtyController
-                                                .text
-                                                .trim(),
-                                          ) ??
-                                          0;
+                                      int.tryParse(qtyController.text.trim()) ??
+                                      0;
 
                                   if (qty <= 0) {
                                     AppToast.error(
                                       context,
                                       'Please enter a valid quantity.',
-                                      title:
-                                          'Invalid Quantity',
+                                      title: 'Invalid Quantity',
                                     );
                                     return;
                                   }
 
-                                  final index =
-                                      inventory.indexWhere(
-                                    (item) =>
-                                        item['id'] ==
-                                        selectedId,
+                                  final index = inventory.indexWhere(
+                                    (item) => item['id'] == selectedId,
                                   );
 
-                                  if (index ==
-                                      -1) {
+                                  if (index == -1) {
                                     return;
                                   }
 
                                   final current =
-                                      (inventory[index]
-                                                  ['stock']
-                                              as num)
+                                      (inventory[index]['stock'] as num)
                                           .toInt();
 
-                                  if (action ==
-                                          'Stock Out' &&
-                                      qty >
-                                          current) {
+                                  if (action == 'Stock Out' && qty > current) {
                                     AppToast.error(
                                       context,
                                       'Stock out quantity is greater than available stock.',
-                                      title:
-                                          'Insufficient Stock',
+                                      title: 'Insufficient Stock',
                                     );
                                     return;
                                   }
 
-                                  final itemName =
-                                      inventory[index]
-                                              ['name']
-                                          .toString();
+                                  final itemName = inventory[index]['name']
+                                      .toString();
 
-                                  final customReason =
-                                      reasonController
-                                          .text
-                                          .trim();
+                                  final customReason = reasonController.text
+                                      .trim();
 
-                                  final reasonText =
-                                      customReason
-                                              .isNotEmpty
-                                          ? customReason
-                                          : (action ==
-                                                  'Stock In'
-                                              ? 'Stock received / purchase entry'
-                                              : 'Stock issue / adjustment');
+                                  final reasonText = customReason.isNotEmpty
+                                      ? customReason
+                                      : (action == 'Stock In'
+                                            ? 'Stock received / purchase entry'
+                                            : 'Stock issue / adjustment');
 
-                                  final result =
-                                      await _inventoryService
-                                          .createStockRequest(
-                                    itemId:
-                                        selectedId,
-                                    type: action,
-                                    quantity: qty,
-                                    reason:
-                                        reasonText,
-                                  );
-
-                                  if (result[
-                                          'success'] ==
-                                      true) {
-                                    if (context
-                                        .mounted) {
-                                      Navigator.pop(
-                                        dialogContext,
+                                  final result = await _inventoryService
+                                      .createStockRequest(
+                                        itemId: selectedId,
+                                        type: action,
+                                        quantity: qty,
+                                        reason: reasonText,
                                       );
+
+                                  if (result['success'] == true) {
+                                    if (context.mounted) {
+                                      Navigator.pop(dialogContext);
                                     }
 
                                     await _loadData();
@@ -1605,32 +1050,22 @@ class _AdminInventoryScreenState
                                     AppToast.success(
                                       context,
                                       '$itemName - $action request submitted for approval.',
-                                      title:
-                                          'Approval Requested',
+                                      title: 'Approval Requested',
                                     );
                                   } else {
                                     AppToast.error(
                                       context,
-                                      result[
-                                              'message'] ??
+                                      result['message'] ??
                                           'Unable to submit request.',
-                                      title:
-                                          'Request Failed',
+                                      title: 'Request Failed',
                                     );
                                   }
                                 },
-                                icon:
-                                    const Icon(
-                                  Icons
-                                      .save_outlined,
-                                  size: 18,
-                                ),
-                                label:
-                                    const Text(
+                                icon: const Icon(Icons.save_outlined, size: 18),
+                                label: const Text(
                                   'Save Entry',
                                   maxLines: 1,
-                                  softWrap:
-                                      false,
+                                  softWrap: false,
                                 ),
                               ),
                             ),
@@ -1660,13 +1095,10 @@ class _AdminInventoryScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.all(18),
@@ -1676,37 +1108,31 @@ class _AdminInventoryScreenState
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color:
-                        const Color(0xFFFFF7ED),
-                    borderRadius:
-                        BorderRadius.circular(10),
+                    color: const Color(0xFFFFF7ED),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.approval_outlined,
-                    color:
-                        Color(0xFFEA580C),
+                    color: Color(0xFFEA580C),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Inventory Approval',
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight:
-                              FontWeight.w800,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       Text(
                         '$pendingApprovals pending stock transactions',
                         style: const TextStyle(
                           fontSize: 11,
-                          color:
-                              Color(0xFF64748B),
+                          color: Color(0xFF64748B),
                         ),
                       ),
                     ],
@@ -1724,10 +1150,7 @@ class _AdminInventoryScreenState
               child: Center(
                 child: Text(
                   'No pending inventory approvals.',
-                  style: TextStyle(
-                    color:
-                        Color(0xFF64748B),
-                  ),
+                  style: TextStyle(color: Color(0xFF64748B)),
                 ),
               ),
             )
@@ -1740,87 +1163,42 @@ class _AdminInventoryScreenState
     );
   }
 
-  Widget _approvalDesktopTable(
-    List<Map<String, dynamic>> data,
-  ) {
+  Widget _approvalDesktopTable(List<Map<String, dynamic>> data) {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           color: const Color(0xFFF8FAFC),
           child: const Row(
             children: [
+              Expanded(flex: 2, child: Text('ITEM', style: _inventoryHeader)),
+              Expanded(child: Text('TYPE', style: _inventoryHeader)),
+              Expanded(child: Text('QTY', style: _inventoryHeader)),
               Expanded(
                 flex: 2,
-                child: Text(
-                  'ITEM',
-                  style: _inventoryHeader,
-                ),
+                child: Text('REQUESTED BY', style: _inventoryHeader),
               ),
-              Expanded(
-                child: Text(
-                  'TYPE',
-                  style: _inventoryHeader,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  'QTY',
-                  style: _inventoryHeader,
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'REQUESTED BY',
-                  style: _inventoryHeader,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  'DATE',
-                  style: _inventoryHeader,
-                ),
-              ),
+              Expanded(child: Text('DATE', style: _inventoryHeader)),
               SizedBox(
                 width: 150,
-                child: Text(
-                  'ACTION',
-                  style: _inventoryHeader,
-                ),
+                child: Text('ACTION', style: _inventoryHeader),
               ),
             ],
           ),
         ),
 
-        ...data.map(
-          (request) =>
-              _approvalDesktopRow(request),
-        ),
+        ...data.map((request) => _approvalDesktopRow(request)),
       ],
     );
   }
 
-  Widget _approvalDesktopRow(
-    Map<String, dynamic> request,
-  ) {
-    final type =
-        request['type'].toString();
+  Widget _approvalDesktopRow(Map<String, dynamic> request) {
+    final type = request['type'].toString();
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 13,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFF1F5F9),
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
       ),
       child: Row(
         children: [
@@ -1828,10 +1206,7 @@ class _AdminInventoryScreenState
             flex: 2,
             child: Text(
               request['itemName'].toString(),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
             ),
           ),
 
@@ -1851,29 +1226,22 @@ class _AdminInventoryScreenState
           Expanded(
             child: Text(
               request['quantity'].toString(),
-              style: const TextStyle(
-                fontSize: 10,
-              ),
+              style: const TextStyle(fontSize: 10),
             ),
           ),
 
           Expanded(
             flex: 2,
             child: Text(
-              request['requestedBy']
-                  .toString(),
-              style: const TextStyle(
-                fontSize: 10,
-              ),
+              request['requestedBy'].toString(),
+              style: const TextStyle(fontSize: 10),
             ),
           ),
 
           Expanded(
             child: Text(
               request['date'].toString(),
-              style: const TextStyle(
-                fontSize: 9,
-              ),
+              style: const TextStyle(fontSize: 9),
             ),
           ),
 
@@ -1884,43 +1252,31 @@ class _AdminInventoryScreenState
                 IconButton(
                   tooltip: 'Approve',
                   onPressed: () {
-                    _approveStockRequest(
-                      request,
-                    );
+                    _approveStockRequest(request);
                   },
                   icon: const Icon(
-                    Icons
-                        .check_circle_outline,
-                    color:
-                        Color(0xFF16A34A),
+                    Icons.check_circle_outline,
+                    color: Color(0xFF16A34A),
                     size: 19,
                   ),
                 ),
                 IconButton(
                   tooltip: 'Reject',
                   onPressed: () {
-                    _rejectStockRequest(
-                      request,
-                    );
+                    _rejectStockRequest(request);
                   },
                   icon: const Icon(
                     Icons.cancel_outlined,
-                    color:
-                        Color(0xFFDC2626),
+                    color: Color(0xFFDC2626),
                     size: 19,
                   ),
                 ),
                 IconButton(
                   tooltip: 'View',
                   onPressed: () {
-                    _viewStockRequest(
-                      request,
-                    );
+                    _viewStockRequest(request);
                   },
-                  icon: const Icon(
-                    Icons.visibility_outlined,
-                    size: 18,
-                  ),
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
                 ),
               ],
             ),
@@ -1930,166 +1286,95 @@ class _AdminInventoryScreenState
     );
   }
 
-  Widget _approvalMobileList(
-    List<Map<String, dynamic>> data,
-  ) {
+  Widget _approvalMobileList(List<Map<String, dynamic>> data) {
     return Padding(
       padding: const EdgeInsets.all(14),
       child: Column(
-        children: data.map(
-          (request) {
-            return Container(
-              width: double.infinity,
-              margin:
-                  const EdgeInsets.only(
-                bottom: 10,
-              ),
-              padding:
-                  const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color:
-                    const Color(0xFFF8FAFC),
-                borderRadius:
-                    BorderRadius.circular(10),
-                border: Border.all(
-                  color:
-                      const Color(0xFFE2E8F0),
+        children: data.map((request) {
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        request['itemName'].toString(),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    _approvalBadge(request['status'].toString()),
+                  ],
                 ),
-              ),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          request['itemName']
-                              .toString(),
-                          style:
-                              const TextStyle(
-                            fontWeight:
-                                FontWeight.w700,
-                          ),
-                        ),
+                const SizedBox(height: 10),
+                _approvalInfo('Type', request['type']),
+                _approvalInfo('Quantity', request['quantity']),
+                _approvalInfo('Requested By', request['requestedBy']),
+                _approvalInfo('Date', request['date']),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        _viewStockRequest(request);
+                      },
+                      icon: const Icon(Icons.visibility_outlined, size: 16),
+                      label: const Text('View'),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(0, 40),
+                        backgroundColor: const Color(0xFF16A34A),
+                        foregroundColor: Colors.white,
                       ),
-                      _approvalBadge(
-                        request['status']
-                            .toString(),
+                      onPressed: () {
+                        _approveStockRequest(request);
+                      },
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('Approve'),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFDC2626),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _approvalInfo(
-                    'Type',
-                    request['type'],
-                  ),
-                  _approvalInfo(
-                    'Quantity',
-                    request['quantity'],
-                  ),
-                  _approvalInfo(
-                    'Requested By',
-                    request['requestedBy'],
-                  ),
-                  _approvalInfo(
-                    'Date',
-                    request['date'],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          _viewStockRequest(
-                            request,
-                          );
-                        },
-                        icon: const Icon(
-                          Icons
-                              .visibility_outlined,
-                          size: 16,
-                        ),
-                        label:
-                            const Text('View'),
-                      ),
-                      ElevatedButton.icon(
-                        style:
-                            ElevatedButton.styleFrom(
-                          minimumSize:
-                              const Size(0, 40),
-                          backgroundColor:
-                              const Color(
-                            0xFF16A34A,
-                          ),
-                          foregroundColor:
-                              Colors.white,
-                        ),
-                        onPressed: () {
-                          _approveStockRequest(
-                            request,
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.check,
-                          size: 16,
-                        ),
-                        label: const Text(
-                          'Approve',
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        style:
-                            OutlinedButton.styleFrom(
-                          foregroundColor:
-                              const Color(
-                            0xFFDC2626,
-                          ),
-                        ),
-                        onPressed: () {
-                          _rejectStockRequest(
-                            request,
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.close,
-                          size: 16,
-                        ),
-                        label:
-                            const Text('Reject'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ).toList(),
+                      onPressed: () {
+                        _rejectStockRequest(request);
+                      },
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('Reject'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 
-  Future<void> _approveStockRequest(
-    Map<String, dynamic> request,
-  ) async {
-    final confirm =
-        await showDialog<bool>(
+  Future<void> _approveStockRequest(Map<String, dynamic> request) async {
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title:
-              const Text('Approve Stock Entry'),
+          title: const Text('Approve Stock Entry'),
           content: Text(
             'Approve ${request['type']} of ${request['quantity']} for ${request['itemName']}?',
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
+                Navigator.pop(dialogContext, false);
               },
               child: const Text('Cancel'),
             ),
@@ -2097,27 +1382,16 @@ class _AdminInventoryScreenState
               width: 110,
               height: 42,
               child: ElevatedButton(
-                style:
-                    ElevatedButton.styleFrom(
-                  minimumSize:
-                      const Size(0, 42),
-                  maximumSize:
-                      const Size(110, 42),
-                  backgroundColor:
-                      const Color(
-                    0xFF16A34A,
-                  ),
-                  foregroundColor:
-                      Colors.white,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 42),
+                  maximumSize: const Size(110, 42),
+                  backgroundColor: const Color(0xFF16A34A),
+                  foregroundColor: Colors.white,
                 ),
                 onPressed: () {
-                  Navigator.pop(
-                    dialogContext,
-                    true,
-                  );
+                  Navigator.pop(dialogContext, true);
                 },
-                child:
-                    const Text('Approve'),
+                child: const Text('Approve'),
               ),
             ),
           ],
@@ -2127,8 +1401,7 @@ class _AdminInventoryScreenState
 
     if (confirm != true) return;
 
-    final result =
-        await _inventoryService.approveStockRequest(
+    final result = await _inventoryService.approveStockRequest(
       request['id'] as int,
     );
 
@@ -2147,18 +1420,14 @@ class _AdminInventoryScreenState
     } else {
       AppToast.error(
         context,
-        result['message'] ??
-            'Unable to approve request.',
+        result['message'] ?? 'Unable to approve request.',
         title: 'Approval Failed',
       );
     }
   }
 
-  Future<void> _rejectStockRequest(
-    Map<String, dynamic> request,
-  ) async {
-    final reasonController =
-        TextEditingController();
+  Future<void> _rejectStockRequest(Map<String, dynamic> request) async {
+    final reasonController = TextEditingController();
 
     bool rejected = false;
 
@@ -2167,35 +1436,26 @@ class _AdminInventoryScreenState
       barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text(
-            'Reject Stock Entry',
-          ),
+          title: const Text('Reject Stock Entry'),
           content: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
             ),
             child: TextField(
-              controller:
-                  reasonController,
+              controller: reasonController,
               minLines: 3,
               maxLines: 5,
-              decoration:
-                  const InputDecoration(
-                labelText:
-                    'Rejection Reason *',
-                hintText:
-                    'Enter reason...',
-                alignLabelWithHint:
-                    true,
+              decoration: const InputDecoration(
+                labelText: 'Rejection Reason *',
+                hintText: 'Enter reason...',
+                alignLabelWithHint: true,
               ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                );
+                Navigator.pop(dialogContext);
               },
               child: const Text('Cancel'),
             ),
@@ -2203,63 +1463,44 @@ class _AdminInventoryScreenState
               width: 105,
               height: 42,
               child: ElevatedButton(
-                style:
-                    ElevatedButton.styleFrom(
-                  minimumSize:
-                      const Size(0, 42),
-                  maximumSize:
-                      const Size(105, 42),
-                  backgroundColor:
-                      const Color(
-                    0xFFDC2626,
-                  ),
-                  foregroundColor:
-                      Colors.white,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 42),
+                  maximumSize: const Size(105, 42),
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
                 ),
                 onPressed: () async {
-                  final reason =
-                      reasonController.text
-                          .trim();
+                  final reason = reasonController.text.trim();
 
                   if (reason.isEmpty) {
                     AppToast.error(
                       context,
                       'Please enter rejection reason.',
-                      title:
-                          'Reason Required',
+                      title: 'Reason Required',
                     );
                     return;
                   }
 
-                  final result =
-                      await _inventoryService
-                          .rejectStockRequest(
+                  final result = await _inventoryService.rejectStockRequest(
                     request['id'] as int,
                     reason: reason,
                   );
 
-                  if (result['success'] ==
-                      true) {
+                  if (result['success'] == true) {
                     rejected = true;
 
-                    if (dialogContext
-                        .mounted) {
-                      Navigator.pop(
-                        dialogContext,
-                      );
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
                     }
                   } else {
                     AppToast.error(
                       context,
-                      result['message'] ??
-                          'Unable to reject request.',
-                      title:
-                          'Rejection Failed',
+                      result['message'] ?? 'Unable to reject request.',
+                      title: 'Rejection Failed',
                     );
                   }
                 },
-                child:
-                    const Text('Reject'),
+                child: const Text('Reject'),
               ),
             ),
           ],
@@ -2284,61 +1525,33 @@ class _AdminInventoryScreenState
     );
   }
 
-  void _viewStockRequest(
-    Map<String, dynamic> request,
-  ) {
+  void _viewStockRequest(Map<String, dynamic> request) {
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text(
-            'Stock Request Details',
-          ),
+          title: const Text('Stock Request Details'),
           content: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
             ),
             child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _approvalInfo(
-                  'Item',
-                  request['itemName'],
-                ),
-                _approvalInfo(
-                  'Transaction',
-                  request['type'],
-                ),
-                _approvalInfo(
-                  'Quantity',
-                  request['quantity'],
-                ),
-                _approvalInfo(
-                  'Requested By',
-                  request['requestedBy'],
-                ),
-                _approvalInfo(
-                  'Date',
-                  request['date'],
-                ),
-                _approvalInfo(
-                  'Reason',
-                  request['reason'] ?? '-',
-                ),
-                _approvalInfo(
-                  'Status',
-                  request['status'],
-                ),
+                _approvalInfo('Item', request['itemName']),
+                _approvalInfo('Transaction', request['type']),
+                _approvalInfo('Quantity', request['quantity']),
+                _approvalInfo('Requested By', request['requestedBy']),
+                _approvalInfo('Date', request['date']),
+                _approvalInfo('Reason', request['reason'] ?? '-'),
+                _approvalInfo('Status', request['status']),
               ],
             ),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                );
+                Navigator.pop(dialogContext);
               },
               child: const Text('Close'),
             ),
@@ -2348,34 +1561,22 @@ class _AdminInventoryScreenState
     );
   }
 
-  Widget _approvalInfo(
-    String label,
-    dynamic value,
-  ) {
+  Widget _approvalInfo(String label, dynamic value) {
     return Padding(
-      padding:
-          const EdgeInsets.only(
-        bottom: 8,
-      ),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           SizedBox(
             width: 110,
             child: Text(
               label,
-              style: const TextStyle(
-                color:
-                    Color(0xFF64748B),
-              ),
+              style: const TextStyle(color: Color(0xFF64748B)),
             ),
           ),
           Expanded(
             child: Text(
               value?.toString() ?? '-',
-              style: const TextStyle(
-                fontWeight:
-                    FontWeight.w600,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -2383,20 +1584,12 @@ class _AdminInventoryScreenState
     );
   }
 
-  Widget _approvalBadge(
-    String status,
-  ) {
+  Widget _approvalBadge(String status) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color:
-            const Color(0xFFFFF7ED),
-        borderRadius:
-            BorderRadius.circular(15),
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(15),
       ),
       child: Text(
         status,
@@ -2413,332 +1606,181 @@ class _AdminInventoryScreenState
   // ADD / EDIT PROFESSIONAL DIALOG
   // =========================================================
 
-  Future<void> _openItemForm({
-    Map<String, dynamic>? item,
-  }) async {
-    final editing =
-        item != null;
+  Future<void> _openItemForm({Map<String, dynamic>? item}) async {
+    final editing = item != null;
 
-    final name =
-        TextEditingController(
-      text: item?['name'] ?? '',
+    final name = TextEditingController(text: item?['name'] ?? '');
+
+    final sku = TextEditingController(text: item?['sku'] ?? '');
+
+    final stock = TextEditingController(text: item?['stock']?.toString() ?? '');
+
+    final minStock = TextEditingController(
+      text: item?['minStock']?.toString() ?? '',
     );
 
-    final sku =
-        TextEditingController(
-      text: item?['sku'] ?? '',
+    final rate = TextEditingController(
+      text: item?['purchaseRate']?.toString() ?? '',
     );
 
-    final stock =
-        TextEditingController(
-      text:
-          item?['stock']
-                  ?.toString() ??
-              '',
-    );
+    final batch = TextEditingController(text: item?['batch'] ?? '');
 
-    final minStock =
-        TextEditingController(
-      text:
-          item?['minStock']
-                  ?.toString() ??
-              '',
-    );
+    final supplier = TextEditingController(text: item?['supplier'] ?? '');
 
-    final rate =
-        TextEditingController(
-      text:
-          item?['purchaseRate']
-                  ?.toString() ??
-              '',
-    );
+    String type = item?['type'] ?? 'Raw Material';
 
-    final batch =
-        TextEditingController(
-      text:
-          item?['batch'] ?? '',
-    );
-
-    final supplier =
-        TextEditingController(
-      text:
-          item?['supplier'] ?? '',
-    );
-
-    String type =
-        item?['type'] ??
-            'Raw Material';
-
-    String unit =
-        item?['unit'] ??
-            'Pcs';
+    String unit = item?['unit'] ?? 'Pcs';
 
     bool saved = false;
 
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (
-        dialogContext,
-      ) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (
-            context,
-            setDialogState,
-          ) {
-            final desktop =
-                MediaQuery.of(
-                      context,
-                    ).size.width >=
-                    900;
+          builder: (context, setDialogState) {
+            final desktop = MediaQuery.of(context).size.width >= 900;
 
             return Dialog(
-              backgroundColor:
-                  Colors.transparent,
-              insetPadding:
-                  EdgeInsets.symmetric(
-                horizontal:
-                    desktop ? 80 : 14,
-                vertical:
-                    desktop ? 30 : 16,
+              backgroundColor: Colors.transparent,
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: desktop ? 80 : 14,
+                vertical: desktop ? 30 : 16,
               ),
-              child:
-                  ConstrainedBox(
-                constraints:
-                    BoxConstraints(
-                  maxWidth:
-                      desktop
-                          ? 860
-                          : 600,
-                  maxHeight:
-                      MediaQuery.of(
-                            context,
-                          ).size.height *
-                          .9,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: desktop ? 860 : 600,
+                  maxHeight: MediaQuery.of(context).size.height * .9,
                 ),
                 child: Container(
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        const Color(
-                      0xFFF8FAFC,
-                    ),
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      18,
-                    ),
-                    boxShadow:
-                        const [
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: const [
                       BoxShadow(
-                        color:
-                            Color(
-                          0x22000000,
-                        ),
-                        blurRadius:
-                            28,
-                        offset:
-                            Offset(
-                          0,
-                          12,
-                        ),
+                        color: Color(0x22000000),
+                        blurRadius: 28,
+                        offset: Offset(0, 12),
                       ),
                     ],
                   ),
                   child: Column(
                     children: [
                       _inventoryDialogHeader(
-                        editing
-                            ? 'Edit Inventory Item'
-                            : 'Add Inventory Item',
+                        editing ? 'Edit Inventory Item' : 'Add Inventory Item',
                         'Manage item, stock, price and supplier information',
                         () {
-                          Navigator.pop(
-                            dialogContext,
-                          );
+                          Navigator.pop(dialogContext);
                         },
                       ),
 
                       Expanded(
-                        child:
-                            SingleChildScrollView(
-                          padding:
-                              EdgeInsets.all(
-                            desktop
-                                ? 22
-                                : 16,
-                          ),
-                          child:
-                              LayoutBuilder(
-                            builder: (
-                              context,
-                              constraints,
-                            ) {
-                              final twoColumns =
-                                  constraints
-                                          .maxWidth >=
-                                      650;
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.all(desktop ? 22 : 16),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final twoColumns = constraints.maxWidth >= 650;
 
                               return Column(
                                 children: [
                                   _inventorySection(
-                                    title:
-                                        'Item Information',
+                                    title: 'Item Information',
                                     subtitle:
                                         'Identification and classification',
-                                    icon:
-                                        Icons
-                                            .category_outlined,
-                                    child:
-                                        _inventoryGrid(
-                                      twoColumns,
-                                      [
-                                        _inventoryField(
-                                          name,
-                                          'Item Name',
-                                          Icons
-                                              .inventory_2_outlined,
-                                          requiredField:
-                                              true,
-                                        ),
-                                        _inventoryField(
-                                          sku,
-                                          'SKU',
-                                          Icons
-                                              .qr_code_2_outlined,
-                                        ),
-                                        _inventoryDropdown(
-                                          label:
-                                              'Type',
-                                          value:
-                                              type,
-                                          items:
-                                              const [
-                                            'Raw Material',
-                                            'Finished Product',
-                                          ],
-                                          onChanged:
-                                              (
-                                            value,
-                                          ) {
-                                            setDialogState(
-                                              () {
-                                                type =
-                                                    value ??
-                                                        type;
-                                              },
-                                            );
-                                          },
-                                        ),
-                                        _inventoryDropdown(
-                                          label:
-                                              'Unit',
-                                          value:
-                                              unit,
-                                          items:
-                                              const [
-                                            'Pcs',
-                                            'Bottles',
-                                            'Jars',
-                                            'Kg',
-                                          ],
-                                          onChanged:
-                                              (
-                                            value,
-                                          ) {
-                                            setDialogState(
-                                              () {
-                                                unit =
-                                                    value ??
-                                                        unit;
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
+                                    icon: Icons.category_outlined,
+                                    child: _inventoryGrid(twoColumns, [
+                                      _inventoryField(
+                                        name,
+                                        'Item Name',
+                                        Icons.inventory_2_outlined,
+                                        requiredField: true,
+                                      ),
+                                      _inventoryField(
+                                        sku,
+                                        'SKU',
+                                        Icons.qr_code_2_outlined,
+                                      ),
+                                      _inventoryDropdown(
+                                        label: 'Type',
+                                        value: type,
+                                        items: const [
+                                          'Raw Material',
+                                          'Finished Product',
+                                        ],
+                                        onChanged: (value) {
+                                          setDialogState(() {
+                                            type = value ?? type;
+                                          });
+                                        },
+                                      ),
+                                      _inventoryDropdown(
+                                        label: 'Unit',
+                                        value: unit,
+                                        items: const [
+                                          'Pcs',
+                                          'Bottles',
+                                          'Jars',
+                                          'Kg',
+                                        ],
+                                        onChanged: (value) {
+                                          setDialogState(() {
+                                            unit = value ?? unit;
+                                          });
+                                        },
+                                      ),
+                                    ]),
                                   ),
 
-                                  const SizedBox(
-                                    height: 18,
-                                  ),
+                                  const SizedBox(height: 18),
 
                                   _inventorySection(
-                                    title:
-                                        'Stock & Pricing',
+                                    title: 'Stock & Pricing',
                                     subtitle:
                                         'Quantity and purchase information',
-                                    icon:
-                                        Icons
-                                            .stacked_bar_chart_outlined,
-                                    child:
-                                        _inventoryGrid(
-                                      twoColumns,
-                                      [
-                                        _inventoryField(
-                                          stock,
-                                          'Current Stock',
-                                          Icons
-                                              .inventory_outlined,
-                                          keyboardType:
-                                              TextInputType
-                                                  .number,
-                                        ),
-                                        _inventoryField(
-                                          minStock,
-                                          'Minimum Stock',
-                                          Icons
-                                              .warning_amber_outlined,
-                                          keyboardType:
-                                              TextInputType
-                                                  .number,
-                                        ),
-                                        _inventoryField(
-                                          rate,
-                                          'Purchase Rate',
-                                          Icons
-                                              .currency_rupee,
-                                          keyboardType:
-                                              const TextInputType
-                                                  .numberWithOptions(
-                                            decimal:
-                                                true,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                    icon: Icons.stacked_bar_chart_outlined,
+                                    child: _inventoryGrid(twoColumns, [
+                                      _inventoryField(
+                                        stock,
+                                        'Current Stock',
+                                        Icons.inventory_outlined,
+                                        keyboardType: TextInputType.number,
+                                      ),
+                                      _inventoryField(
+                                        minStock,
+                                        'Minimum Stock',
+                                        Icons.warning_amber_outlined,
+                                        keyboardType: TextInputType.number,
+                                      ),
+                                      _inventoryField(
+                                        rate,
+                                        'Purchase Rate',
+                                        Icons.currency_rupee,
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
+                                      ),
+                                    ]),
                                   ),
 
-                                  const SizedBox(
-                                    height: 18,
-                                  ),
+                                  const SizedBox(height: 18),
 
                                   _inventorySection(
-                                    title:
-                                        'Batch & Supplier',
-                                    subtitle:
-                                        'Traceability and vendor details',
-                                    icon:
-                                        Icons
-                                            .local_shipping_outlined,
-                                    child:
-                                        _inventoryGrid(
-                                      twoColumns,
-                                      [
-                                        _inventoryField(
-                                          batch,
-                                          'Batch Number',
-                                          Icons
-                                              .tag_outlined,
-                                        ),
-                                        _inventoryField(
-                                          supplier,
-                                          'Supplier',
-                                          Icons
-                                              .business_outlined,
-                                        ),
-                                      ],
-                                    ),
+                                    title: 'Batch & Supplier',
+                                    subtitle: 'Traceability and vendor details',
+                                    icon: Icons.local_shipping_outlined,
+                                    child: _inventoryGrid(twoColumns, [
+                                      _inventoryField(
+                                        batch,
+                                        'Batch Number',
+                                        Icons.tag_outlined,
+                                      ),
+                                      _inventoryField(
+                                        supplier,
+                                        'Supplier',
+                                        Icons.business_outlined,
+                                      ),
+                                    ]),
                                   ),
                                 ],
                               );
@@ -2748,194 +1790,108 @@ class _AdminInventoryScreenState
                       ),
 
                       Container(
-                        padding:
-                            const EdgeInsets
-                                .symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 15,
                         ),
-                        decoration:
-                            const BoxDecoration(
-                          color:
-                              Colors.white,
-                          borderRadius:
-                              BorderRadius
-                                  .vertical(
-                            bottom:
-                                Radius
-                                    .circular(
-                              18,
-                            ),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.vertical(
+                            bottom: Radius.circular(18),
                           ),
-                          border:
-                              Border(
-                            top:
-                                BorderSide(
-                              color:
-                                  Color(
-                                0xFFE5E7EB,
-                              ),
-                            ),
+                          border: Border(
+                            top: BorderSide(color: Color(0xFFE5E7EB)),
                           ),
                         ),
                         child: Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment
-                                  .end,
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             SizedBox(
                               width: 95,
                               height: 44,
-                              child:
-                                  TextButton(
+                              child: TextButton(
                                 onPressed: () {
-                                  Navigator.pop(
-                                    dialogContext,
-                                  );
+                                  Navigator.pop(dialogContext);
                                 },
-                                child:
-                                    const Text(
-                                  'Cancel',
-                                ),
+                                child: const Text('Cancel'),
                               ),
                             ),
-                            const SizedBox(
-                              width: 10,
-                            ),
+                            const SizedBox(width: 10),
                             SizedBox(
                               width: 145,
                               height: 44,
-                              child:
-                                  ElevatedButton
-                                      .icon(
-                                style:
-                                    ElevatedButton
-                                        .styleFrom(
-                                  minimumSize:
-                                      const Size(
-                                    145,
-                                    44,
-                                  ),
-                                  maximumSize:
-                                      const Size(
-                                    145,
-                                    44,
-                                  ),
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size(145, 44),
+                                  maximumSize: const Size(145, 44),
                                 ),
-                                onPressed:
-                                    () async {
-                                  if (name.text
-                                      .trim()
-                                      .isEmpty) {
+                                onPressed: () async {
+                                  if (name.text.trim().isEmpty) {
                                     AppToast.error(
                                       context,
                                       'Item name is required.',
-                                      title:
-                                          'Validation Error',
+                                      title: 'Validation Error',
                                     );
                                     return;
                                   }
 
                                   final stockValue =
-                                      int.tryParse(
-                                            stock.text
-                                                .trim(),
-                                          ) ??
-                                          0;
+                                      int.tryParse(stock.text.trim()) ?? 0;
 
                                   final minimumValue =
-                                      int.tryParse(
-                                            minStock.text
-                                                .trim(),
-                                          ) ??
-                                          0;
+                                      int.tryParse(minStock.text.trim()) ?? 0;
 
                                   final rateValue =
-                                      double.tryParse(
-                                            rate.text
-                                                .trim(),
-                                          ) ??
-                                          0;
+                                      double.tryParse(rate.text.trim()) ?? 0;
 
-                                  if (stockValue <
-                                          0 ||
-                                      minimumValue <
-                                          0 ||
-                                      rateValue <
-                                          0) {
+                                  if (stockValue < 0 ||
+                                      minimumValue < 0 ||
+                                      rateValue < 0) {
                                     AppToast.error(
                                       context,
                                       'Stock, minimum stock and rate cannot be negative.',
-                                      title:
-                                          'Invalid Value',
+                                      title: 'Invalid Value',
                                     );
                                     return;
                                   }
 
-                                  final data =
-                                      {
-                                    'name':
-                                        name.text
-                                            .trim(),
-                                    'type':
-                                        type,
-                                    'sku':
-                                        sku.text
-                                            .trim(),
-                                    'unit':
-                                        unit,
-                                    'stock':
-                                        stockValue,
-                                    'minStock':
-                                        minimumValue,
-                                    'purchaseRate':
-                                        rateValue,
-                                    'batch':
-                                        batch.text
-                                            .trim(),
-                                    'supplier':
-                                        supplier.text
-                                            .trim(),
+                                  final data = {
+                                    'name': name.text.trim(),
+                                    'type': type,
+                                    'sku': sku.text.trim(),
+                                    'unit': unit,
+                                    'stock': stockValue,
+                                    'minStock': minimumValue,
+                                    'purchaseRate': rateValue,
+                                    'batch': batch.text.trim(),
+                                    'supplier': supplier.text.trim(),
                                   };
 
-                                  Map<String,
-                                          dynamic>
-                                      result;
+                                  Map<String, dynamic> result;
 
                                   if (editing) {
-                                    result =
-                                        await _inventoryService
-                                            .updateItem(
-                                      item['id']
-                                          as int,
+                                    result = await _inventoryService.updateItem(
+                                      item['id'] as int,
                                       data,
                                     );
                                   } else {
-                                    result =
-                                        await _inventoryService
-                                            .createItem(
+                                    result = await _inventoryService.createItem(
                                       data,
                                     );
                                   }
 
-                                  if (result[
-                                          'success'] ==
-                                      true) {
+                                  if (result['success'] == true) {
                                     saved = true;
 
-                                    if (context
-                                        .mounted) {
-                                      Navigator.pop(
-                                        dialogContext,
-                                      );
+                                    if (context.mounted) {
+                                      Navigator.pop(dialogContext);
                                     }
 
                                     await _loadData();
                                   } else {
                                     AppToast.error(
                                       context,
-                                      result[
-                                              'message'] ??
+                                      result['message'] ??
                                           'Unable to save item.',
                                       title: editing
                                           ? 'Update Failed'
@@ -2943,19 +1899,11 @@ class _AdminInventoryScreenState
                                     );
                                   }
                                 },
-                                icon:
-                                    const Icon(
-                                  Icons
-                                      .save_outlined,
-                                  size: 18,
-                                ),
+                                icon: const Icon(Icons.save_outlined, size: 18),
                                 label: Text(
-                                  editing
-                                      ? 'Update Item'
-                                      : 'Save Item',
+                                  editing ? 'Update Item' : 'Save Item',
                                   maxLines: 1,
-                                  softWrap:
-                                      false,
+                                  softWrap: false,
                                 ),
                               ),
                             ),
@@ -2978,9 +1926,7 @@ class _AdminInventoryScreenState
         editing
             ? '${name.text.trim()} updated successfully.'
             : '${name.text.trim()} added successfully.',
-        title: editing
-            ? 'Inventory Updated'
-            : 'Inventory Item Added',
+        title: editing ? 'Inventory Updated' : 'Inventory Item Added',
       );
     }
 
@@ -3003,91 +1949,49 @@ class _AdminInventoryScreenState
     VoidCallback onClose,
   ) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 18,
-      ),
-      decoration:
-          const BoxDecoration(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.vertical(
-          top:
-              Radius.circular(18),
-        ),
-        border: Border(
-          bottom: BorderSide(
-            color:
-                Color(
-              0xFFE5E7EB,
-            ),
-          ),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
       ),
       child: Row(
         children: [
           Container(
             width: 42,
             height: 42,
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(
-                0xFFE0F2FE,
-              ),
-              borderRadius:
-                  BorderRadius.circular(
-                12,
-              ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0F2FE),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
-              Icons
-                  .inventory_2_outlined,
-              color:
-                  Color(
-                0xFF0284C7,
-              ),
+              Icons.inventory_2_outlined,
+              color: Color(0xFF0284C7),
             ),
           ),
-          const SizedBox(
-            width: 14,
-          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style:
-                      const TextStyle(
+                  style: const TextStyle(
                     fontSize: 21,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style:
-                      const TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
-                    color:
-                        Color(
-                      0xFF64748B,
-                    ),
+                    color: Color(0xFF64748B),
                   ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: onClose,
-            icon:
-                const Icon(
-              Icons.close_rounded,
-            ),
-          ),
+          IconButton(onPressed: onClose, icon: const Icon(Icons.close_rounded)),
         ],
       ),
     );
@@ -3101,82 +2005,43 @@ class _AdminInventoryScreenState
   }) {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(
-        18,
-      ),
-      decoration:
-          BoxDecoration(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          14,
-        ),
-        border: Border.all(
-          color:
-              const Color(
-            0xFFE5E7EB,
-          ),
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
                 width: 36,
                 height: 36,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      const Color(
-                    0xFFE0F2FE,
-                  ),
-                  borderRadius:
-                      BorderRadius
-                          .circular(
-                    10,
-                  ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color:
-                      const Color(
-                    0xFF0284C7,
-                  ),
-                ),
+                child: Icon(icon, size: 18, color: const Color(0xFF0284C7)),
               ),
-              const SizedBox(
-                width: 10,
-              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      style:
-                          const TextStyle(
+                      style: const TextStyle(
                         fontSize: 15,
-                        fontWeight:
-                            FontWeight
-                                .w700,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
                       subtitle,
-                      style:
-                          const TextStyle(
+                      style: const TextStyle(
                         fontSize: 11,
-                        color:
-                            Color(
-                          0xFF64748B,
-                        ),
+                        color: Color(0xFF64748B),
                       ),
                     ),
                   ],
@@ -3184,36 +2049,23 @@ class _AdminInventoryScreenState
               ),
             ],
           ),
-          const SizedBox(
-            height: 18,
-          ),
+          const SizedBox(height: 18),
           child,
         ],
       ),
     );
   }
 
-  Widget _inventoryGrid(
-    bool twoColumns,
-    List<Widget> fields,
-  ) {
+  Widget _inventoryGrid(bool twoColumns, List<Widget> fields) {
     if (!twoColumns) {
       return Column(
-        children:
-            List.generate(
+        children: List.generate(
           fields.length,
           (index) => Padding(
-            padding:
-                EdgeInsets.only(
-              bottom:
-                  index ==
-                          fields.length -
-                              1
-                      ? 0
-                      : 14,
+            padding: EdgeInsets.only(
+              bottom: index == fields.length - 1 ? 0 : 14,
             ),
-            child:
-                fields[index],
+            child: fields[index],
           ),
         ),
       );
@@ -3224,10 +2076,11 @@ class _AdminInventoryScreenState
       runSpacing: 14,
       children: fields
           .map(
-            (field) =>
-                ConstrainedBox(
+            (field) => ConstrainedBox(
               constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width > 420 ? 370 : double.infinity,
+                maxWidth: MediaQuery.of(context).size.width > 420
+                    ? 370
+                    : double.infinity,
               ),
               child: field,
             ),
@@ -3245,51 +2098,19 @@ class _AdminInventoryScreenState
   }) {
     return TextField(
       controller: controller,
-      keyboardType:
-          keyboardType,
-      decoration:
-          InputDecoration(
-        labelText:
-            requiredField
-                ? '$label *'
-                : label,
-        prefixIcon: Icon(
-          icon,
-          size: 18,
-        ),
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: requiredField ? '$label *' : label,
+        prefixIcon: Icon(icon, size: 18),
         filled: true,
-        fillColor:
-            const Color(
-          0xFFF8FAFC,
+        fillColor: const Color(0xFFF8FAFC),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
-        enabledBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            10,
-          ),
-          borderSide:
-              const BorderSide(
-            color:
-                Color(
-              0xFFE2E8F0,
-            ),
-          ),
-        ),
-        focusedBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            10,
-          ),
-          borderSide:
-              const BorderSide(
-            color:
-                Color(
-              0xFF0284C7,
-            ),
-            width: 1.2,
-          ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.2),
         ),
       ),
     );
@@ -3313,7 +2134,7 @@ class _AdminInventoryScreenState
         : (effectiveItems.isNotEmpty ? effectiveItems.first : null);
 
     return DropdownButtonFormField<String>(
-      value: safeValue,
+      initialValue: safeValue,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
@@ -3321,15 +2142,11 @@ class _AdminInventoryScreenState
         fillColor: const Color(0xFFF8FAFC),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(
-            color: Color(0xFFE2E8F0),
-          ),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(
-            color: Color(0xFF0284C7),
-          ),
+          borderSide: const BorderSide(color: Color(0xFF0284C7)),
         ),
       ),
       items: effectiveItems
@@ -3344,94 +2161,42 @@ class _AdminInventoryScreenState
     );
   }
 
-  InputDecoration _dialogInputDecoration(
-    String label,
-    IconData icon,
-  ) {
+  InputDecoration _dialogInputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(
-        icon,
-        size: 18,
-      ),
+      prefixIcon: Icon(icon, size: 18),
       filled: true,
       fillColor: Colors.white,
-      enabledBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(
-          10,
-        ),
-        borderSide:
-            const BorderSide(
-          color:
-              Color(
-            0xFFE2E8F0,
-          ),
-        ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
       ),
-      focusedBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(
-          10,
-        ),
-        borderSide:
-            const BorderSide(
-          color:
-              Color(
-            0xFF0284C7,
-          ),
-        ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFF0284C7)),
       ),
     );
   }
 
-  Future<void> _deleteItem(
-    Map<String, dynamic> item,
-  ) async {
-    final yes =
-        await showDialog<bool>(
+  Future<void> _deleteItem(Map<String, dynamic> item) async {
+    final yes = await showDialog<bool>(
       context: context,
-      builder: (
-        dialogContext,
-      ) {
+      builder: (dialogContext) {
         return AlertDialog(
-          title:
-              const Text(
-            'Delete Item',
-          ),
-          content: Text(
-            'Delete ${item['name']}?',
-          ),
+          title: const Text('Delete Item'),
+          content: Text('Delete ${item['name']}?'),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
+                Navigator.pop(dialogContext, false);
               },
-              child:
-                  const Text(
-                'Cancel',
-              ),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
+                Navigator.pop(dialogContext, true);
               },
-              child:
-                  const Text(
-                'Delete',
-                style: TextStyle(
-                  color:
-                      Colors.red,
-                ),
-              ),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -3440,13 +2205,9 @@ class _AdminInventoryScreenState
 
     if (yes != true) return;
 
-    final itemName =
-        item['name'].toString();
+    final itemName = item['name'].toString();
 
-    final result =
-        await _inventoryService.deleteItem(
-      item['id'] as int,
-    );
+    final result = await _inventoryService.deleteItem(item['id'] as int);
 
     if (!mounted) return;
 
@@ -3458,22 +2219,19 @@ class _AdminInventoryScreenState
       AppToast.success(
         context,
         '$itemName deleted successfully.',
-        title:
-            'Inventory Item Deleted',
+        title: 'Inventory Item Deleted',
       );
     } else {
       AppToast.error(
         context,
-        result['message'] ??
-            'Unable to delete item.',
+        result['message'] ?? 'Unable to delete item.',
         title: 'Delete Failed',
       );
     }
   }
 }
 
-class _InventoryStat
-    extends StatelessWidget {
+class _InventoryStat extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
@@ -3485,81 +2243,44 @@ class _InventoryStat
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
       height: 95,
-      padding:
-          const EdgeInsets.all(
-        16,
-      ),
-      decoration:
-          BoxDecoration(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(
-          14,
-        ),
-        border: Border.all(
-          color:
-              const Color(
-            0xFFE5E7EB,
-          ),
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Row(
         children: [
           Container(
             width: 42,
             height: 42,
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(
-                0xFFE0F2FE,
-              ),
-              borderRadius:
-                  BorderRadius.circular(
-                10,
-              ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0F2FE),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              icon,
-              color:
-                  const Color(
-                0xFF0284C7,
-              ),
-            ),
+            child: Icon(icon, color: const Color(0xFF0284C7)),
           ),
-          const SizedBox(
-            width: 12,
-          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style:
-                      const TextStyle(
-                    color:
-                        Color(
-                      0xFF64748B,
-                    ),
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
                     fontSize: 11,
                   ),
                 ),
                 Text(
                   value,
-                  style:
-                      const TextStyle(
+                  style: const TextStyle(
                     fontSize: 20,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -3571,8 +2292,7 @@ class _InventoryStat
   }
 }
 
-const _inventoryHeader =
-    TextStyle(
+const _inventoryHeader = TextStyle(
   fontSize: 8.5,
   fontWeight: FontWeight.w700,
   color: Color(0xFF64748B),

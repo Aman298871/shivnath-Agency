@@ -8,14 +8,7 @@ import '../../../core/theme/brand_colors.dart';
 import '../../../models/user_model.dart';
 import '../invoices/dealer_credit_ledger_screen.dart';
 
-enum _ReportPeriod {
-  today,
-  yesterday,
-  thisWeek,
-  thisMonth,
-  all,
-  custom,
-}
+enum _ReportPeriod { today, yesterday, thisWeek, thisMonth, all, custom }
 
 /// Comprehensive Franchise Reports & Performance Analytics Screen
 /// Provides clear visibility into:
@@ -26,10 +19,7 @@ enum _ReportPeriod {
 class FranchiseReportsScreen extends StatefulWidget {
   final VoidCallback? onOpenCreditLedger;
 
-  const FranchiseReportsScreen({
-    super.key,
-    this.onOpenCreditLedger,
-  });
+  const FranchiseReportsScreen({super.key, this.onOpenCreditLedger});
 
   @override
   State<FranchiseReportsScreen> createState() => _FranchiseReportsScreenState();
@@ -241,7 +231,11 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final currencyFmt = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -262,7 +256,9 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                   ),
                 ),
                 Text(
-                  _customRangeLabel.isNotEmpty ? _customRangeLabel : 'Real-time performance',
+                  _customRangeLabel.isNotEmpty
+                      ? _customRangeLabel
+                      : 'Real-time performance',
                   style: const TextStyle(
                     fontSize: 11,
                     color: Color(0xFF64748B),
@@ -275,17 +271,25 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
             elevation: 0.5,
             actions: [
               IconButton(
-                icon: const Icon(Icons.refresh_rounded, color: BrandColors.primaryBlue),
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  color: BrandColors.primaryBlue,
+                ),
                 tooltip: 'Refresh Reports',
                 onPressed: _loadReportsData,
               ),
               IconButton(
-                icon: const Icon(Icons.file_download_outlined, color: Color(0xFF475569)),
+                icon: const Icon(
+                  Icons.file_download_outlined,
+                  color: Color(0xFF475569),
+                ),
                 tooltip: 'Export Report',
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Report generated successfully. Downloading summary...'),
+                      content: Text(
+                        'Report generated successfully. Downloading summary...',
+                      ),
                       backgroundColor: BrandColors.primaryBlue,
                     ),
                   );
@@ -303,60 +307,93 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                   labelColor: BrandColors.primaryBlue,
                   unselectedLabelColor: const Color(0xFF64748B),
                   indicatorColor: BrandColors.primaryBlue,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
                   tabs: const [
-                    Tab(icon: Icon(Icons.insights_rounded, size: 16), text: 'Performance'),
-                    Tab(icon: Icon(Icons.receipt_long_rounded, size: 16), text: 'Sales Orders'),
-                    Tab(icon: Icon(Icons.local_shipping_rounded, size: 16), text: 'Stock Dispatches'),
-                    Tab(icon: Icon(Icons.account_balance_wallet_outlined, size: 16), text: 'Financials'),
+                    Tab(
+                      icon: Icon(Icons.insights_rounded, size: 16),
+                      text: 'Performance',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.receipt_long_rounded, size: 16),
+                      text: 'Sales Orders',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.local_shipping_rounded, size: 16),
+                      text: 'Stock Dispatches',
+                    ),
+                    Tab(
+                      icon: Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 16,
+                      ),
+                      text: 'Financials',
+                    ),
                   ],
                 ),
               ),
             ),
           ),
           body: _loading
-              ? const Center(child: CircularProgressIndicator(color: BrandColors.primaryBlue))
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: BrandColors.primaryBlue,
+                  ),
+                )
               : _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          color: Colors.red,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Color(0xFF64748B)),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _loadReportsData,
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Try Again'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: BrandColors.primaryBlue,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadReportsData,
+                  color: BrandColors.primaryBlue,
+                  child: Column(
+                    children: [
+                      _buildPeriodFilterBar(),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
                           children: [
-                            const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
-                            const SizedBox(height: 12),
-                            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF64748B))),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: _loadReportsData,
-                              icon: const Icon(Icons.refresh_rounded),
-                              label: const Text('Try Again'),
-                              style: ElevatedButton.styleFrom(backgroundColor: BrandColors.primaryBlue, foregroundColor: Colors.white),
-                            ),
+                            _buildPerformanceTab(desktop, currencyFmt),
+                            _buildSalesOrdersTab(desktop, currencyFmt),
+                            _buildStockDispatchesTab(desktop),
+                            _buildFinancialsTab(desktop, currencyFmt),
                           ],
                         ),
                       ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadReportsData,
-                      color: BrandColors.primaryBlue,
-                      child: Column(
-                        children: [
-                          _buildPeriodFilterBar(),
-                          Expanded(
-                            child: TabBarView(
-                              controller: _tabController,
-                              children: [
-                                _buildPerformanceTab(desktop, currencyFmt),
-                                _buildSalesOrdersTab(desktop, currencyFmt),
-                                _buildStockDispatchesTab(desktop),
-                                _buildFinancialsTab(desktop, currencyFmt),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
+                  ),
+                ),
         );
       },
     );
@@ -384,7 +421,11 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
             const SizedBox(width: 8),
             _filterChip('All Time', _ReportPeriod.all),
             const SizedBox(width: 8),
-            _filterChip('Custom Date', _ReportPeriod.custom, icon: Icons.calendar_today_rounded),
+            _filterChip(
+              'Custom Date',
+              _ReportPeriod.custom,
+              icon: Icons.calendar_today_rounded,
+            ),
           ],
         ),
       ),
@@ -402,14 +443,20 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
           color: isSelected ? BrandColors.primaryBlue : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? BrandColors.primaryBlue : const Color(0xFFE2E8F0),
+            color: isSelected
+                ? BrandColors.primaryBlue
+                : const Color(0xFFE2E8F0),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 12, color: isSelected ? Colors.white : const Color(0xFF475569)),
+              Icon(
+                icon,
+                size: 12,
+                color: isSelected ? Colors.white : const Color(0xFF475569),
+              ),
               const SizedBox(width: 4),
             ],
             Text(
@@ -431,8 +478,14 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
   // =========================================================================
 
   Widget _buildPerformanceTab(bool desktop, NumberFormat currencyFmt) {
-    final balance = double.tryParse(_creditProfile?['current_balance']?.toString() ?? '0') ?? 0.0;
-    final creditLimit = double.tryParse(_creditProfile?['credit_limit']?.toString() ?? '0') ?? 0.0;
+    final balance =
+        double.tryParse(
+          _creditProfile?['current_balance']?.toString() ?? '0',
+        ) ??
+        0.0;
+    final creditLimit =
+        double.tryParse(_creditProfile?['credit_limit']?.toString() ?? '0') ??
+        0.0;
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -443,7 +496,9 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
           // 4 Metric Summary Cards
           LayoutBuilder(
             builder: (context, constraints) {
-              final double cardWidth = (constraints.maxWidth - (desktop ? 48 : 12)) / (desktop ? 4 : 2);
+              final double cardWidth =
+                  (constraints.maxWidth - (desktop ? 48 : 12)) /
+                  (desktop ? 4 : 2);
               return Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -489,8 +544,12 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                       'Ledger Outstanding',
                       currencyFmt.format(balance),
                       Icons.account_balance_wallet_rounded,
-                      balance > 0 ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
-                      balance > 0 ? const Color(0xFFFEE2E2) : const Color(0xFFDCFCE7),
+                      balance > 0
+                          ? const Color(0xFFDC2626)
+                          : const Color(0xFF16A34A),
+                      balance > 0
+                          ? const Color(0xFFFEE2E2)
+                          : const Color(0xFFDCFCE7),
                       subtitle: 'Limit: ${currencyFmt.format(creditLimit)}',
                       onTap: () {
                         if (widget.onOpenCreditLedger != null) {
@@ -498,7 +557,9 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                         } else {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const DealerCreditLedgerScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const DealerCreditLedgerScreen(),
+                            ),
                           );
                         }
                       },
@@ -540,7 +601,11 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 28),
+                  child: const Icon(
+                    Icons.receipt_long_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -549,12 +614,19 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                     children: const [
                       Text(
                         'Detailed Financial Ledger & Aging',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
                       ),
                       SizedBox(height: 2),
                       Text(
                         'View complete credit balance, 30/60/90-day aging, and plant statements.',
-                        style: TextStyle(color: Color(0xFFE0F2FE), fontSize: 11),
+                        style: TextStyle(
+                          color: Color(0xFFE0F2FE),
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
@@ -567,17 +639,27 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                     } else {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const DealerCreditLedgerScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const DealerCreditLedgerScreen(),
+                        ),
                       );
                     }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xFF0284C7),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: const Text('Open Ledger', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                  child: const Text(
+                    'Open Ledger',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -621,24 +703,39 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: Icon(icon, color: color, size: 20),
                 ),
                 if (onTap != null)
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF94A3B8)),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 12,
+                    color: Color(0xFF94A3B8),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
             Text(
               title,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
             Text(
               value,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -646,7 +743,11 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: color),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -660,11 +761,36 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
   Widget _buildVariantSalesSection(NumberFormat currencyFmt) {
     // 5 Official Variants
     final variants = [
-      {'sku': 'SHV-20L', 'name': '20 Litre Dispenser Jar', 'color': const Color(0xFF0284C7), 'icon': Icons.water_drop_rounded},
-      {'sku': 'SHV-1L', 'name': '1 Litre Packaged Bottle', 'color': const Color(0xFF16A34A), 'icon': Icons.local_drink_rounded},
-      {'sku': 'SHV-500', 'name': '500ml Bottled Water', 'color': const Color(0xFFEAB308), 'icon': Icons.liquor_rounded},
-      {'sku': 'SHV-250', 'name': '250ml Bottled Water', 'color': const Color(0xFF8B5CF6), 'icon': Icons.water_rounded},
-      {'sku': 'SHV-200', 'name': '200ml Water Glass/Cup', 'color': const Color(0xFFEC4899), 'icon': Icons.coffee_rounded},
+      {
+        'sku': 'SHV-20L',
+        'name': '20 Litre Dispenser Jar',
+        'color': const Color(0xFF0284C7),
+        'icon': Icons.water_drop_rounded,
+      },
+      {
+        'sku': 'SHV-1L',
+        'name': '1 Litre Packaged Bottle',
+        'color': const Color(0xFF16A34A),
+        'icon': Icons.local_drink_rounded,
+      },
+      {
+        'sku': 'SHV-500',
+        'name': '500ml Bottled Water',
+        'color': const Color(0xFFEAB308),
+        'icon': Icons.liquor_rounded,
+      },
+      {
+        'sku': 'SHV-250',
+        'name': '250ml Bottled Water',
+        'color': const Color(0xFF8B5CF6),
+        'icon': Icons.water_rounded,
+      },
+      {
+        'sku': 'SHV-200',
+        'name': '200ml Water Glass/Cup',
+        'color': const Color(0xFFEC4899),
+        'icon': Icons.coffee_rounded,
+      },
     ];
 
     return Container(
@@ -682,9 +808,17 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
             children: const [
               Text(
                 '5 Official Product Variants Breakdown',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
               ),
-              Icon(Icons.pie_chart_outline_rounded, color: Color(0xFF64748B), size: 18),
+              Icon(
+                Icons.pie_chart_outline_rounded,
+                color: Color(0xFF64748B),
+                size: 18,
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -710,26 +844,40 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                       children: [
                         Text(
                           v['name'] as String,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF1E293B)),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: Color(0xFF1E293B),
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           'SKU: ${v['sku']}',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
                       'Official Variant',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
+                      ),
                     ),
                   ),
                 ],
@@ -759,7 +907,7 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(desktop ? 24 : 16),
       itemCount: _orders.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final order = _orders[index];
         final id = order['id']?.toString() ?? '#$index';
@@ -784,7 +932,11 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.shopping_bag_outlined, color: BrandColors.primaryBlue, size: 20),
+                child: const Icon(
+                  Icons.shopping_bag_outlined,
+                  color: BrandColors.primaryBlue,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -793,14 +945,21 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                   children: [
                     Text(
                       'Order #$id • $customer',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: Color(0xFF0F172A),
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 3),
                     Text(
                       date.isNotEmpty ? date : 'Recently placed',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ),
@@ -811,7 +970,11 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                 children: [
                   Text(
                     currencyFmt.format(amt),
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   _statusBadge(status),
@@ -842,7 +1005,7 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(desktop ? 24 : 16),
       itemCount: _stockRequests.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final req = _stockRequests[index];
         final num = req['request_number']?.toString() ?? '#$index';
@@ -869,7 +1032,11 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                   Expanded(
                     child: Text(
                       '$num • $product',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: Color(0xFF0F172A),
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -881,10 +1048,26 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _dispatchPill('Requested', '$reqQty', const Color(0xFF64748B)),
-                  _dispatchPill('Approved', '$approvedQty', const Color(0xFF0284C7)),
-                  _dispatchPill('Dispatched', '$dispatchedQty', const Color(0xFFEAB308)),
-                  _dispatchPill('Received', '$receivedQty', const Color(0xFF16A34A)),
+                  _dispatchPill(
+                    'Requested',
+                    '$reqQty',
+                    const Color(0xFF64748B),
+                  ),
+                  _dispatchPill(
+                    'Approved',
+                    '$approvedQty',
+                    const Color(0xFF0284C7),
+                  ),
+                  _dispatchPill(
+                    'Dispatched',
+                    '$dispatchedQty',
+                    const Color(0xFFEAB308),
+                  ),
+                  _dispatchPill(
+                    'Received',
+                    '$receivedQty',
+                    const Color(0xFF16A34A),
+                  ),
                 ],
               ),
             ],
@@ -897,9 +1080,19 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
   Widget _dispatchPill(String label, String value, Color color) {
     return Column(
       children: [
-        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+        ),
       ],
     );
   }
@@ -909,13 +1102,27 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
   // =========================================================================
 
   Widget _buildFinancialsTab(bool desktop, NumberFormat currencyFmt) {
-    final balance = double.tryParse(_creditProfile?['current_balance']?.toString() ?? '0') ?? 0.0;
-    final creditLimit = double.tryParse(_creditProfile?['credit_limit']?.toString() ?? '0') ?? 0.0;
-    final availableCredit = double.tryParse(_creditProfile?['available_credit']?.toString() ?? '0') ?? 0.0;
+    final balance =
+        double.tryParse(
+          _creditProfile?['current_balance']?.toString() ?? '0',
+        ) ??
+        0.0;
+    final creditLimit =
+        double.tryParse(_creditProfile?['credit_limit']?.toString() ?? '0') ??
+        0.0;
+    final availableCredit =
+        double.tryParse(
+          _creditProfile?['available_credit']?.toString() ?? '0',
+        ) ??
+        0.0;
 
-    final aging0to30 = double.tryParse(_agingReport?['0_30_days']?.toString() ?? '0') ?? 0.0;
-    final aging31to60 = double.tryParse(_agingReport?['31_60_days']?.toString() ?? '0') ?? 0.0;
-    final aging60plus = double.tryParse(_agingReport?['60_plus_days']?.toString() ?? '0') ?? 0.0;
+    final aging0to30 =
+        double.tryParse(_agingReport?['0_30_days']?.toString() ?? '0') ?? 0.0;
+    final aging31to60 =
+        double.tryParse(_agingReport?['31_60_days']?.toString() ?? '0') ?? 0.0;
+    final aging60plus =
+        double.tryParse(_agingReport?['60_plus_days']?.toString() ?? '0') ??
+        0.0;
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -934,13 +1141,33 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Credit Profile & Terms', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                const Text(
+                  'Credit Profile & Terms',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _finRow('Approved Limit', currencyFmt.format(creditLimit))),
-                    Expanded(child: _finRow('Current Outstanding', currencyFmt.format(balance), isAlert: balance > 0)),
-                    Expanded(child: _finRow('Available Credit', currencyFmt.format(availableCredit), isSuccess: true)),
+                    Expanded(
+                      child: _finRow(
+                        'Approved Limit',
+                        currencyFmt.format(creditLimit),
+                      ),
+                    ),
+                    Expanded(
+                      child: _finRow(
+                        'Current Outstanding',
+                        currencyFmt.format(balance),
+                        isAlert: balance > 0,
+                      ),
+                    ),
+                    Expanded(
+                      child: _finRow(
+                        'Available Credit',
+                        currencyFmt.format(availableCredit),
+                        isSuccess: true,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -959,13 +1186,28 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Outstanding Invoice Aging Breakdown', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                const Text(
+                  'Outstanding Invoice Aging Breakdown',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
                 const SizedBox(height: 16),
-                _agingBar('0 - 30 Days (Current)', currencyFmt.format(aging0to30), const Color(0xFF16A34A)),
+                _agingBar(
+                  '0 - 30 Days (Current)',
+                  currencyFmt.format(aging0to30),
+                  const Color(0xFF16A34A),
+                ),
                 const SizedBox(height: 12),
-                _agingBar('31 - 60 Days (Due)', currencyFmt.format(aging31to60), const Color(0xFFEAB308)),
+                _agingBar(
+                  '31 - 60 Days (Due)',
+                  currencyFmt.format(aging31to60),
+                  const Color(0xFFEAB308),
+                ),
                 const SizedBox(height: 12),
-                _agingBar('60+ Days (Overdue)', currencyFmt.format(aging60plus), const Color(0xFFDC2626)),
+                _agingBar(
+                  '60+ Days (Overdue)',
+                  currencyFmt.format(aging60plus),
+                  const Color(0xFFDC2626),
+                ),
               ],
             ),
           ),
@@ -980,7 +1222,9 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                 } else {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const DealerCreditLedgerScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const DealerCreditLedgerScreen(),
+                    ),
                   );
                 }
               },
@@ -989,8 +1233,13 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: BrandColors.primaryBlue,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
@@ -999,7 +1248,12 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
     );
   }
 
-  Widget _finRow(String label, String value, {bool isAlert = false, bool isSuccess = false}) {
+  Widget _finRow(
+    String label,
+    String value, {
+    bool isAlert = false,
+    bool isSuccess = false,
+  }) {
     Color col = const Color(0xFF0F172A);
     if (isAlert) col = const Color(0xFFDC2626);
     if (isSuccess) col = const Color(0xFF16A34A);
@@ -1007,9 +1261,19 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+        ),
         const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: col)),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: col,
+          ),
+        ),
       ],
     );
   }
@@ -1024,9 +1288,23 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF334155),
+            ),
+          ),
         ),
-        Text(amount, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
+        Text(
+          amount,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
       ],
     );
   }
@@ -1036,10 +1314,14 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
     Color fg = const Color(0xFF475569);
 
     final lower = status.toLowerCase();
-    if (lower.contains('deliver') || lower.contains('approved') || lower.contains('received')) {
+    if (lower.contains('deliver') ||
+        lower.contains('approved') ||
+        lower.contains('received')) {
       bg = const Color(0xFFDCFCE7);
       fg = const Color(0xFF16A34A);
-    } else if (lower.contains('dispatch') || lower.contains('prep') || lower.contains('progress')) {
+    } else if (lower.contains('dispatch') ||
+        lower.contains('prep') ||
+        lower.contains('progress')) {
       bg = const Color(0xFFFEF3C7);
       fg = const Color(0xFFD97706);
     } else if (lower.contains('cancel') || lower.contains('reject')) {
@@ -1052,7 +1334,10 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
       child: Text(
         status.toUpperCase(),
         style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg),

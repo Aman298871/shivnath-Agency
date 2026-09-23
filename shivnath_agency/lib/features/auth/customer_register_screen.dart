@@ -42,7 +42,12 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   bool showFallbackList = false;
   String? supportContactPhone;
 
-  final List<String> availableDistricts = ['Raipur', 'Durg', 'Bilaspur', 'Rajnandgaon'];
+  final List<String> availableDistricts = [
+    'Raipur',
+    'Durg',
+    'Bilaspur',
+    'Rajnandgaon',
+  ];
 
   @override
   void initState() {
@@ -116,7 +121,8 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
 
         if (exactFranchises.isNotEmpty) {
           selectedFranchiseId = exactFranchises.first['id'] as int?;
-          selectedFranchiseName = exactFranchises.first['business_name']?.toString();
+          selectedFranchiseName = exactFranchises.first['business_name']
+              ?.toString();
           isFallbackFranchise = false;
         } else {
           isFallbackFranchise = true;
@@ -163,9 +169,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
     });
 
     if (result['success'] != true) {
-      _showMessage(
-        result['message']?.toString() ?? 'Registration failed.',
-      );
+      _showMessage(result['message']?.toString() ?? 'Registration failed.');
       return;
     }
 
@@ -180,9 +184,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -245,7 +247,9 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                   controller: nameController,
                   label: 'Full Name *',
                   icon: Icons.person_outline,
-                  validator: (val) => val == null || val.trim().isEmpty ? 'Enter your name' : null,
+                  validator: (val) => val == null || val.trim().isEmpty
+                      ? 'Enter your name'
+                      : null,
                 ),
                 const SizedBox(height: 14),
                 _field(
@@ -283,13 +287,18 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                         controller: cityController,
                         label: 'City *',
                         icon: Icons.location_city_outlined,
-                        validator: (val) => val == null || val.trim().isEmpty ? 'Enter city' : null,
+                        validator: (val) => val == null || val.trim().isEmpty
+                            ? 'Enter city'
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: availableDistricts.contains(districtController.text.trim())
+                        initialValue:
+                            availableDistricts.contains(
+                              districtController.text.trim(),
+                            )
                             ? districtController.text.trim()
                             : availableDistricts.first,
                         decoration: const InputDecoration(
@@ -324,18 +333,28 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.near_me_outlined, size: 20, color: Color(0xFF0284C7)),
+                          Icon(
+                            Icons.near_me_outlined,
+                            size: 20,
+                            color: Color(0xFF0284C7),
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Select Your Territory *',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       const Text(
                         'Delivery zones are dynamically mapped by our franchise network.',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       if (isLoadingTerritories)
@@ -348,10 +367,15 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                 SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                                 SizedBox(width: 10),
-                                Text('Loading territories...', style: TextStyle(fontSize: 12)),
+                                Text(
+                                  'Loading territories...',
+                                  style: TextStyle(fontSize: 12),
+                                ),
                               ],
                             ),
                           ),
@@ -366,12 +390,19 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                           ),
                           child: const Row(
                             children: [
-                              Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
+                              Icon(
+                                Icons.info_outline,
+                                color: Color(0xFFD97706),
+                                size: 18,
+                              ),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   'No active territories found for this district. Please contact support.',
-                                  style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF92400E),
+                                  ),
                                 ),
                               ),
                             ],
@@ -379,7 +410,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                         )
                       else
                         DropdownButtonFormField<int>(
-                          value: selectedTerritoryId,
+                          initialValue: selectedTerritoryId,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             hintText: 'Choose territory / service zone',
@@ -393,10 +424,14 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                           }).toList(),
                           onChanged: (id) {
                             if (id != null) {
-                              final found = territories.firstWhere((t) => t['id'] == id, orElse: () => {});
+                              final found = territories.firstWhere(
+                                (t) => t['id'] == id,
+                                orElse: () => {},
+                              );
                               setState(() {
                                 selectedTerritoryId = id;
-                                selectedTerritoryName = found['name']?.toString();
+                                selectedTerritoryName = found['name']
+                                    ?.toString();
                               });
                               _loadEligibleFranchises(id);
                             }
@@ -416,9 +451,16 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                             SizedBox(width: 10),
-                            Text('Checking authorized franchises...', style: TextStyle(fontSize: 12)),
+                            Text(
+                              'Checking authorized franchises...',
+                              style: TextStyle(fontSize: 12),
+                            ),
                           ],
                         ),
                       ),
@@ -437,7 +479,11 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                         children: [
                           const Row(
                             children: [
-                              Icon(Icons.verified_rounded, color: Color(0xFF16A34A), size: 20),
+                              Icon(
+                                Icons.verified_rounded,
+                                color: Color(0xFF16A34A),
+                                size: 20,
+                              ),
                               SizedBox(width: 8),
                               Text(
                                 'Authorized Territory Franchise',
@@ -452,7 +498,10 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                           const SizedBox(height: 6),
                           const Text(
                             'Your orders will be fulfilled by an authorized local franchise partner:',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF166534)),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF166534),
+                            ),
                           ),
                           const SizedBox(height: 10),
                           ...exactFranchises.map((f) {
@@ -464,7 +513,9 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: isSelected ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
+                                  color: isSelected
+                                      ? const Color(0xFF16A34A)
+                                      : const Color(0xFFE2E8F0),
                                   width: isSelected ? 1.5 : 1,
                                 ),
                               ),
@@ -473,17 +524,25 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                 groupValue: selectedFranchiseId,
                                 activeColor: const Color(0xFF16A34A),
                                 title: Text(
-                                  f['business_name']?.toString() ?? 'Franchise Partner',
-                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                  f['business_name']?.toString() ??
+                                      'Franchise Partner',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
                                 ),
                                 subtitle: Text(
                                   'Territory: ${f['territory'] ?? selectedTerritoryName} • Phone: ${f['phone'] ?? ''}',
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
+                                  ),
                                 ),
                                 onChanged: (val) {
                                   setState(() {
                                     selectedFranchiseId = val;
-                                    selectedFranchiseName = f['business_name']?.toString();
+                                    selectedFranchiseName = f['business_name']
+                                        ?.toString();
                                     isFallbackFranchise = false;
                                   });
                                 },
@@ -508,7 +567,11 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                         children: [
                           const Row(
                             children: [
-                              Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 22),
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: Color(0xFFD97706),
+                                size: 22,
+                              ),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -527,7 +590,10 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                             supportContactPhone != null
                                 ? 'Our central team is expanding coverage here. For custom assistance call: $supportContactPhone'
                                 : 'Our central team is expanding coverage in this territory.',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFFB45309),
+                            ),
                           ),
                           const SizedBox(height: 12),
                           if (!showFallbackList)
@@ -536,23 +602,38 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                               child: OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF92400E),
-                                  side: const BorderSide(color: Color(0xFFD97706)),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  side: const BorderSide(
+                                    color: Color(0xFFD97706),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
                                 onPressed: () {
                                   setState(() {
                                     showFallbackList = true;
-                                    if (fallbackFranchises.isNotEmpty && selectedFranchiseId == null) {
-                                      selectedFranchiseId = fallbackFranchises.first['id'] as int?;
-                                      selectedFranchiseName = fallbackFranchises.first['business_name']?.toString();
+                                    if (fallbackFranchises.isNotEmpty &&
+                                        selectedFranchiseId == null) {
+                                      selectedFranchiseId =
+                                          fallbackFranchises.first['id']
+                                              as int?;
+                                      selectedFranchiseName = fallbackFranchises
+                                          .first['business_name']
+                                          ?.toString();
                                       isFallbackFranchise = true;
                                     }
                                   });
                                 },
-                                icon: const Icon(Icons.storefront_outlined, size: 16),
+                                icon: const Icon(
+                                  Icons.storefront_outlined,
+                                  size: 16,
+                                ),
                                 label: const Text(
                                   'View Other Available Franchises',
-                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             )
@@ -575,7 +656,9 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: isSelected ? const Color(0xFFD97706) : const Color(0xFFE2E8F0),
+                                    color: isSelected
+                                        ? const Color(0xFFD97706)
+                                        : const Color(0xFFE2E8F0),
                                     width: isSelected ? 1.5 : 1,
                                   ),
                                 ),
@@ -587,32 +670,49 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                     children: [
                                       Flexible(
                                         child: Text(
-                                          f['business_name']?.toString() ?? 'Franchise',
-                                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                          f['business_name']?.toString() ??
+                                              'Franchise',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 6),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 1,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFFFEF3C7),
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                         child: const Text(
                                           'Fallback',
-                                          style: TextStyle(fontSize: 10, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: Color(0xFF92400E),
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
                                   subtitle: Text(
                                     'Serving: ${f['city'] ?? ''} • ${f['phone'] ?? ''}',
-                                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF64748B),
+                                    ),
                                   ),
                                   onChanged: (val) {
                                     setState(() {
                                       selectedFranchiseId = val;
-                                      selectedFranchiseName = f['business_name']?.toString();
+                                      selectedFranchiseName = f['business_name']
+                                          ?.toString();
                                       isFallbackFranchise = true;
                                     });
                                   },
@@ -643,9 +743,12 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     labelText: 'Password *',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                      onPressed: () =>
+                          setState(() => obscurePassword = !obscurePassword),
                       icon: Icon(
-                        obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                       ),
                     ),
                   ),
@@ -664,9 +767,13 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     labelText: 'Confirm Password *',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      onPressed: () => setState(() => obscureConfirmPassword = !obscureConfirmPassword),
+                      onPressed: () => setState(
+                        () => obscureConfirmPassword = !obscureConfirmPassword,
+                      ),
                       icon: Icon(
-                        obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        obscureConfirmPassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                       ),
                     ),
                   ),
@@ -687,18 +794,26 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0284C7),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     onPressed: isLoading ? null : _register,
                     child: isLoading
                         ? const SizedBox(
                             width: 22,
                             height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text(
                             'Create Account',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
                           ),
                   ),
                 ),
@@ -727,10 +842,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-      ),
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
       validator: validator,
     );
   }

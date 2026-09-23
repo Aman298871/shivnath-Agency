@@ -9,7 +9,8 @@ class FranchiseInventoryScreen extends StatefulWidget {
   const FranchiseInventoryScreen({super.key, this.initialTabIndex = 0});
 
   @override
-  State<FranchiseInventoryScreen> createState() => _FranchiseInventoryScreenState();
+  State<FranchiseInventoryScreen> createState() =>
+      _FranchiseInventoryScreenState();
 }
 
 class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
@@ -54,7 +55,9 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       if (rawRes['success'] == true && rawRes['data'] is List) {
         _rawMaterials = List<Map<String, dynamic>>.from(rawRes['data']);
       } else if (rawRes['data'] is Map && rawRes['data']['results'] is List) {
-        _rawMaterials = List<Map<String, dynamic>>.from(rawRes['data']['results']);
+        _rawMaterials = List<Map<String, dynamic>>.from(
+          rawRes['data']['results'],
+        );
       }
 
       // Fetch transactions
@@ -62,7 +65,9 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       if (txRes['success'] == true && txRes['data'] is List) {
         _transactions = List<Map<String, dynamic>>.from(txRes['data']);
       } else if (txRes['data'] is Map && txRes['data']['results'] is List) {
-        _transactions = List<Map<String, dynamic>>.from(txRes['data']['results']);
+        _transactions = List<Map<String, dynamic>>.from(
+          txRes['data']['results'],
+        );
       }
 
       // Fetch production logs
@@ -70,7 +75,9 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       if (prodRes['success'] == true && prodRes['data'] is List) {
         _productionLogs = List<Map<String, dynamic>>.from(prodRes['data']);
       } else if (prodRes['data'] is Map && prodRes['data']['results'] is List) {
-        _productionLogs = List<Map<String, dynamic>>.from(prodRes['data']['results']);
+        _productionLogs = List<Map<String, dynamic>>.from(
+          prodRes['data']['results'],
+        );
       }
 
       // Fetch finished products
@@ -105,10 +112,14 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
                       width: 38,
                       height: 38,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7).withOpacity(0.1),
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.warehouse_rounded, color: Color(0xFF0284C7), size: 20),
+                      child: const Icon(
+                        Icons.warehouse_rounded,
+                        color: Color(0xFF0284C7),
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -125,13 +136,19 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
                           ),
                           Text(
                             'Raw materials, finished goods, production & ledger',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.refresh_rounded, color: Color(0xFF0284C7)),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Color(0xFF0284C7),
+                      ),
                       onPressed: _fetchData,
                       tooltip: 'Refresh',
                     ),
@@ -145,8 +162,14 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
                   labelColor: const Color(0xFF0284C7),
                   unselectedLabelColor: const Color(0xFF9CA3AF),
                   indicatorColor: const Color(0xFF0284C7),
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
                   tabs: const [
                     Tab(text: 'Raw Materials'),
                     Tab(text: 'Finished Products'),
@@ -163,18 +186,20 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
           // ────────────────────────
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF0284C7)),
+                  )
                 : _error != null
-                    ? _buildError()
-                    : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildRawMaterialsTab(),
-                          _buildFinishedProductsTab(),
-                          _buildProductionTab(),
-                          _buildTransactionsTab(),
-                        ],
-                      ),
+                ? _buildError()
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildRawMaterialsTab(),
+                      _buildFinishedProductsTab(),
+                      _buildProductionTab(),
+                      _buildTransactionsTab(),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -188,7 +213,11 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 44),
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFF59E0B),
+              size: 44,
+            ),
             const SizedBox(height: 12),
             Text(
               _error ?? 'Something went wrong.',
@@ -226,7 +255,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _rawMaterials.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (ctx, i) {
         final item = _rawMaterials[i];
         final stock = item['current_stock'] ?? 0;
@@ -235,7 +264,10 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
         return _InventoryCard(
           icon: Icons.science_outlined,
           iconColor: isLow ? const Color(0xFFEF4444) : const Color(0xFF0284C7),
-          title: item['item_name']?.toString() ?? item['item']?.toString() ?? 'Item',
+          title:
+              item['item_name']?.toString() ??
+              item['item']?.toString() ??
+              'Item',
           subtitle: 'Unit: ${item['unit'] ?? 'pcs'}  |  Min Alert: $minAlert',
           value: stock.toString(),
           valueLabel: 'In Stock',
@@ -255,14 +287,15 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       return _buildEmpty(
         icon: Icons.local_drink_outlined,
         label: 'No finished products found.',
-        subtitle: 'Log production batches or order stock to populate finished products.',
+        subtitle:
+            'Log production batches or order stock to populate finished products.',
       );
     }
 
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _finishedProducts.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (ctx, i) {
         final product = _finishedProducts[i];
         final stock = product.stock;
@@ -270,23 +303,29 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
         final isOutOfStock = stock <= 0;
 
         return _InventoryCard(
-          icon: product.category == 'Water Jar' ? Icons.water_drop_rounded : Icons.local_drink_rounded,
+          icon: product.category == 'Water Jar'
+              ? Icons.water_drop_rounded
+              : Icons.local_drink_rounded,
           iconColor: isOutOfStock
               ? const Color(0xFFEF4444)
               : (isLow ? const Color(0xFFF59E0B) : const Color(0xFF0284C7)),
           title: product.name,
-          subtitle: 'Category: ${product.category}  |  Size: ${product.size}  |  Price: ₹${product.price.toStringAsFixed(0)} / ${product.unit}',
+          subtitle:
+              'Category: ${product.category}  |  Size: ${product.size}  |  Price: ₹${product.price.toStringAsFixed(0)} / ${product.unit}',
           value: stock.toString(),
           valueLabel: 'Units Available',
           valueColor: isOutOfStock
               ? const Color(0xFFEF4444)
               : (isLow ? const Color(0xFFF59E0B) : const Color(0xFF059669)),
           badge: isOutOfStock ? 'OUT OF STOCK' : (isLow ? 'LOW STOCK' : null),
-          badgeColor: isOutOfStock ? const Color(0xFFEF4444) : const Color(0xFFF59E0B),
+          badgeColor: isOutOfStock
+              ? const Color(0xFFEF4444)
+              : const Color(0xFFF59E0B),
         );
       },
     );
   }
+
   // TAB 2: PRODUCTION LOGS
   // ─────────────────────────────────────────
   Widget _buildProductionTab() {
@@ -304,7 +343,9 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
                 backgroundColor: const Color(0xFF0284C7),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ),
@@ -315,7 +356,8 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
             child: _buildEmpty(
               icon: Icons.precision_manufacturing_outlined,
               label: 'No production logs recorded yet.',
-              subtitle: 'Tap the button above to log your first production batch.',
+              subtitle:
+                  'Tap the button above to log your first production batch.',
             ),
           )
         else
@@ -323,14 +365,15 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: _productionLogs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (ctx, i) {
                 final log = _productionLogs[i];
                 return _InventoryCard(
                   icon: Icons.precision_manufacturing_outlined,
                   iconColor: const Color(0xFF7C3AED),
                   title: log['product_name']?.toString() ?? 'Batch',
-                  subtitle: 'Date: ${log['production_date'] ?? ''}\n${log['notes'] ?? ''}',
+                  subtitle:
+                      'Date: ${log['production_date'] ?? ''}\n${log['notes'] ?? ''}',
                   value: log['quantity_produced']?.toString() ?? '0',
                   valueLabel: 'Produced',
                   valueColor: const Color(0xFF7C3AED),
@@ -357,7 +400,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _transactions.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (ctx, i) {
         final tx = _transactions[i];
         final qty = tx['quantity'] ?? 0;
@@ -365,23 +408,33 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
         final txType = _formatTxType(tx['transaction_type']?.toString() ?? '');
 
         return _InventoryCard(
-          icon: isPositive ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-          iconColor: isPositive ? const Color(0xFF059669) : const Color(0xFFEF4444),
+          icon: isPositive
+              ? Icons.arrow_downward_rounded
+              : Icons.arrow_upward_rounded,
+          iconColor: isPositive
+              ? const Color(0xFF059669)
+              : const Color(0xFFEF4444),
           title: txType,
           subtitle: tx['notes']?.toString() ?? '',
           value: (isPositive ? '+' : '') + qty.toString(),
           valueLabel: 'Qty',
-          valueColor: isPositive ? const Color(0xFF059669) : const Color(0xFFEF4444),
+          valueColor: isPositive
+              ? const Color(0xFF059669)
+              : const Color(0xFFEF4444),
         );
       },
     );
   }
 
   String _formatTxType(String raw) {
-    return raw.replaceAll('_', ' ').split(' ').map((w) {
-      if (w.isEmpty) return w;
-      return w[0].toUpperCase() + w.substring(1);
-    }).join(' ');
+    return raw
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((w) {
+          if (w.isEmpty) return w;
+          return w[0].toUpperCase() + w.substring(1);
+        })
+        .join(' ');
   }
 
   Widget _buildEmpty({
@@ -397,14 +450,22 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
           children: [
             Icon(icon, size: 48, color: const Color(0xFFD1D5DB)),
             const SizedBox(height: 14),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF374151), fontSize: 15, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF374151),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
-              Text(subtitle,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
+              ),
             ],
           ],
         ),
@@ -422,8 +483,13 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       context: context,
       builder: (dCtx) => StatefulBuilder(
         builder: (dCtx, setDState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Log Production Batch', style: TextStyle(fontWeight: FontWeight.w800)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Log Production Batch',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -431,7 +497,11 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
               children: [
                 _dialogField('Product Name', productCtrl),
                 const SizedBox(height: 12),
-                _dialogField('Quantity Produced', qtyCtrl, keyboardType: TextInputType.number),
+                _dialogField(
+                  'Quantity Produced',
+                  qtyCtrl,
+                  keyboardType: TextInputType.number,
+                ),
                 const SizedBox(height: 12),
                 _dialogField('Notes (optional)', notesCtrl, maxLines: 3),
               ],
@@ -450,7 +520,11 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
                       final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
                       if (productName.isEmpty || qty <= 0) {
                         ScaffoldMessenger.of(dCtx).showSnackBar(
-                          const SnackBar(content: Text('Please enter product name and quantity.')),
+                          const SnackBar(
+                            content: Text(
+                              'Please enter product name and quantity.',
+                            ),
+                          ),
                         );
                         return;
                       }
@@ -476,7 +550,10 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
                         setDState(() => saving = false);
                         if (mounted) {
                           ScaffoldMessenger.of(dCtx).showSnackBar(
-                            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                            SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: Colors.red,
+                            ),
                           );
                         }
                       }
@@ -487,7 +564,13 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
               ),
               child: saving
                   ? const SizedBox(
-                      width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
                   : const Text('Save'),
             ),
           ],
@@ -496,12 +579,23 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
     );
   }
 
-  Widget _dialogField(String label, TextEditingController ctrl,
-      {TextInputType? keyboardType, int maxLines = 1}) {
+  Widget _dialogField(
+    String label,
+    TextEditingController ctrl, {
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF374151),
+          ),
+        ),
         const SizedBox(height: 6),
         TextField(
           controller: ctrl,
@@ -509,7 +603,10 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
           maxLines: maxLines,
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             isDense: true,
           ),
@@ -552,7 +649,13 @@ class _InventoryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 2))],
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -561,7 +664,7 @@ class _InventoryCard extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(9),
             ),
             child: Icon(icon, color: iconColor, size: 19),
@@ -587,9 +690,14 @@ class _InventoryCard extends StatelessWidget {
                     ),
                     if (badge != null)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: (badgeColor ?? Colors.red).withOpacity(0.12),
+                          color: (badgeColor ?? Colors.red).withValues(
+                            alpha: 0.12,
+                          ),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -607,7 +715,10 @@ class _InventoryCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF9CA3AF),
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),

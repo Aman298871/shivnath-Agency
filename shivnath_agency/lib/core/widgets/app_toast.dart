@@ -3,12 +3,7 @@ import 'package:flutter/material.dart';
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
-enum AppToastType {
-  success,
-  error,
-  warning,
-  info,
-}
+enum AppToastType { success, error, warning, info }
 
 class AppToast {
   static void success(
@@ -16,12 +11,7 @@ class AppToast {
     String message, {
     String title = 'Success',
   }) {
-    _show(
-      context,
-      title: title,
-      message: message,
-      type: AppToastType.success,
-    );
+    _show(context, title: title, message: message, type: AppToastType.success);
   }
 
   static void error(
@@ -29,12 +19,7 @@ class AppToast {
     String message, {
     String title = 'Error',
   }) {
-    _show(
-      context,
-      title: title,
-      message: message,
-      type: AppToastType.error,
-    );
+    _show(context, title: title, message: message, type: AppToastType.error);
   }
 
   static void warning(
@@ -42,12 +27,7 @@ class AppToast {
     String message, {
     String title = 'Warning',
   }) {
-    _show(
-      context,
-      title: title,
-      message: message,
-      type: AppToastType.warning,
-    );
+    _show(context, title: title, message: message, type: AppToastType.warning);
   }
 
   static void info(
@@ -55,12 +35,7 @@ class AppToast {
     String message, {
     String title = 'Information',
   }) {
-    _show(
-      context,
-      title: title,
-      message: message,
-      type: AppToastType.info,
-    );
+    _show(context, title: title, message: message, type: AppToastType.info);
   }
 
   static void _show(
@@ -115,9 +90,7 @@ class AppToast {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFFE5E7EB),
-              ),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x22000000),
@@ -134,14 +107,10 @@ class AppToast {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
+                    color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(9),
                   ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 21,
-                  ),
+                  child: Icon(icon, color: color, size: 21),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

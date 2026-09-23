@@ -8,10 +8,12 @@ class FranchiseCustomerStocksScreen extends StatefulWidget {
   const FranchiseCustomerStocksScreen({super.key});
 
   @override
-  State<FranchiseCustomerStocksScreen> createState() => _FranchiseCustomerStocksScreenState();
+  State<FranchiseCustomerStocksScreen> createState() =>
+      _FranchiseCustomerStocksScreenState();
 }
 
-class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksScreen> {
+class _FranchiseCustomerStocksScreenState
+    extends State<FranchiseCustomerStocksScreen> {
   final StockService _stockService = StockService();
   final AuthService _authService = AuthService();
 
@@ -78,13 +80,18 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
       await launchUrl(uri);
     } else {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not dial $phone')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not dial $phone')));
     }
   }
 
-  Future<void> _chatCustomerWhatsApp(String? phone, String name, String product, int daysRemaining) async {
+  Future<void> _chatCustomerWhatsApp(
+    String? phone,
+    String name,
+    String product,
+    int daysRemaining,
+  ) async {
     if (phone == null || phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Phone number not available')),
@@ -95,10 +102,7 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
         ? 'Namaste $name ji,\nThis is regarding your pure water delivery ($product). Your stock has $daysRemaining day(s) remaining. Would you like us to schedule your refill delivery?'
         : 'Namaste $name ji,\nThis is your pure water delivery franchise partner regarding your current supply cycle.';
 
-    await WhatsAppService.openWhatsApp(
-      phone: phone,
-      message: message,
-    );
+    await WhatsAppService.openWhatsApp(phone: phone, message: message);
   }
 
   Future<void> _handleServiceStatusChange({
@@ -107,7 +111,9 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
   }) async {
     final isHold = currentStatus == 'hold';
     final action = isHold ? 'resume' : 'hold';
-    final title = isHold ? 'Resume Water Delivery' : 'Put Water Service on Hold';
+    final title = isHold
+        ? 'Resume Water Delivery'
+        : 'Put Water Service on Hold';
     final reasonController = TextEditingController();
 
     final confirmed = await showDialog<bool>(
@@ -129,18 +135,27 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
             TextField(
               controller: reasonController,
               decoration: InputDecoration(
-                labelText: isHold ? 'Notes / Reason (Optional)' : 'Reason for Hold *',
-                hintText: isHold ? 'e.g. Customer requested restart' : 'e.g. Customer out of station',
+                labelText: isHold
+                    ? 'Notes / Reason (Optional)'
+                    : 'Reason for Hold *',
+                hintText: isHold
+                    ? 'e.g. Customer requested restart'
+                    : 'e.g. Customer out of station',
                 border: const OutlineInputBorder(),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: isHold ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
+              backgroundColor: isHold
+                  ? const Color(0xFF16A34A)
+                  : const Color(0xFFE11D48),
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
@@ -163,15 +178,21 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
     if (res['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['data']?['message']?.toString() ?? 'Service status updated.'),
-          backgroundColor: isHold ? const Color(0xFF16A34A) : const Color(0xFF0284C7),
+          content: Text(
+            res['data']?['message']?.toString() ?? 'Service status updated.',
+          ),
+          backgroundColor: isHold
+              ? const Color(0xFF16A34A)
+              : const Color(0xFF0284C7),
         ),
       );
       _fetchCustomerStocks();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['message']?.toString() ?? 'Failed to update service status'),
+          content: Text(
+            res['message']?.toString() ?? 'Failed to update service status',
+          ),
           backgroundColor: Colors.red.shade700,
         ),
       );
@@ -190,7 +211,10 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FB),
       appBar: AppBar(
-        title: const Text('Customer Stock Cycles', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text(
+          'Customer Stock Cycles',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -223,7 +247,10 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                     : null,
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 0,
+                  horizontal: 16,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -243,20 +270,22 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
           // Main list
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF0284C7)),
+                  )
                 : _stocks.isEmpty
-                    ? _buildEmptyState()
-                    : RefreshIndicator(
-                        onRefresh: _fetchCustomerStocks,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                          itemCount: _stocks.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 14),
-                          itemBuilder: (context, idx) {
-                            return _buildStockCard(_stocks[idx]);
-                          },
-                        ),
-                      ),
+                ? _buildEmptyState()
+                : RefreshIndicator(
+                    onRefresh: _fetchCustomerStocks,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      itemCount: _stocks.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 14),
+                      itemBuilder: (context, idx) {
+                        return _buildStockCard(_stocks[idx]);
+                      },
+                    ),
+                  ),
           ),
         ],
       ),
@@ -273,11 +302,26 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
           children: [
             _filterChip('all', 'All Stocks', _counts['total'] ?? 0),
             const SizedBox(width: 8),
-            _filterChip('low_stock', '⚠️ Low Stock', _counts['low_stock'] ?? 0, alertColor: const Color(0xFFD97706)),
+            _filterChip(
+              'low_stock',
+              '⚠️ Low Stock',
+              _counts['low_stock'] ?? 0,
+              alertColor: const Color(0xFFD97706),
+            ),
             const SizedBox(width: 8),
-            _filterChip('on_hold', 'On Hold', _counts['on_hold'] ?? 0, alertColor: const Color(0xFF9333EA)),
+            _filterChip(
+              'on_hold',
+              'On Hold',
+              _counts['on_hold'] ?? 0,
+              alertColor: const Color(0xFF9333EA),
+            ),
             const SizedBox(width: 8),
-            _filterChip('expired', 'Expired', _counts['expired'] ?? 0, alertColor: const Color(0xFFDC2626)),
+            _filterChip(
+              'expired',
+              'Expired',
+              _counts['expired'] ?? 0,
+              alertColor: const Color(0xFFDC2626),
+            ),
           ],
         ),
       ),
@@ -298,14 +342,18 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
               fontSize: 12,
               color: isSelected
                   ? Colors.white
-                  : (alertColor != null && count > 0 ? alertColor : const Color(0xFF475569)),
+                  : (alertColor != null && count > 0
+                        ? alertColor
+                        : const Color(0xFF475569)),
             ),
           ),
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: isSelected ? Colors.white.withOpacity(0.25) : const Color(0xFFE2E8F0),
+              color: isSelected
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : const Color(0xFFE2E8F0),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -336,7 +384,8 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
     final customer = stock['customer'] as Map<String, dynamic>? ?? {};
     final custName = customer['name']?.toString() ?? 'Valued Customer';
     final custPhone = customer['phone']?.toString() ?? '';
-    final custCode = customer['customer_code']?.toString() ?? 'CUST-${customer['id']}';
+    final custCode =
+        customer['customer_code']?.toString() ?? 'CUST-${customer['id']}';
     final custAddress = customer['address']?.toString() ?? '';
     final customerId = customer['id'] as int? ?? 0;
 
@@ -360,12 +409,14 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isLowStock && status != 'hold' ? const Color(0xFFF59E0B) : const Color(0xFFE5E7EB),
+          color: isLowStock && status != 'hold'
+              ? const Color(0xFFF59E0B)
+              : const Color(0xFFE5E7EB),
           width: isLowStock && status != 'hold' ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -384,12 +435,20 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 18),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFFD97706),
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Refill Alert: Only $daysRemaining day(s) remaining for $custName!',
-                      style: const TextStyle(color: Color(0xFFB45309), fontSize: 12, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        color: Color(0xFFB45309),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
@@ -410,7 +469,10 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                       backgroundColor: const Color(0xFFE0F2FE),
                       child: Text(
                         custName.isNotEmpty ? custName[0].toUpperCase() : 'C',
-                        style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0284C7)),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0284C7),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -422,32 +484,44 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                             custName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             '$custCode  •  $custPhone',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.12),
+                        color: statusColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: statusColor.withOpacity(0.3)),
+                        border: Border.all(
+                          color: statusColor.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Text(
                         status == 'hold'
                             ? 'ON HOLD'
                             : isLowStock
-                                ? '$daysRemaining DAYS LEFT'
-                                : status.toUpperCase(),
+                            ? '$daysRemaining DAYS LEFT'
+                            : status.toUpperCase(),
                         style: TextStyle(
                           color: statusColor,
                           fontSize: 11,
@@ -480,7 +554,11 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                                   productName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                    color: Color(0xFF0F172A),
+                                  ),
                                 ),
                                 if (variantSize.isNotEmpty) ...[
                                   const SizedBox(height: 2),
@@ -488,7 +566,11 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                                     'Size: $variantSize  •  Qty: $quantity',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF64748B),
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ],
                               ],
@@ -498,10 +580,20 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              const Text('Remaining', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                              const Text(
+                                'Remaining',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
                               Text(
                                 '$daysRemaining Days',
-                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: statusColor),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                  color: statusColor,
+                                ),
                               ),
                             ],
                           ),
@@ -516,17 +608,26 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                               'Order: $orderNumber',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              durationChoice.isNotEmpty ? durationChoice.toUpperCase() : '$durationDays Days Plan',
+                              durationChoice.isNotEmpty
+                                  ? durationChoice.toUpperCase()
+                                  : '$durationDays Days Plan',
                               textAlign: TextAlign.end,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF475569),
+                              ),
                             ),
                           ),
                         ],
@@ -540,7 +641,10 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                               'Started: $startDate',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF94A3B8),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -550,7 +654,10 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                               textAlign: TextAlign.end,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF94A3B8),
+                              ),
                             ),
                           ),
                         ],
@@ -567,12 +674,19 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.home_outlined, size: 15, color: Color(0xFF64748B)),
+                        const Icon(
+                          Icons.home_outlined,
+                          size: 15,
+                          color: Color(0xFF64748B),
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             custAddress,
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF475569),
+                            ),
                           ),
                         ),
                       ],
@@ -582,12 +696,20 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                 if (territory != null)
                   Row(
                     children: [
-                      const Icon(Icons.location_on_outlined, size: 15, color: Color(0xFF64748B)),
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 15,
+                        color: Color(0xFF64748B),
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'Zone: ${territory['zone'] ?? ''}, ${territory['district'] ?? ''} (${territory['pincode'] ?? ''})',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -605,12 +727,20 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0284C7),
                           side: const BorderSide(color: Color(0xFFBAE6FD)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 8),
                         ),
                         onPressed: () => _makePhoneCall(custPhone),
                         icon: const Icon(Icons.phone, size: 15),
-                        label: const Text('Call', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        label: const Text(
+                          'Call',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -619,27 +749,53 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF25D366),
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 8),
                         ),
-                        onPressed: () => _chatCustomerWhatsApp(custPhone, custName, productName, daysRemaining),
+                        onPressed: () => _chatCustomerWhatsApp(
+                          custPhone,
+                          custName,
+                          productName,
+                          daysRemaining,
+                        ),
                         icon: const Icon(Icons.chat_outlined, size: 15),
-                        label: const Text('WhatsApp', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        label: const Text(
+                          'WhatsApp',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      tooltip: status == 'hold' ? 'Resume delivery' : 'Put on hold',
+                      tooltip: status == 'hold'
+                          ? 'Resume delivery'
+                          : 'Put on hold',
                       style: IconButton.styleFrom(
-                        backgroundColor: status == 'hold' ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
-                        foregroundColor: status == 'hold' ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        backgroundColor: status == 'hold'
+                            ? const Color(0xFFDCFCE7)
+                            : const Color(0xFFFEE2E2),
+                        foregroundColor: status == 'hold'
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFFDC2626),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       onPressed: customerId > 0
-                          ? () => _handleServiceStatusChange(customerId: customerId, currentStatus: status)
+                          ? () => _handleServiceStatusChange(
+                              customerId: customerId,
+                              currentStatus: status,
+                            )
                           : null,
                       icon: Icon(
-                        status == 'hold' ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                        status == 'hold'
+                            ? Icons.play_arrow_rounded
+                            : Icons.pause_rounded,
                         size: 18,
                       ),
                     ),
@@ -660,17 +816,25 @@ class _FranchiseCustomerStocksScreenState extends State<FranchiseCustomerStocksS
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.water_drop_outlined, size: 56, color: Color(0xFFCBD5E1)),
+            const Icon(
+              Icons.water_drop_outlined,
+              size: 56,
+              color: Color(0xFFCBD5E1),
+            ),
             const SizedBox(height: 12),
             Text(
               _selectedFilter == 'low_stock'
                   ? 'No customers currently running low on stock'
                   : _selectedFilter == 'on_hold'
-                      ? 'No customer services currently on hold'
-                      : _selectedFilter == 'expired'
-                          ? 'No expired customer stock cycles'
-                          : 'No customer stock cycles found',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
+                  ? 'No customer services currently on hold'
+                  : _selectedFilter == 'expired'
+                  ? 'No expired customer stock cycles'
+                  : 'No customer stock cycles found',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF64748B),
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),

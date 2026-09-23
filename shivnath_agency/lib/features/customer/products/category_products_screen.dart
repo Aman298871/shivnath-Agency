@@ -49,7 +49,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         status: 'Active',
       );
       if (res['parsed_products'] is List<ProductModel>) {
-        _products = List<ProductModel>.from(res['parsed_products'] as List<ProductModel>);
+        _products = List<ProductModel>.from(
+          res['parsed_products'] as List<ProductModel>,
+        );
       } else {
         _products = [];
       }
@@ -64,7 +66,8 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
             return p.category.toLowerCase().contains('bottle') ||
                 p.unit.toLowerCase().contains('bottle') ||
                 p.name.toLowerCase().contains('bottle') ||
-                (p.size.toLowerCase().contains('ml') && !p.size.toLowerCase().contains('20'));
+                (p.size.toLowerCase().contains('ml') &&
+                    !p.size.toLowerCase().contains('20'));
           } else if (isJar) {
             return p.category.toLowerCase().contains('jar') ||
                 p.unit.toLowerCase().contains('jar') ||
@@ -84,7 +87,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
 
   List<ProductModel> get _filtered {
     final q = _search.trim().toLowerCase();
-    final activeOnly = _products.where((p) => p.status.toLowerCase() == 'active' || p.status.isEmpty);
+    final activeOnly = _products.where(
+      (p) => p.status.toLowerCase() == 'active' || p.status.isEmpty,
+    );
     if (q.isEmpty) return activeOnly.toList();
     return activeOnly.where((p) => p.name.toLowerCase().contains(q)).toList();
   }
@@ -126,10 +131,15 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               clipBehavior: Clip.none,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF0284C7)),
+                  icon: const Icon(
+                    Icons.shopping_cart_outlined,
+                    color: Color(0xFF0284C7),
+                  ),
                   onPressed: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const CustomerCartScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const CustomerCartScreen(),
+                    ),
                   ),
                   tooltip: 'Cart',
                 ),
@@ -142,7 +152,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                       color: Color(0xFF0284C7),
                       shape: BoxShape.circle,
                     ),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
                     child: Text(
                       '$cartCount',
                       textAlign: TextAlign.center,
@@ -158,7 +171,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
             )
           else
             IconButton(
-              icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF9CA3AF)),
+              icon: const Icon(
+                Icons.shopping_cart_outlined,
+                color: Color(0xFF9CA3AF),
+              ),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const CustomerCartScreen()),
@@ -178,8 +194,15 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               onChanged: (v) => setState(() => _search = v),
               decoration: InputDecoration(
                 hintText: 'Search in ${widget.categoryName}…',
-                hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFB0B7C3)),
-                prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF9CA3AF)),
+                hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFFB0B7C3),
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  size: 20,
+                  color: Color(0xFF9CA3AF),
+                ),
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -198,12 +221,14 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
           // BODY
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF0284C7)),
+                  )
                 : _error != null
-                    ? _buildError()
-                    : _filtered.isEmpty
-                        ? _buildEmpty()
-                        : _buildGrid(),
+                ? _buildError()
+                : _filtered.isEmpty
+                ? _buildEmpty()
+                : _buildGrid(),
           ),
         ],
       ),
@@ -244,7 +269,11 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.inventory_2_outlined, size: 52, color: Color(0xFFD1D5DB)),
+          const Icon(
+            Icons.inventory_2_outlined,
+            size: 52,
+            color: Color(0xFFD1D5DB),
+          ),
           const SizedBox(height: 14),
           Text(
             _search.isNotEmpty
@@ -270,9 +299,17 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 44),
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Color(0xFFF59E0B),
+            size: 44,
+          ),
           const SizedBox(height: 12),
-          Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 14)),
+          Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFF6B7280), fontSize: 14),
+          ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: _fetchProducts,
@@ -305,13 +342,21 @@ class _ProductCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product)),
+        MaterialPageRoute(
+          builder: (_) => ProductDetailScreen(product: product),
+        ),
       ),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2))],
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -320,12 +365,14 @@ class _ProductCard extends StatelessWidget {
             Expanded(
               flex: 5,
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                child: product.image != null && product.image!.isNotEmpty
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(14),
+                ),
+                child: product.image.isNotEmpty
                     ? Image.network(
-                        product.image!,
+                        product.image,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholder(),
+                        errorBuilder: (_, _, _) => _placeholder(),
                       )
                     : _placeholder(),
               ),
@@ -364,7 +411,11 @@ class _ProductCard extends StatelessWidget {
                     if (product.stock <= 0)
                       const Text(
                         'Out of Stock',
-                        style: TextStyle(fontSize: 10, color: Color(0xFFEF4444), fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFFEF4444),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     const Spacer(),
                     // ADD / QUANTITY CONTROL
@@ -374,7 +425,10 @@ class _ProductCard extends StatelessWidget {
                             width: double.infinity,
                             height: 34,
                             child: ElevatedButton.icon(
-                              icon: const Icon(Icons.add_shopping_cart_rounded, size: 14),
+                              icon: const Icon(
+                                Icons.add_shopping_cart_rounded,
+                                size: 14,
+                              ),
                               label: const Text('Add to Cart'),
                               onPressed: product.stock <= 0
                                   ? null
@@ -388,9 +442,13 @@ class _ProductCard extends StatelessWidget {
                                           ..showSnackBar(
                                             SnackBar(
                                               content: Text(error),
-                                              backgroundColor: Colors.red.shade700,
-                                              duration: const Duration(seconds: 2),
-                                              behavior: SnackBarBehavior.floating,
+                                              backgroundColor:
+                                                  Colors.red.shade700,
+                                              duration: const Duration(
+                                                seconds: 2,
+                                              ),
+                                              behavior:
+                                                  SnackBarBehavior.floating,
                                             ),
                                           );
                                       } else {
@@ -410,18 +468,25 @@ class _ProductCard extends StatelessWidget {
                                                     child: Text(
                                                       '${product.name} added to cart',
                                                       style: const TextStyle(
-                                                        fontWeight: FontWeight.w600,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                         color: Colors.white,
                                                       ),
                                                       maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
                                                   ),
                                                 ],
                                               ),
-                                              backgroundColor: const Color(0xFF16A34A),
-                                              duration: const Duration(seconds: 2),
-                                              behavior: SnackBarBehavior.floating,
+                                              backgroundColor: const Color(
+                                                0xFF16A34A,
+                                              ),
+                                              duration: const Duration(
+                                                seconds: 2,
+                                              ),
+                                              behavior:
+                                                  SnackBarBehavior.floating,
                                             ),
                                           );
                                       }
@@ -430,8 +495,13 @@ class _ProductCard extends StatelessWidget {
                                 backgroundColor: const Color(0xFF0284C7),
                                 foregroundColor: Colors.white,
                                 padding: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ),
@@ -449,7 +519,11 @@ class _ProductCard extends StatelessWidget {
     return Container(
       color: const Color(0xFFE0F2FE),
       child: const Center(
-        child: Icon(Icons.water_drop_rounded, size: 36, color: Color(0xFF0284C7)),
+        child: Icon(
+          Icons.water_drop_rounded,
+          size: 36,
+          color: Color(0xFF0284C7),
+        ),
       ),
     );
   }
@@ -474,7 +548,11 @@ class _QuantityControl extends StatelessWidget {
         ),
         Text(
           '$qty',
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF111827)),
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 14,
+            color: Color(0xFF111827),
+          ),
         ),
         _SmallBtn(
           icon: Icons.add_rounded,
@@ -490,7 +568,11 @@ class _SmallBtn extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  const _SmallBtn({required this.icon, required this.color, required this.onTap});
+  const _SmallBtn({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -500,7 +582,7 @@ class _SmallBtn extends StatelessWidget {
         width: 28,
         height: 28,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(7),
         ),
         child: Icon(icon, size: 16, color: color),

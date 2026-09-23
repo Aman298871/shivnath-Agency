@@ -118,7 +118,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
           labelColor: const Color(0xFF0284C7),
           unselectedLabelColor: const Color(0xFF64748B),
           indicatorColor: const Color(0xFF0284C7),
-          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
           tabs: const [
             Tab(text: 'Current Stock (5 Variants)'),
             Tab(text: 'Stock Requests'),
@@ -136,17 +139,19 @@ class _DealerStockScreenState extends State<DealerStockScreen>
         onPressed: _openNewStockRequestDialog,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0284C7)),
+            )
           : _error != null
-              ? _buildErrorWidget()
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildVariantsStockTab(),
-                    _buildStockRequestsTab(),
-                    _buildReceiptsTab(),
-                  ],
-                ),
+          ? _buildErrorWidget()
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildVariantsStockTab(),
+                _buildStockRequestsTab(),
+                _buildReceiptsTab(),
+              ],
+            ),
     );
   }
 
@@ -157,7 +162,11 @@ class _DealerStockScreenState extends State<DealerStockScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 48),
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFF59E0B),
+              size: 48,
+            ),
             const SizedBox(height: 12),
             Text(
               _error ?? 'An error occurred.',
@@ -227,20 +236,30 @@ class _DealerStockScreenState extends State<DealerStockScreen>
         // 5 Official Variants Cards
         ...officialSkus.map((sku) {
           final batchesForSku = _dealerBatches.where((b) {
-            final bSku = (b['product_sku'] ?? b['sku'] ?? '').toString().toUpperCase();
+            final bSku = (b['product_sku'] ?? b['sku'] ?? '')
+                .toString()
+                .toUpperCase();
             return bSku == sku;
           }).toList();
 
           int totalUnits = 0;
           for (final b in batchesForSku) {
-            totalUnits += int.tryParse(b['remaining_quantity']?.toString() ?? '0') ?? 0;
+            totalUnits +=
+                int.tryParse(b['remaining_quantity']?.toString() ?? '0') ?? 0;
           }
 
           final unitsPerCase = _getUnitsPerCase(sku);
           final cases = totalUnits ~/ unitsPerCase;
           final looseUnits = totalUnits % unitsPerCase;
 
-          return _buildVariantCard(sku, totalUnits, cases, looseUnits, unitsPerCase, batchesForSku);
+          return _buildVariantCard(
+            sku,
+            totalUnits,
+            cases,
+            looseUnits,
+            unitsPerCase,
+            batchesForSku,
+          );
         }),
 
         const SizedBox(height: 70), // space for FAB
@@ -278,7 +297,11 @@ class _DealerStockScreenState extends State<DealerStockScreen>
             color: const Color(0xFFE0F2FE),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.water_drop_rounded, color: Color(0xFF0284C7), size: 24),
+          child: const Icon(
+            Icons.water_drop_rounded,
+            color: Color(0xFF0284C7),
+            size: 24,
+          ),
         ),
         title: Row(
           children: [
@@ -326,7 +349,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                 ),
                 Text(
                   ' (Total: $totalUnits units)',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                  ),
                 ),
               ],
             ),
@@ -409,11 +435,18 @@ class _DealerStockScreenState extends State<DealerStockScreen>
         children: [
           Row(
             children: [
-              const Icon(Icons.qr_code_2_rounded, size: 16, color: Color(0xFF64748B)),
+              const Icon(
+                Icons.qr_code_2_rounded,
+                size: 16,
+                color: Color(0xFF64748B),
+              ),
               const SizedBox(width: 8),
               Text(
                 batchNum,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -421,7 +454,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
             children: [
               Text(
                 '$remaining units',
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
               ),
               const SizedBox(width: 12),
               Container(
@@ -468,45 +504,22 @@ class _DealerStockScreenState extends State<DealerStockScreen>
         final req = _stockRequests[idx];
         final id = req['id'];
         final reqNum = req['request_number'] ?? 'REQ-$id';
-        final status = (req['status'] ?? 'REQUESTED').toString().toUpperCase();
-        final rawItems = req['items'];
-        final List<Map<String, dynamic>> items = [];
-        if (rawItems is List && rawItems.isNotEmpty) {
-          for (final it in rawItems) {
-            if (it is Map<String, dynamic>) {
-              items.add(it);
-            } else if (it is Map) {
-              items.add(Map<String, dynamic>.from(it));
-            }
-          }
-        } else {
-          final sku = (req['product_sku'] ?? req['sku'] ?? req['product_name'] ?? 'Finished Product').toString();
-          final qtyUnits = int.tryParse(req['requested_quantity']?.toString() ?? '0') ?? 0;
-          final upc = _getUnitsPerCase(sku);
-          final qtyCases = upc > 0 ? (qtyUnits / upc).ceil() : qtyUnits;
-          final fulfilledUnits = int.tryParse(req['dispatched_quantity']?.toString() ?? '0') ?? 0;
-          final fulfilledCases = upc > 0 ? (fulfilledUnits / upc).floor() : fulfilledUnits;
-          items.add({
-            'product_sku': sku,
-            'quantity_units': qtyUnits,
-            'quantity_cases': qtyCases,
-            'fulfilled_cases': fulfilledCases,
-            'fulfilled_units': fulfilledUnits,
-          });
-        }
-
-        final notes = (req['dealer_notes'] ?? req['notes'])?.toString() ?? '';
+        final status = (req['status'] ?? 'PENDING').toString().toUpperCase();
+        final items = (req['items'] as List?) ?? [];
+        final notes = req['notes']?.toString() ?? '';
         final createdAt = req['created_at']?.toString() ?? '';
 
         Color statusColor = Colors.orange;
-        if (status == 'PARTIALLY_FULFILLED') statusColor = Colors.purple;
-        if (status == 'DISPATCHED' || status == 'PARTIALLY_DISPATCHED') statusColor = Colors.blue;
+        if (status == 'DISPATCHED' || status == 'PARTIALLY_DISPATCHED')
+          statusColor = Colors.blue;
         if (status == 'RECEIVED') statusColor = Colors.green;
-        if (status == 'CANCELLED' || status == 'REJECTED') statusColor = Colors.red;
+        if (status == 'CANCELLED') statusColor = Colors.grey;
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -517,10 +530,16 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                   children: [
                     Text(
                       reqNum,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
@@ -539,7 +558,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                 const SizedBox(height: 8),
                 Text(
                   'Requested: ${_formatDate(createdAt)}',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 const Text(
@@ -557,21 +579,31 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('$sku: $qtyCases Cases ($qtyUnits units)',
-                            style: const TextStyle(fontSize: 12)),
-                        Text('Dispatched: $fulfilledCases Cases',
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF0284C7))),
+                        Text(
+                          '$sku: $qtyCases Cases ($qtyUnits units)',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        Text(
+                          'Dispatched: $fulfilledCases Cases',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0284C7),
+                          ),
+                        ),
                       ],
                     ),
                   );
                 }),
                 if (notes.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text('Note: $notes',
-                      style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
+                  Text(
+                    'Note: $notes',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -586,12 +618,11 @@ class _DealerStockScreenState extends State<DealerStockScreen>
   // =========================================================================
 
   Widget _buildReceiptsTab() {
-    // Show requests that are DISPATCHED or PARTIALLY_DISPATCHED or PARTIALLY_FULFILLED
+    // Show requests that are DISPATCHED or PARTIALLY_DISPATCHED
     final pendingReceipts = _stockRequests.where((r) {
       final s = (r['status'] ?? '').toString().toUpperCase();
-      return s == 'DISPATCHED' || s == 'PARTIALLY_DISPATCHED' || s == 'PARTIALLY_FULFILLED';
+      return s == 'DISPATCHED' || s == 'PARTIALLY_DISPATCHED';
     }).toList();
-
 
     if (pendingReceipts.isEmpty) {
       return Center(
@@ -600,7 +631,11 @@ class _DealerStockScreenState extends State<DealerStockScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: const [
-              Icon(Icons.local_shipping_outlined, size: 54, color: Color(0xFF94A3B8)),
+              Icon(
+                Icons.local_shipping_outlined,
+                size: 54,
+                color: Color(0xFF94A3B8),
+              ),
               SizedBox(height: 12),
               Text(
                 'No pending dispatches in transit.\nWhen Central Plant dispatches stock to your location, it will appear here for verification and receipt.',
@@ -623,7 +658,9 @@ class _DealerStockScreenState extends State<DealerStockScreen>
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           elevation: 2,
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -635,10 +672,16 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                   children: [
                     Text(
                       reqNum,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(8),
@@ -666,7 +709,9 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     icon: const Icon(Icons.check_circle_outline_rounded),
                     label: const Text(
@@ -705,8 +750,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
               children: [
                 Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF0284C7)),
                 SizedBox(width: 8),
-                Text('Request Central Plant Stock',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                Text(
+                  'Request Central Plant Stock',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
               ],
             ),
             content: SingleChildScrollView(
@@ -724,12 +771,18 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                     final upc = _getUnitsPerCase(sku);
                     // Find current franchise stock for display only.
                     final batchesForSku = _dealerBatches.where((b) {
-                      final bSku = (b['product_sku'] ?? b['sku'] ?? '').toString().toUpperCase();
+                      final bSku = (b['product_sku'] ?? b['sku'] ?? '')
+                          .toString()
+                          .toUpperCase();
                       return bSku == sku;
                     }).toList();
                     int currentUnits = 0;
                     for (final b in batchesForSku) {
-                      currentUnits += int.tryParse(b['remaining_quantity']?.toString() ?? '0') ?? 0;
+                      currentUnits +=
+                          int.tryParse(
+                            b['remaining_quantity']?.toString() ?? '0',
+                          ) ??
+                          0;
                     }
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -738,7 +791,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                         children: [
                           Text(
                             '$sku  ($upc units/case) — Current stock: $currentUnits units',
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           TextField(
@@ -781,7 +837,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                         final items = <Map<String, dynamic>>[];
                         for (final sku in officialSkus) {
                           final requestedUnits =
-                              int.tryParse(quantities[sku]?.text.trim() ?? '0') ?? 0;
+                              int.tryParse(
+                                quantities[sku]?.text.trim() ?? '0',
+                              ) ??
+                              0;
                           if (requestedUnits <= 0) continue;
 
                           // Match product by SKU field (exact, case-insensitive) or known aliases
@@ -789,11 +848,23 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                           for (final prod in _products) {
                             final pSku = prod.sku.toUpperCase();
                             if (pSku == sku.toUpperCase() ||
-                                (sku == 'SHV-200' && (pSku.contains('200') || pSku.contains('BOT-200'))) ||
-                                (sku == 'SHV-250' && (pSku.contains('250') || pSku.contains('BOT-250'))) ||
-                                (sku == 'SHV-500' && (pSku.contains('500') || pSku.contains('BOT-500'))) ||
-                                (sku == 'SHV-1L' && (pSku.contains('1000') || pSku.contains('1L') || pSku.contains('BOT-1000'))) ||
-                                (sku == 'SHV-20L' && (pSku.contains('20L') || pSku.contains('JAR-20L') || pSku.contains('20000')))) {
+                                (sku == 'SHV-200' &&
+                                    (pSku.contains('200') ||
+                                        pSku.contains('BOT-200'))) ||
+                                (sku == 'SHV-250' &&
+                                    (pSku.contains('250') ||
+                                        pSku.contains('BOT-250'))) ||
+                                (sku == 'SHV-500' &&
+                                    (pSku.contains('500') ||
+                                        pSku.contains('BOT-500'))) ||
+                                (sku == 'SHV-1L' &&
+                                    (pSku.contains('1000') ||
+                                        pSku.contains('1L') ||
+                                        pSku.contains('BOT-1000'))) ||
+                                (sku == 'SHV-20L' &&
+                                    (pSku.contains('20L') ||
+                                        pSku.contains('JAR-20L') ||
+                                        pSku.contains('20000')))) {
                               matched = prod;
                               break;
                             }
@@ -801,7 +872,9 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                           // Fallback: match by name containing sku
                           if (matched == null) {
                             for (final prod in _products) {
-                              if (prod.name.toUpperCase().contains(sku.toUpperCase())) {
+                              if (prod.name.toUpperCase().contains(
+                                sku.toUpperCase(),
+                              )) {
                                 matched = prod;
                                 break;
                               }
@@ -816,14 +889,17 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                             'quantity': requestedUnits,
                             'requested_quantity': requestedUnits,
                             'quantity_units': requestedUnits,
-                            'quantity_cases': requestedUnits ~/ _getUnitsPerCase(sku),
+                            'quantity_cases':
+                                requestedUnits ~/ _getUnitsPerCase(sku),
                           });
                         }
 
                         if (items.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Please enter a quantity > 0 for at least one product.'),
+                              content: Text(
+                                'Please enter a quantity > 0 for at least one product.',
+                              ),
                             ),
                           );
                           return;
@@ -841,7 +917,9 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                             Navigator.pop(dlgCtx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Stock request submitted successfully to Central Plant!'),
+                                content: Text(
+                                  'Stock request submitted successfully to Central Plant!',
+                                ),
                                 backgroundColor: Colors.green,
                               ),
                             );
@@ -851,7 +929,9 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(res['message'] ?? 'Failed to submit request'),
+                                content: Text(
+                                  res['message'] ?? 'Failed to submit request',
+                                ),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -862,7 +942,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text('Submit Request'),
               ),
@@ -872,7 +955,6 @@ class _DealerStockScreenState extends State<DealerStockScreen>
       ),
     );
   }
-
 
   void _openConfirmReceiptDialog(Map<String, dynamic> req) {
     final damageControllers = <String, TextEditingController>{};
@@ -893,8 +975,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
               children: [
                 Icon(Icons.inventory_rounded, color: Color(0xFF10B981)),
                 SizedBox(width: 8),
-                Text('Confirm Goods Receipt',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                Text(
+                  'Confirm Goods Receipt',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
               ],
             ),
             content: SingleChildScrollView(
@@ -911,7 +995,8 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                     final idx = entry.key;
                     final it = entry.value;
                     final sku = it['product_sku'] ?? it['sku'] ?? 'SKU';
-                    final cases = it['fulfilled_cases'] ?? it['quantity_cases'] ?? 0;
+                    final cases =
+                        it['fulfilled_cases'] ?? it['quantity_cases'] ?? 0;
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
@@ -921,7 +1006,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                             flex: 3,
                             child: Text(
                               '$sku ($cases cases delivered)',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                           Expanded(
@@ -959,7 +1047,11 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                         final receivedItems = <Map<String, dynamic>>[];
                         for (int i = 0; i < items.length; i++) {
                           final it = items[i];
-                          final damaged = int.tryParse(damageControllers[i.toString()]?.text ?? '0') ?? 0;
+                          final damaged =
+                              int.tryParse(
+                                damageControllers[i.toString()]?.text ?? '0',
+                              ) ??
+                              0;
                           receivedItems.add({
                             'item_id': it['id'],
                             'damaged_units': damaged,
@@ -978,7 +1070,9 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                             Navigator.pop(dlgCtx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Stock received and FEFO batch inventory updated!'),
+                                content: Text(
+                                  'Stock received and FEFO batch inventory updated!',
+                                ),
                                 backgroundColor: Colors.green,
                               ),
                             );
@@ -988,7 +1082,9 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(res['message'] ?? 'Failed to confirm receipt'),
+                                content: Text(
+                                  res['message'] ?? 'Failed to confirm receipt',
+                                ),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -999,7 +1095,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text('Confirm & Accept'),
               ),

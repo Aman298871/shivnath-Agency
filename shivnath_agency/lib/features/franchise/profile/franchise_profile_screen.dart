@@ -49,7 +49,9 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
 
     try {
       final res = await _authService.getCurrentUser();
-      if (mounted && res['success'] == true && res['data'] is Map<String, dynamic>) {
+      if (mounted &&
+          res['success'] == true &&
+          res['data'] is Map<String, dynamic>) {
         final d = res['data'] as Map<String, dynamic>;
         try {
           final u = UserModel.fromJson(d);
@@ -60,9 +62,11 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
           _territoryInfo = d['territory_info'] is Map<String, dynamic>
               ? Map<String, dynamic>.from(d['territory_info'])
               : null;
-          _isTerritoryAssigned = _territoryInfo?['is_assigned'] == true ||
+          _isTerritoryAssigned =
+              _territoryInfo?['is_assigned'] == true ||
               (_currentUser?.isTerritoryAssigned == true) ||
-              (_territoryInfo?['territory'] != null && _territoryInfo!['territory'].toString().isNotEmpty);
+              (_territoryInfo?['territory'] != null &&
+                  _territoryInfo!['territory'].toString().isNotEmpty);
           _isLoading = false;
         });
       }
@@ -146,25 +150,44 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                           color: const Color(0xFFE0F2FE),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.upload_file_rounded, color: Color(0xFF0284C7), size: 22),
+                        child: const Icon(
+                          Icons.upload_file_rounded,
+                          color: Color(0xFF0284C7),
+                          size: 22,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        replaceDocId != null ? 'Re-upload Document' : 'Upload Business Document',
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        replaceDocId != null
+                            ? 'Re-upload Document'
+                            : 'Upload Business Document',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 18),
                   DropdownButtonFormField<String>(
-                    value: selectedType,
+                    initialValue: selectedType,
                     decoration: const InputDecoration(
                       labelText: 'Document Type *',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
                     ),
                     items: docTypeLabels.entries.map((e) {
-                      return DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13)));
+                      return DropdownMenuItem(
+                        value: e.key,
+                        child: Text(
+                          e.value,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) setSheetState(() => selectedType = val);
@@ -178,16 +201,23 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                       hintText: selectedType == 'GST'
                           ? 'e.g. 22AAAAA0000A1Z5'
                           : selectedType == 'PAN'
-                              ? 'e.g. ABCDE1234F'
-                              : 'Registration / ID Number',
+                          ? 'e.g. ABCDE1234F'
+                          : 'Registration / ID Number',
                       border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   const Text(
                     'Select Document File (PDF, JPG, PNG):',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   InkWell(
@@ -195,16 +225,24 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                         ? null
                         : () async {
                             try {
-                              final result = await FilePicker.platform.pickFiles(
-                                type: FileType.custom,
-                                allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-                                allowMultiple: false,
-                                withData: true,
-                              );
+                              final result = await FilePicker.platform
+                                  .pickFiles(
+                                    type: FileType.custom,
+                                    allowedExtensions: [
+                                      'pdf',
+                                      'jpg',
+                                      'jpeg',
+                                      'png',
+                                    ],
+                                    allowMultiple: false,
+                                    withData: true,
+                                  );
                               if (result != null && result.files.isNotEmpty) {
                                 final f = result.files.first;
                                 List<int>? bytes = f.bytes;
-                                if ((bytes == null || bytes.isEmpty) && f.path != null && f.path!.isNotEmpty) {
+                                if ((bytes == null || bytes.isEmpty) &&
+                                    f.path != null &&
+                                    f.path!.isNotEmpty) {
                                   try {
                                     bytes = await File(f.path!).readAsBytes();
                                   } catch (_) {}
@@ -221,20 +259,31 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
                       decoration: BoxDecoration(
-                        color: selectedFileName != null ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                        color: selectedFileName != null
+                            ? const Color(0xFFF0FDF4)
+                            : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: selectedFileName != null ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1),
+                          color: selectedFileName != null
+                              ? const Color(0xFF86EFAC)
+                              : const Color(0xFFCBD5E1),
                           style: BorderStyle.solid,
                         ),
                       ),
                       child: Row(
                         children: [
                           Icon(
-                            selectedFileName != null ? Icons.check_circle : Icons.attach_file,
-                            color: selectedFileName != null ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                            selectedFileName != null
+                                ? Icons.check_circle
+                                : Icons.attach_file,
+                            color: selectedFileName != null
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFF64748B),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -242,25 +291,37 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  selectedFileName ?? 'Tap to browse document file',
+                                  selectedFileName ??
+                                      'Tap to browse document file',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    fontWeight: selectedFileName != null ? FontWeight.bold : FontWeight.normal,
-                                    color: selectedFileName != null ? const Color(0xFF15803D) : const Color(0xFF64748B),
+                                    fontWeight: selectedFileName != null
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: selectedFileName != null
+                                        ? const Color(0xFF15803D)
+                                        : const Color(0xFF64748B),
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 if (selectedFileBytes != null)
                                   Text(
                                     '${(selectedFileBytes!.length / 1024).toStringAsFixed(1)} KB',
-                                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF64748B),
+                                    ),
                                   ),
                               ],
                             ),
                           ),
                           Text(
                             selectedFileName != null ? 'Change' : 'Browse',
-                            style: const TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 13),
+                            style: const TextStyle(
+                              color: Color(0xFF0284C7),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -274,27 +335,33 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                         backgroundColor: const Color(0xFF0284C7),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       onPressed: isUploading
                           ? null
                           : () async {
-                              if (selectedFileBytes == null || selectedFileName == null) {
+                              if (selectedFileBytes == null ||
+                                  selectedFileName == null) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Please select a document file (PDF or Image).'),
+                                    content: Text(
+                                      'Please select a document file (PDF or Image).',
+                                    ),
                                     backgroundColor: Colors.orange,
                                   ),
                                 );
                                 return;
                               }
                               setSheetState(() => isUploading = true);
-                              final res = await _franchiseService.uploadFranchiseDocument(
-                                documentType: selectedType,
-                                documentNumber: docNumberCtrl.text.trim(),
-                                fileBytes: selectedFileBytes!,
-                                fileName: selectedFileName!,
-                              );
+                              final res = await _franchiseService
+                                  .uploadFranchiseDocument(
+                                    documentType: selectedType,
+                                    documentNumber: docNumberCtrl.text.trim(),
+                                    fileBytes: selectedFileBytes!,
+                                    fileName: selectedFileName!,
+                                  );
                               setSheetState(() => isUploading = false);
                               if (sheetCtx.mounted) Navigator.pop(sheetCtx);
 
@@ -302,7 +369,9 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Document uploaded successfully for verification.'),
+                                      content: Text(
+                                        'Document uploaded successfully for verification.',
+                                      ),
                                       backgroundColor: Color(0xFF16A34A),
                                     ),
                                   );
@@ -312,7 +381,10 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text(res['message']?.toString() ?? 'Failed to upload document.'),
+                                      content: Text(
+                                        res['message']?.toString() ??
+                                            'Failed to upload document.',
+                                      ),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -323,11 +395,19 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : Text(
-                              replaceDocId != null ? 'Re-upload Document' : 'Submit Document',
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                              replaceDocId != null
+                                  ? 'Re-upload Document'
+                                  : 'Submit Document',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                     ),
                   ),
@@ -346,11 +426,19 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Remove Document?'),
-        content: const Text('Are you sure you want to remove this document? You will need to upload a replacement if required for verification.'),
+        content: const Text(
+          'Are you sure you want to remove this document? You will need to upload a replacement if required for verification.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
@@ -363,14 +451,20 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
       if (res['success'] == true) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Document deleted.'), backgroundColor: Colors.black87),
+            const SnackBar(
+              content: Text('Document deleted.'),
+              backgroundColor: Colors.black87,
+            ),
           );
         }
         _loadDocuments();
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed to delete document.'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text(res['message'] ?? 'Failed to delete document.'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -380,7 +474,10 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
   void _viewDocument(String? url) async {
     if (url == null || url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Document file is not accessible.'), backgroundColor: Colors.orange),
+        const SnackBar(
+          content: Text('Document file is not accessible.'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
@@ -394,7 +491,10 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open file: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Could not open file: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -433,7 +533,9 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return _displayName.substring(0, _displayName.length >= 2 ? 2 : 1).toUpperCase();
+    return _displayName
+        .substring(0, _displayName.length >= 2 ? 2 : 1)
+        .toUpperCase();
   }
 
   void _editProfileDialog() {
@@ -444,23 +546,35 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Edit Franchise Profile', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text(
+          'Edit Franchise Profile',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Franchise Owner Name', prefixIcon: Icon(Icons.person_outline)),
+              decoration: const InputDecoration(
+                labelText: 'Franchise Owner Name',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: phoneCtrl,
-              decoration: const InputDecoration(labelText: 'Contact Phone Number', prefixIcon: Icon(Icons.phone_outlined)),
+              decoration: const InputDecoration(
+                labelText: 'Contact Phone Number',
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0284C7),
@@ -487,7 +601,9 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(res['message']?.toString() ?? 'Failed to update profile'),
+                    content: Text(
+                      res['message']?.toString() ?? 'Failed to update profile',
+                    ),
                     backgroundColor: Colors.red.shade700,
                   ),
                 );
@@ -507,7 +623,9 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
       barrierDismissible: false,
       builder: (ctx) {
         dialogContext = ctx;
-        return const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)));
+        return const Center(
+          child: CircularProgressIndicator(color: Color(0xFF0284C7)),
+        );
       },
     );
 
@@ -518,13 +636,21 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     if (!mounted) return;
 
     List<Map<String, dynamic>> districts = [];
-    if (masterRes['success'] == true && masterRes['data'] is Map && masterRes['data']['districts'] is List) {
-      districts = List<Map<String, dynamic>>.from(masterRes['data']['districts']);
+    if (masterRes['success'] == true &&
+        masterRes['data'] is Map &&
+        masterRes['data']['districts'] is List) {
+      districts = List<Map<String, dynamic>>.from(
+        masterRes['data']['districts'],
+      );
     }
 
     if (districts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to load territory master. Please check connection.')),
+        const SnackBar(
+          content: Text(
+            'Unable to load territory master. Please check connection.',
+          ),
+        ),
       );
       return;
     }
@@ -543,7 +669,9 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     }
 
     var availableZones = getZonesForDistrict(selectedDistrict);
-    int? selectedZoneId = availableZones.isNotEmpty ? availableZones.first['id'] as int? : null;
+    int? selectedZoneId = availableZones.isNotEmpty
+        ? availableZones.first['id'] as int?
+        : null;
 
     List<String> getAreasForZone(int? zId) {
       if (zId == null) return [];
@@ -558,7 +686,9 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     }
 
     var availableAreas = getAreasForZone(selectedZoneId);
-    String? selectedArea = availableAreas.isNotEmpty ? availableAreas.first : null;
+    String? selectedArea = availableAreas.isNotEmpty
+        ? availableAreas.first
+        : null;
     final addressCtrl = TextEditingController();
 
     showModalBottomSheet(
@@ -583,15 +713,24 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.add_location_alt_outlined, color: Color(0xFF0284C7)),
+                      const Icon(
+                        Icons.add_location_alt_outlined,
+                        color: Color(0xFF0284C7),
+                      ),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
                           'Initial Territory Setup',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                      IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -601,8 +740,11 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedDistrict,
-                    decoration: const InputDecoration(labelText: 'Select District', border: OutlineInputBorder()),
+                    initialValue: selectedDistrict,
+                    decoration: const InputDecoration(
+                      labelText: 'Select District',
+                      border: OutlineInputBorder(),
+                    ),
                     items: districts.map((d) {
                       final name = d['name'].toString();
                       return DropdownMenuItem(value: name, child: Text(name));
@@ -612,36 +754,53 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                         setSheetState(() {
                           selectedDistrict = val;
                           availableZones = getZonesForDistrict(val);
-                          selectedZoneId = availableZones.isNotEmpty ? availableZones.first['id'] as int? : null;
+                          selectedZoneId = availableZones.isNotEmpty
+                              ? availableZones.first['id'] as int?
+                              : null;
                           availableAreas = getAreasForZone(selectedZoneId);
-                          selectedArea = availableAreas.isNotEmpty ? availableAreas.first : null;
+                          selectedArea = availableAreas.isNotEmpty
+                              ? availableAreas.first
+                              : null;
                         });
                       }
                     },
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<int>(
-                    value: selectedZoneId,
-                    decoration: const InputDecoration(labelText: 'Select Territory / Zone', border: OutlineInputBorder()),
+                    initialValue: selectedZoneId,
+                    decoration: const InputDecoration(
+                      labelText: 'Select Territory / Zone',
+                      border: OutlineInputBorder(),
+                    ),
                     items: availableZones.map((z) {
                       final name = z['name'].toString();
-                      return DropdownMenuItem(value: z['id'] as int?, child: Text(name));
+                      return DropdownMenuItem(
+                        value: z['id'] as int?,
+                        child: Text(name),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setSheetState(() {
                           selectedZoneId = val;
                           availableAreas = getAreasForZone(val);
-                          selectedArea = availableAreas.isNotEmpty ? availableAreas.first : null;
+                          selectedArea = availableAreas.isNotEmpty
+                              ? availableAreas.first
+                              : null;
                         });
                       }
                     },
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
-                    value: selectedArea,
-                    decoration: const InputDecoration(labelText: 'Service Area / Locality', border: OutlineInputBorder()),
-                    items: availableAreas.map((a) => DropdownMenuItem(value: a, child: Text(a))).toList(),
+                    initialValue: selectedArea,
+                    decoration: const InputDecoration(
+                      labelText: 'Service Area / Locality',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: availableAreas
+                        .map((a) => DropdownMenuItem(value: a, child: Text(a)))
+                        .toList(),
                     onChanged: (val) => setSheetState(() => selectedArea = val),
                   ),
                   const SizedBox(height: 14),
@@ -661,19 +820,25 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0284C7),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       onPressed: () async {
-                        final zName = availableZones.firstWhere(
-                          (z) => z['id'] == selectedZoneId,
-                          orElse: () => {},
-                        )['name']?.toString() ?? '';
+                        final zName =
+                            availableZones
+                                .firstWhere(
+                                  (z) => z['id'] == selectedZoneId,
+                                  orElse: () => {},
+                                )['name']
+                                ?.toString() ??
+                            '';
 
                         final res = await _authService.updateProfile({
                           'district': selectedDistrict,
                           'zone_id': selectedZoneId,
                           'territory': zName,
-                          if (selectedArea != null) 'locality': selectedArea,
+                          'locality': ?selectedArea,
                           'address': addressCtrl.text.trim(),
                         });
                         if (!ctx.mounted) return;
@@ -684,14 +849,19 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Initial territory assigned successfully!'),
+                              content: Text(
+                                'Initial territory assigned successfully!',
+                              ),
                               backgroundColor: Color(0xFF0284C7),
                             ),
                           );
                         } else {
                           ScaffoldMessenger.of(ctx).showSnackBar(
                             SnackBar(
-                              content: Text(res['message']?.toString() ?? 'Failed to assign territory'),
+                              content: Text(
+                                res['message']?.toString() ??
+                                    'Failed to assign territory',
+                              ),
                               backgroundColor: Colors.red.shade700,
                             ),
                           );
@@ -714,7 +884,9 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF0284C7))),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF0284C7)),
+        ),
       );
     }
 
@@ -727,15 +899,16 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
           appBar: desktop
               ? null
               : AppBar(
-                  title: const Text('Franchise Profile', style: TextStyle(fontWeight: FontWeight.w800)),
+                  title: const Text(
+                    'Franchise Profile',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ),
           body: SingleChildScrollView(
             padding: EdgeInsets.all(desktop ? 28 : 16),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 900,
-                ),
+                constraints: const BoxConstraints(maxWidth: 900),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -749,9 +922,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                       ),
                       const Text(
                         'Manage your authorized franchise details and business credentials.',
-                        style: TextStyle(
-                          color: Color(0xFF64748B),
-                        ),
+                        style: TextStyle(color: Color(0xFF64748B)),
                       ),
                       const SizedBox(height: 22),
                     ],
@@ -762,9 +933,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: const Color(0xFFE2E8F0),
-                        ),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: Column(
                         children: [
@@ -790,7 +959,10 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                           ),
                           const SizedBox(height: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFE0F2FE),
                               borderRadius: BorderRadius.circular(16),
@@ -807,13 +979,48 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                           const SizedBox(height: 24),
                           _ProfileField('Registered Email', _displayEmail),
                           _ProfileField('Contact Phone', _displayPhone),
-                          _ProfileField('Assigned District', _territoryInfo?['district']?.toString() ?? _currentUser?.district ?? _currentUser?.city ?? 'Unassigned'),
-                          _ProfileField('Assigned Territory / Zone', _territoryInfo?['territory']?.toString() ?? _currentUser?.zoneName ?? _currentUser?.territory ?? 'Unassigned'),
-                          _ProfileField('Service Area / Coverage', _territoryInfo?['service_area']?.toString() ?? _currentUser?.locality ?? 'All Assigned Localities'),
-                          if ((_territoryInfo?['address'] != null && _territoryInfo!['address'].toString().isNotEmpty) || (_currentUser?.address != null && _currentUser!.address.isNotEmpty))
-                            _ProfileField('Facility Address', _territoryInfo?['address']?.toString() ?? _currentUser?.address ?? ''),
-                          _ProfileField('Franchise Status', 'Active & Approved'),
-                          _ProfileField('Territory Status', _isTerritoryAssigned ? 'Authoritative Assignment (Admin Managed)' : 'Initial Setup Required'),
+                          _ProfileField(
+                            'Assigned District',
+                            _territoryInfo?['district']?.toString() ??
+                                _currentUser?.district ??
+                                _currentUser?.city ??
+                                'Unassigned',
+                          ),
+                          _ProfileField(
+                            'Assigned Territory / Zone',
+                            _territoryInfo?['territory']?.toString() ??
+                                _currentUser?.zoneName ??
+                                _currentUser?.territory ??
+                                'Unassigned',
+                          ),
+                          _ProfileField(
+                            'Service Area / Coverage',
+                            _territoryInfo?['service_area']?.toString() ??
+                                _currentUser?.locality ??
+                                'All Assigned Localities',
+                          ),
+                          if ((_territoryInfo?['address'] != null &&
+                                  _territoryInfo!['address']
+                                      .toString()
+                                      .isNotEmpty) ||
+                              (_currentUser?.address != null &&
+                                  _currentUser!.address.isNotEmpty))
+                            _ProfileField(
+                              'Facility Address',
+                              _territoryInfo?['address']?.toString() ??
+                                  _currentUser?.address ??
+                                  '',
+                            ),
+                          _ProfileField(
+                            'Franchise Status',
+                            'Active & Approved',
+                          ),
+                          _ProfileField(
+                            'Territory Status',
+                            _isTerritoryAssigned
+                                ? 'Authoritative Assignment (Admin Managed)'
+                                : 'Initial Setup Required',
+                          ),
                           const SizedBox(height: 16),
                           if (!_isTerritoryAssigned) ...[
                             SizedBox(
@@ -822,12 +1029,20 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF0284C7),
                                   foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
                                 ),
                                 onPressed: _showInitialTerritoryDialog,
-                                icon: const Icon(Icons.add_location_alt_outlined),
-                                label: const Text('Complete Initial Territory Setup'),
+                                icon: const Icon(
+                                  Icons.add_location_alt_outlined,
+                                ),
+                                label: const Text(
+                                  'Complete Initial Territory Setup',
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -837,16 +1052,26 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF0F9FF),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFBAE6FD)),
+                                border: Border.all(
+                                  color: const Color(0xFFBAE6FD),
+                                ),
                               ),
                               child: const Row(
                                 children: [
-                                  Icon(Icons.info_outline, color: Color(0xFF0284C7), size: 18),
+                                  Icon(
+                                    Icons.info_outline,
+                                    color: Color(0xFF0284C7),
+                                    size: 18,
+                                  ),
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       'Authoritative territory assignment is managed by Admin to maintain customer relationship stability.',
-                                      style: TextStyle(fontSize: 11, color: Color(0xFF0369A1), fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF0369A1),
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -861,8 +1086,12 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: BrandColors.greenDark,
                                     foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
                                   ),
                                   onPressed: _editProfileDialog,
                                   icon: const Icon(Icons.edit_outlined),
@@ -875,12 +1104,17 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF25D366),
                                     foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
                                   ),
                                   onPressed: () => WhatsAppService.openWhatsApp(
                                     phone: WhatsAppService.officialSupportPhone,
-                                    message: 'Namaste Admin Team,\nFranchise query from $_displayName ($_displayEmail).',
+                                    message:
+                                        'Namaste Admin Team,\nFranchise query from $_displayName ($_displayEmail).',
                                   ),
                                   icon: const Icon(Icons.chat_outlined),
                                   label: const Text('Admin WhatsApp'),
@@ -893,12 +1127,21 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                             width: double.infinity,
                             child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: BrandColors.greenDark),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                side: const BorderSide(
+                                  color: BrandColors.greenDark,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                               ),
                               onPressed: () => SupportDeskModal.show(context),
-                              icon: const Icon(Icons.headset_mic_outlined, color: BrandColors.greenDark),
+                              icon: const Icon(
+                                Icons.headset_mic_outlined,
+                                color: BrandColors.greenDark,
+                              ),
                               label: const Text(
                                 'Admin Support Desk (+91 98062 47194)',
                                 style: TextStyle(
@@ -919,12 +1162,20 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Colors.red),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                         onPressed: _logout,
                         icon: const Icon(Icons.logout, color: Colors.red),
-                        label: const Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+                        label: const Text(
+                          'Logout',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -939,11 +1190,36 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
 
   Widget _buildKycDocumentsSection() {
     final standardDocTypes = [
-      {'type': 'GST', 'title': 'GST Registration Certificate', 'subtitle': 'Tax compliance for wholesale invoicing', 'required': true},
-      {'type': 'PAN', 'title': 'Business / Owner PAN Card', 'subtitle': 'Identity & corporate tax verification', 'required': true},
-      {'type': 'TRADE_LICENSE', 'title': 'Trade License / FSSAI', 'subtitle': 'Municipal / state food & beverage permit', 'required': false},
-      {'type': 'AADHAAR', 'title': 'Proprietor / Director Aadhaar Card', 'subtitle': 'Authorized signatory proof of identity', 'required': false},
-      {'type': 'AGREEMENT', 'title': 'Shivnath Franchise Agreement', 'subtitle': 'Signed distributorship contract', 'required': false},
+      {
+        'type': 'GST',
+        'title': 'GST Registration Certificate',
+        'subtitle': 'Tax compliance for wholesale invoicing',
+        'required': true,
+      },
+      {
+        'type': 'PAN',
+        'title': 'Business / Owner PAN Card',
+        'subtitle': 'Identity & corporate tax verification',
+        'required': true,
+      },
+      {
+        'type': 'TRADE_LICENSE',
+        'title': 'Trade License / FSSAI',
+        'subtitle': 'Municipal / state food & beverage permit',
+        'required': false,
+      },
+      {
+        'type': 'AADHAAR',
+        'title': 'Proprietor / Director Aadhaar Card',
+        'subtitle': 'Authorized signatory proof of identity',
+        'required': false,
+      },
+      {
+        'type': 'AGREEMENT',
+        'title': 'Shivnath Franchise Agreement',
+        'subtitle': 'Signed distributorship contract',
+        'required': false,
+      },
     ];
 
     Map<String, Map<String, dynamic>> uploadedByType = {};
@@ -951,7 +1227,8 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
 
     for (final doc in _documents) {
       final t = doc['document_type']?.toString().toUpperCase() ?? 'OTHER';
-      if (['GST', 'PAN', 'TRADE_LICENSE', 'AADHAAR', 'AGREEMENT'].contains(t) && !uploadedByType.containsKey(t)) {
+      if (['GST', 'PAN', 'TRADE_LICENSE', 'AADHAAR', 'AGREEMENT'].contains(t) &&
+          !uploadedByType.containsKey(t)) {
         uploadedByType[t] = doc;
       } else {
         otherDocs.add(doc);
@@ -966,7 +1243,11 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 10, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       padding: const EdgeInsets.all(18),
@@ -981,7 +1262,11 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.folder_shared_outlined, color: Color(0xFF0284C7), size: 22),
+                child: const Icon(
+                  Icons.folder_shared_outlined,
+                  color: Color(0xFF0284C7),
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -990,11 +1275,18 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                   children: [
                     const Text(
                       'Business Documents & KYC',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     Text(
                       '$uploadedCount uploaded',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ),
@@ -1003,9 +1295,17 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0284C7),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 onPressed: () => _openUploadDocumentSheet(),
                 icon: const Icon(Icons.add, size: 16),
@@ -1016,7 +1316,11 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
           const SizedBox(height: 14),
           const Text(
             'Keep your franchise compliance up-to-date. Upload official documents for plant verification and GST invoicing.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 16),
           if (_isLoadingDocs)
@@ -1046,13 +1350,18 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
               const SizedBox(height: 10),
               const Text(
                 'Other Uploaded Files',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF334155),
+                ),
               ),
               const SizedBox(height: 8),
               ...otherDocs.map((doc) {
                 return _buildDocCard(
                   typeKey: doc['document_type']?.toString() ?? 'OTHER',
-                  title: doc['document_name']?.toString() ?? 'Supporting Document',
+                  title:
+                      doc['document_name']?.toString() ?? 'Supporting Document',
                   subtitle: doc['document_number']?.toString() ?? '',
                   isRequired: false,
                   doc: doc,
@@ -1073,11 +1382,16 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     Map<String, dynamic>? doc,
   }) {
     final isUploaded = doc != null;
-    final isVerified = doc?['is_verified'] == true || doc?['verification_status'] == 'verified';
+    final isVerified =
+        doc?['is_verified'] == true ||
+        doc?['verification_status'] == 'verified';
     final isRejected = doc?['verification_status'] == 'rejected';
-    final fileUrl = doc?['file']?.toString() ?? doc?['file_url']?.toString() ?? '';
+    final fileUrl =
+        doc?['file']?.toString() ?? doc?['file_url']?.toString() ?? '';
     final docNumber = doc?['document_number']?.toString() ?? '';
-    final docId = doc?['id'] is int ? doc!['id'] as int : int.tryParse(doc?['id']?.toString() ?? '');
+    final docId = doc?['id'] is int
+        ? doc!['id'] as int
+        : int.tryParse(doc?['id']?.toString() ?? '');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1089,8 +1403,8 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
           color: isVerified
               ? const Color(0xFF86EFAC)
               : isUploaded
-                  ? const Color(0xFFCBD5E1)
-                  : const Color(0xFFE2E8F0),
+              ? const Color(0xFFCBD5E1)
+              : const Color(0xFFE2E8F0),
         ),
       ),
       child: Row(
@@ -1102,22 +1416,22 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
               color: isVerified
                   ? const Color(0xFFDCFCE7)
                   : isUploaded
-                      ? const Color(0xFFFEF3C7)
-                      : const Color(0xFFF1F5F9),
+                  ? const Color(0xFFFEF3C7)
+                  : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               isVerified
                   ? Icons.verified_rounded
                   : isUploaded
-                      ? Icons.description_outlined
-                      : Icons.upload_file_outlined,
+                  ? Icons.description_outlined
+                  : Icons.upload_file_outlined,
               size: 20,
               color: isVerified
                   ? const Color(0xFF16A34A)
                   : isUploaded
-                      ? const Color(0xFFD97706)
-                      : const Color(0xFF94A3B8),
+                  ? const Color(0xFFD97706)
+                  : const Color(0xFF94A3B8),
             ),
           ),
           const SizedBox(width: 12),
@@ -1130,13 +1444,24 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                     Flexible(
                       child: Text(
                         title,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (isRequired && !isUploaded) ...[
                       const SizedBox(width: 4),
-                      const Text('*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const Text(
+                        '*',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -1144,38 +1469,97 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                 if (docNumber.isNotEmpty)
                   Text(
                     'No: $docNumber',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0284C7)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0284C7),
+                    ),
                   )
                 else
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 const SizedBox(height: 4),
                 if (isVerified)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(4)),
-                    child: const Text('VERIFIED', style: TextStyle(color: Color(0xFF15803D), fontSize: 9, fontWeight: FontWeight.bold)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'VERIFIED',
+                      style: TextStyle(
+                        color: Color(0xFF15803D),
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   )
                 else if (isRejected)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(4)),
-                    child: const Text('REJECTED - RE-UPLOAD', style: TextStyle(color: Color(0xFFB91C1C), fontSize: 9, fontWeight: FontWeight.bold)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'REJECTED - RE-UPLOAD',
+                      style: TextStyle(
+                        color: Color(0xFFB91C1C),
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   )
                 else if (isUploaded)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(4)),
-                    child: const Text('PENDING VERIFICATION', style: TextStyle(color: Color(0xFFB45309), fontSize: 9, fontWeight: FontWeight.bold)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'PENDING VERIFICATION',
+                      style: TextStyle(
+                        color: Color(0xFFB45309),
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   )
                 else
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(4)),
-                    child: const Text('NOT UPLOADED', style: TextStyle(color: Color(0xFF64748B), fontSize: 9, fontWeight: FontWeight.w600)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'NOT UPLOADED',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -1184,36 +1568,71 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
           if (isUploaded) ...[
             if (fileUrl.isNotEmpty)
               IconButton(
-                icon: const Icon(Icons.visibility_outlined, size: 18, color: Color(0xFF0284C7)),
+                icon: const Icon(
+                  Icons.visibility_outlined,
+                  size: 18,
+                  color: Color(0xFF0284C7),
+                ),
                 tooltip: 'View Document',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => _viewDocument(fileUrl),
               ),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 18, color: Color(0xFF64748B)),
+              icon: const Icon(
+                Icons.more_vert,
+                size: 18,
+                color: Color(0xFF64748B),
+              ),
               padding: EdgeInsets.zero,
               onSelected: (action) {
                 if (action == 'replace') {
-                  _openUploadDocumentSheet(defaultType: typeKey, replaceDocId: docId);
+                  _openUploadDocumentSheet(
+                    defaultType: typeKey,
+                    replaceDocId: docId,
+                  );
                 } else if (action == 'delete' && docId != null) {
                   _deleteDocument(docId);
                 }
               },
               itemBuilder: (ctx) => [
-                const PopupMenuItem(value: 'replace', child: Text('Re-upload / Replace', style: TextStyle(fontSize: 13))),
-                const PopupMenuItem(value: 'delete', child: Text('Delete Document', style: TextStyle(fontSize: 13, color: Colors.red))),
+                const PopupMenuItem(
+                  value: 'replace',
+                  child: Text(
+                    'Re-upload / Replace',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Text(
+                    'Delete Document',
+                    style: TextStyle(fontSize: 13, color: Colors.red),
+                  ),
+                ),
               ],
             ),
           ] else ...[
             OutlinedButton(
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFF0284C7)),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 visualDensity: VisualDensity.compact,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () => _openUploadDocumentSheet(defaultType: typeKey),
-              child: const Text('Upload', style: TextStyle(color: Color(0xFF0284C7), fontSize: 11, fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Upload',
+                style: TextStyle(
+                  color: Color(0xFF0284C7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ],

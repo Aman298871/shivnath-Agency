@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/services/supplier_service.dart';
+
 class AdminSuppliersScreen extends StatefulWidget {
   const AdminSuppliersScreen({super.key});
 
@@ -9,66 +10,47 @@ class AdminSuppliersScreen extends StatefulWidget {
 }
 
 class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
-  final SupplierService _supplierService =
-    SupplierService();
+  final SupplierService _supplierService = SupplierService();
 
-List<Map<String, dynamic>> _suppliers = [];
+  List<Map<String, dynamic>> _suppliers = [];
 
-bool loading = true;
-@override
-void initState() {
-  super.initState();
-  loadSuppliers();
-}
-Future<void> loadSuppliers() async {
-
-  setState(() {
-    loading = true;
-  });
-
-  final result =
-      await _supplierService.getSuppliers(
-    search: _search,
-    status: _status,
-  );
-
-  if (result["success"] == true) {
-
-    final data =
-        result["data"]["suppliers"] as List;
-
-    _suppliers =
-        List<Map<String, dynamic>>.from(data);
-
-  } else {
-
-    if (mounted) {
-
-      AppToast.error(
-
-        context,
-
-        result["message"] ??
-
-            "Unable to load suppliers.",
-
-      );
-
-    }
-
+  bool loading = true;
+  @override
+  void initState() {
+    super.initState();
+    loadSuppliers();
   }
 
-  if (mounted) {
-
+  Future<void> loadSuppliers() async {
     setState(() {
-
-      loading = false;
-
+      loading = true;
     });
 
-  }
+    final result = await _supplierService.getSuppliers(
+      search: _search,
+      status: _status,
+    );
 
-}
+    if (result["success"] == true) {
+      final data = result["data"]["suppliers"] as List;
+
+      _suppliers = List<Map<String, dynamic>>.from(data);
+    } else {
+      if (mounted) {
+        AppToast.error(
+          context,
+
+          result["message"] ?? "Unable to load suppliers.",
+        );
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        loading = false;
+      });
+    }
+  }
 
   String _search = '';
   String _status = 'All';
@@ -90,8 +72,7 @@ Future<void> loadSuppliers() async {
     }).toList();
   }
 
-  int get _active =>
-      _suppliers.where((e) => e['status'] == 'Active').length;
+  int get _active => _suppliers.where((e) => e['status'] == 'Active').length;
 
   @override
   Widget build(BuildContext context) {
@@ -137,18 +118,12 @@ Future<void> loadSuppliers() async {
             children: [
               Text(
                 'Suppliers',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
               ),
               SizedBox(height: 5),
               Text(
                 'Manage suppliers and vendor information',
-                style: TextStyle(
-                  color: Color(0xFF64748B),
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
               ),
             ],
           ),
@@ -164,11 +139,7 @@ Future<void> loadSuppliers() async {
               ),
               onPressed: _supplierForm,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text(
-                'Add Supplier',
-                maxLines: 1,
-                softWrap: false,
-              ),
+              label: const Text('Add Supplier', maxLines: 1, softWrap: false),
             ),
           ),
       ],
@@ -177,7 +148,11 @@ Future<void> loadSuppliers() async {
 
   Widget _stats(bool desktop) {
     final data = [
-      ['Total Suppliers', '${_suppliers.length}', Icons.local_shipping_outlined],
+      [
+        'Total Suppliers',
+        '${_suppliers.length}',
+        Icons.local_shipping_outlined,
+      ],
       ['Active Suppliers', '$_active', Icons.verified_outlined],
       ['Purchase Orders', '0', Icons.receipt_long_outlined],
       ['Pending Payment', '', Icons.account_balance_wallet_outlined],
@@ -221,12 +196,10 @@ Future<void> loadSuppliers() async {
   Widget _toolbar(bool desktop) {
     final search = TextField(
       onChanged: (value) async {
+        _search = value;
 
-  _search = value;
-
-  await loadSuppliers();
-
-},
+        await loadSuppliers();
+      },
       decoration: const InputDecoration(
         hintText: 'Search supplier, contact or phone...',
         prefixIcon: Icon(Icons.search),
@@ -234,7 +207,7 @@ Future<void> loadSuppliers() async {
     );
 
     final filter = DropdownButtonFormField<String>(
-      value: _status,
+      initialValue: _status,
       decoration: const InputDecoration(labelText: 'Status'),
       items: const [
         DropdownMenuItem(value: 'All', child: Text('All Status')),
@@ -242,14 +215,12 @@ Future<void> loadSuppliers() async {
         DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
       ],
       onChanged: (value) async {
+        if (value == null) return;
 
-  if (value == null) return;
+        _status = value;
 
-  _status = value;
-
-  await loadSuppliers();
-
-}
+        await loadSuppliers();
+      },
     );
 
     return Container(
@@ -334,9 +305,7 @@ Future<void> loadSuppliers() async {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: header ? const Color(0xFFF8FAFC) : Colors.white,
-        border: const Border(
-          bottom: BorderSide(color: Color(0xFFE5E7EB)),
-        ),
+        border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
       ),
       child: Row(
         children: List.generate(values.length, (i) {
@@ -374,9 +343,7 @@ Future<void> loadSuppliers() async {
             style: TextStyle(
               fontSize: header ? 9 : 11,
               fontWeight: header ? FontWeight.w700 : FontWeight.w500,
-              color: header
-                  ? const Color(0xFF64748B)
-                  : const Color(0xFF1E293B),
+              color: header ? const Color(0xFF64748B) : const Color(0xFF1E293B),
             ),
           );
 
@@ -435,9 +402,7 @@ Future<void> loadSuppliers() async {
                         ),
                         Text(
                           '${supplier['contact']} • ${supplier['phone']}',
-                          style: const TextStyle(
-                            color: Color(0xFF64748B),
-                          ),
+                          style: const TextStyle(color: Color(0xFF64748B)),
                         ),
                       ],
                     ),
@@ -500,9 +465,7 @@ Future<void> loadSuppliers() async {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: active
-              ? const Color(0xFFECFDF5)
-              : const Color(0xFFF1F5F9),
+          color: active ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -510,18 +473,14 @@ Future<void> loadSuppliers() async {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.w700,
-            color: active
-                ? const Color(0xFF15803D)
-                : const Color(0xFF64748B),
+            color: active ? const Color(0xFF15803D) : const Color(0xFF64748B),
           ),
         ),
       ),
     );
   }
 
-  Future<void> _supplierForm({
-    Map<String, dynamic>? supplier,
-  }) async {
+  Future<void> _supplierForm({Map<String, dynamic>? supplier}) async {
     final editing = supplier != null;
 
     final name = TextEditingController(text: supplier?['name'] ?? '');
@@ -583,70 +542,64 @@ Future<void> loadSuppliers() async {
                                 title: 'Supplier Information',
                                 subtitle: 'Basic vendor and contact details',
                                 icon: Icons.business_outlined,
-                                child: _grid(
-                                  desktop,
-                                  [
-                                    _field(
-                                      name,
-                                      'Supplier Name *',
-                                      Icons.business_outlined,
-                                    ),
-                                    _field(
-                                      contact,
-                                      'Contact Person',
-                                      Icons.person_outline,
-                                    ),
-                                    _field(
-                                      phone,
-                                      'Phone Number *',
-                                      Icons.phone_outlined,
-                                      keyboardType: TextInputType.phone,
-                                    ),
-                                    _field(
-                                      email,
-                                      'Email Address',
-                                      Icons.email_outlined,
-                                      keyboardType: TextInputType.emailAddress,
-                                    ),
-                                  ],
-                                ),
+                                child: _grid(desktop, [
+                                  _field(
+                                    name,
+                                    'Supplier Name *',
+                                    Icons.business_outlined,
+                                  ),
+                                  _field(
+                                    contact,
+                                    'Contact Person',
+                                    Icons.person_outline,
+                                  ),
+                                  _field(
+                                    phone,
+                                    'Phone Number *',
+                                    Icons.phone_outlined,
+                                    keyboardType: TextInputType.phone,
+                                  ),
+                                  _field(
+                                    email,
+                                    'Email Address',
+                                    Icons.email_outlined,
+                                    keyboardType: TextInputType.emailAddress,
+                                  ),
+                                ]),
                               ),
                               const SizedBox(height: 18),
                               _section(
                                 title: 'Business Details',
                                 subtitle: 'Category, GST and operating city',
                                 icon: Icons.apartment_outlined,
-                                child: _grid(
-                                  desktop,
-                                  [
-                                    _field(
-                                      category,
-                                      'Category',
-                                      Icons.category_outlined,
-                                    ),
-                                    _field(
-                                      gst,
-                                      'GSTIN',
-                                      Icons.receipt_long_outlined,
-                                    ),
-                                    _field(
-                                      city,
-                                      'City',
-                                      Icons.location_city_outlined,
-                                    ),
-                                    _dropdown(
-                                      label: 'Status',
-                                      value: status,
-                                      icon: Icons.toggle_on_outlined,
-                                      items: const ['Active', 'Inactive'],
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          updateDialog(() => status = value);
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ),
+                                child: _grid(desktop, [
+                                  _field(
+                                    category,
+                                    'Category',
+                                    Icons.category_outlined,
+                                  ),
+                                  _field(
+                                    gst,
+                                    'GSTIN',
+                                    Icons.receipt_long_outlined,
+                                  ),
+                                  _field(
+                                    city,
+                                    'City',
+                                    Icons.location_city_outlined,
+                                  ),
+                                  _dropdown(
+                                    label: 'Status',
+                                    value: status,
+                                    icon: Icons.toggle_on_outlined,
+                                    items: const ['Active', 'Inactive'],
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        updateDialog(() => status = value);
+                                      }
+                                    },
+                                  ),
+                                ]),
                               ),
                             ],
                           ),
@@ -673,8 +626,7 @@ Future<void> loadSuppliers() async {
                               width: 95,
                               height: 44,
                               child: TextButton(
-                                onPressed: () =>
-                                    Navigator.pop(dialogContext),
+                                onPressed: () => Navigator.pop(dialogContext),
                                 child: const Text('Cancel'),
                               ),
                             ),
@@ -711,7 +663,8 @@ Future<void> loadSuppliers() async {
                                   }
 
                                   final data = {
-                                    'id': supplier?['id'] ??
+                                    'id':
+                                        supplier?['id'] ??
                                         DateTime.now().millisecondsSinceEpoch,
                                     'name': supplierName,
                                     'contact': contact.text.trim(),
@@ -724,79 +677,48 @@ Future<void> loadSuppliers() async {
                                   };
 
                                   final body = {
+                                    "name": supplierName,
 
-  "name": supplierName,
+                                    "contact": contact.text.trim(),
 
-  "contact": contact.text.trim(),
+                                    "phone": phoneNumber,
 
-  "phone": phoneNumber,
+                                    "email": email.text.trim(),
 
-  "email": email.text.trim(),
+                                    "category": category.text.trim(),
 
-  "category": category.text.trim(),
+                                    "gst": gst.text.trim(),
 
-  "gst": gst.text.trim(),
+                                    "city": city.text.trim(),
 
-  "city": city.text.trim(),
+                                    "status": status,
+                                  };
 
-  "status": status,
+                                  Map<String, dynamic> result;
 
-};
+                                  if (editing) {
+                                    result = await _supplierService
+                                        .updateSupplier(supplier["id"], body);
+                                  } else {
+                                    result = await _supplierService
+                                        .createSupplier(body);
+                                  }
 
-Map<String,dynamic> result;
+                                  if (result["success"]) {
+                                    await loadSuppliers();
 
-if(editing){
+                                    saved = true;
 
-   result =
-   await _supplierService.updateSupplier(
+                                    savedName = supplierName;
 
-      supplier!["id"],
-
-      body,
-
-   );
-
-}else{
-
-   result =
-   await _supplierService.createSupplier(
-      body,
-   );
-
-}
-
-if(result["success"]){
-
-   await loadSuppliers();
-
-   saved=true;
-
-   savedName=supplierName;
-
-   Navigator.pop(dialogContext);
-
-}else{
-
-   AppToast.error(
-
-      context,
-
-      result["message"],
-
-   );
-
-}
-
-                                  
+                                    Navigator.pop(dialogContext);
+                                  } else {
+                                    AppToast.error(context, result["message"]);
+                                  }
                                 },
-                                icon: const Icon(
-                                  Icons.save_outlined,
-                                  size: 17,
-                                ),
+                                icon: const Icon(Icons.save_outlined, size: 17),
                                 label: Text(
-                                  editing
-                                      ? 'Update Supplier'
-                                      : 'Save Supplier',
+                                  editing ? 'Update Supplier' : 'Save Supplier',
                                   maxLines: 1,
                                   softWrap: false,
                                 ),
@@ -834,19 +756,13 @@ if(result["success"]){
     city.dispose();
   }
 
-  Widget _dialogHeader(
-    String title,
-    String subtitle,
-    VoidCallback close,
-  ) {
+  Widget _dialogHeader(String title, String subtitle, VoidCallback close) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE5E7EB)),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
       ),
       child: Row(
         children: [
@@ -884,10 +800,7 @@ if(result["success"]){
               ],
             ),
           ),
-          IconButton(
-            onPressed: close,
-            icon: const Icon(Icons.close_rounded),
-          ),
+          IconButton(onPressed: close, icon: const Icon(Icons.close_rounded)),
         ],
       ),
     );
@@ -915,11 +828,7 @@ if(result["success"]){
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: const Color(0xFF0284C7),
-                ),
+                child: Icon(icon, size: 18, color: const Color(0xFF0284C7)),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -958,9 +867,7 @@ if(result["success"]){
         children: List.generate(
           fields.length,
           (i) => Padding(
-            padding: EdgeInsets.only(
-              bottom: i == fields.length - 1 ? 0 : 14,
-            ),
+            padding: EdgeInsets.only(bottom: i == fields.length - 1 ? 0 : 14),
             child: fields[i],
           ),
         ),
@@ -1003,16 +910,11 @@ if(result["success"]){
     required ValueChanged<String?> onChanged,
   }) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       decoration: _inputDecoration(label, icon),
       items: items
-          .map(
-            (item) => DropdownMenuItem(
-              value: item,
-              child: Text(item),
-            ),
-          )
+          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
           .toList(),
       onChanged: onChanged,
     );
@@ -1030,10 +932,7 @@ if(result["success"]){
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: Color(0xFF0284C7),
-          width: 1.2,
-        ),
+        borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.2),
       ),
     );
   }
@@ -1043,9 +942,7 @@ if(result["success"]){
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Supplier'),
-        content: Text(
-          'Are you sure you want to delete ${supplier['name']}?',
-        ),
+        content: Text('Are you sure you want to delete ${supplier['name']}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -1053,10 +950,7 @@ if(result["success"]){
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1066,27 +960,15 @@ if(result["success"]){
 
     final supplierName = supplier['name'].toString();
 
-    final response =
-await _supplierService.deleteSupplier(
-    supplier["id"]);
+    final response = await _supplierService.deleteSupplier(supplier["id"]);
 
-if(response["success"]){
+    if (response["success"]) {
+      await loadSuppliers();
+    } else {
+      AppToast.error(context, response["message"]);
 
-   await loadSuppliers();
-
-}else{
-
-   AppToast.error(
-
-      context,
-
-      response["message"],
-
-   );
-
-   return;
-
-}
+      return;
+    }
 
     if (!mounted) return;
 

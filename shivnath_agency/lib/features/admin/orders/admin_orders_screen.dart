@@ -241,7 +241,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     final activeFilter = filterOptions.contains(filter) ? filter : 'All';
 
     return DropdownButtonFormField<String>(
-      value: activeFilter,
+      initialValue: activeFilter,
       decoration: const InputDecoration(labelText: 'Order Status'),
       items: filterOptions
           .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -707,7 +707,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                   ),
                                   SizedBox(width: 8),
                                   Text(
-                                    'Shivnath Factory Production & \n Pending Stock',
+                                    'Shivnath Factory Production & Pending Stock',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 13,
@@ -1006,7 +1006,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 maxWidth: MediaQuery.of(context).size.width * 0.9,
               ),
               child: DropdownButtonFormField<String>(
-                value: statuses.contains(selected) ? selected : statuses.first,
+                initialValue: statuses.contains(selected)
+                    ? selected
+                    : statuses.first,
                 decoration: const InputDecoration(labelText: 'Order Status'),
                 items: statuses
                     .map(

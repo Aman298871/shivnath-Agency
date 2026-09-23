@@ -7,12 +7,10 @@ class FranchiseOrdersScreen extends StatefulWidget {
   const FranchiseOrdersScreen({super.key});
 
   @override
-  State<FranchiseOrdersScreen> createState() =>
-      _FranchiseOrdersScreenState();
+  State<FranchiseOrdersScreen> createState() => _FranchiseOrdersScreenState();
 }
 
-class _FranchiseOrdersScreenState
-    extends State<FranchiseOrdersScreen> {
+class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
   List<Map<String, dynamic>> orders = [];
   bool isLoading = true;
 
@@ -34,36 +32,62 @@ class _FranchiseOrdersScreenState
       final rawOrders = res['data']['orders'];
       if (rawOrders is List) {
         final mapped = rawOrders.whereType<Map>().map((item) {
-          final mappedItem = OrderService().mapOrder(Map<String, dynamic>.from(item));
+          final mappedItem = OrderService().mapOrder(
+            Map<String, dynamic>.from(item),
+          );
           final rawDbId = item['id'] is int
               ? item['id'] as int
               : (int.tryParse(item['id']?.toString() ?? '') ??
-                  (mappedItem['id'] is int ? mappedItem['id'] as int : null));
+                    (mappedItem['id'] is int ? mappedItem['id'] as int : null));
           final rawId = mappedItem['orderId']?.toString();
           final fallbackId = rawDbId != null ? 'ORD-${1000 + rawDbId}' : '';
-          final orderCode = (rawId != null && rawId.isNotEmpty) ? rawId : fallbackId;
+          final orderCode = (rawId != null && rawId.isNotEmpty)
+              ? rawId
+              : fallbackId;
           final rawItems = item['items'];
           final List<Map<String, dynamic>> itemsList = rawItems is List
-              ? rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList()
-              : (mappedItem['items_list'] is List ? List<Map<String, dynamic>>.from(mappedItem['items_list']) : []);
+              ? rawItems
+                    .map((e) => Map<String, dynamic>.from(e as Map))
+                    .toList()
+              : (mappedItem['items_list'] is List
+                    ? List<Map<String, dynamic>>.from(mappedItem['items_list'])
+                    : []);
 
           final productDisplay = itemsList.isNotEmpty
-              ? itemsList.map((e) => '${e['product_name'] ?? e['name']} x${e['quantity'] ?? 1}').join(', ')
-              : (mappedItem['franchise']?.toString().isNotEmpty == true ? mappedItem['franchise']!.toString() : 'Packaged Water');
+              ? itemsList
+                    .map(
+                      (e) =>
+                          '${e['product_name'] ?? e['name']} x${e['quantity'] ?? 1}',
+                    )
+                    .join(', ')
+              : (mappedItem['franchise']?.toString().isNotEmpty == true
+                    ? mappedItem['franchise']!.toString()
+                    : 'Packaged Water');
 
           return {
             'db_id': rawDbId,
             'id': orderCode,
             'date': mappedItem['date']?.toString() ?? '',
-            'customer_name': item['created_by_name']?.toString() ?? mappedItem['customer_name']?.toString() ?? '',
-            'delivery_address': item['delivery_address']?.toString() ?? mappedItem['delivery_address']?.toString() ?? '',
+            'customer_name':
+                item['created_by_name']?.toString() ??
+                mappedItem['customer_name']?.toString() ??
+                '',
+            'delivery_address':
+                item['delivery_address']?.toString() ??
+                mappedItem['delivery_address']?.toString() ??
+                '',
             'product': productDisplay,
             'items_list': itemsList,
-            'qty': mappedItem['items'] ?? (itemsList.isNotEmpty ? itemsList.length : 1),
+            'qty':
+                mappedItem['items'] ??
+                (itemsList.isNotEmpty ? itemsList.length : 1),
             'amount': mappedItem['amount'] ?? 0,
             'status': mappedItem['status']?.toString() ?? 'Plant Approval',
             'payment': mappedItem['payment']?.toString() ?? 'Pending',
-            'city': item['city']?.toString() ?? mappedItem['city']?.toString() ?? '',
+            'city':
+                item['city']?.toString() ??
+                mappedItem['city']?.toString() ??
+                '',
             'raw': item,
           };
         }).toList();
@@ -85,23 +109,16 @@ class _FranchiseOrdersScreenState
     final query = searchText.trim().toLowerCase();
 
     return orders.where((order) {
-      final id =
-          (order['id'] ?? '').toString().toLowerCase();
+      final id = (order['id'] ?? '').toString().toLowerCase();
 
-      final product =
-          (order['product'] ?? '').toString().toLowerCase();
+      final product = (order['product'] ?? '').toString().toLowerCase();
 
-      final status =
-          (order['status'] ?? '').toString();
+      final status = (order['status'] ?? '').toString();
 
       final matchesSearch =
-          query.isEmpty ||
-          id.contains(query) ||
-          product.contains(query);
+          query.isEmpty || id.contains(query) || product.contains(query);
 
-      final matchesStatus =
-          selectedStatus == 'All' ||
-          status == selectedStatus;
+      final matchesStatus = selectedStatus == 'All' || status == selectedStatus;
 
       return matchesSearch && matchesStatus;
     }).toList();
@@ -113,9 +130,7 @@ class _FranchiseOrdersScreenState
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 800;
 
-        return desktop
-            ? _buildDesktop()
-            : _buildMobile();
+        return desktop ? _buildDesktop() : _buildMobile();
       },
     );
   }
@@ -131,9 +146,7 @@ class _FranchiseOrdersScreenState
         padding: const EdgeInsets.all(28),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 1250,
-            ),
+            constraints: const BoxConstraints(maxWidth: 1250),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -154,7 +167,8 @@ class _FranchiseOrdersScreenState
                     Expanded(
                       child: _StatCard(
                         title: 'Pending Approval',
-                        value: '${orders.where((o) => o['status'] == 'Plant Approval').length}',
+                        value:
+                            '${orders.where((o) => o['status'] == 'Plant Approval').length}',
                         subtitle: 'Waiting for plant',
                         icon: Icons.schedule_rounded,
                       ),
@@ -163,7 +177,8 @@ class _FranchiseOrdersScreenState
                     Expanded(
                       child: _StatCard(
                         title: 'Dispatched',
-                        value: '${orders.where((o) => o['status'] == 'Dispatched').length}',
+                        value:
+                            '${orders.where((o) => o['status'] == 'Dispatched').length}',
                         subtitle: 'In transit',
                         icon: Icons.local_shipping_outlined,
                       ),
@@ -172,7 +187,8 @@ class _FranchiseOrdersScreenState
                     Expanded(
                       child: _StatCard(
                         title: 'Delivered',
-                        value: '${orders.where((o) => o['status'] == 'Delivered').length}',
+                        value:
+                            '${orders.where((o) => o['status'] == 'Delivered').length}',
                         subtitle: 'Completed',
                         icon: Icons.check_circle_outline,
                       ),
@@ -213,10 +229,7 @@ class _FranchiseOrdersScreenState
               SizedBox(height: 5),
               Text(
                 'Track and manage franchise orders.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF64748B),
-                ),
+                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
               ),
             ],
           ),
@@ -227,10 +240,7 @@ class _FranchiseOrdersScreenState
         IconButton(
           tooltip: 'Refresh Orders',
           onPressed: _fetchOrders,
-          icon: const Icon(
-            Icons.refresh_rounded,
-            color: Color(0xFF0284C7),
-          ),
+          icon: const Icon(Icons.refresh_rounded, color: Color(0xFF0284C7)),
         ),
 
         const SizedBox(width: 10),
@@ -240,21 +250,14 @@ class _FranchiseOrdersScreenState
           height: 44,
           child: ElevatedButton.icon(
             onPressed: _newOrder,
-            icon: const Icon(
-              Icons.add_rounded,
-              size: 18,
-            ),
-            label: const Text(
-              'Place New Order',
-            ),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Place New Order'),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(0, 44),
               maximumSize: const Size(180, 44),
               backgroundColor: const Color(0xFF0284C7),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -271,9 +274,7 @@ class _FranchiseOrdersScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Row(
         children: [
@@ -287,25 +288,18 @@ class _FranchiseOrdersScreenState
                   });
                 },
                 decoration: InputDecoration(
-                  hintText:
-                      'Search order ID or product...',
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                  ),
+                  hintText: 'Search order ID or product...',
+                  prefixIcon: const Icon(Icons.search_rounded),
                   filled: true,
                   fillColor: const Color(0xFFF8FAFC),
                   contentPadding: EdgeInsets.zero,
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFE2E8F0),
-                    ),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF0284C7),
-                    ),
+                    borderSide: const BorderSide(color: Color(0xFF0284C7)),
                   ),
                 ),
               ),
@@ -317,27 +311,27 @@ class _FranchiseOrdersScreenState
           Container(
             width: 210,
             height: 44,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: const Color(0xFFE2E8F0),
-              ),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: const ['All', 'Plant Approval', 'Invoice Generated', 'Dispatched', 'Delivered'].contains(selectedStatus)
+                value:
+                    const [
+                      'All',
+                      'Plant Approval',
+                      'Invoice Generated',
+                      'Dispatched',
+                      'Delivered',
+                    ].contains(selectedStatus)
                     ? selectedStatus
                     : 'All',
                 isExpanded: true,
                 items: const [
-                  DropdownMenuItem(
-                    value: 'All',
-                    child: Text('All Status'),
-                  ),
+                  DropdownMenuItem(value: 'All', child: Text('All Status')),
                   DropdownMenuItem(
                     value: 'Plant Approval',
                     child: Text('Plant Approval'),
@@ -376,9 +370,7 @@ class _FranchiseOrdersScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         children: [
@@ -386,18 +378,12 @@ class _FranchiseOrdersScreenState
 
           if (isLoading)
             const Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: 55,
-              ),
-              child: Center(
-                child: CircularProgressIndicator(),
-              ),
+              padding: EdgeInsets.symmetric(vertical: 55),
+              child: Center(child: CircularProgressIndicator()),
             )
           else if (filteredOrders.isEmpty)
             const Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: 55,
-              ),
+              padding: EdgeInsets.symmetric(vertical: 55),
               child: Column(
                 children: [
                   Icon(
@@ -417,9 +403,7 @@ class _FranchiseOrdersScreenState
               ),
             )
           else
-            ...filteredOrders.map(
-              (order) => _desktopOrderRow(order),
-            ),
+            ...filteredOrders.map((order) => _desktopOrderRow(order)),
         ],
       ),
     );
@@ -427,70 +411,30 @@ class _FranchiseOrdersScreenState
 
   Widget _tableHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: const BoxDecoration(
         color: Color(0xFFF8FAFC),
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(14),
           topRight: Radius.circular(14),
         ),
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFE5E7EB),
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
       ),
       child: const Row(
         children: [
           SizedBox(width: 55),
 
-          Expanded(
-            flex: 2,
-            child: Text(
-              'ORDER',
-              style: _tableHeaderStyle,
-            ),
-          ),
+          Expanded(flex: 2, child: Text('ORDER', style: _tableHeaderStyle)),
 
-          Expanded(
-            flex: 2,
-            child: Text(
-              'PRODUCT',
-              style: _tableHeaderStyle,
-            ),
-          ),
+          Expanded(flex: 2, child: Text('PRODUCT', style: _tableHeaderStyle)),
 
-          Expanded(
-            child: Text(
-              'QTY',
-              style: _tableHeaderStyle,
-            ),
-          ),
+          Expanded(child: Text('QTY', style: _tableHeaderStyle)),
 
-          Expanded(
-            child: Text(
-              'AMOUNT',
-              style: _tableHeaderStyle,
-            ),
-          ),
+          Expanded(child: Text('AMOUNT', style: _tableHeaderStyle)),
 
-          Expanded(
-            flex: 2,
-            child: Text(
-              'STATUS',
-              style: _tableHeaderStyle,
-            ),
-          ),
+          Expanded(flex: 2, child: Text('STATUS', style: _tableHeaderStyle)),
 
-          Expanded(
-            child: Text(
-              'PAYMENT',
-              style: _tableHeaderStyle,
-            ),
-          ),
+          Expanded(child: Text('PAYMENT', style: _tableHeaderStyle)),
 
           SizedBox(width: 55),
         ],
@@ -498,33 +442,20 @@ class _FranchiseOrdersScreenState
     );
   }
 
-  Widget _desktopOrderRow(
-    Map<String, dynamic> order,
-  ) {
+  Widget _desktopOrderRow(Map<String, dynamic> order) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 15,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFF1F5F9),
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 55,
-            child: _orderIcon(),
-          ),
+          SizedBox(width: 55, child: _orderIcon()),
 
           Expanded(
             flex: 2,
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '${order['id']}',
@@ -552,29 +483,21 @@ class _FranchiseOrdersScreenState
               '${order['product']}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
             ),
           ),
 
           Expanded(
             child: Text(
               '${order['qty']}',
-              style: const TextStyle(
-                fontSize: 11,
-              ),
+              style: const TextStyle(fontSize: 11),
             ),
           ),
 
           Expanded(
             child: Text(
               '₹${_formatAmount(order['amount'])}',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
             ),
           ),
 
@@ -582,18 +505,14 @@ class _FranchiseOrdersScreenState
             flex: 2,
             child: Align(
               alignment: Alignment.centerLeft,
-              child: _statusBadge(
-                '${order['status']}',
-              ),
+              child: _statusBadge('${order['status']}'),
             ),
           ),
 
           Expanded(
             child: Align(
               alignment: Alignment.centerLeft,
-              child: _paymentBadge(
-                '${order['payment']}',
-              ),
+              child: _paymentBadge('${order['payment']}'),
             ),
           ),
 
@@ -618,10 +537,7 @@ class _FranchiseOrdersScreenState
                   onPressed: () {
                     _details(order);
                   },
-                  icon: const Icon(
-                    Icons.visibility_outlined,
-                    size: 18,
-                  ),
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
                 ),
               ],
             ),
@@ -648,15 +564,10 @@ class _FranchiseOrdersScreenState
           ),
         ],
       ),
-      floatingActionButton:
-          FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _newOrder,
-        icon: const Icon(
-          Icons.add_rounded,
-        ),
-        label: const Text(
-          'New Order',
-        ),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New Order'),
       ),
       body: RefreshIndicator(
         onRefresh: _fetchOrders,
@@ -673,14 +584,11 @@ class _FranchiseOrdersScreenState
                 },
                 decoration: InputDecoration(
                   hintText: 'Search orders...',
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                  ),
+                  prefixIcon: const Icon(Icons.search_rounded),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
@@ -699,7 +607,8 @@ class _FranchiseOrdersScreenState
                   Expanded(
                     child: _MobileStat(
                       title: 'Pending',
-                      value: '${orders.where((o) => o['status'] == 'Plant Approval').length}',
+                      value:
+                          '${orders.where((o) => o['status'] == 'Plant Approval').length}',
                     ),
                   ),
                 ],
@@ -712,14 +621,16 @@ class _FranchiseOrdersScreenState
                   Expanded(
                     child: _MobileStat(
                       title: 'Dispatched',
-                      value: '${orders.where((o) => o['status'] == 'Dispatched').length}',
+                      value:
+                          '${orders.where((o) => o['status'] == 'Dispatched').length}',
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _MobileStat(
                       title: 'Delivered',
-                      value: '${orders.where((o) => o['status'] == 'Delivered').length}',
+                      value:
+                          '${orders.where((o) => o['status'] == 'Delivered').length}',
                     ),
                   ),
                 ],
@@ -737,7 +648,10 @@ class _FranchiseOrdersScreenState
               else if (filteredOrders.isEmpty)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 40,
+                    horizontal: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
@@ -771,9 +685,7 @@ class _FranchiseOrdersScreenState
                   ),
                 )
               else
-                ...filteredOrders.map(
-                  (order) => _mobileOrderCard(order),
-                ),
+                ...filteredOrders.map((order) => _mobileOrderCard(order)),
 
               const SizedBox(height: 80),
             ],
@@ -783,29 +695,22 @@ class _FranchiseOrdersScreenState
     );
   }
 
-  Widget _mobileOrderCard(
-    Map<String, dynamic> order,
-  ) {
+  Widget _mobileOrderCard(Map<String, dynamic> order) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(
-        bottom: 12,
-      ),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: InkWell(
         onTap: () {
           _details(order);
         },
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
@@ -813,16 +718,13 @@ class _FranchiseOrdersScreenState
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         '${order['id']}',
                         style: const TextStyle(
-                          color:
-                              Color(0xFF0284C7),
-                          fontWeight:
-                              FontWeight.w800,
+                          color: Color(0xFF0284C7),
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -830,8 +732,7 @@ class _FranchiseOrdersScreenState
                         '${order['date']}',
                         style: const TextStyle(
                           fontSize: 10,
-                          color:
-                              Color(0xFF94A3B8),
+                          color: Color(0xFF94A3B8),
                         ),
                       ),
                     ],
@@ -848,10 +749,7 @@ class _FranchiseOrdersScreenState
 
             Text(
               '${order['product']}',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
             ),
 
             const SizedBox(height: 10),
@@ -861,18 +759,14 @@ class _FranchiseOrdersScreenState
                 Expanded(
                   child: Text(
                     '${order['qty']} Qty',
-                    style: const TextStyle(
-                      color:
-                          Color(0xFF64748B),
-                    ),
+                    style: const TextStyle(color: Color(0xFF64748B)),
                   ),
                 ),
                 Text(
                   '₹${_formatAmount(order['amount'])}',
                   style: const TextStyle(
                     fontSize: 15,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -887,22 +781,23 @@ class _FranchiseOrdersScreenState
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _statusBadge(
-                        '${order['status']}',
-                      ),
-                      _paymentBadge(
-                        '${order['payment']}',
-                      ),
+                      _statusBadge('${order['status']}'),
+                      _paymentBadge('${order['payment']}'),
                     ],
                   ),
                 ),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     visualDensity: VisualDensity.compact,
                     foregroundColor: const Color(0xFF0284C7),
                     side: const BorderSide(color: Color(0xFFBAE6FD)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   icon: const Icon(Icons.edit_note_rounded, size: 16),
                   label: const Text('Update', style: TextStyle(fontSize: 12)),
@@ -931,137 +826,94 @@ class _FranchiseOrdersScreenState
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (
-            context,
-            setDialogState,
-          ) {
+          builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text(
-                'Place New Order',
-              ),
+              title: const Text('Place New Order'),
               content: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.9,
                 ),
                 child: SingleChildScrollView(
                   child: Column(
-                    mainAxisSize:
-                        MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                    DropdownButtonFormField<String>(
-                      value: selectedProduct,
-                      decoration:
-                          const InputDecoration(
-                        labelText: 'Product',
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedProduct,
+                        decoration: const InputDecoration(labelText: 'Product'),
+                        items: const [
+                          DropdownMenuItem(
+                            value: '250ml Water Bottle',
+                            child: Text('250ml Water Bottle'),
+                          ),
+                          DropdownMenuItem(
+                            value: '500ml Water Bottle',
+                            child: Text('500ml Water Bottle'),
+                          ),
+                          DropdownMenuItem(
+                            value: '1 Litre Water Bottle',
+                            child: Text('1 Litre Water Bottle'),
+                          ),
+                          DropdownMenuItem(
+                            value: '2 Litre Water Bottle',
+                            child: Text('2 Litre Water Bottle'),
+                          ),
+                          DropdownMenuItem(
+                            value: '5 Litre Water Jar',
+                            child: Text('5 Litre Water Jar'),
+                          ),
+                          DropdownMenuItem(
+                            value: '20 Litre Water Jar',
+                            child: Text('20 Litre Water Jar'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+
+                          setDialogState(() {
+                            selectedProduct = value;
+                          });
+                        },
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value:
-                              '250ml Water Bottle',
-                          child: Text(
-                            '250ml Water Bottle',
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value:
-                              '500ml Water Bottle',
-                          child: Text(
-                            '500ml Water Bottle',
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value:
-                              '1 Litre Water Bottle',
-                          child: Text(
-                            '1 Litre Water Bottle',
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value:
-                              '2 Litre Water Bottle',
-                          child: Text(
-                            '2 Litre Water Bottle',
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value:
-                              '5 Litre Water Jar',
-                          child: Text(
-                            '5 Litre Water Jar',
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value:
-                              '20 Litre Water Jar',
-                          child: Text(
-                            '20 Litre Water Jar',
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
 
-                        setDialogState(() {
-                          selectedProduct = value;
-                        });
-                      },
-                    ),
+                      const SizedBox(height: 14),
 
-                    const SizedBox(height: 14),
-
-                    TextField(
-                      controller:
-                          quantityController,
-                      keyboardType:
-                          TextInputType.number,
-                      decoration:
-                          const InputDecoration(
-                        labelText: 'Quantity',
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    TextField(
-                      controller:
-                          notesController,
-                      maxLines: 3,
-                      decoration:
-                          const InputDecoration(
-                        labelText:
-                            'Delivery Notes',
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    Container(
-                      width: double.infinity,
-                      padding:
-                          const EdgeInsets.all(
-                        12,
-                      ),
-                      decoration:
-                          BoxDecoration(
-                        color: const Color(
-                          0xFFE0F2FE,
-                        ),
-                        borderRadius:
-                            BorderRadius.circular(
-                          10,
+                      TextField(
+                        controller: quantityController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Quantity',
                         ),
                       ),
-                      child: const Text(
-                        'Order will be sent for Plant Approval after placement.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color:
-                              Color(0xFF0284C7),
+
+                      const SizedBox(height: 14),
+
+                      TextField(
+                        controller: notesController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Delivery Notes',
                         ),
                       ),
-                    ),
-                  ],
-                ),
+
+                      const SizedBox(height: 14),
+
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'Order will be sent for Plant Approval after placement.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF0284C7),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -1069,26 +921,16 @@ class _FranchiseOrdersScreenState
                   width: 90,
                   height: 44,
                   child: TextButton(
-                    style:
-                        TextButton.styleFrom(
-                      minimumSize:
-                          const Size(
-                        0,
-                        44,
-                      ),
-                      maximumSize:
-                          const Size(
-                        90,
-                        44,
-                      ),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                      maximumSize: const Size(90, 44),
                     ),
-                    onPressed: isSubmitting ? null : () {
-                      Navigator.pop(
-                        dialogContext,
-                      );
-                    },
-                    child:
-                        const Text('Cancel'),
+                    onPressed: isSubmitting
+                        ? null
+                        : () {
+                            Navigator.pop(dialogContext);
+                          },
+                    child: const Text('Cancel'),
                   ),
                 ),
 
@@ -1096,81 +938,84 @@ class _FranchiseOrdersScreenState
                   width: 130,
                   height: 44,
                   child: ElevatedButton(
-                    style:
-                        ElevatedButton.styleFrom(
+                    style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0284C7),
                       foregroundColor: Colors.white,
-                      minimumSize:
-                          const Size(
-                        0,
-                        44,
-                      ),
-                      maximumSize:
-                          const Size(
-                        130,
-                        44,
-                      ),
+                      minimumSize: const Size(0, 44),
+                      maximumSize: const Size(130, 44),
                     ),
-                    onPressed: isSubmitting ? null : () async {
-                      final quantity =
-                          int.tryParse(
-                                quantityController
-                                    .text,
-                              ) ??
-                              0;
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            final quantity =
+                                int.tryParse(quantityController.text) ?? 0;
 
-                      if (quantity <= 0) {
-                        return;
-                      }
+                            if (quantity <= 0) {
+                              return;
+                            }
 
-                      setDialogState(() => isSubmitting = true);
+                            setDialogState(() => isSubmitting = true);
 
-                      final user = await SessionService().getCurrentUser();
-                      final franchiseName = user?.businessName.isNotEmpty == true
-                          ? user!.businessName
-                          : (user?.name.isNotEmpty == true ? user!.name : 'Franchise Partner');
-                      final city = user?.city.isNotEmpty == true ? user!.city : 'Raipur';
-                      final double totalAmount = (quantity * 20).toDouble();
+                            final user = await SessionService()
+                                .getCurrentUser();
+                            final franchiseName =
+                                user?.businessName.isNotEmpty == true
+                                ? user!.businessName
+                                : (user?.name.isNotEmpty == true
+                                      ? user!.name
+                                      : 'Franchise Partner');
+                            final city = user?.city.isNotEmpty == true
+                                ? user!.city
+                                : 'Raipur';
+                            final double totalAmount = (quantity * 20)
+                                .toDouble();
 
-                      final res = await OrderService().createOrder({
-                        'franchise': franchiseName,
-                        'city': city,
-                        'items': quantity,
-                        'amount': totalAmount,
-                        'status': 'Plant Approval',
-                        'payment': 'Pending',
-                      });
+                            final res = await OrderService().createOrder({
+                              'franchise': franchiseName,
+                              'city': city,
+                              'items': quantity,
+                              'amount': totalAmount,
+                              'status': 'Plant Approval',
+                              'payment': 'Pending',
+                            });
 
-                      if (!dialogContext.mounted) return;
+                            if (!dialogContext.mounted) return;
 
-                      if (res['success'] == true) {
-                        Navigator.pop(dialogContext);
-                        await _fetchOrders();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Order of $quantity x $selectedProduct placed successfully!'),
-                              backgroundColor: const Color(0xFF0284C7),
-                            ),
-                          );
-                        }
-                      } else {
-                        setDialogState(() => isSubmitting = false);
-                        final msg = res['message'] ?? 'Failed to place order';
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
-                          SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red),
-                        );
-                      }
-                    },
+                            if (res['success'] == true) {
+                              Navigator.pop(dialogContext);
+                              await _fetchOrders();
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Order of $quantity x $selectedProduct placed successfully!',
+                                    ),
+                                    backgroundColor: const Color(0xFF0284C7),
+                                  ),
+                                );
+                              }
+                            } else {
+                              setDialogState(() => isSubmitting = false);
+                              final msg =
+                                  res['message'] ?? 'Failed to place order';
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                SnackBar(
+                                  content: Text(msg.toString()),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
                     child: isSubmitting
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
-                        : const Text(
-                            'Place Order',
-                          ),
+                        : const Text('Place Order'),
                   ),
                 ),
               ],
@@ -1188,9 +1033,7 @@ class _FranchiseOrdersScreenState
   // DETAILS
   // =========================================================
 
-  void _details(
-    Map<String, dynamic> order,
-  ) {
+  void _details(Map<String, dynamic> order) {
     final rawItems = order['items_list'];
     final List<Map<String, dynamic>> itemsList = rawItems is List
         ? List<Map<String, dynamic>>.from(rawItems)
@@ -1205,7 +1048,10 @@ class _FranchiseOrdersScreenState
               const Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7)),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Order ${order['id']}', overflow: TextOverflow.ellipsis),
+                child: Text(
+                  'Order ${order['id']}',
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -1224,23 +1070,43 @@ class _FranchiseOrdersScreenState
                   if ((order['customer_name'] ?? '').toString().isNotEmpty)
                     _detailRow('Customer', '${order['customer_name']}'),
                   if ((order['delivery_address'] ?? '').toString().isNotEmpty)
-                    _detailRow('Delivery Address', '${order['delivery_address']}'),
+                    _detailRow(
+                      'Delivery Address',
+                      '${order['delivery_address']}',
+                    ),
                   if ((order['city'] ?? '').toString().isNotEmpty)
                     _detailRow('City', '${order['city']}'),
                   _detailRow('Status', '${order['status']}'),
                   _detailRow('Payment', '${order['payment']}'),
                   const SizedBox(height: 12),
-                  const Text('Ordered Products', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF1E293B))),
+                  const Text(
+                    'Ordered Products',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   if (itemsList.isEmpty)
-                    _detailRow('Items Summary', '${order['product']} (${order['qty']} items)')
+                    _detailRow(
+                      'Items Summary',
+                      '${order['product']} (${order['qty']} items)',
+                    )
                   else
                     ...itemsList.map((item) {
-                      final name = item['product_name'] ?? item['name'] ?? 'Packaged Water';
+                      final name =
+                          item['product_name'] ??
+                          item['name'] ??
+                          'Packaged Water';
                       final size = item['size'] ?? '';
                       final qty = item['quantity'] ?? 1;
-                      final unitPrice = item['unit_price'] ?? item['price'] ?? 0;
-                      final totalPrice = item['total_price'] ?? (double.tryParse(unitPrice.toString()) ?? 0) * (int.tryParse(qty.toString()) ?? 1);
+                      final unitPrice =
+                          item['unit_price'] ?? item['price'] ?? 0;
+                      final totalPrice =
+                          item['total_price'] ??
+                          (double.tryParse(unitPrice.toString()) ?? 0) *
+                              (int.tryParse(qty.toString()) ?? 1);
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 6),
@@ -1252,25 +1118,51 @@ class _FranchiseOrdersScreenState
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.water_drop_rounded, size: 16, color: Color(0xFF0284C7)),
+                            const Icon(
+                              Icons.water_drop_rounded,
+                              size: 16,
+                              color: Color(0xFF0284C7),
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(name.toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                                  Text(
+                                    name.toString(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                   if (size.toString().isNotEmpty)
-                                    Text('Size: $size | Qty: $qty', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                                    Text(
+                                      'Size: $size | Qty: $qty',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
-                            Text('₹$totalPrice', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF0284C7))),
+                            Text(
+                              '₹$totalPrice',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
                           ],
                         ),
                       );
                     }),
                   const SizedBox(height: 10),
-                  _detailRow('Total Amount', '₹${_formatAmount(order['amount'])}'),
+                  _detailRow(
+                    'Total Amount',
+                    '₹${_formatAmount(order['amount'])}',
+                  ),
                   const SizedBox(height: 18),
                   _orderProgress('${order['status']}'),
                 ],
@@ -1282,7 +1174,9 @@ class _FranchiseOrdersScreenState
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0284C7),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () {
                 Navigator.pop(dialogContext);
@@ -1342,22 +1236,34 @@ class _FranchiseOrdersScreenState
       context: context,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Update Order Status (#${order['id']})', style: const TextStyle(fontWeight: FontWeight.w700)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Update Order Status (#${order['id']})',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Select the new fulfillment status for this order:', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+              const Text(
+                'Select the new fulfillment status for this order:',
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+              ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: statusOptions.contains(selectedNewStatus) ? selectedNewStatus : statusOptions.first,
+                initialValue: statusOptions.contains(selectedNewStatus)
+                    ? selectedNewStatus
+                    : statusOptions.first,
                 decoration: const InputDecoration(
                   labelText: 'Fulfillment Status',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.local_shipping_outlined),
                 ),
-                items: statusOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                items: statusOptions
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                    .toList(),
                 onChanged: (val) {
                   if (val != null) setDlgState(() => selectedNewStatus = val);
                 },
@@ -1365,21 +1271,31 @@ class _FranchiseOrdersScreenState
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0284C7),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () async {
                 Navigator.pop(ctx);
-                final res = await OrderService().updateOrderStatus(dbId, selectedNewStatus);
+                final res = await OrderService().updateOrderStatus(
+                  dbId,
+                  selectedNewStatus,
+                );
                 if (!mounted) return;
                 if (res['success'] == true) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Order #${order['id']} status updated to $selectedNewStatus'),
+                      content: Text(
+                        'Order #${order['id']} status updated to $selectedNewStatus',
+                      ),
                       backgroundColor: const Color(0xFF16A34A),
                     ),
                   );
@@ -1387,7 +1303,10 @@ class _FranchiseOrdersScreenState
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(res['message']?.toString() ?? 'Failed to update order status'),
+                      content: Text(
+                        res['message']?.toString() ??
+                            'Failed to update order status',
+                      ),
                       backgroundColor: Colors.red.shade700,
                     ),
                   );
@@ -1401,36 +1320,23 @@ class _FranchiseOrdersScreenState
     );
   }
 
-  Widget _detailRow(
-    String title,
-    String value,
-  ) {
+  Widget _detailRow(String title, String value) {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(
-        vertical: 7,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 120,
             child: Text(
               title,
-              style: const TextStyle(
-                color:
-                    Color(0xFF64748B),
-              ),
+              style: const TextStyle(color: Color(0xFF64748B)),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontWeight:
-                    FontWeight.w700,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -1438,9 +1344,7 @@ class _FranchiseOrdersScreenState
     );
   }
 
-  Widget _orderProgress(
-    String status,
-  ) {
+  Widget _orderProgress(String status) {
     final steps = [
       'Order Placement',
       'Plant Approval',
@@ -1454,80 +1358,54 @@ class _FranchiseOrdersScreenState
 
     if (status == 'Plant Approval') {
       activeStep = 1;
-    } else if (status ==
-        'Invoice Generated') {
+    } else if (status == 'Invoice Generated') {
       activeStep = 2;
-    } else if (status ==
-        'Dispatched') {
+    } else if (status == 'Dispatched') {
       activeStep = 3;
-    } else if (status ==
-        'Delivered') {
+    } else if (status == 'Delivered') {
       activeStep = 4;
     }
 
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'Order Progress',
-          style: TextStyle(
-            fontWeight:
-                FontWeight.w800,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
 
         const SizedBox(height: 12),
 
-        ...List.generate(
-          steps.length,
-          (index) {
-            final done =
-                index <= activeStep;
+        ...List.generate(steps.length, (index) {
+          final done = index <= activeStep;
 
-            return Padding(
-              padding:
-                  const EdgeInsets.only(
-                bottom: 8,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    done
-                        ? Icons
-                            .check_circle_rounded
-                        : Icons
-                            .radio_button_unchecked,
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Icon(
+                  done
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked,
+                  color: done
+                      ? const Color(0xFF0284C7)
+                      : const Color(0xFFCBD5E1),
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  steps[index],
+                  style: TextStyle(
+                    fontWeight: done ? FontWeight.w700 : FontWeight.w500,
                     color: done
-                        ? const Color(
-                            0xFF0284C7,
-                          )
-                        : const Color(
-                            0xFFCBD5E1,
-                          ),
-                    size: 20,
+                        ? const Color(0xFF111827)
+                        : const Color(0xFF94A3B8),
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    steps[index],
-                    style: TextStyle(
-                      fontWeight: done
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      color: done
-                          ? const Color(
-                              0xFF111827,
-                            )
-                          : const Color(
-                              0xFF94A3B8,
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
@@ -1541,22 +1419,14 @@ class _FranchiseOrdersScreenState
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color:
-            const Color(0xFFE0F2FE),
-        borderRadius:
-            BorderRadius.circular(10),
+        color: const Color(0xFFE0F2FE),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: const Icon(
-        Icons.inventory_2_outlined,
-        color:
-            Color(0xFF0284C7),
-      ),
+      child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF0284C7)),
     );
   }
 
-  Widget _statusBadge(
-    String status,
-  ) {
+  Widget _statusBadge(String status) {
     Color bg;
     Color fg;
 
@@ -1582,31 +1452,19 @@ class _FranchiseOrdersScreenState
     }
 
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         status,
-        style: TextStyle(
-          color: fg,
-          fontSize: 10,
-          fontWeight:
-              FontWeight.w700,
-        ),
+        style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.w700),
       ),
     );
   }
 
-  Widget _paymentBadge(
-    String payment,
-  ) {
+  Widget _paymentBadge(String payment) {
     Color bg;
     Color fg;
 
@@ -1622,33 +1480,20 @@ class _FranchiseOrdersScreenState
     }
 
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         payment,
-        style: TextStyle(
-          color: fg,
-          fontSize: 9,
-          fontWeight:
-              FontWeight.w700,
-        ),
+        style: TextStyle(color: fg, fontSize: 9, fontWeight: FontWeight.w700),
       ),
     );
   }
 
-  String _formatAmount(
-    dynamic amount,
-  ) {
-    final number =
-        int.tryParse('$amount') ?? 0;
+  String _formatAmount(dynamic amount) {
+    final number = int.tryParse('$amount') ?? 0;
 
     return number.toString();
   }
@@ -1658,8 +1503,7 @@ class _FranchiseOrdersScreenState
 // STAT CARD
 // =========================================================
 
-class _StatCard
-    extends StatelessWidget {
+class _StatCard extends StatelessWidget {
   final String title;
   final String value;
   final String subtitle;
@@ -1673,21 +1517,14 @@ class _StatCard
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
       height: 105,
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(14),
-        border: Border.all(
-          color:
-              const Color(0xFFE5E7EB),
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Row(
         children: [
@@ -1695,42 +1532,26 @@ class _StatCard
             width: 45,
             height: 45,
             decoration: BoxDecoration(
-              color:
-                  const Color(
-                0xFFE0F2FE,
-              ),
-              borderRadius:
-                  BorderRadius.circular(
-                12,
-              ),
+              color: const Color(0xFFE0F2FE),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color:
-                  const Color(
-                0xFF0284C7,
-              ),
-            ),
+            child: Icon(icon, color: const Color(0xFF0284C7)),
           ),
 
           const SizedBox(width: 12),
 
           Expanded(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 10,
-                    color:
-                        Color(0xFF64748B),
+                    color: Color(0xFF64748B),
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -1738,20 +1559,14 @@ class _StatCard
                   value,
                   style: const TextStyle(
                     fontSize: 20,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 Text(
                   subtitle,
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color:
-                        Color(0xFF94A3B8),
-                  ),
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
                 ),
               ],
             ),
@@ -1766,47 +1581,30 @@ class _StatCard
 // MOBILE STAT
 // =========================================================
 
-class _MobileStat
-    extends StatelessWidget {
+class _MobileStat extends StatelessWidget {
   final String title;
   final String value;
 
-  const _MobileStat({
-    required this.title,
-    required this.value,
-  });
+  const _MobileStat({required this.title, required this.value});
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(12),
-        border: Border.all(
-          color:
-              const Color(0xFFE5E7EB),
-        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
-        mainAxisAlignment:
-            MainAxisAlignment.center,
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10,
-              color:
-                  Color(0xFF64748B),
-            ),
+            style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 3),
           FittedBox(
@@ -1814,11 +1612,7 @@ class _MobileStat
             alignment: Alignment.centerLeft,
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight:
-                    FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
           ),
         ],
@@ -1827,13 +1621,9 @@ class _MobileStat
   }
 }
 
-const TextStyle
-    _tableHeaderStyle =
-    TextStyle(
+const TextStyle _tableHeaderStyle = TextStyle(
   fontSize: 9,
-  fontWeight:
-      FontWeight.w700,
-  color:
-      Color(0xFF64748B),
+  fontWeight: FontWeight.w700,
+  color: Color(0xFF64748B),
   letterSpacing: 0.4,
 );

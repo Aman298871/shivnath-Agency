@@ -300,7 +300,6 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           onOpenQuotations: () => _selectMenu(11),
           onOpenUsers: () => _selectMenu(14),
           onOpenNotifications: () => _selectMenu(15),
-          onOpenStockRequests: () => _selectMenu(21),
         );
 
       case 1:
@@ -626,7 +625,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
               height: 26,
               width: 26,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Icon(
+              errorBuilder: (_, _, _) => const Icon(
                 Icons.water_drop_rounded,
                 color: Color(0xFFEF4444),
                 size: 24,
@@ -721,7 +720,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                     width: 32,
                     height: 32,
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const CircleAvatar(
+                    errorBuilder: (_, _, _) => const CircleAvatar(
                       radius: 16,
                       backgroundColor: Color(0xFFEF4444),
                       child: Icon(

@@ -69,7 +69,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedAddr = prefs.getString('customer_delivery_address');
-      if (savedAddr != null && savedAddr.isNotEmpty && addressController.text.isEmpty) {
+      if (savedAddr != null &&
+          savedAddr.isNotEmpty &&
+          addressController.text.isEmpty) {
         addressController.text = savedAddr;
       }
     } catch (_) {}
@@ -95,12 +97,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         district = terrInfo['district']?.toString();
         userZoneName = terrInfo['territory']?.toString();
         zoneId = terrInfo['zone_id'] as int?;
-      } else if (terr != null && (terr['zone_id'] != null || terr['district'] != null)) {
+      } else if (terr != null &&
+          (terr['zone_id'] != null || terr['district'] != null)) {
         hasTerritory = true;
-        userZoneName = terr['zone_name']?.toString() ?? data['zone_name']?.toString();
+        userZoneName =
+            terr['zone_name']?.toString() ?? data['zone_name']?.toString();
         zoneId = (terr['zone_id'] as int?) ?? (data['zone_id'] as int?);
         district = terr['district']?.toString() ?? data['district']?.toString();
-      } else if (data['zone_id'] != null || (data['district'] != null && data['district'].toString().isNotEmpty)) {
+      } else if (data['zone_id'] != null ||
+          (data['district'] != null &&
+              data['district'].toString().isNotEmpty)) {
         hasTerritory = true;
         zoneId = data['zone_id'] as int?;
         district = data['district']?.toString();
@@ -108,7 +114,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
     }
 
-    Map<String, dynamic> fRes = {'success': true, 'data': {'franchises': []}};
+    Map<String, dynamic> fRes = {
+      'success': true,
+      'data': {'franchises': []},
+    };
     if (district != null && district.isNotEmpty) {
       fRes = await AuthService().getEligibleFranchises(
         district: district,
@@ -131,7 +140,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
           isFallback = data['is_fallback'] == true;
           fallbackMsg = data['fallback_message']?.toString();
-          mLevel = data['match_level']?.toString() ?? (franchises.isNotEmpty ? 'exact' : 'none');
+          mLevel =
+              data['match_level']?.toString() ??
+              (franchises.isNotEmpty ? 'exact' : 'none');
           if (data['support_contact'] is Map) {
             supContact = Map<String, dynamic>.from(data['support_contact']);
           }
@@ -173,7 +184,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   String _formatDate(DateTime d) {
-    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${d.day} ${months[d.month]} ${d.year}';
   }
 
@@ -186,13 +211,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     final cart = context.read<CartProvider>();
     if (cart.items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your cart is empty.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Your cart is empty.')));
       return;
     }
 
-    final isDirect = orderSource == 'DIRECT_COMPANY' || eligibleFranchises.isEmpty || selectedFranchiseId == null;
+    final isDirect =
+        orderSource == 'DIRECT_COMPANY' ||
+        eligibleFranchises.isEmpty ||
+        selectedFranchiseId == null;
     final finalOrderSource = isDirect ? 'DIRECT_COMPANY' : 'FRANCHISE';
     final finalServingFranchiseId = isDirect ? null : selectedFranchiseId;
 
@@ -241,7 +269,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text('Payment: ${paymentMethod == 'COD' ? 'Cash on Delivery (COD)' : 'Online Payment'}'),
+              Text(
+                'Payment: ${paymentMethod == 'COD' ? 'Cash on Delivery (COD)' : 'Online Payment'}',
+              ),
             ],
           ),
           actions: [
@@ -266,18 +296,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     final orderItems = cart.items.map((it) {
       final pid = int.tryParse(it.id) ?? 1;
-      return {
-        'product_id': pid,
-        'quantity': it.quantity,
-        'price': it.price,
-      };
+      return {'product_id': pid, 'quantity': it.quantity, 'price': it.price};
     }).toList();
 
     setState(() => _isSubmitting = true);
 
     try {
       final res = await OrderService().createOrder({
-        'franchise': isDirect ? 'Shivnath Agency (Direct Company Fulfillment)' : nameController.text.trim(),
+        'franchise': isDirect
+            ? 'Shivnath Agency (Direct Company Fulfillment)'
+            : nameController.text.trim(),
         'city': addressController.text.trim(),
         'customer_name': nameController.text.trim(),
         'phone': phoneController.text.trim(),
@@ -289,7 +317,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'duration_choice': durationChoice,
         'duration_days': durationDays,
         'order_source': finalOrderSource,
-        if (finalServingFranchiseId != null) 'serving_franchise_id': finalServingFranchiseId,
+        'serving_franchise_id': ?finalServingFranchiseId,
         'order_items': orderItems,
       });
 
@@ -299,15 +327,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         cart.clearCart();
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => OrderSuccessScreen(
-              amount: amount,
-            ),
-          ),
+          MaterialPageRoute(builder: (_) => OrderSuccessScreen(amount: amount)),
         );
       } else {
         setState(() => _isSubmitting = false);
-        final msg = res['message'] ?? 'Unable to place order. Please try again.';
+        final msg =
+            res['message'] ?? 'Unable to place order. Please try again.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg.toString()),
@@ -334,458 +359,492 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return PopScope(
       canPop: !_isSubmitting,
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Checkout',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        appBar: AppBar(
+          title: const Text(
+            'Checkout',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
         ),
-      ),
-      body: Form(
-        key: formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(18),
-          children: [
-            const Text(
-              'Delivery Address',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
+        body: Form(
+          key: formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(18),
+            children: [
+              const Text(
+                'Delivery Address',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
               ),
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Full Name',
-                prefixIcon: Icon(Icons.person_outline),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Enter full name';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: phoneController,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Mobile Number',
-                prefixIcon: Icon(Icons.phone_outlined),
-              ),
-              validator: (value) {
-                if (value == null || value.length < 10) {
-                  return 'Enter valid mobile number';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: addressController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Delivery Address',
-                prefixIcon: Icon(Icons.location_on_outlined),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Enter delivery address';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Stock Supply Duration',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Select the planned duration for this water stock. Expected cycle end date will be calculated automatically.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('1 Month (~30 Days)'),
-                  selected: !isCustomDuration && selectedDurationDays == 30,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        isCustomDuration = false;
-                        selectedDurationDays = 30;
-                        selectedDurationChoice = '1 Month';
-                      });
-                    }
-                  },
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
-                ChoiceChip(
-                  label: const Text('2 Months (~60 Days)'),
-                  selected: !isCustomDuration && selectedDurationDays == 60,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        isCustomDuration = false;
-                        selectedDurationDays = 60;
-                        selectedDurationChoice = '2 Months';
-                      });
-                    }
-                  },
-                ),
-                ChoiceChip(
-                  label: const Text('3 Months (~90 Days)'),
-                  selected: !isCustomDuration && selectedDurationDays == 90,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        isCustomDuration = false;
-                        selectedDurationDays = 90;
-                        selectedDurationChoice = '3 Months';
-                      });
-                    }
-                  },
-                ),
-                ChoiceChip(
-                  label: const Text('Custom Duration'),
-                  selected: isCustomDuration,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        isCustomDuration = true;
-                      });
-                    }
-                  },
-                ),
-              ],
-            ),
-            if (isCustomDuration) ...[
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Enter full name';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: customDaysController,
-                keyboardType: TextInputType.number,
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
-                  labelText: 'Custom Duration (Days)',
-                  prefixIcon: Icon(Icons.date_range_outlined),
-                  suffixText: 'Days',
+                  labelText: 'Mobile Number',
+                  prefixIcon: Icon(Icons.phone_outlined),
                 ),
-                onChanged: (_) => setState(() {}),
+                validator: (value) {
+                  if (value == null || value.length < 10) {
+                    return 'Enter valid mobile number';
+                  }
+                  return null;
+                },
               ),
-            ],
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F9FF),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFBAE6FD)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: Color(0xFF0284C7), size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      '📅 Stock cycle ends on ${_formatDate(_calculatedEndDate)}. You will receive a low-stock reminder 7 days prior.',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF0369A1), fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Order Fulfillment',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: addressController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Delivery Address',
+                  prefixIcon: Icon(Icons.location_on_outlined),
                 ),
-                if (userZoneName != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE0F2FE),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      userZoneName!,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF0284C7),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            if (isLoadingFranchises)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-                    SizedBox(width: 10),
-                    Text('Checking fulfillment availability...', style: TextStyle(fontSize: 12)),
-                  ],
-                ),
-              )
-            else if (eligibleFranchises.isNotEmpty) ...[
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Enter delivery address';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
               const Text(
-                'Choose how you would like your order to be fulfilled:',
+                'Stock Supply Duration',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Select the planned duration for this water stock. Expected cycle end date will be calculated automatically.',
                 style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
               const SizedBox(height: 12),
-              _PaymentTile(
-                title: 'Order from Franchise',
-                subtitle: 'Delivered by authorized local franchise in your zone',
-                icon: Icons.storefront_outlined,
-                value: 'FRANCHISE',
-                groupValue: orderSource,
-                onChanged: (val) {
-                  setState(() => orderSource = val);
-                },
-              ),
-              if (orderSource == 'FRANCHISE') ...[
-                const SizedBox(height: 10),
-                DropdownButtonFormField<int>(
-                  value: selectedFranchiseId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.location_city_outlined),
-                    labelText: 'Select Serving Franchise',
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('1 Month (~30 Days)'),
+                    selected: !isCustomDuration && selectedDurationDays == 30,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          isCustomDuration = false;
+                          selectedDurationDays = 30;
+                          selectedDurationChoice = '1 Month';
+                        });
+                      }
+                    },
                   ),
-                  items: eligibleFranchises.map((f) {
-                    final name = f['business_name']?.toString() ?? 'Franchise';
-                    final isPrimary = f['is_primary'] == true;
-                    final coverage = f['service_coverage']?.toString();
-                    final label = (coverage != null && coverage.isNotEmpty)
-                        ? '$name ($coverage)'
-                        : (isPrimary ? '$name (Primary Franchise)' : name);
-
-                    return DropdownMenuItem<int>(
-                      value: f['id'] as int?,
-                      child: Text(
-                        label,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: isPrimary ? FontWeight.w700 : FontWeight.normal,
-                          fontSize: 13,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() => selectedFranchiseId = val);
-                  },
+                  ChoiceChip(
+                    label: const Text('2 Months (~60 Days)'),
+                    selected: !isCustomDuration && selectedDurationDays == 60,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          isCustomDuration = false;
+                          selectedDurationDays = 60;
+                          selectedDurationChoice = '2 Months';
+                        });
+                      }
+                    },
+                  ),
+                  ChoiceChip(
+                    label: const Text('3 Months (~90 Days)'),
+                    selected: !isCustomDuration && selectedDurationDays == 90,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          isCustomDuration = false;
+                          selectedDurationDays = 90;
+                          selectedDurationChoice = '3 Months';
+                        });
+                      }
+                    },
+                  ),
+                  ChoiceChip(
+                    label: const Text('Custom Duration'),
+                    selected: isCustomDuration,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          isCustomDuration = true;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+              if (isCustomDuration) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: customDaysController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Custom Duration (Days)',
+                    prefixIcon: Icon(Icons.date_range_outlined),
+                    suffixText: 'Days',
+                  ),
+                  onChanged: (_) => setState(() {}),
                 ),
               ],
-              const SizedBox(height: 10),
-              _PaymentTile(
-                title: 'Order Directly from Shivnath Agency',
-                subtitle: 'Central company fulfillment & dispatch',
-                icon: Icons.business_outlined,
-                value: 'DIRECT_COMPANY',
-                groupValue: orderSource,
-                onChanged: (val) {
-                  setState(() => orderSource = val);
-                },
-              ),
-            ] else if (hasCustomerTerritory) ...[
+              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF0F9FF),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFBAE6FD)),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.business_outlined, color: Color(0xFF0284C7), size: 22),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Direct Company Fulfillment',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: Color(0xFF0369A1),
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0284C7),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'Shivnath Agency',
-                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
+                    const Icon(
+                      Icons.info_outline,
+                      color: Color(0xFF0284C7),
+                      size: 20,
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'No franchise is currently assigned to your territory. Your order will be fulfilled directly by Shivnath Agency central dispatch.',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF075985), fontWeight: FontWeight.w500),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '📅 Stock cycle ends on ${_formatDate(_calculatedEndDate)}. You will receive a low-stock reminder 7 days prior.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF0369A1),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ] else ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFCBD5E1)),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Order Fulfillment',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (userZoneName != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        userZoneName!,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF0284C7),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              if (isLoadingFranchises)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'Checking fulfillment availability...',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                )
+              else if (eligibleFranchises.isNotEmpty) ...[
+                const Text(
+                  'Choose how you would like your order to be fulfilled:',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.business_outlined, color: Color(0xFF334155), size: 22),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Direct Company Fulfillment',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: Color(0xFF1E293B),
+                const SizedBox(height: 12),
+                _PaymentTile(
+                  title: 'Order from Franchise',
+                  subtitle:
+                      'Delivered by authorized local franchise in your zone',
+                  icon: Icons.storefront_outlined,
+                  value: 'FRANCHISE',
+                  groupValue: orderSource,
+                  onChanged: (val) {
+                    setState(() => orderSource = val);
+                  },
+                ),
+                if (orderSource == 'FRANCHISE') ...[
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    initialValue: selectedFranchiseId,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.location_city_outlined),
+                      labelText: 'Select Serving Franchise',
+                    ),
+                    items: eligibleFranchises.map((f) {
+                      final name =
+                          f['business_name']?.toString() ?? 'Franchise';
+                      final isPrimary = f['is_primary'] == true;
+                      final coverage = f['service_coverage']?.toString();
+                      final label = (coverage != null && coverage.isNotEmpty)
+                          ? '$name ($coverage)'
+                          : (isPrimary ? '$name (Primary Franchise)' : name);
+
+                      return DropdownMenuItem<int>(
+                        value: f['id'] as int?,
+                        child: Text(
+                          label,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: isPrimary
+                                ? FontWeight.w700
+                                : FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setState(() => selectedFranchiseId = val);
+                    },
+                  ),
+                ],
+                const SizedBox(height: 10),
+                _PaymentTile(
+                  title: 'Order Directly from Shivnath Agency',
+                  subtitle: 'Central company fulfillment & dispatch',
+                  icon: Icons.business_outlined,
+                  value: 'DIRECT_COMPANY',
+                  groupValue: orderSource,
+                  onChanged: (val) {
+                    setState(() => orderSource = val);
+                  },
+                ),
+              ] else if (hasCustomerTerritory) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F9FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFBAE6FD)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.business_outlined,
+                            color: Color(0xFF0284C7),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Direct Company Fulfillment',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: Color(0xFF0369A1),
+                              ),
                             ),
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF475569),
-                            borderRadius: BorderRadius.circular(12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0284C7),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Shivnath Agency',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                          child: const Text(
-                            'Shivnath Agency',
-                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'No franchise is currently assigned to your territory. Your order will be fulfilled directly by Shivnath Agency central dispatch.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF075985),
+                          fontWeight: FontWeight.w500,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'No delivery territory selected. Your order will be handled directly by Shivnath Agency (you can complete your territory in Profile anytime).',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF475569), fontWeight: FontWeight.w500),
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.business_outlined,
+                            color: Color(0xFF334155),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Direct Company Fulfillment',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF475569),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Shivnath Agency',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'No delivery territory selected. Your order will be handled directly by Shivnath Agency (you can complete your territory in Profile anytime).',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF475569),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 28),
+              const Text(
+                'Payment Method',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              _PaymentTile(
+                title: 'Cash on Delivery',
+                subtitle: 'Pay when your order arrives',
+                icon: Icons.payments_outlined,
+                value: 'COD',
+                groupValue: paymentMethod,
+                onChanged: (value) {
+                  setState(() => paymentMethod = value);
+                },
+              ),
+              const SizedBox(height: 10),
+              _PaymentTile(
+                title: 'Online Payment',
+                subtitle: 'UPI / Card / Net Banking',
+                icon: Icons.account_balance_wallet_outlined,
+                value: 'ONLINE',
+                groupValue: paymentMethod,
+                onChanged: (value) {
+                  setState(() => paymentMethod = value);
+                },
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Order Summary',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _SummaryRow(title: 'Items', value: '${cart.itemCount}'),
+                      const SizedBox(height: 10),
+                      _SummaryRow(
+                        title: 'Subtotal',
+                        value: '₹${cart.subtotal.toStringAsFixed(0)}',
+                      ),
+                      const SizedBox(height: 10),
+                      _SummaryRow(
+                        title: 'Delivery',
+                        value: cart.deliveryCharge == 0
+                            ? 'FREE'
+                            : '₹${cart.deliveryCharge.toStringAsFixed(0)}',
+                      ),
+                      const Divider(height: 25),
+                      _SummaryRow(
+                        title: 'Payable Amount',
+                        value: '₹${cart.totalAmount.toStringAsFixed(0)}',
+                        bold: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
+              ElevatedButton(
+                onPressed: _isSubmitting ? null : placeOrder,
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Place Order'),
               ),
             ],
-            const SizedBox(height: 28),
-            const Text(
-              'Payment Method',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _PaymentTile(
-              title: 'Cash on Delivery',
-              subtitle: 'Pay when your order arrives',
-              icon: Icons.payments_outlined,
-              value: 'COD',
-              groupValue: paymentMethod,
-              onChanged: (value) {
-                setState(() => paymentMethod = value);
-              },
-            ),
-            const SizedBox(height: 10),
-            _PaymentTile(
-              title: 'Online Payment',
-              subtitle: 'UPI / Card / Net Banking',
-              icon: Icons.account_balance_wallet_outlined,
-              value: 'ONLINE',
-              groupValue: paymentMethod,
-              onChanged: (value) {
-                setState(() => paymentMethod = value);
-              },
-            ),
-            const SizedBox(height: 28),
-            const Text(
-              'Order Summary',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    _SummaryRow(
-                      title: 'Items',
-                      value: '${cart.itemCount}',
-                    ),
-                    const SizedBox(height: 10),
-                    _SummaryRow(
-                      title: 'Subtotal',
-                      value:
-                          '₹${cart.subtotal.toStringAsFixed(0)}',
-                    ),
-                    const SizedBox(height: 10),
-                    _SummaryRow(
-                      title: 'Delivery',
-                      value: cart.deliveryCharge == 0
-                          ? 'FREE'
-                          : '₹${cart.deliveryCharge.toStringAsFixed(0)}',
-                    ),
-                    const Divider(height: 25),
-                    _SummaryRow(
-                      title: 'Payable Amount',
-                      value:
-                          '₹${cart.totalAmount.toStringAsFixed(0)}',
-                      bold: true,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 22),
-            ElevatedButton(
-              onPressed: _isSubmitting ? null : placeOrder,
-              child: _isSubmitting
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Place Order'),
-            ),
-          ],
+          ),
         ),
       ),
-    ),
     );
   }
 }
@@ -816,14 +875,10 @@ class _PaymentTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFFE0F2FE)
-              : Colors.white,
+          color: selected ? const Color(0xFFE0F2FE) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected
-                ? const Color(0xFF0284C7)
-                : const Color(0xFFE2E8F0),
+            color: selected ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
           ),
         ),
         child: Row(
@@ -836,9 +891,7 @@ class _PaymentTile extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   Text(
                     subtitle,
@@ -851,12 +904,8 @@ class _PaymentTile extends StatelessWidget {
               ),
             ),
             Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_off,
-              color: selected
-                  ? const Color(0xFF0284C7)
-                  : Colors.grey,
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: selected ? const Color(0xFF0284C7) : Colors.grey,
             ),
           ],
         ),
@@ -886,8 +935,7 @@ class _SummaryRow extends StatelessWidget {
           value,
           style: TextStyle(
             fontSize: bold ? 17 : 14,
-            fontWeight:
-                bold ? FontWeight.w800 : FontWeight.w600,
+            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
           ),
         ),
       ],

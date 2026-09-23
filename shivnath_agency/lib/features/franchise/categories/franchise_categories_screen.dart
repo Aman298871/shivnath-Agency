@@ -7,7 +7,8 @@ class FranchiseCategoriesScreen extends StatefulWidget {
   const FranchiseCategoriesScreen({super.key});
 
   @override
-  State<FranchiseCategoriesScreen> createState() => _FranchiseCategoriesScreenState();
+  State<FranchiseCategoriesScreen> createState() =>
+      _FranchiseCategoriesScreenState();
 }
 
 class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
@@ -15,7 +16,7 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
 
   List<Map<String, dynamic>> _categoryTree = [];
   List<Map<String, dynamic>> _flatCategories = [];
-  Set<int> _expandedCategoryIds = {};
+  final Set<int> _expandedCategoryIds = {};
   bool _loading = false;
   String _search = '';
 
@@ -46,7 +47,9 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
   void _flattenCategories(List<dynamic> list, String prefix) {
     for (var item in list) {
       if (item is Map<String, dynamic>) {
-        final path = prefix.isEmpty ? item['name'].toString() : '$prefix > ${item['name']}';
+        final path = prefix.isEmpty
+            ? item['name'].toString()
+            : '$prefix > ${item['name']}';
         _flatCategories.add({
           'id': item['id'],
           'name': item['name'],
@@ -95,7 +98,10 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.refresh_rounded, color: Color(0xFF0284C7)),
+                  icon: const Icon(
+                    Icons.refresh_rounded,
+                    color: Color(0xFF0284C7),
+                  ),
                   onPressed: _loadCategories,
                   tooltip: 'Refresh',
                 ),
@@ -143,8 +149,13 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF0284C7),
                               side: const BorderSide(color: Color(0xFF0284C7)),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                           ),
                         ],
@@ -164,10 +175,15 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                         children: [
                           Expanded(
                             child: TextField(
-                              onChanged: (val) => setState(() => _search = val.trim().toLowerCase()),
+                              onChanged: (val) => setState(
+                                () => _search = val.trim().toLowerCase(),
+                              ),
                               decoration: InputDecoration(
                                 hintText: 'Search categories by name...',
-                                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF94A3B8)),
+                                prefixIcon: const Icon(
+                                  Icons.search_rounded,
+                                  color: Color(0xFF94A3B8),
+                                ),
                                 isDense: true,
                                 filled: true,
                                 fillColor: const Color(0xFFF8FAFC),
@@ -183,20 +199,31 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                             onPressed: () {
                               setState(() {
                                 if (_expandedCategoryIds.isEmpty) {
-                                  _collectCategoryIds(_categoryTree, _expandedCategoryIds);
+                                  _collectCategoryIds(
+                                    _categoryTree,
+                                    _expandedCategoryIds,
+                                  );
                                 } else {
                                   _expandedCategoryIds.clear();
                                 }
                               });
                             },
                             icon: Icon(
-                              _expandedCategoryIds.isEmpty ? Icons.unfold_more_rounded : Icons.unfold_less_rounded,
+                              _expandedCategoryIds.isEmpty
+                                  ? Icons.unfold_more_rounded
+                                  : Icons.unfold_less_rounded,
                               size: 18,
                               color: const Color(0xFF0284C7),
                             ),
                             label: Text(
-                              _expandedCategoryIds.isEmpty ? 'Expand All' : 'Collapse All',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7), fontWeight: FontWeight.w700),
+                              _expandedCategoryIds.isEmpty
+                                  ? 'Expand All'
+                                  : 'Collapse All',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF0284C7),
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],
@@ -217,30 +244,50 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                           ? const Padding(
                               padding: EdgeInsets.all(40),
                               child: Center(
-                                child: CircularProgressIndicator(color: Color(0xFF0284C7)),
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF0284C7),
+                                ),
                               ),
                             )
                           : _categoryTree.isEmpty
-                              ? const Padding(
-                                  padding: EdgeInsets.all(40),
-                                  child: Center(
-                                    child: Column(
-                                      children: [
-                                        Icon(Icons.category_outlined, size: 48, color: Color(0xFFCBD5E1)),
-                                        SizedBox(height: 12),
-                                        Text('No product categories found.',
-                                            style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF475569))),
-                                        SizedBox(height: 4),
-                                        Text('Company product categories will appear here once configured by Admin.',
-                                            style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
-                                      ],
+                          ? const Padding(
+                              padding: EdgeInsets.all(40),
+                              child: Center(
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.category_outlined,
+                                      size: 48,
+                                      color: Color(0xFFCBD5E1),
                                     ),
-                                  ),
-                                )
-                              : Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: _buildTreeWidget(_filterTree(_categoryTree), 0, desktop: desktop),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      'No product categories found.',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF475569),
+                                      ),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      'Company product categories will appear here once configured by Admin.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF94A3B8),
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: _buildTreeWidget(
+                                _filterTree(_categoryTree),
+                                0,
+                                desktop: desktop,
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -261,7 +308,9 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
       final children = node['children'] ?? node['subcategories'];
       List<Map<String, dynamic>> matchedChildren = [];
       if (children is List && children.isNotEmpty) {
-        matchedChildren = _filterTree(List<Map<String, dynamic>>.from(children));
+        matchedChildren = _filterTree(
+          List<Map<String, dynamic>>.from(children),
+        );
       }
 
       if (name.contains(_search) || matchedChildren.isNotEmpty) {
@@ -275,7 +324,11 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
     return result;
   }
 
-  Widget _buildTreeWidget(List<Map<String, dynamic>> nodes, int depth, {required bool desktop}) {
+  Widget _buildTreeWidget(
+    List<Map<String, dynamic>> nodes,
+    int depth, {
+    required bool desktop,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: nodes.map((cat) {
@@ -284,7 +337,9 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
         final isActive = cat['is_active'] == true;
         final productCount = cat['product_count'] ?? 0;
         final rawChildren = cat['children'] ?? cat['subcategories'];
-        final children = rawChildren is List ? List<Map<String, dynamic>>.from(rawChildren) : <Map<String, dynamic>>[];
+        final children = rawChildren is List
+            ? List<Map<String, dynamic>>.from(rawChildren)
+            : <Map<String, dynamic>>[];
         final hasChildren = children.isNotEmpty;
         final isExpanded = _expandedCategoryIds.contains(catId);
 
@@ -294,14 +349,21 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
             color: depth == 0 ? const Color(0xFFF8FAFC) : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: depth == 0 ? const Color(0xFFE2E8F0) : const Color(0xFFF1F5F9),
+              color: depth == 0
+                  ? const Color(0xFFE2E8F0)
+                  : const Color(0xFFF1F5F9),
             ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: EdgeInsets.fromLTRB(desktop ? 12.0 + (depth * 20.0) : 8.0 + (depth * 14.0), 8, 8, 8),
+                padding: EdgeInsets.fromLTRB(
+                  desktop ? 12.0 + (depth * 20.0) : 8.0 + (depth * 14.0),
+                  8,
+                  8,
+                  8,
+                ),
                 child: Row(
                   children: [
                     if (hasChildren)
@@ -319,7 +381,9 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                         child: Padding(
                           padding: const EdgeInsets.all(4),
                           child: Icon(
-                            isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                            isExpanded
+                                ? Icons.expand_more_rounded
+                                : Icons.chevron_right_rounded,
                             size: 20,
                             color: const Color(0xFF64748B),
                           ),
@@ -328,13 +392,21 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                     else
                       const Padding(
                         padding: EdgeInsets.all(8),
-                        child: Icon(Icons.circle, size: 5, color: Color(0xFF94A3B8)),
+                        child: Icon(
+                          Icons.circle,
+                          size: 5,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ),
                     const SizedBox(width: 4),
                     Icon(
-                      depth == 0 ? Icons.folder_rounded : Icons.subdirectory_arrow_right_rounded,
+                      depth == 0
+                          ? Icons.folder_rounded
+                          : Icons.subdirectory_arrow_right_rounded,
                       size: 18,
-                      color: depth == 0 ? const Color(0xFF0284C7) : const Color(0xFF64748B),
+                      color: depth == 0
+                          ? const Color(0xFF0284C7)
+                          : const Color(0xFF64748B),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -342,29 +414,45 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                         name,
                         style: TextStyle(
                           fontSize: depth == 0 ? 14 : 13,
-                          fontWeight: depth == 0 ? FontWeight.w700 : FontWeight.w600,
-                          color: isActive ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                          fontWeight: depth == 0
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                          color: isActive
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFF94A3B8),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE2E8F0),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         '$productCount products',
-                        style: const TextStyle(fontSize: 10, color: Color(0xFF475569), fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF475569),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                        color: isActive
+                            ? const Color(0xFFDCFCE7)
+                            : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -372,7 +460,9 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: isActive ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                          color: isActive
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFF64748B),
                         ),
                       ),
                     ),
@@ -382,7 +472,11 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
               if (hasChildren && isExpanded)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: _buildTreeWidget(children, depth + 1, desktop: desktop),
+                  child: _buildTreeWidget(
+                    children,
+                    depth + 1,
+                    desktop: desktop,
+                  ),
                 ),
             ],
           ),

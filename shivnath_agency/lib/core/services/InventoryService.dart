@@ -630,6 +630,31 @@ class InventoryService {
     }
   }
 
+  /// Action on a pending stock expiry alert: ACKNOWLEDGE, SNOOZE, RESOLVE
+  Future<Map<String, dynamic>> actionPendingStockExpiryAlert({
+    required int alertId,
+    required String action,
+    int? snoozeDays,
+    String? notes,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/pending-stock-expiry-alerts/action/');
+      final response = await ApiClient.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({
+          'alert_id': alertId,
+          'action': action,
+          if (snoozeDays != null) 'snooze_days': snoozeDays,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        }),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   // =====================================================
   // BILLING & CREDIT METHODS
   // =====================================================

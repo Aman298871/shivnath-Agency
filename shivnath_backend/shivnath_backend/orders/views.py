@@ -42,17 +42,23 @@ class OrderListCreateView(APIView):
                 orders = apply_data_scope(user, orders, 'Order')
             elif role == 'franchise':
                 fp = getattr(user, 'franchise_profile', None)
+                if not fp:
+                    from accounts.models import FranchiseProfile
+                    fp = FranchiseProfile.objects.filter(user=user).first()
                 if fp:
                     orders = Order.objects.filter(
                         Q(serving_franchise=fp)
+                        | Q(registered_franchise=fp)
+                        | Q(created_by=user)
                     ).prefetch_related('items').distinct()
                 else:
                     orders = Order.objects.none()
             else:
-                orders = Order.objects.filter(
-                    Q(created_by=user)
-                    | Q(created_by__isnull=True)
-                ).prefetch_related('items')
+                phone = getattr(getattr(user, 'profile', None), 'phone', '')
+                cond = Q(created_by=user)
+                if phone:
+                    cond |= Q(created_by__profile__phone=phone) | Q(created_by__username=phone)
+                orders = Order.objects.filter(cond).prefetch_related('items').distinct()
 
         search = request.query_params.get('search', '').strip()
         if search:
@@ -138,6 +144,18 @@ class OrderListCreateView(APIView):
             registered_franchise = None
             zone = None
 
+            creator_fp = getattr(creator, 'franchise_profile', None) if creator else None
+            if not creator_fp and creator:
+                from accounts.models import FranchiseProfile
+                creator_fp = FranchiseProfile.objects.filter(user=creator).first()
+
+            if creator_fp:
+                serving_franchise = creator_fp
+                registered_franchise = creator_fp
+                order_source = 'FRANCHISE'
+                if not zone and getattr(creator_fp, 'zone', None):
+                    zone = getattr(creator_fp, 'zone', None)
+
             if creator:
                 rel = getattr(creator, 'customer_relationship', None)
                 if rel:
@@ -147,7 +165,12 @@ class OrderListCreateView(APIView):
             serving_franchise_id = request.data.get('serving_franchise_id') or request.data.get('serving_franchise')
             order_source_raw = str(request.data.get('order_source', '')).strip().upper()
 
-            if order_source_raw == 'DIRECT_COMPANY':
+            if creator_fp:
+                # Creator is the franchise itself; ensure FRANCHISE order source and serving franchise
+                order_source = 'FRANCHISE'
+                serving_franchise = creator_fp
+                registered_franchise = creator_fp
+            elif order_source_raw == 'DIRECT_COMPANY':
                 order_source = 'DIRECT_COMPANY'
                 serving_franchise = None
             elif serving_franchise_id:
@@ -189,8 +212,8 @@ class OrderListCreateView(APIView):
                 order_source = 'DIRECT_COMPANY'
                 serving_franchise = None
 
-            # Fallback Check: If dealer has insufficient non-expired stock, fallback to DIRECT_COMPANY
-            if order_source == 'FRANCHISE' and serving_franchise:
+            # Fallback Check: If customer-placed order routed to dealer has insufficient non-expired stock, fallback to DIRECT_COMPANY
+            if order_source == 'FRANCHISE' and serving_franchise and not creator_fp:
                 from inventory.models import DealerStockBatch
                 from datetime import date
                 today_chk = date.today()
@@ -355,6 +378,8 @@ class OrderListCreateView(APIView):
                 {
                     'success': True,
                     'message': 'Order created successfully.',
+                    'id': order.id,
+                    'order_id': order.id,
                     'order': OrderSerializer(order).data,
                 },
                 status=status.HTTP_201_CREATED,

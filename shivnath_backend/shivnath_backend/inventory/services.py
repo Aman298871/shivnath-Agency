@@ -946,8 +946,53 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
         dealer_name = alloc.stock_request.dealer.business_name if alloc.stock_request.dealer else 'Franchise'
         product = alloc.stock_request.product or batch.product
 
+        # Authoritative persistent record in PostgreSQL
+        from inventory.models import StockAlertRecord
+        alert_key = f"PENDING_EXPIRY:{batch.batch_number}:{level_key}:DEALER_STOCK_REQUEST:{alloc.id}"
+        rec, created = StockAlertRecord.objects.get_or_create(
+            alert_key=alert_key,
+            defaults={
+                'alert_type': 'PENDING_EXPIRY',
+                'source_type': 'DEALER_STOCK_REQUEST',
+                'source_id': alloc.id,
+                'order_number': alloc.stock_request.request_number,
+                'order_id': alloc.stock_request.id,
+                'dealer_or_customer': dealer_name,
+                'dealer_id': alloc.stock_request.dealer_id,
+                'product_name': product.name,
+                'product_sku': product.sku,
+                'batch_number': batch.batch_number,
+                'batch_id': batch.id,
+                'batch_type': 'COMPANY',
+                'allocated_quantity': alloc.allocated_quantity,
+                'collected_quantity': alloc.received_quantity,
+                'pending_quantity': pending,
+                'expiry_date': batch.expiry_date,
+                'remaining_days': days_left,
+                'alert_level': level_key,
+                'status': 'RESOLVED' if pending <= 0 else 'ACTIVE',
+            }
+        )
+        if not created:
+            rec.allocated_quantity = alloc.allocated_quantity
+            rec.collected_quantity = alloc.received_quantity
+            rec.pending_quantity = pending
+            rec.remaining_days = days_left
+            rec.expiry_date = batch.expiry_date
+            if pending <= 0:
+                rec.status = 'RESOLVED'
+                if not rec.resolved_at:
+                    rec.resolved_at = timezone.now()
+            rec.save(update_fields=['allocated_quantity', 'collected_quantity', 'pending_quantity', 'remaining_days', 'expiry_date', 'status', 'resolved_at'])
+
         alerts.append({
+            'id': rec.id,
             'alert_id': f"ALLOC-{alloc.id}",
+            'alert_key': rec.alert_key,
+            'status': rec.status,
+            'can_popup': (rec.status == 'ACTIVE'),
+            'acknowledged_at': rec.acknowledged_at.isoformat() if rec.acknowledged_at else None,
+            'acknowledged_by': rec.acknowledged_by.username if rec.acknowledged_by else None,
             'source_type': 'DEALER_STOCK_REQUEST',
             'dealer_or_customer': dealer_name,
             'dealer_id': alloc.stock_request.dealer_id,
@@ -1016,8 +1061,53 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
         product_name = res.order_item.product.name if res.order_item.product else res.order_item.product_name
         product_sku = res.order_item.product.sku if res.order_item.product else ''
 
+        # Authoritative persistent record in PostgreSQL
+        from inventory.models import StockAlertRecord
+        alert_key = f"PENDING_EXPIRY:{batch.batch_number}:{level_key}:CUSTOMER_ORDER:{res.id}"
+        rec, created = StockAlertRecord.objects.get_or_create(
+            alert_key=alert_key,
+            defaults={
+                'alert_type': 'PENDING_EXPIRY',
+                'source_type': 'CUSTOMER_ORDER',
+                'source_id': res.id,
+                'order_number': f"ORD-{order.id}",
+                'order_id': order.id,
+                'dealer_or_customer': customer_or_dealer,
+                'dealer_id': order.serving_franchise_id,
+                'product_name': product_name,
+                'product_sku': product_sku,
+                'batch_number': batch.batch_number,
+                'batch_id': batch.id,
+                'batch_type': 'COMPANY' if res.production_batch else 'DEALER',
+                'allocated_quantity': res.reserved_quantity,
+                'collected_quantity': res.consumed_quantity,
+                'pending_quantity': pending,
+                'expiry_date': batch.expiry_date,
+                'remaining_days': days_left,
+                'alert_level': level_key,
+                'status': 'RESOLVED' if pending <= 0 else 'ACTIVE',
+            }
+        )
+        if not created:
+            rec.allocated_quantity = res.reserved_quantity
+            rec.collected_quantity = res.consumed_quantity
+            rec.pending_quantity = pending
+            rec.remaining_days = days_left
+            rec.expiry_date = batch.expiry_date
+            if pending <= 0:
+                rec.status = 'RESOLVED'
+                if not rec.resolved_at:
+                    rec.resolved_at = timezone.now()
+            rec.save(update_fields=['allocated_quantity', 'collected_quantity', 'pending_quantity', 'remaining_days', 'expiry_date', 'status', 'resolved_at'])
+
         alerts.append({
+            'id': rec.id,
             'alert_id': f"RES-{res.id}",
+            'alert_key': rec.alert_key,
+            'status': rec.status,
+            'can_popup': (rec.status == 'ACTIVE'),
+            'acknowledged_at': rec.acknowledged_at.isoformat() if rec.acknowledged_at else None,
+            'acknowledged_by': rec.acknowledged_by.username if rec.acknowledged_by else None,
             'source_type': 'CUSTOMER_ORDER',
             'dealer_or_customer': customer_or_dealer,
             'dealer_id': order.serving_franchise_id,

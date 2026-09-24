@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/services/followup_service.dart';
+import '../../../core/utils/contact_action_helper.dart';
+import 'completed_followups_screen.dart';
 class AdminFollowupsScreen extends StatefulWidget {
   const AdminFollowupsScreen({super.key});
 
@@ -191,20 +194,52 @@ void initState() {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Follow-ups',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF111827),
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      'Manage lead follow-ups and scheduled actions',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                      ),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 10,
+                      children: [
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Follow-ups',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                            SizedBox(height: 5),
+                            Text(
+                              'Manage lead follow-ups and scheduled actions',
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F172A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.history, size: 18),
+                          label: const Text(
+                            'Completed Follow-ups',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CompletedFollowupsScreen()),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 22),
 
@@ -750,22 +785,18 @@ else
           icon: Icons.phone_outlined,
           tooltip: 'Call',
           onTap: () {
-            AppToast.info(
-              context,
-              'Calling ${item['lead']}...',
-              title: 'Call',
-            );
+            ContactActionHelper.makePhoneCall(context, item['phone']?.toString());
           },
         ),
 
         _actionIcon(
           icon: Icons.chat_outlined,
-          tooltip: 'WhatsApp',
+          tooltip: 'Chat / WhatsApp',
           onTap: () {
-            AppToast.info(
+            ContactActionHelper.openMessagingChooser(
               context,
-              'Opening WhatsApp for ${item['lead']}.',
-              title: 'WhatsApp',
+              phone: item['phone']?.toString(),
+              contactName: item['lead']?.toString(),
             );
           },
         ),
@@ -789,34 +820,7 @@ else
                 horizontal: 10,
               ),
             ),
-            onPressed: ()async {
-             final result =
-    await _followupService
-        .completeFollowup(
-  item["id"],
-);
-
-if (result["success"] == true) {
-
-  AppToast.success(
-    context,
-    "Follow-up completed.",
-  );
-
-  _loadData();
-
-}
-else {
-
-  AppToast.error(
-    context,
-    result["message"],
-  );
-
-}
-
-              
-            },
+            onPressed: () => _promptCompleteFollowup(item),
             icon: const Icon(
               Icons.check_circle_outline,
               size: 16,
@@ -864,111 +868,117 @@ else {
     );
   }
 
-  Future<void> _reschedule(
-    Map<String, dynamic> item,
-  ) async {
-    final controller = TextEditingController(
-      text: item['date'].toString(),
-    );
-
+  Future<void> _promptCompleteFollowup(Map<String, dynamic> item) async {
+    final outcomeController = TextEditingController();
     await showDialog(
       context: context,
-      builder: (dialogContext) {
+      builder: (dialogCtx) {
         return AlertDialog(
-          title: const Text(
-            'Reschedule Follow-up',
-          ),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.9,
-            ),
-            child: TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'New Date',
-                hintText: 'YYYY-MM-DD',
+          title: const Text('Complete Follow-up'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Mark follow-up for "${item['lead'] ?? 'Lead'}" as completed?',
+                style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
               ),
-            ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: outcomeController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Outcome / Notes (Optional)',
+                  hintText: 'e.g. Discussed requirements, customer requested catalog.',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                );
-              },
+              onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('Cancel'),
             ),
-
-            SizedBox(
-              width: 100,
-              height: 42,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(0, 42),
-                  maximumSize: const Size(100, 42),
-                ),
-                onPressed: ()async {
-                  final value =
-                      controller.text.trim();
-
-                  if (!_validDate(value)) {
-                    AppToast.error(
-                      context,
-                      'Enter date in YYYY-MM-DD format.',
-                      title: 'Invalid Date',
-                    );
-                    return;
-                  }
-
-                  final result =
-    await _followupService
-        .updateFollowup(
-
-  id: item["id"],
-
-  dateTime: DateTime.parse(
-      "$value ${item['time']}:00"),
-
-  type: item["type"],
-
-  note: item["note"],
-
-);
-
-if(result["success"]==true){
-
-    Navigator.pop(dialogContext);
-
-    AppToast.success(
-      context,
-      "Follow-up updated.",
-    );
-
-    _loadData();
-
-}else{
-
-    AppToast.error(
-      context,
-      result["message"],
-    );
-
-}
-
-                  
-                },
-                child: const Text(
-                  'Update',
-                ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
               ),
+              onPressed: () async {
+                Navigator.pop(dialogCtx);
+                final outcome = outcomeController.text.trim();
+                final result = await _followupService.completeFollowup(
+                  item["id"],
+                  outcome: outcome.isNotEmpty ? outcome : 'Marked as completed',
+                );
+
+                if (result["success"] == true) {
+                  AppToast.success(context, "Follow-up completed & archived.");
+                  _loadData();
+                } else {
+                  AppToast.error(
+                    context,
+                    result["message"] ?? "Failed to complete follow-up.",
+                  );
+                }
+              },
+              child: const Text('Mark Complete'),
             ),
           ],
         );
       },
     );
+    outcomeController.dispose();
+  }
 
-    controller.dispose();
+  Future<void> _reschedule(Map<String, dynamic> item) async {
+    DateTime initialDt = DateTime.now();
+    try {
+      if (item['followup_datetime'] != null) {
+        initialDt = DateTime.parse(item['followup_datetime'].toString()).toLocal();
+      } else if (item['date'] != null) {
+        final parsed = DateTime.tryParse(item['date'].toString());
+        if (parsed != null) initialDt = parsed;
+      }
+    } catch (_) {}
+
+    final now = DateTime.now();
+    final firstDt = initialDt.isBefore(now)
+        ? initialDt.subtract(const Duration(days: 30))
+        : now.subtract(const Duration(days: 1));
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDt.isBefore(firstDt) ? firstDt : initialDt,
+      firstDate: firstDt,
+      lastDate: DateTime(2030),
+      helpText: 'Select New Follow-up Date',
+    );
+
+    if (pickedDate == null) return;
+
+    final targetDateTime = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, 10, 0);
+
+    final result = await _followupService.updateFollowup(
+      id: item["id"],
+      dateTime: targetDateTime,
+      type: item["type"]?.toString() ?? "Phone Call",
+      note: item["note"]?.toString() ?? "",
+    );
+
+    if (result["success"] == true) {
+      AppToast.success(
+        context,
+        "Follow-up rescheduled to ${DateFormat('dd MMM yyyy').format(pickedDate)}.",
+      );
+      _loadData();
+    } else {
+      AppToast.error(
+        context,
+        result["message"] ?? "Failed to reschedule follow-up.",
+      );
+    }
   }
 
   bool _validDate(String value) {

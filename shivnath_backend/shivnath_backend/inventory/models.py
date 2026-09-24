@@ -817,3 +817,59 @@ class FranchiseInventoryTransaction(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class StockAlertRecord(models.Model):
+    """
+    Authoritative persistent alert record for pending stock expiry & low-stock warnings.
+    Guarantees alert deduplication, review/acknowledgement tracking, and prevents
+    annoying repeated popups while keeping alert status visible in PostgreSQL and dashboards.
+    """
+    ALERT_TYPE_CHOICES = [
+        ('PENDING_EXPIRY', 'Pending Stock Expiry'),
+        ('LOW_STOCK', 'Low Stock / Refill Required'),
+    ]
+    STATUS_CHOICES = [
+        ('ACTIVE', 'Active'),
+        ('ACKNOWLEDGED', 'Acknowledged / Reviewed'),
+        ('SNOOZED', 'Snoozed / Remind Later'),
+        ('RESOLVED', 'Resolved / Stock Cleared'),
+    ]
+
+    alert_type = models.CharField(max_length=30, choices=ALERT_TYPE_CHOICES, default='PENDING_EXPIRY', db_index=True)
+    alert_key = models.CharField(max_length=255, unique=True, db_index=True)
+    source_type = models.CharField(max_length=50, blank=True, default='')
+    source_id = models.PositiveIntegerField(null=True, blank=True)
+    order_number = models.CharField(max_length=100, blank=True, default='')
+    order_id = models.PositiveIntegerField(null=True, blank=True)
+    dealer_or_customer = models.CharField(max_length=200, blank=True, default='')
+    dealer_id = models.PositiveIntegerField(null=True, blank=True)
+    product_name = models.CharField(max_length=200, blank=True, default='')
+    product_sku = models.CharField(max_length=100, blank=True, default='')
+    batch_number = models.CharField(max_length=100, blank=True, default='')
+    batch_id = models.PositiveIntegerField(null=True, blank=True)
+    batch_type = models.CharField(max_length=20, default='COMPANY')
+    allocated_quantity = models.IntegerField(default=0)
+    collected_quantity = models.IntegerField(default=0)
+    pending_quantity = models.IntegerField(default=0)
+    expiry_date = models.DateField(null=True, blank=True)
+    remaining_days = models.IntegerField(default=0)
+    alert_level = models.CharField(max_length=30, default='30_DAYS', db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE', db_index=True)
+    acknowledged_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='acknowledged_alerts')
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    snoozed_until = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolution_notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['remaining_days', '-created_at']
+        indexes = [
+            models.Index(fields=['alert_type', 'status']),
+            models.Index(fields=['alert_key']),
+        ]
+
+    def __str__(self):
+        return f"[{self.status}] {self.alert_type} - {self.product_sku} (Batch: {self.batch_number}, Pending: {self.pending_quantity})"

@@ -813,33 +813,46 @@ class LeadService {
   // =====================================================
 
   dynamic _followupToApi(String value) {
-  if (value.trim().isEmpty) {
-    return null;
-  }
-
-  try {
-    final parts = value.trim().split('/');
-
-    if (parts.length != 3) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
       return null;
     }
 
-    final day = int.parse(parts[0]);
-    final month = int.parse(parts[1]);
-    final year = int.parse(parts[2]);
+    try {
+      // 1. Try ISO8601 or YYYY-MM-DD directly
+      final directDt = DateTime.tryParse(trimmed);
+      if (directDt != null) {
+        return directDt.toIso8601String();
+      }
 
-    return DateTime(
-      year,
-      month,
-      day,
-      10,
-      0,
-    ).toIso8601String();
-  } catch (e) {
-    print(e);
-    return null;
+      // 2. Try DD/MM/YYYY
+      if (trimmed.contains('/')) {
+        final parts = trimmed.split('/');
+        if (parts.length == 3) {
+          final day = int.parse(parts[0]);
+          final month = int.parse(parts[1]);
+          final year = int.parse(parts[2]);
+          return DateTime(year, month, day, 10, 0).toIso8601String();
+        }
+      }
+
+      // 3. Try "25 Sep 2026" or "25 September 2026"
+      final spaceParts = trimmed.split(RegExp(r'\s+'));
+      if (spaceParts.length >= 3) {
+        final day = int.tryParse(spaceParts[0]);
+        final monthStr = spaceParts[1];
+        final year = int.tryParse(spaceParts[2]);
+        final month = _monthNumber(monthStr);
+        if (day != null && month != null && year != null) {
+          return DateTime(year, month, day, 10, 0).toIso8601String();
+        }
+      }
+
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
-}
 
   String _formatFollowup(
     dynamic value,

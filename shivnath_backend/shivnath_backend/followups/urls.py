@@ -4,6 +4,8 @@ from .views import (
     FollowUpListCreateView,
     FollowUpDetailView,
     CompleteFollowUpView,
+    CompletedFollowUpListView,
+    FollowUpAuditLogListView,
     FollowUpStatsView,
 )
 
@@ -17,6 +19,26 @@ urlpatterns = [
         "",
         FollowUpListCreateView.as_view(),
         name="followup-list-create",
+    ),
+
+    # =====================================
+    # COMPLETED FOLLOW-UPS
+    # =====================================
+
+    path(
+        "completed/",
+        CompletedFollowUpListView.as_view(),
+        name="followup-completed-list",
+    ),
+
+    # =====================================
+    # STATS
+    # =====================================
+
+    path(
+        "stats/",
+        FollowUpStatsView.as_view(),
+        name="followup-stats",
     ),
 
     # =====================================
@@ -40,12 +62,12 @@ urlpatterns = [
     ),
 
     # =====================================
-    # STATS
+    # AUDIT LOGS
     # =====================================
 
     path(
-        "stats/",
-        FollowUpStatsView.as_view(),
-        name="followup-stats",
+        "<int:pk>/audit-logs/",
+        FollowUpAuditLogListView.as_view(),
+        name="followup-audit-logs",
     ),
-]
+]

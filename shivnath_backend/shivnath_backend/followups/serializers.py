@@ -1,21 +1,45 @@
 from rest_framework import serializers
 
-from .models import FollowUp
+from .models import FollowUp, FollowUpAuditLog
+
+
+class FollowUpAuditLogSerializer(serializers.ModelSerializer):
+    performed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FollowUpAuditLog
+        fields = [
+            "id",
+            "followup_id",
+            "lead_id",
+            "action",
+            "previous_status",
+            "new_status",
+            "previous_datetime",
+            "new_datetime",
+            "notes",
+            "performed_by",
+            "performed_by_name",
+            "performed_at",
+        ]
+
+    def get_performed_by_name(self, obj):
+        if obj.performed_by:
+            return obj.performed_by.get_full_name() or obj.performed_by.username
+        return "System"
 
 
 class FollowUpSerializer(serializers.ModelSerializer):
 
     lead = serializers.SerializerMethodField()
-
     phone = serializers.SerializerMethodField()
-
     city = serializers.SerializerMethodField()
-
     executive = serializers.SerializerMethodField()
-
     date = serializers.SerializerMethodField()
-
     time = serializers.SerializerMethodField()
+    original_date = serializers.SerializerMethodField()
+    completed_by_name = serializers.SerializerMethodField()
+    customer_or_franchise = serializers.SerializerMethodField()
 
     # ---- WRITE: actual model field, Flutter isi key se bhejta hai ----
     followup_type = serializers.CharField(
@@ -37,19 +61,25 @@ class FollowUpSerializer(serializers.ModelSerializer):
             "phone",
             "city",
             "executive",
+            "customer_or_franchise",
 
             "date",
             "time",
+            "original_date",
 
             "followup_type",
             "type",
 
             "note",
+            "outcome_notes",
 
             "status",
 
             "followup_datetime",
             "next_followup_date",
+            "completed_at",
+            "completed_by",
+            "completed_by_name",
 
             "created_at",
             "updated_at",
@@ -59,6 +89,8 @@ class FollowUpSerializer(serializers.ModelSerializer):
             "id",
             "created_at",
             "updated_at",
+            "completed_at",
+            "completed_by",
         ]
 
     # -----------------------------
@@ -113,6 +145,21 @@ class FollowUpSerializer(serializers.ModelSerializer):
 
     def get_type(self, obj):
         return obj.followup_type
+
+    def get_completed_by_name(self, obj):
+        if obj.completed_by:
+            return obj.completed_by.get_full_name() or obj.completed_by.username
+        return None
+
+    def get_customer_or_franchise(self, obj):
+        if obj.lead:
+            return getattr(obj.lead, 'lead_type_display', '') or ('Customer' if getattr(obj.lead, 'lead_type', '') == 'CUSTOMER' else 'Franchise')
+        return 'Franchise'
+
+    def get_original_date(self, obj):
+        dt = obj.original_followup_datetime or obj.followup_datetime
+        return dt.strftime("%Y-%m-%d") if dt else None
+
 
     # -----------------------------
     # Validation

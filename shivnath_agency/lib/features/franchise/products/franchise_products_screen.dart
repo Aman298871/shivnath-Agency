@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/OrderService.dart';
+import '../../../core/services/InventoryService.dart';
 import '../../../core/services/product_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/app_toast.dart';
@@ -206,19 +207,18 @@ class _FranchiseProductsScreenState
                       ? null
                       : () async {
                           setDialogState(() => isSubmitting = true);
-                          final user = await SessionService().getCurrentUser();
-                          final franchiseName = user?.businessName.isNotEmpty == true
-                              ? user!.businessName
-                              : (user?.name.isNotEmpty == true ? user!.name : 'Franchise Partner');
-                          final city = user?.city.isNotEmpty == true ? user!.city : 'Raipur';
 
-                          final res = await OrderService().createOrder({
-                            'franchise': franchiseName,
-                            'city': city,
-                            'items': quantity,
-                            'amount': totalAmount,
-                            'status': 'Plant Approval',
-                            'payment': 'Pending',
+                          final res = await InventoryService().createDealerStockRequest({
+                            'items': [
+                              {
+                                'product_id': product.id,
+                                'sku': product.sku,
+                                'product_sku': product.sku,
+                                'quantity': quantity,
+                                'requested_quantity': quantity,
+                              }
+                            ],
+                            'notes': notesController.text.trim(),
                           });
 
                           if (!dialogContext.mounted) return;
@@ -226,7 +226,7 @@ class _FranchiseProductsScreenState
                           if (res['success'] == true) {
                             Navigator.pop(dialogContext);
                             if (mounted) {
-                              AppToast.success(context, 'Stock request of $quantity x ${product.name} submitted successfully!');
+                              AppToast.success(context, 'Stock request of $quantity x ${product.name} submitted successfully to Central Plant!');
                             }
                           } else {
                             setDialogState(() => isSubmitting = false);

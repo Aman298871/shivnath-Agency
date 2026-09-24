@@ -24,6 +24,7 @@ from .views import (
     ExpiryAlertListAPIView,
     StockAdjustmentAPIView,
     PendingStockExpiryAlertView,
+    PendingStockExpiryAlertActionView,
 )
 
 urlpatterns = [
@@ -55,4 +56,5 @@ urlpatterns = [
     path('expiry-alerts/', ExpiryAlertListAPIView.as_view(), name='erp_expiry_alerts'),
     path('stock/adjust/', StockAdjustmentAPIView.as_view(), name='erp_stock_adjust'),
     path('pending-stock-expiry-alerts/', PendingStockExpiryAlertView.as_view(), name='pending_stock_expiry_alerts'),
+    path('pending-stock-expiry-alerts/action/', PendingStockExpiryAlertActionView.as_view(), name='pending_stock_expiry_alert_action'),
 ]

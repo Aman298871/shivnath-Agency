@@ -3,6 +3,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/services/lead_service.dart';
 import '../../../core/services/whatsapp_service.dart';
 import '../../../core/services/followup_service.dart';
+import '../../../core/utils/contact_action_helper.dart';
 
 class AdminLeadsScreen extends StatefulWidget {
   const AdminLeadsScreen({super.key});
@@ -632,21 +633,17 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                   icon: Icons.call_outlined,
                   tooltip: 'Call',
                   onTap: () {
-                    AppToast.info(
-                      context,
-                      'Calling ${lead['phone']}...',
-                      title: 'Call',
-                    );
+                    ContactActionHelper.makePhoneCall(context, '${lead['phone']}');
                   },
                 ),
                 _actionButton(
                   icon: Icons.chat_outlined,
-                  tooltip: 'WhatsApp',
+                  tooltip: 'Chat / WhatsApp',
                   onTap: () {
-                    AppToast.info(
+                    ContactActionHelper.openMessagingChooser(
                       context,
-                      'Opening WhatsApp for ${lead['phone']}.',
-                      title: 'WhatsApp',
+                      phone: '${lead['phone']}',
+                      contactName: '${lead['name']}',
                     );
                   },
                 ),
@@ -786,6 +783,30 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
+                        IconButton(
+                          tooltip: 'Call Lead',
+                          onPressed: () {
+                            ContactActionHelper.makePhoneCall(context, '${lead['phone']}');
+                          },
+                          icon: const Icon(
+                            Icons.call_outlined,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Chat / Message',
+                          onPressed: () {
+                            ContactActionHelper.openMessagingChooser(
+                              context,
+                              phone: '${lead['phone']}',
+                              contactName: '${lead['name']}',
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.chat_outlined,
+                            color: Color(0xFF16A34A),
+                          ),
+                        ),
                         IconButton(
                           tooltip: 'Update CRM',
                           onPressed: () {
@@ -2188,11 +2209,38 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
   }
 
   Future<void> _pickFollowupDate(TextEditingController controller) async {
+    DateTime initialDate = DateTime.now();
+    final text = controller.text.trim();
+    if (text.isNotEmpty) {
+      if (text.contains('/')) {
+        final p = text.split('/');
+        if (p.length == 3) {
+          final d = int.tryParse(p[0]);
+          final m = int.tryParse(p[1]);
+          final y = int.tryParse(p[2]);
+          if (d != null && m != null && y != null) {
+            initialDate = DateTime(y, m, d);
+          }
+        }
+      } else {
+        final parsed = DateTime.tryParse(text);
+        if (parsed != null) initialDate = parsed;
+      }
+    }
+    final firstDate = initialDate.isBefore(DateTime(2020))
+        ? initialDate
+        : DateTime(2020);
+    final lastDate = DateTime(2035);
+    final safeInitial = initialDate.isBefore(firstDate)
+        ? firstDate
+        : (initialDate.isAfter(lastDate) ? lastDate : initialDate);
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2100),
+      initialDate: safeInitial,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: 'Select Follow-up Date',
     );
 
     if (picked != null) {
@@ -2200,8 +2248,6 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
           "${picked.day.toString().padLeft(2, '0')}/"
           "${picked.month.toString().padLeft(2, '0')}/"
           "${picked.year}";
-
-      print("DATE PICKED = ${controller.text}");
     }
   }
   // =========================================================
@@ -2799,6 +2845,20 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                         ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () {
+                            ContactActionHelper.makePhoneCall(context, '${lead['phone']}');
+                          },
+                          icon: const Icon(Icons.phone_outlined, size: 18),
+                          label: const Text('Call Lead'),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF25D366),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
@@ -2808,15 +2868,15 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                           onPressed: () {
                             final phone = '${lead['phone']}';
                             final name = '${lead['name']}';
-                            WhatsAppService.openWhatsApp(
+                            ContactActionHelper.openMessagingChooser(
+                              context,
                               phone: phone,
-                              message: WhatsAppService.getWelcomeMessage(
-                                leadName: name,
-                              ),
+                              contactName: name,
+                              defaultMessage: WhatsAppService.getWelcomeMessage(leadName: name),
                             );
                           },
                           icon: const Icon(Icons.chat_outlined, size: 18),
-                          label: const Text('Send WhatsApp Welcome'),
+                          label: const Text('Chat / Message'),
                         ),
                         TextButton(
                           onPressed: () {

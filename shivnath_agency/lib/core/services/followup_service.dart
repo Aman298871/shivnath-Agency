@@ -143,13 +143,49 @@ class FollowupService {
   // COMPLETE
   // ===========================================
 
-  Future<Map<String, dynamic>>
-      completeFollowup(int id) async {
+  Future<Map<String, dynamic>> completeFollowup(int id, {String? outcome}) async {
     try {
       final response = await ApiClient.patch(
-        Uri.parse(
-          '$baseUrl/api/followups/$id/complete/',
-        ),
+        Uri.parse('$baseUrl/api/followups/$id/complete/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          if (outcome != null && outcome.isNotEmpty) 'outcome': outcome,
+        }),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        "success": false,
+        "message":
+            "Server unavailable. Please start the backend and try again.",
+      };
+    }
+  }
+
+  // ===========================================
+  // GET COMPLETED FOLLOWUPS
+  // ===========================================
+
+  Future<Map<String, dynamic>> getCompletedFollowups({
+    String? period,
+    String? search,
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final qp = <String, String>{};
+      if (period != null && period.isNotEmpty) qp['period'] = period;
+      if (search != null && search.isNotEmpty) qp['search'] = search;
+      if (startDate != null && startDate.isNotEmpty) qp['start_date'] = startDate;
+      if (endDate != null && endDate.isNotEmpty) qp['end_date'] = endDate;
+
+      final uri = Uri.parse('$baseUrl/api/followups/completed/').replace(
+        queryParameters: qp.isEmpty ? null : qp,
+      );
+
+      final response = await ApiClient.get(
+        uri,
         headers: await _headers(),
       );
 

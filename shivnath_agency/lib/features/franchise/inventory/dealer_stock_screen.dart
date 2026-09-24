@@ -761,10 +761,19 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Enter requested quantity (units) for each variant.\n'
-                    'Your current stock level does NOT affect eligibility.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFBAE6FD)),
+                    ),
+                    child: const Text(
+                      '✓ Request ANY one or more products (e.g. only SHV-500).\n'
+                      '✓ Entering all products is NOT required. Leave unused items as 0 or blank.',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0369A1)),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   ...officialSkus.map((sku) {
@@ -802,6 +811,7 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               labelText: 'Requested Units',
+                              hintText: '0 (Leave empty if not needed)',
                               isDense: true,
                               border: OutlineInputBorder(),
                             ),

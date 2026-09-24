@@ -1560,10 +1560,105 @@ class PendingStockExpiryAlertView(APIView):
 
         from .services import get_pending_stock_expiry_alerts
         alerts = get_pending_stock_expiry_alerts(user=user)
+        has_unacknowledged = any(a.get('can_popup', False) for a in alerts)
         return Response({
             'success': True,
             'count': len(alerts),
+            'has_unacknowledged_popup': has_unacknowledged,
             'alerts': alerts,
         }, status=status.HTTP_200_OK)
+
+
+class PendingStockExpiryAlertActionView(APIView):
+    """
+    Handles user actions on stock alerts:
+    - ACKNOWLEDGE / MARK_REVIEWED: Persists state in PostgreSQL so popup never annoys the user again.
+    - SNOOZE: Postpones alert popup for X days.
+    - RESOLVE / STOCK_CLEARED: Strictly verifies in PostgreSQL that stock was legitimately cleared.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        if not user.is_superuser and role not in ['super_admin', 'admin']:
+            return Response({'success': False, 'message': 'Forbidden: Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+
+        alert_id = request.data.get('alert_id') or request.data.get('id')
+        alert_key = request.data.get('alert_key')
+        action = str(request.data.get('action', '')).strip().upper()
+
+        from .models import StockAlertRecord
+        rec = None
+        if alert_id:
+            rec = StockAlertRecord.objects.filter(id=alert_id).first()
+        if not rec and alert_key:
+            rec = StockAlertRecord.objects.filter(alert_key=alert_key).first()
+
+        if not rec:
+            return Response({'success': False, 'message': 'Alert record not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        from django.utils import timezone
+        from datetime import timedelta
+
+        if action in ['ACKNOWLEDGE', 'MARK_REVIEWED', 'REVIEWED']:
+            rec.status = 'ACKNOWLEDGED'
+            rec.acknowledged_by = request.user
+            rec.acknowledged_at = timezone.now()
+            rec.save(update_fields=['status', 'acknowledged_by', 'acknowledged_at', 'updated_at'])
+            return Response({
+                'success': True,
+                'message': f'Alert for batch {rec.batch_number} marked as reviewed / acknowledged.',
+                'status': rec.status,
+                'alert': {'id': rec.id, 'status': rec.status, 'batch_number': rec.batch_number},
+            })
+
+        elif action in ['SNOOZE', 'REMIND_LATER']:
+            days = int(request.data.get('days', 3))
+            rec.status = 'SNOOZED'
+            rec.snoozed_until = timezone.now() + timedelta(days=days)
+            rec.save(update_fields=['status', 'snoozed_until', 'updated_at'])
+            return Response({
+                'success': True,
+                'message': f'Alert snoozed for {days} days.',
+                'status': rec.status,
+                'alert': {'id': rec.id, 'status': rec.status, 'batch_number': rec.batch_number},
+            })
+
+        elif action in ['RESOLVE', 'CHECK_RESOLVED', 'STOCK_CLEARED']:
+            # Strictly verify physical stock in PostgreSQL: Never allow false zeroing of pending stock
+            pending = 0
+            if rec.source_type == 'DEALER_STOCK_REQUEST' and rec.source_id:
+                from .models import DealerStockRequestAllocation
+                alloc = DealerStockRequestAllocation.objects.filter(id=rec.source_id).first()
+                if alloc:
+                    pending = max(0, alloc.allocated_quantity - alloc.received_quantity - alloc.damaged_quantity)
+            elif rec.source_type == 'CUSTOMER_ORDER' and rec.source_id:
+                from orders.models import OrderItemBatchReservation
+                res = OrderItemBatchReservation.objects.filter(id=rec.source_id).first()
+                if res:
+                    pending = max(0, res.reserved_quantity - res.consumed_quantity - res.released_quantity)
+
+            if pending > 0:
+                return Response({
+                    'success': False,
+                    'error': 'STOCK_STILL_PENDING',
+                    'pending_quantity': pending,
+                    'message': f"Cannot mark stock cleared: {pending:,} units are still pending in the database. Please record customer collection, transfer, or stock adjustment first."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            rec.status = 'RESOLVED'
+            rec.resolved_at = timezone.now()
+            rec.pending_quantity = 0
+            rec.resolution_notes = request.data.get('notes', 'Stock verified physically cleared via inventory records.')
+            rec.save(update_fields=['status', 'resolved_at', 'pending_quantity', 'resolution_notes', 'updated_at'])
+            return Response({
+                'success': True,
+                'message': f'Stock for batch {rec.batch_number} verified as completely cleared and resolved.',
+                'status': rec.status,
+            })
+
+        return Response({'success': False, 'message': f'Unsupported action: {action}'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 

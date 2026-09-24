@@ -64,6 +64,16 @@ class _CentralPlantInventoryScreenState
       final bRes = await _invService.getProductionBatches();
       if (bRes['success'] == true && bRes['data'] is List) {
         _productionBatches = List<Map<String, dynamic>>.from(bRes['data']);
+        if (widget.highlightBatchNumber != null && widget.highlightBatchNumber!.isNotEmpty) {
+          final target = widget.highlightBatchNumber!.toLowerCase();
+          _productionBatches.sort((a, b) {
+            final aMatch = a['batch_number']?.toString().toLowerCase().contains(target) == true;
+            final bMatch = b['batch_number']?.toString().toLowerCase().contains(target) == true;
+            if (aMatch && !bMatch) return -1;
+            if (!aMatch && bMatch) return 1;
+            return 0;
+          });
+        }
       }
 
       // 2. Raw materials

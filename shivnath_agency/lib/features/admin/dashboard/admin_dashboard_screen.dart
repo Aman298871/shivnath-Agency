@@ -6,6 +6,7 @@ import '../../../core/services/followup_service.dart';
 import '../../../core/services/lead_service.dart';
 import '../../../core/services/InventoryService.dart';
 import '../../../core/services/OrderService.dart';
+import '../../../core/utils/app_toast.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenLeads;
@@ -264,7 +265,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final res = await _inventoryService.getPendingStockExpiryAlerts();
       if (!mounted) return;
       List? alerts;
+      bool hasUnacknowledged = false;
       if (res['success'] == true) {
+        hasUnacknowledged = res['has_unacknowledged_popup'] == true;
         if (res['data'] is List) {
           alerts = res['data'];
         } else if (res['data'] is Map && res['data']['alerts'] is List) {
@@ -278,19 +281,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _pendingStockAlerts = alerts!.cast<Map<String, dynamic>>();
         });
 
-        if (_pendingStockAlerts.isNotEmpty && !_pendingStockDialogShown) {
-          final prefs = await SharedPreferences.getInstance();
-          final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-          final dismissedDate = prefs.getString('dismissed_pending_stock_expiry_date');
-
-          if (dismissedDate != todayStr) {
-            _pendingStockDialogShown = true;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _showPendingStockExpiryDialog(context);
-              }
-            });
-          }
+        // Only pop up if backend has an active unacknowledged alert AND hasn't popped in this session
+        if (hasUnacknowledged && !_pendingStockDialogShown) {
+          _pendingStockDialogShown = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _showPendingStockExpiryDialog(context);
+            }
+          });
         }
       }
     } catch (_) {}
@@ -1690,79 +1688,150 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
                     border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                   ),
-                  child: Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // View Inventory Stock
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.of(ctx, rootNavigator: true).pop();
-                            final firstAlert = _pendingStockAlerts.isNotEmpty ? _pendingStockAlerts.first : null;
-                            final bNum = firstAlert?['batch_number']?.toString();
-                            if (widget.onOpenInventoryWithBatch != null) {
-                              widget.onOpenInventoryWithBatch!(bNum);
-                            } else if (widget.onOpenInventory != null) {
-                              widget.onOpenInventory!();
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF0284C7),
-                            side: const BorderSide(color: Color(0xFF0284C7)),
-                            padding: const EdgeInsets.symmetric(vertical: 11),
-                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      Row(
+                        children: [
+                          // View Inventory Stock
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                Navigator.of(ctx, rootNavigator: true).pop();
+                                final firstAlert = _pendingStockAlerts.isNotEmpty ? _pendingStockAlerts.first : null;
+                                final bNum = firstAlert?['batch_number']?.toString();
+                                if (widget.onOpenInventoryWithBatch != null) {
+                                  widget.onOpenInventoryWithBatch!(bNum);
+                                } else if (widget.onOpenInventory != null) {
+                                  widget.onOpenInventory!();
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF0284C7),
+                                side: const BorderSide(color: Color(0xFF0284C7)),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                textStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('VIEW STOCK'),
+                            ),
                           ),
-                          child: const Text('VIEW STOCK'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
+                          const SizedBox(width: 8),
 
-                      // View Order
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.of(ctx, rootNavigator: true).pop();
-                            final firstAlert = _pendingStockAlerts.isNotEmpty ? _pendingStockAlerts.first : null;
-                            final oNum = firstAlert?['order_number']?.toString();
-                            if (widget.onOpenOrdersWithCode != null) {
-                              widget.onOpenOrdersWithCode!(oNum);
-                            } else if (widget.onOpenOrders != null) {
-                              widget.onOpenOrders!();
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF16A34A),
-                            side: const BorderSide(color: Color(0xFF16A34A)),
-                            padding: const EdgeInsets.symmetric(vertical: 11),
-                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          // View Order
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                Navigator.of(ctx, rootNavigator: true).pop();
+                                final firstAlert = _pendingStockAlerts.isNotEmpty ? _pendingStockAlerts.first : null;
+                                final oNum = firstAlert?['order_number']?.toString();
+                                if (widget.onOpenOrdersWithCode != null) {
+                                  widget.onOpenOrdersWithCode!(oNum);
+                                } else if (widget.onOpenOrders != null) {
+                                  widget.onOpenOrders!();
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF16A34A),
+                                side: const BorderSide(color: Color(0xFF16A34A)),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                textStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('VIEW ORDER'),
+                            ),
                           ),
-                          child: const Text('VIEW ORDER'),
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-
-                      // Close
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final prefs = await SharedPreferences.getInstance();
-                            final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-                            await prefs.setString('dismissed_pending_stock_expiry_date', todayStr);
-                            if (ctx.mounted) {
-                              Navigator.of(ctx, rootNavigator: true).pop();
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF475569),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 11),
-                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          // Mark As Reviewed
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                for (final a in _pendingStockAlerts) {
+                                  final aId = a['id'];
+                                  if (aId != null) {
+                                    await _inventoryService.actionPendingStockExpiryAlert(
+                                      alertId: aId is int ? aId : int.tryParse(aId.toString()) ?? 0,
+                                      action: 'ACKNOWLEDGE',
+                                    );
+                                  }
+                                }
+                                if (ctx.mounted) {
+                                  Navigator.of(ctx, rootNavigator: true).pop();
+                                }
+                                _pendingStockDialogShown = true;
+                                if (mounted) {
+                                  AppToast.success(context, 'Alert reviewed. Popup will not appear repeatedly.');
+                                  _loadPendingStockAlerts();
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F172A),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.check_circle_outline, size: 14),
+                              label: const Text('MARK REVIEWED'),
+                            ),
                           ),
-                          child: const Text('DISMISS'),
-                        ),
+                          const SizedBox(width: 8),
+
+                          // Snooze
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () async {
+                                for (final a in _pendingStockAlerts) {
+                                  final aId = a['id'];
+                                  if (aId != null) {
+                                    await _inventoryService.actionPendingStockExpiryAlert(
+                                      alertId: aId is int ? aId : int.tryParse(aId.toString()) ?? 0,
+                                      action: 'SNOOZE',
+                                      snoozeDays: 3,
+                                    );
+                                  }
+                                }
+                                if (ctx.mounted) {
+                                  Navigator.of(ctx, rootNavigator: true).pop();
+                                }
+                                _pendingStockDialogShown = true;
+                                if (mounted) {
+                                  AppToast.info(context, 'Alert snoozed for 3 days.');
+                                  _loadPendingStockAlerts();
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF64748B),
+                                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('SNOOZE (3D)'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Close
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () {
+                                Navigator.of(ctx, rootNavigator: true).pop();
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF64748B),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                              ),
+                              child: const Text('CLOSE'),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

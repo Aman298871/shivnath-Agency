@@ -38,6 +38,7 @@ class AdminMainScreen extends StatefulWidget {
 
 class _AdminMainScreenState extends State<AdminMainScreen> {
   int currentIndex = 0;
+  String? _targetBatchNumber;
   UserModel? _currentUser;
   Timer? _orderPollTimer;
   int _lastMaxOrderId = 0;
@@ -300,6 +301,17 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           onOpenQuotations: () => _selectMenu(11),
           onOpenUsers: () => _selectMenu(14),
           onOpenNotifications: () => _selectMenu(15),
+          onOpenInventoryWithBatch: (batch) {
+            setState(() {
+              _targetBatchNumber = batch;
+              _selectMenu(4);
+            });
+          },
+          onOpenOrdersWithCode: (code) {
+            setState(() {
+              _selectMenu(7);
+            });
+          },
         );
 
       case 1:
@@ -312,7 +324,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         return const AdminFranchisesScreen();
 
       case 4:
-        return const CentralPlantInventoryScreen();
+        return CentralPlantInventoryScreen(highlightBatchNumber: _targetBatchNumber);
 
       case 5:
         return const BomRecipeScreen();
@@ -378,6 +390,17 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           onOpenQuotations: () => _selectMenu(11),
           onOpenUsers: () => _selectMenu(14),
           onOpenNotifications: () => _selectMenu(15),
+          onOpenInventoryWithBatch: (batch) {
+            setState(() {
+              _targetBatchNumber = batch;
+              _selectMenu(4);
+            });
+          },
+          onOpenOrdersWithCode: (code) {
+            setState(() {
+              _selectMenu(7);
+            });
+          },
         );
     }
   }
@@ -389,6 +412,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   void _selectMenu(int index) {
     setState(() {
       currentIndex = index;
+      if (index != 4) {
+        _targetBatchNumber = null;
+      }
     });
   }
 

@@ -78,6 +78,7 @@ class PendingStockExpiryAndCancellationTestCase(TestCase):
         self.scoped_admin_prof.data_scope_type = 'territory_scoped'
         self.scoped_admin_prof.assigned_scope_ids = ['RAIPUR']
         self.scoped_admin_prof.save()
+        self.scoped_admin_user.refresh_from_db()
 
         # Other Admin (Territory scoped: 'BILASPUR')
         self.other_admin_user, _ = User.objects.get_or_create(
@@ -98,6 +99,7 @@ class PendingStockExpiryAndCancellationTestCase(TestCase):
         self.other_admin_prof.data_scope_type = 'territory_scoped'
         self.other_admin_prof.assigned_scope_ids = ['BILASPUR']
         self.other_admin_prof.save()
+        self.other_admin_user.refresh_from_db()
 
         # Dealer in Raipur
         self.dealer_user, _ = User.objects.get_or_create(

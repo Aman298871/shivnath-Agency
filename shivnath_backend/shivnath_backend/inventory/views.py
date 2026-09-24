@@ -746,6 +746,11 @@ class ProductionBatchCollectionAPIView(views.APIView):
 
         client_name = request.data.get('client_name')
         notes = request.data.get('notes')
+        payment_status = request.data.get('payment_status')
+        payment_method = request.data.get('payment_method', 'CASH')
+        reference_number = request.data.get('reference_number', '')
+        amount_due = request.data.get('amount_due')
+        amount_paid = request.data.get('amount_paid')
 
         try:
             res = record_batch_collection_atomic(
@@ -753,7 +758,12 @@ class ProductionBatchCollectionAPIView(views.APIView):
                 quantity_collected=int(qty),
                 client_name=client_name,
                 notes=notes,
-                actor=request.user
+                actor=request.user,
+                payment_status=payment_status,
+                payment_method=payment_method,
+                reference_number=reference_number,
+                amount_due=amount_due,
+                amount_paid=amount_paid,
             )
             return Response({
                 'success': True,
@@ -767,7 +777,9 @@ class ProductionBatchCollectionAPIView(views.APIView):
                     'collected': res['quantity_dispatched'],
                     'pending_company_stock': res['quantity_remaining_company'],
                     'order_status': res['order_status'],
-                }
+                    'billing': res.get('billing'),
+                },
+                'billing': res.get('billing'),
             }, status=status.HTTP_200_OK)
         except Exception as e:
             msg = str(e)
@@ -848,56 +860,68 @@ class DealerStockRequestListCreateAPIView(views.APIView):
 
         from products.models import Product
 
-        # Helper for robust product resolution
+        # Helper for robust active product resolution for the 5 official SKUs
         def _resolve_stock_product(p_id, p_sku):
-            product = None
+            canonical_skus = {
+                'SHV-200': ['SHV-200', 'SKU-BOT-200', 'BOT-200', '200ML', 'SHV-200ML', '200'],
+                'SHV-250': ['SHV-250', 'SKU-BOT-250', 'BOT-250', '250ML', 'SHV-250ML', '250'],
+                'SHV-500': ['SHV-500', 'SKU-BOT-500', 'BOT-500', '500ML', 'SHV-500ML', '500'],
+                'SHV-1L': ['SHV-1L', 'SKU-BOT-1000', 'BOT-1000', '1000ML', 'SHV-1000', 'SHV-1000ML', '1L', '1 LITRE', '1000'],
+                'SHV-20L': ['SHV-20L', 'SKU-JAR-20L', 'JAR-20L', '20000ML', 'DEV-JAR-20L', 'STOCK-JAR-20L', '20L', '20 LITRE', '20000'],
+            }
+
+            # 1. Determine canonical SKU if p_sku is provided
+            target_canonical = None
+            if p_sku:
+                sku_clean = str(p_sku).strip().upper()
+                for canon, aliases in canonical_skus.items():
+                    if sku_clean == canon or sku_clean in aliases:
+                        target_canonical = canon
+                        break
+
+            # 2. If target_canonical is found, find the ACTIVE product with this exact SKU first!
+            if target_canonical:
+                active_prod = Product.objects.filter(sku__iexact=target_canonical, status='Active').first()
+                if active_prod:
+                    return active_prod
+
+            # 3. If p_id is provided, verify it is Active and matches canonical family
             if p_id:
                 try:
-                    product = Product.objects.filter(id=p_id).first()
+                    prod_by_id = Product.objects.filter(id=p_id, status='Active').first()
+                    if prod_by_id:
+                        if not target_canonical or prod_by_id.sku.upper() in canonical_skus.get(target_canonical, []):
+                            return prod_by_id
                 except (ValueError, TypeError):
-                    product = None
+                    pass
 
-            if product is None and p_sku:
+            # 4. Search by exact SKU (case-insensitive) active
+            if p_sku:
                 sku_clean = str(p_sku).strip()
-                product = Product.objects.filter(sku__iexact=sku_clean).first()
+                prod = Product.objects.filter(sku__iexact=sku_clean, status='Active').first()
+                if prod:
+                    return prod
 
-                if product is None:
-                    alias_map = {
-                        'SHV-200': ['SHV-200', 'SKU-BOT-200', 'BOT-200', '200ML', 'SHV-200ML', '200'],
-                        'SHV-250': ['SHV-250', 'SKU-BOT-250', 'BOT-250', '250ML', 'SHV-250ML', '250'],
-                        'SHV-500': ['SHV-500', 'SKU-BOT-500', 'BOT-500', '500ML', 'SHV-500ML', '500'],
-                        'SHV-1L': ['SHV-1L', 'SKU-BOT-1000', 'BOT-1000', '1000ML', 'SHV-1000', 'SHV-1000ML', '1L', '1 LITRE', '1000'],
-                        'SHV-20L': ['SHV-20L', 'SKU-JAR-20L', 'JAR-20L', '20000ML', 'DEV-JAR-20L', 'STOCK-JAR-20L', '20L', '20 LITRE', '20000'],
-                    }
-                    target_sku = None
-                    sku_upper = sku_clean.upper()
-                    for canonical, aliases in alias_map.items():
-                        if sku_upper == canonical or sku_upper in aliases:
-                            target_sku = canonical
-                            break
+            # 5. Search by aliases active
+            if target_canonical:
+                for alias in canonical_skus[target_canonical]:
+                    prod = Product.objects.filter(sku__iexact=alias, status='Active').first()
+                    if prod:
+                        return prod
 
-                    if target_sku:
-                        product = Product.objects.filter(sku__iexact=target_sku).first()
-                        if not product:
-                            for alias in alias_map.get(target_sku, []):
-                                product = Product.objects.filter(sku__iexact=alias).first()
-                                if product:
-                                    break
+            # 6. Fallback volume lookup active
+            if target_canonical == 'SHV-200' or (p_sku and '200' in str(p_sku).lower() and '2000' not in str(p_sku).lower()):
+                return Product.objects.filter(volume_ml=200, status='Active').first()
+            elif target_canonical == 'SHV-250' or (p_sku and '250' in str(p_sku).lower()):
+                return Product.objects.filter(volume_ml=250, status='Active').first()
+            elif target_canonical == 'SHV-500' or (p_sku and '500' in str(p_sku).lower()):
+                return Product.objects.filter(volume_ml=500, status='Active').first()
+            elif target_canonical == 'SHV-1L' or (p_sku and ('1000' in str(p_sku).lower() or '1l' in str(p_sku).lower())):
+                return Product.objects.filter(volume_ml=1000, status='Active').first()
+            elif target_canonical == 'SHV-20L' or (p_sku and ('20000' in str(p_sku).lower() or '20l' in str(p_sku).lower())):
+                return Product.objects.filter(volume_ml=20000, status='Active').first()
 
-                if product is None:
-                    sku_lower = sku_clean.lower()
-                    if '200' in sku_lower:
-                        product = Product.objects.filter(volume_ml=200).first()
-                    elif '250' in sku_lower:
-                        product = Product.objects.filter(volume_ml=250).first()
-                    elif '500' in sku_lower:
-                        product = Product.objects.filter(volume_ml=500).first()
-                    elif '1000' in sku_lower or '1l' in sku_lower or '1 litre' in sku_lower:
-                        product = Product.objects.filter(volume_ml=1000).first()
-                    elif '20000' in sku_lower or '20l' in sku_lower or '20 litre' in sku_lower or 'jar' in sku_lower:
-                        product = Product.objects.filter(volume_ml=20000).first()
-
-            return product
+            return None
 
         def _generate_stock_request_number():
             prefix = f"SR-{timezone.now().strftime('%Y%m')}"
@@ -985,6 +1009,21 @@ class DealerStockRequestListCreateAPIView(views.APIView):
                         )
                         created_requests.append(stock_req)
 
+                # Authoritative notification to Admin and Super Admin
+                try:
+                    from accounts.models import AdminNotification
+                    summary_items = ", ".join([f"{sr.requested_quantity}x {sr.product.sku}" for sr in created_requests[:3]])
+                    if len(created_requests) > 3:
+                        summary_items += f" (+{len(created_requests) - 3} more)"
+                    AdminNotification.objects.create(
+                        title=f"New Stock Request: {dealer.business_name}",
+                        message=f"Franchise {dealer.business_name} requested Central Plant stock: {summary_items}. Request #{created_requests[0].request_number}.",
+                        notification_type='stock_alert',
+                        reference_id=created_requests[0].id,
+                    )
+                except Exception:
+                    pass
+
                 serialized_list = DealerStockRequestSerializer(created_requests, many=True).data
                 return Response({
                     'success': True,
@@ -1028,6 +1067,19 @@ class DealerStockRequestListCreateAPIView(views.APIView):
                 dealer_notes=notes,
                 status='REQUESTED'
             )
+
+            # Authoritative notification to Admin and Super Admin
+            try:
+                from accounts.models import AdminNotification
+                AdminNotification.objects.create(
+                    title=f"New Stock Request: {dealer.business_name}",
+                    message=f"Franchise {dealer.business_name} requested {qty_int}x {product.sku} ({product.name}). Request #{req_number}.",
+                    notification_type='stock_alert',
+                    reference_id=stock_req.id,
+                )
+            except Exception:
+                pass
+
             data = DealerStockRequestSerializer(stock_req).data
             return Response({
                 'success': True,

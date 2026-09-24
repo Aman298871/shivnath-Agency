@@ -844,34 +844,28 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                           if (requestedUnits <= 0) continue;
 
                           // Match product by SKU field (exact, case-insensitive) or known aliases
+                          final activeProds = _products.where((p) => p.status.toUpperCase() == 'ACTIVE').toList();
                           ProductModel? matched;
-                          for (final prod in _products) {
+                          for (final prod in activeProds) {
                             final pSku = prod.sku.toUpperCase();
                             if (pSku == sku.toUpperCase() ||
                                 (sku == 'SHV-200' &&
-                                    (pSku.contains('200') ||
-                                        pSku.contains('BOT-200'))) ||
+                                    (pSku == 'SKU-BOT-200' || (pSku.contains('200') && !pSku.contains('2000')))) ||
                                 (sku == 'SHV-250' &&
-                                    (pSku.contains('250') ||
-                                        pSku.contains('BOT-250'))) ||
+                                    (pSku == 'SKU-BOT-250' || pSku.contains('250'))) ||
                                 (sku == 'SHV-500' &&
-                                    (pSku.contains('500') ||
-                                        pSku.contains('BOT-500'))) ||
+                                    (pSku == 'SKU-BOT-500' || pSku.contains('500'))) ||
                                 (sku == 'SHV-1L' &&
-                                    (pSku.contains('1000') ||
-                                        pSku.contains('1L') ||
-                                        pSku.contains('BOT-1000'))) ||
+                                    (pSku == 'SKU-BOT-1000' || pSku.contains('1000') || pSku.contains('1L'))) ||
                                 (sku == 'SHV-20L' &&
-                                    (pSku.contains('20L') ||
-                                        pSku.contains('JAR-20L') ||
-                                        pSku.contains('20000')))) {
+                                    (pSku == 'SKU-JAR-20L' || pSku.contains('20L') || pSku.contains('20000')))) {
                               matched = prod;
                               break;
                             }
                           }
                           // Fallback: match by name containing sku
                           if (matched == null) {
-                            for (final prod in _products) {
+                            for (final prod in activeProds) {
                               if (prod.name.toUpperCase().contains(
                                 sku.toUpperCase(),
                               )) {

@@ -70,6 +70,13 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
 
+    previous_outstanding = serializers.SerializerMethodField()
+    current_order_amount = serializers.SerializerMethodField()
+    total_exposure = serializers.SerializerMethodField()
+    credit_limit = serializers.SerializerMethodField()
+    payment_terms_days = serializers.SerializerMethodField()
+    credit_status = serializers.SerializerMethodField()
+
     class Meta:
         model = Order
 
@@ -109,6 +116,13 @@ class OrderSerializer(serializers.ModelSerializer):
             'items_count',
             'amount',
 
+            'previous_outstanding',
+            'current_order_amount',
+            'total_exposure',
+            'credit_limit',
+            'payment_terms_days',
+            'credit_status',
+
             'status',
             'status_display',
 
@@ -128,6 +142,12 @@ class OrderSerializer(serializers.ModelSerializer):
             'id',
             'order_id',
             'order_date',
+            'previous_outstanding',
+            'current_order_amount',
+            'total_exposure',
+            'credit_limit',
+            'payment_terms_days',
+            'credit_status',
             'status_display',
             'payment_display',
             'created_by',
@@ -186,6 +206,52 @@ class OrderSerializer(serializers.ModelSerializer):
             obj.created_by.get_full_name()
             or obj.created_by.username
         )
+
+    def get_previous_outstanding(self, obj):
+        try:
+            from billing.models import Invoice
+            if obj.serving_franchise:
+                cp = getattr(obj.serving_franchise, 'credit_profile', None)
+                if cp:
+                    return float(cp.current_outstanding)
+            if obj.created_by:
+                invs = Invoice.objects.filter(
+                    order__created_by=obj.created_by
+                ).exclude(order_id=obj.id).exclude(status__in=['PAID', 'CANCELLED'])
+                total_prev = sum(float(inv.outstanding_balance) for inv in invs)
+                return round(total_prev, 2)
+        except Exception:
+            pass
+        return 0.0
+
+    def get_current_order_amount(self, obj):
+        return round(float(obj.amount or 0.0), 2)
+
+    def get_total_exposure(self, obj):
+        prev = self.get_previous_outstanding(obj)
+        curr = self.get_current_order_amount(obj)
+        return round(prev + curr, 2)
+
+    def get_credit_limit(self, obj):
+        if obj.serving_franchise:
+            cp = getattr(obj.serving_franchise, 'credit_profile', None)
+            if cp:
+                return float(cp.credit_limit)
+        return 0.0
+
+    def get_payment_terms_days(self, obj):
+        if obj.serving_franchise:
+            cp = getattr(obj.serving_franchise, 'credit_profile', None)
+            if cp:
+                return cp.payment_terms_days
+        return 15
+
+    def get_credit_status(self, obj):
+        if obj.serving_franchise:
+            cp = getattr(obj.serving_franchise, 'credit_profile', None)
+            if cp:
+                return cp.credit_status
+        return 'GOOD_STANDING'
 
     def validate_franchise_name(self, value):
         value = value.strip()

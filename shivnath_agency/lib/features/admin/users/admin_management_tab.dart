@@ -695,9 +695,11 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                 : RefreshIndicator(
                     onRefresh: _fetchAdmins,
                     child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                      padding: const EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        top: 8,
+                        bottom: 90,
                       ),
                       itemCount: _filteredAdmins.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -832,50 +834,58 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                                   ],
                                 ),
                                 const Divider(height: 20),
-                                Wrap(
-                                  alignment: WrapAlignment.end,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  spacing: 4,
-                                  runSpacing: 4,
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    TextButton.icon(
-                                      style: TextButton.styleFrom(
-                                        visualDensity: VisualDensity.compact,
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      ),
-                                      icon: const Icon(
-                                        Icons.edit_note,
-                                        size: 16,
-                                      ),
-                                      label: const Text(
-                                        'Permissions & Scope',
-                                        style: TextStyle(fontSize: 12),
-                                      ),
-                                      onPressed: () => _openEditAdminDialog(a),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Transform.scale(
+                                          scale: 0.8,
+                                          child: Switch(
+                                            value: isActive,
+                                            activeThumbColor: primaryBlue,
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            onChanged: (_) => _toggleActiveStatus(a),
+                                          ),
+                                        ),
+                                        Text(
+                                          isActive ? 'Active' : 'Disabled',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: isActive ? Colors.green.shade700 : Colors.red.shade700,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    TextButton.icon(
-                                      style: TextButton.styleFrom(
-                                        visualDensity: VisualDensity.compact,
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      ),
-                                      icon: const Icon(
-                                        Icons.lock_reset,
-                                        size: 16,
-                                      ),
-                                      label: const Text(
-                                        'Reset Pass',
-                                        style: TextStyle(fontSize: 12),
-                                      ),
-                                      onPressed: () =>
-                                          _openResetPasswordDialog(a),
-                                    ),
-                                    Transform.scale(
-                                      scale: 0.85,
-                                      child: Switch(
-                                        value: isActive,
-                                        activeThumbColor: primaryBlue,
-                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        onChanged: (_) => _toggleActiveStatus(a),
+                                    Flexible(
+                                      child: Wrap(
+                                        alignment: WrapAlignment.end,
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        children: [
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              visualDensity: VisualDensity.compact,
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            icon: const Icon(Icons.security, size: 14),
+                                            label: const Text('Permissions', style: TextStyle(fontSize: 11)),
+                                            onPressed: () => _openEditAdminDialog(a),
+                                          ),
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              visualDensity: VisualDensity.compact,
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            icon: const Icon(Icons.lock_reset, size: 14),
+                                            label: const Text('Reset Pass', style: TextStyle(fontSize: 11)),
+                                            onPressed: () => _openResetPasswordDialog(a),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],

@@ -40,6 +40,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Map<String, dynamic>? supportContact;
   String orderSource = 'FRANCHISE'; // 'FRANCHISE' or 'DIRECT_COMPANY'
   bool hasCustomerTerritory = false;
+  double _previousOutstanding = 0.0;
 
   @override
   void initState() {
@@ -91,6 +92,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       final terrInfo = data['territory_info'] as Map<String, dynamic>?;
       final terr = data['territory'] as Map<String, dynamic>?;
+
+      // Fetch any existing customer previous outstanding
+      try {
+        final ordRes = await OrderService().getOrders();
+        if (ordRes['success'] == true && ordRes['data'] != null && ordRes['data']['orders'] is List) {
+          final ordList = List<Map<String, dynamic>>.from(ordRes['data']['orders']);
+          if (ordList.isNotEmpty && ordList.first['previous_outstanding'] != null) {
+            _previousOutstanding = double.tryParse(ordList.first['previous_outstanding'].toString()) ?? 0.0;
+          }
+        }
+      } catch (_) {}
 
       if (terrInfo != null && terrInfo['is_assigned'] == true) {
         hasTerritory = true;
@@ -819,10 +831,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const Divider(height: 25),
                       _SummaryRow(
-                        title: 'Payable Amount',
+                        title: 'Current Order',
                         value: '₹${cart.totalAmount.toStringAsFixed(0)}',
-                        bold: true,
                       ),
+                      if (_previousOutstanding > 0) ...[
+                        const SizedBox(height: 10),
+                        _SummaryRow(
+                          title: 'Previous Outstanding',
+                          value: '₹${_previousOutstanding.toStringAsFixed(0)}',
+                          bold: true,
+                        ),
+                        const Divider(height: 20),
+                        _SummaryRow(
+                          title: 'Total Exposure / Due',
+                          value: '₹${(cart.totalAmount + _previousOutstanding).toStringAsFixed(0)}',
+                          bold: true,
+                        ),
+                      ] else ...[
+                        const Divider(height: 25),
+                        _SummaryRow(
+                          title: 'Payable Amount',
+                          value: '₹${cart.totalAmount.toStringAsFixed(0)}',
+                          bold: true,
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -344,6 +344,11 @@ class Lead(models.Model):
                 self.journey_state.is_paused = True
                 self.journey_state.pause_reason = 'LOST'
                 self.journey_state.save()
+            else:
+                if self.journey_state.is_paused and self.journey_state.pause_reason in ['CONVERTED', 'NOT_INTERESTED', 'LOST']:
+                    self.journey_state.is_paused = False
+                    self.journey_state.pause_reason = ''
+                    self.journey_state.save()
 
 
 

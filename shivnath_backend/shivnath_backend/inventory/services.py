@@ -188,7 +188,18 @@ def create_production_batch_atomic(
 
 
 @transaction.atomic
-def record_batch_collection_atomic(batch_id, quantity_collected, client_name=None, notes=None, actor=None):
+def record_batch_collection_atomic(
+    batch_id,
+    quantity_collected,
+    client_name=None,
+    notes=None,
+    actor=None,
+    payment_status=None,
+    payment_method='CASH',
+    reference_number='',
+    amount_due=None,
+    amount_paid=None
+):
     """
     Authoritative handler for customer/dealer partial collection or dispatch from a ProductionBatch.
     Example:
@@ -197,6 +208,7 @@ def record_batch_collection_atomic(batch_id, quantity_collected, client_name=Non
       - Customer collects 2,000 units.
       - Remaining 3,000 units STAY as company pending stock attached to this batch.
     Updates batch.quantity_dispatched, batch.quantity_remaining_company, and writes an immutable ledger entry.
+    Also supports recording authoritative payment & invoice details for full, partial, or unpaid collections.
     """
     batch = ProductionBatch.objects.select_for_update().get(id=batch_id)
     qty = int(quantity_collected)
@@ -210,7 +222,8 @@ def record_batch_collection_atomic(batch_id, quantity_collected, client_name=Non
         )
 
     # 1. Update batch counters
-    batch.quantity_dispatched += qty
+    if hasattr(batch, 'quantity_dispatched'):
+        batch.quantity_dispatched += qty
     batch.quantity_remaining_company -= qty
     if batch.quantity_remaining_company == 0:
         batch.status = 'DEPLETED'
@@ -220,9 +233,11 @@ def record_batch_collection_atomic(batch_id, quantity_collected, client_name=Non
     order = batch.linked_order
     if order:
         order = Order.objects.select_for_update().get(id=order.id)
-        order.total_delivered_units += qty
-        order.total_pending_stock_units = max(0, order.total_produced_units - order.total_delivered_units)
-        if order.total_delivered_units >= order.total_produced_units and order.total_produced_units > 0:
+        if hasattr(order, 'total_delivered_units'):
+            order.total_delivered_units += qty
+        if hasattr(order, 'total_pending_stock_units'):
+            order.total_pending_stock_units = max(0, getattr(order, 'total_produced_units', 0) - getattr(order, 'total_delivered_units', 0))
+        if hasattr(order, 'total_delivered_units') and hasattr(order, 'total_produced_units') and order.total_delivered_units >= order.total_produced_units and order.total_produced_units > 0:
             order.status = 'delivered'
             order.delivered_at = timezone.now()
         else:
@@ -231,9 +246,10 @@ def record_batch_collection_atomic(batch_id, quantity_collected, client_name=Non
 
     # 3. Log authoritative inventory ledger entry
     collector = client_name or batch.client_name or 'Customer / Dealer'
+    dispatched_count = batch.quantity_produced_units - batch.quantity_remaining_company
     audit_notes = (
         f"Collection/Dispatch of {qty} units by {collector}. "
-        f"Produced: {batch.quantity_produced_units}, Dispatched: {batch.quantity_dispatched}, "
+        f"Produced: {batch.quantity_produced_units}, Dispatched: {dispatched_count}, "
         f"Pending in company stock: {batch.quantity_remaining_company} units. "
         f"{notes or ''}"
     ).strip()
@@ -253,6 +269,79 @@ def record_batch_collection_atomic(batch_id, quantity_collected, client_name=Non
         notes=audit_notes
     )
 
+    # 4. Handle authoritative payment & billing if payment info provided
+    billing_summary = None
+    if payment_status or amount_due is not None or amount_paid is not None:
+        from billing.models import Invoice, CompanyBillingProfile
+        from billing.services import generate_invoice_for_order, record_payment_transaction
+
+        amount_due_dec = Decimal(str(amount_due or '0.00')) if amount_due is not None else Decimal('0.00')
+        amount_paid_dec = Decimal(str(amount_paid or '0.00')) if amount_paid is not None else Decimal('0.00')
+
+        # Auto-compute amount_due from unit price if not specified
+        if amount_due_dec <= Decimal('0.00'):
+            unit_price = Decimal(str(batch.product.price if batch.product and batch.product.price else '20.00'))
+            amount_due_dec = unit_price * Decimal(qty)
+
+        p_status_upper = str(payment_status or '').upper().strip()
+        if p_status_upper == 'FULL':
+            amount_paid_dec = amount_due_dec
+        elif p_status_upper == 'UNPAID':
+            amount_paid_dec = Decimal('0.00')
+        elif p_status_upper == 'PARTIAL':
+            if amount_paid_dec > amount_due_dec:
+                raise ValidationError(f"Amount paid (₹{amount_paid_dec}) cannot exceed amount due (₹{amount_due_dec}).")
+
+        if amount_paid_dec > amount_due_dec:
+            raise ValidationError(f"Amount paid (₹{amount_paid_dec}) cannot exceed amount due (₹{amount_due_dec}).")
+
+        # Find or create invoice
+        if order:
+            invoice = generate_invoice_for_order(order)
+            if invoice.grand_total == Decimal('0.00') and amount_due_dec > Decimal('0.00'):
+                invoice.subtotal = amount_due_dec
+                invoice.grand_total = amount_due_dec
+                invoice.save(update_fields=['subtotal', 'grand_total'])
+        else:
+            billing_profile = CompanyBillingProfile.objects.filter(is_configured=True).first()
+            prefix = billing_profile.invoice_prefix if billing_profile else 'SHV/2026/'
+            inv_count = Invoice.objects.count() + 1
+            inv_number = f"{prefix}COL-{inv_count:04d}"
+            invoice = Invoice.objects.create(
+                invoice_number=inv_number,
+                invoice_type='DIRECT_COMPANY_SALE_INVOICE',
+                billed_to_name=collector,
+                subtotal=amount_due_dec,
+                grand_total=amount_due_dec,
+                amount_paid=Decimal('0.00'),
+                status='UNPAID'
+            )
+
+        txn = None
+        if amount_paid_dec > Decimal('0.00'):
+            p_method = 'CASH' if str(payment_method).upper() == 'CASH' else 'UPI'
+            txn = record_payment_transaction(
+                invoice_id=invoice.id,
+                amount_paid=amount_paid_dec,
+                payment_method=p_method,
+                reference_number=reference_number or '',
+                actor=actor,
+                notes=f"Customer collection payment for Batch {batch.batch_number} ({qty} units). {notes or ''}".strip()
+            )
+        invoice.refresh_from_db()
+
+        rem_balance = max(Decimal('0.00'), invoice.grand_total - invoice.amount_paid)
+        billing_summary = {
+            'invoice_id': invoice.id,
+            'invoice_number': invoice.invoice_number,
+            'amount_due': float(invoice.grand_total),
+            'amount_paid': float(invoice.amount_paid),
+            'remaining_amount': float(rem_balance),
+            'payment_status': invoice.status,
+            'payment_method': payment_method,
+            'transaction_number': txn.transaction_number if txn else None,
+        }
+
     return {
         'batch': batch,
         'quantity_collected': qty,
@@ -260,7 +349,8 @@ def record_batch_collection_atomic(batch_id, quantity_collected, client_name=Non
         'quantity_dispatched': batch.quantity_dispatched,
         'quantity_remaining_company': batch.quantity_remaining_company,
         'pending_stock': batch.quantity_pending_collection,
-        'order_status': order.status if order else None
+        'order_status': order.status if order else None,
+        'billing': billing_summary
     }
 
 

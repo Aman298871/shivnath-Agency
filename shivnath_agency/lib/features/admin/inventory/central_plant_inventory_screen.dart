@@ -9,7 +9,12 @@ import '../../../models/product_model.dart';
 /// raw materials stock, and dispatches to authorized wholesale dealers.
 class CentralPlantInventoryScreen extends StatefulWidget {
   final int initialTab;
-  const CentralPlantInventoryScreen({super.key, this.initialTab = 0});
+  final String? highlightBatchNumber;
+  const CentralPlantInventoryScreen({
+    super.key,
+    this.initialTab = 0,
+    this.highlightBatchNumber,
+  });
 
   @override
   State<CentralPlantInventoryScreen> createState() =>
@@ -107,6 +112,8 @@ class _CentralPlantInventoryScreenState
         ],
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           labelColor: const Color(0xFF0284C7),
           unselectedLabelColor: const Color(0xFF64748B),
           indicatorColor: const Color(0xFF0284C7),
@@ -206,18 +213,48 @@ class _CentralPlantInventoryScreenState
             0.0;
         final isExpired = b['is_expired'] == true;
         final isDepleted = remaining <= 0;
+        final isHighlighted = widget.highlightBatchNumber != null &&
+            bNum.toLowerCase().contains(widget.highlightBatchNumber!.toLowerCase());
 
         return Card(
           margin: const EdgeInsets.only(bottom: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
+            side: isHighlighted
+                ? const BorderSide(color: Color(0xFF0284C7), width: 2)
+                : BorderSide(color: Colors.grey.shade200),
           ),
-          elevation: 1.5,
+          color: isHighlighted ? const Color(0xFFF0F9FF) : Colors.white,
+          elevation: isHighlighted ? 3 : 1.5,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (isHighlighted)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.flag_rounded, size: 14, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text(
+                          'TARGETED ALERT BATCH',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 // Top Header Row
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -706,74 +743,139 @@ class _CentralPlantInventoryScreenState
 
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
+              elevation: 0.5,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: isLow
-                      ? Colors.orange.shade100
-                      : const Color(0xFFF1F5F9),
-                  child: Icon(
-                    Icons.science_outlined,
-                    color: isLow
-                        ? Colors.orange.shade800
-                        : const Color(0xFF64748B),
-                  ),
-                ),
-                title: Row(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        name,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: isLow
+                              ? Colors.orange.shade100
+                              : const Color(0xFFF1F5F9),
+                          child: Icon(
+                            Icons.science_outlined,
+                            size: 18,
+                            color: isLow
+                                ? Colors.orange.shade800
+                                : const Color(0xFF64748B),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '($code)',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ),
-                subtitle: Text(
-                  'Category: $category | Unit Cost: INR ${unitCost.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${stock.toStringAsFixed(0)} $uom',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                        color: isLow
-                            ? Colors.red.shade700
-                            : const Color(0xFF0F172A),
-                      ),
-                    ),
-                    if (isLow)
-                      const Text(
-                        'REORDER REQUIRED',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 9,
-                          color: Colors.red,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              if (code.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  code,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isLow
+                                    ? Colors.red.shade50
+                                    : const Color(0xFFF0FDF4),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isLow
+                                      ? Colors.red.shade200
+                                      : const Color(0xFFBBF7D0),
+                                ),
+                              ),
+                              child: Text(
+                                '${stock.toStringAsFixed(0)} $uom',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  color: isLow
+                                      ? Colors.red.shade700
+                                      : const Color(0xFF166534),
+                                ),
+                              ),
+                            ),
+                            if (isLow) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'LOW STOCK',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 9,
+                                  color: Colors.red.shade700,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        if (category.isNotEmpty)
+                          Text(
+                            'Category: $category',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        Text(
+                          'Unit Cost: ₹${unitCost.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                        Text(
+                          'Reorder: ${reorder.toStringAsFixed(0)} $uom',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -1214,209 +1316,459 @@ class _CentralPlantInventoryScreenState
         ) ??
         (produced - taken);
 
-    final qtyCtrl = TextEditingController(
-      text: remaining.toString(),
-    );
+    final unitPrice =
+        double.tryParse(batch['product_mrp']?.toString() ??
+                batch['unit_price']?.toString() ??
+                '20.0') ??
+            20.0;
+
+    final initialQty = remaining > 0 ? remaining : 0;
+    final qtyCtrl = TextEditingController(text: initialQty.toString());
     final collectorCtrl = TextEditingController(text: clientName);
     final notesCtrl = TextEditingController();
+    final refCtrl = TextEditingController();
+
+    String paymentStatus = 'FULL'; // FULL, PARTIAL, UNPAID
+    String paymentMethod = 'CASH'; // CASH, ONLINE
+
+    final initialDue = initialQty * unitPrice;
+    final amountDueCtrl = TextEditingController(text: initialDue.toStringAsFixed(2));
+    final amountPaidCtrl = TextEditingController(text: initialDue.toStringAsFixed(2));
+    double remainingDue = 0.0;
+
     bool isSaving = false;
 
     showDialog(
       context: context,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (context, setDlgState) {
+          void updateAmounts() {
+            final q = int.tryParse(qtyCtrl.text.trim()) ?? 0;
+            final due = q * unitPrice;
+            amountDueCtrl.text = due.toStringAsFixed(2);
+            if (paymentStatus == 'FULL') {
+              amountPaidCtrl.text = due.toStringAsFixed(2);
+              remainingDue = 0.0;
+            } else if (paymentStatus == 'UNPAID') {
+              amountPaidCtrl.text = '0.00';
+              remainingDue = due;
+            } else {
+              final paid = double.tryParse(amountPaidCtrl.text.trim()) ?? 0.0;
+              remainingDue = (due - paid).clamp(0.0, double.infinity);
+            }
+          }
+
           return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
                 Icon(Icons.local_shipping_rounded, color: Color(0xFF0284C7)),
                 SizedBox(width: 8),
-                Text(
-                  'Record Customer Collection',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                Expanded(
+                  child: Text(
+                    'Record Customer Collection',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
                 ),
               ],
             ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Batch: $bNum',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Text(
-                          'Product: $pName',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        if (clientName.isNotEmpty)
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 480,
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            'Client: $clientName',
+                            'Batch: $bNum',
                             style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                              color: Color(0xFF0284C7),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
                             ),
                           ),
-                        const Divider(height: 14),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 4,
-                          alignment: WrapAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Produced: $produced',
-                              style: const TextStyle(fontSize: 12),
+                          Text(
+                            'Product: $pName',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
                             ),
+                          ),
+                          if (clientName.isNotEmpty)
                             Text(
-                              'Taken: $taken',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            Text(
-                              'Available: $remaining',
+                              'Client: $clientName',
                               style: const TextStyle(
+                                fontWeight: FontWeight.w700,
                                 fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF16A34A),
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
+                          const Divider(height: 14),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 4,
+                            alignment: WrapAlignment.spaceBetween,
+                            children: [
+                              Text('Produced: $produced', style: const TextStyle(fontSize: 12)),
+                              Text('Taken: $taken', style: const TextStyle(fontSize: 12)),
+                              Text(
+                                'Available: $remaining',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF16A34A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: qtyCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Quantity Collected / Taken (Units) *',
+                        helperText: 'Max available in company stock: $remaining units',
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setDlgState(updateAmounts),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: collectorCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Collected By / Client Representative',
+                        hintText: 'e.g. Digital Marketing Wala Rep',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: notesCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Dispatch / Pickup Notes',
+                        hintText: 'e.g. Vehicle MH-12-AB-1234',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Payment Section
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.payments_outlined, size: 18, color: Color(0xFF0F172A)),
+                              SizedBox(width: 6),
+                              Text(
+                                'Collection Payment Details',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          // Payment Status Dropdown
+                          DropdownButtonFormField<String>(
+                            value: paymentStatus,
+                            decoration: const InputDecoration(
+                              labelText: 'Payment Status',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                              fillColor: Colors.white,
+                              filled: true,
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'FULL', child: Text('FULL PAYMENT (Paid in Full)')),
+                              DropdownMenuItem(value: 'PARTIAL', child: Text('PARTIAL PAYMENT (Balance Remaining)')),
+                              DropdownMenuItem(value: 'UNPAID', child: Text('UNPAID (Full Amount Outstanding)')),
+                            ],
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setDlgState(() {
+                                paymentStatus = v;
+                                updateAmounts();
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          // Payment Method Dropdown
+                          DropdownButtonFormField<String>(
+                            value: paymentMethod,
+                            decoration: const InputDecoration(
+                              labelText: 'Payment Method',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                              fillColor: Colors.white,
+                              filled: true,
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'CASH', child: Text('CASH')),
+                              DropdownMenuItem(value: 'ONLINE', child: Text('ONLINE (UPI / Bank Transfer)')),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) setDlgState(() => paymentMethod = v);
+                            },
+                          ),
+                          if (paymentMethod == 'ONLINE') ...[
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: refCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Transaction Ref / UTR / Reference ID *',
+                                hintText: 'e.g. UPI-9876543210',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                                fillColor: Colors.white,
+                                filled: true,
                               ),
                             ),
                           ],
-                        ),
-                      ],
+                          const SizedBox(height: 10),
+                          // Amount Due & Amount Paid
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: amountDueCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Total Due (₹)',
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                    fillColor: Colors.white,
+                                    filled: true,
+                                  ),
+                                  onChanged: (_) {
+                                    setDlgState(() {
+                                      final due = double.tryParse(amountDueCtrl.text.trim()) ?? 0.0;
+                                      if (paymentStatus == 'FULL') {
+                                        amountPaidCtrl.text = due.toStringAsFixed(2);
+                                        remainingDue = 0.0;
+                                      } else if (paymentStatus == 'UNPAID') {
+                                        remainingDue = due;
+                                      } else {
+                                        final paid = double.tryParse(amountPaidCtrl.text.trim()) ?? 0.0;
+                                        remainingDue = (due - paid).clamp(0.0, double.infinity);
+                                      }
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: amountPaidCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  enabled: paymentStatus == 'PARTIAL',
+                                  decoration: InputDecoration(
+                                    labelText: 'Amount Paid (₹)',
+                                    isDense: true,
+                                    border: const OutlineInputBorder(),
+                                    fillColor: paymentStatus == 'PARTIAL' ? Colors.white : const Color(0xFFF1F5F9),
+                                    filled: true,
+                                  ),
+                                  onChanged: (_) {
+                                    setDlgState(() {
+                                      final due = double.tryParse(amountDueCtrl.text.trim()) ?? 0.0;
+                                      final paid = double.tryParse(amountPaidCtrl.text.trim()) ?? 0.0;
+                                      remainingDue = (due - paid).clamp(0.0, double.infinity);
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Remaining Amount Display
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: remainingDue > 0 ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: remainingDue > 0 ? const Color(0xFFFECACA) : const Color(0xFFA7F3D0),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Remaining Outstanding:',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  '₹ ${remainingDue.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: remainingDue > 0 ? Colors.red.shade700 : const Color(0xFF047857),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: qtyCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Quantity Collected / Taken (Units) *',
-                      helperText:
-                          'Max available in company stock: $remaining units',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: collectorCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Collected By / Client Representative',
-                      hintText: 'e.g. Digital Marketing Wala Rep',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: notesCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Dispatch / Pickup Notes',
-                      hintText:
-                          'e.g. Picked up by vehicle MH-12-AB-1234, remaining pending in company stock',
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dlgCtx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0284C7),
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: isSaving
-                    ? null
-                    : () async {
-                        final takeQty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
-                        if (takeQty <= 0) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Quantity collected must be greater than zero.',
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        if (takeQty > remaining) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Cannot collect $takeQty units. Only $remaining available in company stock.',
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-
-                        setDlgState(() => isSaving = true);
-                        final res = await _invService.recordBatchCollection(
-                          batchId: bId,
-                          quantityCollected: takeQty,
-                          clientName: collectorCtrl.text.trim(),
-                          notes: notesCtrl.text.trim(),
-                        );
-                        setDlgState(() => isSaving = false);
-
-                        if (res['success'] == true) {
-                          if (mounted) {
-                            Navigator.pop(dlgCtx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  res['message'] ??
-                                      'Collection logged! Pending stock remains attached to batch.',
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(dlgCtx),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final takeQty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
+                            if (takeQty <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Quantity collected must be greater than zero.'),
+                                  backgroundColor: Colors.red,
                                 ),
-                                backgroundColor: Colors.green,
-                              ),
+                              );
+                              return;
+                            }
+                            if (takeQty > remaining) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Cannot collect $takeQty units. Only $remaining available in company stock.',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            final due = double.tryParse(amountDueCtrl.text.trim()) ?? 0.0;
+                            final paid = double.tryParse(amountPaidCtrl.text.trim()) ?? 0.0;
+
+                            if (paid > due) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Amount paid cannot exceed total amount due.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            if (paymentStatus == 'PARTIAL' && (paid <= 0 || paid >= due)) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('For partial payment, amount paid must be greater than 0 and less than due amount.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            if (paymentMethod == 'ONLINE' && refCtrl.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please enter reference / transaction ID for online payment.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            setDlgState(() => isSaving = true);
+                            final res = await _invService.recordBatchCollection(
+                              batchId: bId,
+                              quantityCollected: takeQty,
+                              clientName: collectorCtrl.text.trim(),
+                              notes: notesCtrl.text.trim(),
+                              paymentStatus: paymentStatus,
+                              paymentMethod: paymentMethod,
+                              referenceNumber: refCtrl.text.trim(),
+                              amountDue: due,
+                              amountPaid: paid,
                             );
-                            _loadData();
-                          }
-                        } else {
-                          if (mounted) {
-                            final errMsg = res['message'] ?? res['error'] ?? 'Failed to log collection.';
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(errMsg.toString()),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                child: isSaving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Confirm Collection',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
+                            setDlgState(() => isSaving = false);
+
+                            if (res['success'] == true) {
+                              if (mounted) {
+                                Navigator.pop(dlgCtx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      res['message'] ??
+                                          'Collection & Payment logged! Pending stock and ledger updated.',
+                                    ),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                                _loadData();
+                              }
+                            } else {
+                              if (mounted) {
+                                final errMsg = res['message'] ?? res['error'] ?? 'Failed to log collection.';
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(errMsg.toString()),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Confirm Collection & Payment',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                  ),
+                ],
               ),
             ],
           );

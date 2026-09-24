@@ -19,6 +19,8 @@ class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenUsers;
   final VoidCallback? onOpenNotifications;
   final VoidCallback? onOpenStockRequests;
+  final void Function(String? batchNumber)? onOpenInventoryWithBatch;
+  final void Function(String? orderCode)? onOpenOrdersWithCode;
 
   const AdminDashboardScreen({
     super.key,
@@ -33,6 +35,8 @@ class AdminDashboardScreen extends StatefulWidget {
     this.onOpenUsers,
     this.onOpenNotifications,
     this.onOpenStockRequests,
+    this.onOpenInventoryWithBatch,
+    this.onOpenOrdersWithCode,
   });
 
   @override
@@ -1693,7 +1697,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         child: OutlinedButton(
                           onPressed: () {
                             Navigator.of(ctx, rootNavigator: true).pop();
-                            if (widget.onOpenInventory != null) {
+                            final firstAlert = _pendingStockAlerts.isNotEmpty ? _pendingStockAlerts.first : null;
+                            final bNum = firstAlert?['batch_number']?.toString();
+                            if (widget.onOpenInventoryWithBatch != null) {
+                              widget.onOpenInventoryWithBatch!(bNum);
+                            } else if (widget.onOpenInventory != null) {
                               widget.onOpenInventory!();
                             }
                           },
@@ -1714,7 +1722,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         child: OutlinedButton(
                           onPressed: () {
                             Navigator.of(ctx, rootNavigator: true).pop();
-                            if (widget.onOpenOrders != null) {
+                            final firstAlert = _pendingStockAlerts.isNotEmpty ? _pendingStockAlerts.first : null;
+                            final oNum = firstAlert?['order_number']?.toString();
+                            if (widget.onOpenOrdersWithCode != null) {
+                              widget.onOpenOrdersWithCode!(oNum);
+                            } else if (widget.onOpenOrders != null) {
                               widget.onOpenOrders!();
                             }
                           },

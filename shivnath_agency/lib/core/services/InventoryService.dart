@@ -534,12 +534,17 @@ class InventoryService {
     }
   }
 
-  /// Record Customer / Dealer Partial Collection or Dispatch from a Production Batch
+  /// Record Customer / Dealer Partial Collection or Dispatch from a Production Batch with Payment details
   Future<Map<String, dynamic>> recordBatchCollection({
     required int batchId,
     required int quantityCollected,
     String? clientName,
     String? notes,
+    String? paymentStatus,
+    String? paymentMethod,
+    String? referenceNumber,
+    double? amountDue,
+    double? amountPaid,
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/production-batches/$batchId/collection/');
@@ -550,6 +555,11 @@ class InventoryService {
           'quantity_collected': quantityCollected,
           if (clientName != null && clientName.isNotEmpty) 'client_name': clientName,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
+          if (paymentStatus != null) 'payment_status': paymentStatus,
+          if (paymentMethod != null) 'payment_method': paymentMethod,
+          if (referenceNumber != null && referenceNumber.isNotEmpty) 'reference_number': referenceNumber,
+          if (amountDue != null) 'amount_due': amountDue,
+          if (amountPaid != null) 'amount_paid': amountPaid,
         }),
       );
       return _decodeResponse(response);

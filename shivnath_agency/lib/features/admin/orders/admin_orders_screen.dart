@@ -379,6 +379,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     _info('Date', order['date']),
                     _info('Items', '${order['items']}'),
                     _info('Amount', '₹${order['amount']}'),
+                    if ((order['previous_outstanding'] ?? 0) > 0) ...[
+                      _info('Prev. Outstanding', '₹${order['previous_outstanding']}'),
+                      _info('Total Exposure', '₹${order['total_exposure']}'),
+                    ],
                     _info('Payment', order['payment']),
                     const SizedBox(height: 10),
                     Row(
@@ -664,24 +668,46 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: const Color(0xFFBBF7D0)),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Column(
                             children: [
-                              const Text(
-                                'Total Order Amount',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Current Order Amount',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    '₹${order['amount']}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 16,
+                                      color: Color(0xFF16A34A),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '₹${order['amount']}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                  color: Color(0xFF16A34A),
+                              if ((order['previous_outstanding'] ?? 0) > 0) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Previous Outstanding', style: TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.w600)),
+                                    Text('₹${order['previous_outstanding']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFFDC2626))),
+                                  ],
                                 ),
-                              ),
+                                const Divider(height: 14),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Total Exposure / Due', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF991B1B))),
+                                    Text('₹${order['total_exposure']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF991B1B))),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -707,7 +733,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                   ),
                                   SizedBox(width: 8),
                                   Text(
-                                    'Shivnath Factory Production & Pending Stock',
+                                    'Shivnath Factory Production\n & Pending Stock',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 13,

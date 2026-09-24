@@ -311,6 +311,13 @@ class OrderService {
       'total_delivered_units': int.tryParse(item['total_delivered_units']?.toString() ?? '0') ?? 0,
       'total_pending_stock_units': int.tryParse(item['total_pending_stock_units']?.toString() ?? '0') ?? 0,
 
+      'previous_outstanding': double.tryParse(item['previous_outstanding']?.toString() ?? '0') ?? 0.0,
+      'current_order_amount': double.tryParse(item['current_order_amount']?.toString() ?? item['amount']?.toString() ?? '0') ?? 0.0,
+      'total_exposure': double.tryParse(item['total_exposure']?.toString() ?? '0') ?? 0.0,
+      'credit_limit': double.tryParse(item['credit_limit']?.toString() ?? '0') ?? 0.0,
+      'payment_terms_days': int.tryParse(item['payment_terms_days']?.toString() ?? '15') ?? 15,
+      'credit_status': item['credit_status']?.toString() ?? 'GOOD_STANDING',
+
       'status_history': item['status_history'] is List ? item['status_history'] : [],
 
       'raw': item,

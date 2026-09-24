@@ -402,6 +402,7 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
         child: Text('Franchise Confirmed'),
       ),
       DropdownMenuItem(value: 'Converted', child: Text('Converted')),
+      DropdownMenuItem(value: 'Not Interested', child: Text('Not Interested')),
       DropdownMenuItem(value: 'Lost', child: Text('Lost')),
     ];
     final validValues = items.map((e) => e.value).toSet();
@@ -866,6 +867,7 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
       'Site Visit Completed',
       'Agreement Pending',
       'Franchise Confirmed',
+      'Converted',
       'Lost',
       'Not Interested',
     ];
@@ -1810,10 +1812,15 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                                                         'Contacted',
                                                         'Follow-up 1',
                                                         'Follow-up 2',
+                                                        'Follow-up Required',
                                                         'Interested',
+                                                        'Hot Lead',
                                                         'Site Visit Scheduled',
+                                                        'Site Visit Completed',
                                                         'Agreement Pending',
                                                         'Franchise Confirmed',
+                                                        'Converted',
+                                                        'Not Interested',
                                                         'Lost',
                                                       ],
                                                       onChanged: (value) {
@@ -1894,10 +1901,15 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                                                   'Contacted',
                                                   'Follow-up 1',
                                                   'Follow-up 2',
+                                                  'Follow-up Required',
                                                   'Interested',
+                                                  'Hot Lead',
                                                   'Site Visit Scheduled',
+                                                  'Site Visit Completed',
                                                   'Agreement Pending',
                                                   'Franchise Confirmed',
+                                                  'Converted',
+                                                  'Not Interested',
                                                   'Lost',
                                                 ],
                                                 onChanged: (value) {

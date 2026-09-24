@@ -122,23 +122,33 @@ class PublicLeadCaptureView(APIView):
 
         # Strict name validation: 2-30 chars, at least some alphabetic, not purely numeric/symbol
         name_clean = name.strip()
-        if not name_clean:
-            name_clean = f"Prospect {phone_raw[-4:] if len(phone_raw) >= 4 else 'Visitor'}"
-        elif len(name_clean) > 50:
-            name_clean = name_clean[:50]
+        if not name_clean or len(name_clean) < 2 or len(name_clean) > 30:
+            return Response(
+                {'success': False, 'message': 'Full name must be between 2 and 30 characters.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not _re2.search(r'[a-zA-Z]', name_clean) or _re2.fullmatch(r'^[0-9\W_]+$', name_clean):
+            return Response(
+                {'success': False, 'message': 'Full name must contain meaningful alphabetic characters.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         name = name_clean
 
-        # Email validation: format check if provided, or default fallback if skipped
+        # Email validation: required field and valid format
         email_clean = str(email).strip().lower()
+        if not email_clean or email_clean in ['skip', 'skip email', 'none', 'null']:
+            return Response(
+                {'success': False, 'message': 'Email address is required to register inquiry.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         import re as _re3
         email_regex = _re3.compile(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
-        if email_clean and email_clean not in ['skip', 'skip email', 'none', 'null', '']:
-            if email_regex.fullmatch(email_clean):
-                email = email_clean
-            else:
-                email = f"{phone}@purewatercrm.com"
-        else:
-            email = f"{phone}@purewatercrm.com"
+        if not email_regex.fullmatch(email_clean):
+            return Response(
+                {'success': False, 'message': 'Please provide a valid email address.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        email = email_clean
 
         norm_phone = _normalize_phone(phone)
         

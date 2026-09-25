@@ -313,11 +313,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     setState(() => _isSubmitting = true);
 
+    String selectedFranchiseName = 'Shivnath Agency (Direct Company Fulfillment)';
+    if (!isDirect && selectedFranchiseId != null) {
+      final match = eligibleFranchises.firstWhere(
+        (f) => f['id'] == selectedFranchiseId,
+        orElse: () => {},
+      );
+      selectedFranchiseName = match['business_name']?.toString() ??
+          match['name']?.toString() ??
+          'Shivnath Franchise';
+    }
+
     try {
       final res = await OrderService().createOrder({
         'franchise': isDirect
             ? 'Shivnath Agency (Direct Company Fulfillment)'
-            : nameController.text.trim(),
+            : selectedFranchiseName,
         'city': addressController.text.trim(),
         'customer_name': nameController.text.trim(),
         'phone': phoneController.text.trim(),

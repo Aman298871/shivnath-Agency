@@ -261,13 +261,14 @@ class OrderService {
 
       'orderId': item['order_id']?.toString() ?? '',
 
-      'franchise': item['franchise_name']?.toString() ?? '',
-
-      'serving_franchise_name': item['serving_franchise_name']?.toString() ?? '',
-
       'customer_name': (item['customer_name'] != null && item['customer_name'].toString().isNotEmpty)
           ? item['customer_name'].toString()
           : (item['created_by_name']?.toString() ?? ''),
+
+      'franchise': _resolveFranchiseName(item),
+
+      'serving_franchise_name': item['serving_franchise_name']?.toString() ?? '',
+      'registered_franchise_name': item['registered_franchise_name']?.toString() ?? '',
 
       'customer_phone': item['customer_phone']?.toString() ?? '',
       'customer_email': item['customer_email']?.toString() ?? '',
@@ -495,6 +496,28 @@ class OrderService {
       default:
         return value;
     }
+  }
+
+  static String _resolveFranchiseName(Map<String, dynamic> item) {
+    final serving = item['serving_franchise_name']?.toString().trim();
+    if (serving != null && serving.isNotEmpty && serving.toLowerCase() != 'null') {
+      return serving;
+    }
+    final registered = item['registered_franchise_name']?.toString().trim();
+    if (registered != null && registered.isNotEmpty && registered.toLowerCase() != 'null') {
+      return registered;
+    }
+    final fn = item['franchise_name']?.toString().trim();
+    final cust = (item['customer_name'] ?? item['created_by_name'] ?? '').toString().trim();
+    if (fn != null && fn.isNotEmpty && fn.toLowerCase() != 'null') {
+      if (cust.isEmpty || fn.toLowerCase() != cust.toLowerCase()) {
+        return fn;
+      }
+    }
+    if (item['order_source'] == 'DIRECT_COMPANY') {
+      return 'Shivnath Agency (Direct Company)';
+    }
+    return 'Shivnath Agency';
   }
 
   // =====================================================

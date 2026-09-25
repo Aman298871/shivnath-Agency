@@ -374,6 +374,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
+                    if ((order['customer_name'] ?? '').toString().isNotEmpty)
+                      _info('Customer', order['customer_name']),
                     _info('Franchise', order['franchise']),
                     _info('City', order['city']),
                     _info('Date', order['date']),
@@ -1081,6 +1083,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                         title: 'Order Status Updated',
                       );
                     } else {
+                      if (!mounted) return;
                       AppToast.error(
                         context,
                         result['message'] ?? 'Unable to update order status.',

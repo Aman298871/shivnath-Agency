@@ -308,4 +308,20 @@ class OrderSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'Amount cannot be negative.'
             )
-        return value
+        return value
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Authoritative franchise name: always show serving/registered franchise business name, never customer name
+        if instance.serving_franchise:
+            data['franchise_name'] = instance.serving_franchise.business_name
+        elif instance.registered_franchise:
+            data['franchise_name'] = instance.registered_franchise.business_name
+        elif instance.order_source == 'DIRECT_COMPANY':
+            data['franchise_name'] = 'Shivnath Agency (Direct)'
+        else:
+            fn = str(data.get('franchise_name') or '').strip()
+            cust = str(data.get('customer_name') or '').strip()
+            if not fn or fn.lower() == cust.lower() or fn.lower() == 'customer order':
+                data['franchise_name'] = 'Shivnath Agency (Direct)'
+        return data

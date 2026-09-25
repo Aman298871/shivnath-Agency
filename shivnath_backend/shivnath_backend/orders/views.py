@@ -234,18 +234,20 @@ class OrderListCreateView(APIView):
                     order_source = 'DIRECT_COMPANY'
                     serving_franchise = None
 
-            # Set franchise_name display
-            if not order_data.get('franchise_name'):
-                if order_source == 'DIRECT_COMPANY':
-                    order_data['franchise_name'] = 'Shivnath Agency (Direct)'
-                else:
-                    order_data['franchise_name'] = (
-                        (serving_franchise.business_name if serving_franchise else None)
-                        or order_data.get('franchise')
-                        or order_data.get('customer_name')
-                        or (creator.get_full_name() if creator else None)
-                        or (creator.username if creator else 'Customer Order')
-                    )
+            # Set authoritative franchise_name display
+            resolved_franchise_name = 'Shivnath Agency (Direct)'
+            if serving_franchise:
+                resolved_franchise_name = serving_franchise.business_name
+            elif registered_franchise:
+                resolved_franchise_name = registered_franchise.business_name
+            elif order_source != 'DIRECT_COMPANY' and order_data.get('franchise'):
+                fn = str(order_data.get('franchise', '')).strip()
+                cust_n = (creator.get_full_name() if creator else '').strip()
+                cust_u = (creator.username if creator else '').strip()
+                if fn and fn.lower() != cust_n.lower() and fn.lower() != cust_u.lower():
+                    resolved_franchise_name = fn
+
+            order_data['franchise_name'] = resolved_franchise_name
 
             if not order_data.get('city'):
                 user_city = getattr(getattr(creator, 'profile', None), 'city', '') if creator else ''
@@ -297,6 +299,7 @@ class OrderListCreateView(APIView):
                 created_by=creator,
                 serving_franchise=serving_franchise,
                 registered_franchise=registered_franchise,
+                franchise_name=resolved_franchise_name,
                 zone=zone,
                 duration_choice=duration_choice,
                 duration_days=duration_days,

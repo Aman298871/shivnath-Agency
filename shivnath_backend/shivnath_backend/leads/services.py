@@ -59,8 +59,8 @@ def validate_and_create_chatbot_inquiry(data, is_dealer_inquiry=False):
     session_id = str(data.get('session_id', '')).strip()
 
     # Validation
-    if not (2 <= len(name) <= 100):
-        raise ValidationError("Full name must be between 2 and 100 characters.")
+    if not (2 <= len(name) <= 50) or not re.search(r'[A-Za-z]', name):
+        raise ValidationError("Full name must be 2 to 30 meaningful characters containing alphabetic letters.")
 
     clean_phone = re.sub(r'[^0-9]', '', phone)
     if clean_phone.startswith('91') and len(clean_phone) == 12:
@@ -145,6 +145,18 @@ def validate_and_create_chatbot_inquiry(data, is_dealer_inquiry=False):
         title=f"Public Chatbot Inquiry ({'New' if is_new else 'Updated'})",
         description=f"Public Chatbot inquiry received for {name} ({clean_phone}). District: {district}, Territory: {territory}",
     )
+
+    # Authoritative Admin & Super Admin notification
+    try:
+        from accounts.models import AdminNotification
+        AdminNotification.objects.create(
+            title=f"Chatbot Enquiry: {lead.name}",
+            message=f"Inbound public chatbot enquiry ({action_text}) from {lead.name} ({clean_phone}). Qualified as {lead.score_category} (Score: {lead.lead_score_number}).",
+            notification_type='general',
+            reference_id=lead.id,
+        )
+    except Exception:
+        pass
 
     return lead
 

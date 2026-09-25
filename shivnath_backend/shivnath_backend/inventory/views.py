@@ -978,19 +978,14 @@ class DealerStockRequestListCreateAPIView(views.APIView):
 
                     validated_items.append((product, qty_int))
 
-                if validation_errors:
+                if not validated_items:
+                    err_msg = '; '.join(validation_errors) if validation_errors else 'Please enter a quantity greater than 0 for at least one active product.'
                     return Response(
                         {
                             'success': False,
-                            'message': f"Stock request validation failed: {'; '.join(validation_errors)}",
+                            'message': err_msg,
                             'errors': validation_errors,
                         },
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                if not validated_items:
-                    return Response(
-                        {'success': False, 'message': 'Please enter a quantity greater than 0 for at least one active product.'},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 

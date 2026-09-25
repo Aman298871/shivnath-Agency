@@ -38,6 +38,7 @@ from .views import (
     DealerKYCDocumentView,
     DealerKYCVerifyView,
     SuperAdminSeedDemoDataView,
+    CustomerDetailHistoryView,
 )
 
 
@@ -84,6 +85,11 @@ urlpatterns = [
         'franchise-customers/',
         FranchiseCustomerListView.as_view(),
         name='franchise-customers'
+    ),
+    path(
+        'customers/<int:user_id>/history/',
+        CustomerDetailHistoryView.as_view(),
+        name='customer-history'
     ),
     path(
         'franchise-notifications/',

@@ -144,3 +144,137 @@ class CompanyBillingProfileAPIView(views.APIView):
             serializer.save(is_configured=True)
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RecordOrderPaymentAPIView(views.APIView):
+    """
+    Authoritative endpoint for recording payment on an Order by either Franchise or Admin.
+    Automatically generates invoice if not present, links payment to Order, Invoice, and Customer,
+    records authoritative PaymentTransaction, and creates audit notification.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, order_id):
+        from orders.models import Order
+        order = get_object_or_404(Order, id=order_id)
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        if not user.is_superuser and role not in ['admin', 'super_admin']:
+            fp = getattr(user, 'franchise_profile', None)
+            if role == 'franchise':
+                if not fp or (order.serving_franchise != fp and order.registered_franchise != fp):
+                    return Response({'error': 'Unauthorized to view payments for this order.'}, status=status.HTTP_403_FORBIDDEN)
+            elif role == 'customer':
+                if order.created_by != user:
+                    return Response({'error': 'Unauthorized to view payments for this order.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not hasattr(order, 'invoice') or not order.invoice:
+            return Response({
+                'success': True,
+                'order_id': order.id,
+                'order_code': order.order_code,
+                'payments': [],
+                'total_amount': float(order.grand_total or order.amount or 0.0),
+                'amount_paid': 0.0,
+                'outstanding_balance': float(order.grand_total or order.amount or 0.0),
+                'payment_status': order.payment_status,
+            })
+
+        payments = PaymentTransaction.objects.filter(invoice=order.invoice).order_by('-payment_date')
+        return Response({
+            'success': True,
+            'order_id': order.id,
+            'order_code': order.order_code,
+            'invoice_number': order.invoice.invoice_number,
+            'total_amount': float(order.invoice.grand_total),
+            'amount_paid': float(order.invoice.amount_paid),
+            'outstanding_balance': float(order.invoice.outstanding_balance),
+            'payment_status': order.invoice.status,
+            'payments': PaymentTransactionSerializer(payments, many=True).data,
+        })
+
+    def post(self, request, order_id):
+        from orders.models import Order
+        from decimal import Decimal
+        from billing.services import generate_invoice_for_order
+
+        order = get_object_or_404(Order, id=order_id)
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+
+        # Permission check: Admin, Super Admin, or the serving Franchise
+        if not user.is_superuser and role not in ['admin', 'super_admin']:
+            fp = getattr(user, 'franchise_profile', None)
+            if role == 'franchise':
+                if not fp or (order.serving_franchise != fp and order.registered_franchise != fp):
+                    return Response({'error': 'Unauthorized to collect payment for this order.'}, status=status.HTTP_403_FORBIDDEN)
+            else:
+                return Response({'error': 'Unauthorized to record payments.'}, status=status.HTTP_403_FORBIDDEN)
+
+        invoice = generate_invoice_for_order(order)
+        outstanding = invoice.outstanding_balance
+
+        if outstanding <= Decimal('0.00'):
+            return Response({'error': 'Order invoice is already fully paid.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment_type = str(request.data.get('payment_type', '')).upper().strip()
+        amount_raw = request.data.get('amount')
+        if payment_type == 'FULL' or not amount_raw:
+            amount = outstanding
+        else:
+            try:
+                amount = Decimal(str(amount_raw))
+            except Exception:
+                return Response({'error': 'Invalid payment amount.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if amount <= Decimal('0.00'):
+            return Response({'error': 'Payment amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if amount > outstanding:
+            return Response({
+                'error': f'Payment amount (₹{amount}) cannot exceed outstanding balance (₹{outstanding}).'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        payment_method = request.data.get('payment_method', 'CASH')
+        reference_number = request.data.get('reference_number', '') or request.data.get('transaction_reference', '')
+        notes = request.data.get('notes', '')
+
+        try:
+            txn = record_payment_transaction(
+                invoice_id=invoice.id,
+                amount_paid=amount,
+                payment_method=payment_method,
+                reference_number=reference_number,
+                actor=user,
+                notes=notes
+            )
+
+            # Create notification for Admin & Super Admin
+            try:
+                from accounts.models import AdminNotification
+                collector_name = user.get_full_name() or user.username
+                if role == 'franchise' and hasattr(user, 'franchise_profile'):
+                    collector_name = f"Franchise {user.franchise_profile.business_name}"
+                AdminNotification.objects.create(
+                    title=f"Payment Collected: Order #{order.order_code}",
+                    message=f"₹{amount} collected for Order #{order.order_code} by {collector_name} via {payment_method}. Remaining balance: ₹{invoice.outstanding_balance}.",
+                    notification_type='general',
+                    reference_id=order.id
+                )
+            except Exception:
+                pass
+
+            invoice.refresh_from_db()
+            order.refresh_from_db()
+
+            return Response({
+                'success': True,
+                'message': f"Payment of ₹{amount} successfully recorded.",
+                'transaction': PaymentTransactionSerializer(txn).data,
+                'invoice': InvoiceSerializer(invoice).data,
+                'order_payment_status': order.payment_status,
+                'outstanding_balance': float(invoice.outstanding_balance),
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+

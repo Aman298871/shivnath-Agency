@@ -1540,13 +1540,16 @@ class _CentralPlantInventoryScreenState
                             ),
                             items: const [
                               DropdownMenuItem(value: 'CASH', child: Text('CASH')),
-                              DropdownMenuItem(value: 'ONLINE', child: Text('ONLINE (UPI / Bank Transfer)')),
+                              DropdownMenuItem(value: 'ONLINE', child: Text('UPI / ONLINE')),
+                              DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('BANK TRANSFER (NEFT/RTGS)')),
+                              DropdownMenuItem(value: 'CHEQUE', child: Text('CHEQUE')),
+                              DropdownMenuItem(value: 'OTHER', child: Text('OTHER')),
                             ],
                             onChanged: (v) {
                               if (v != null) setDlgState(() => paymentMethod = v);
                             },
                           ),
-                          if (paymentMethod == 'ONLINE') ...[
+                          if (paymentMethod != 'CASH') ...[
                             const SizedBox(height: 10),
                             TextField(
                               controller: refCtrl,

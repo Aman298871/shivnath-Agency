@@ -170,13 +170,18 @@ class FollowUpSerializer(serializers.ModelSerializer):
         return value.strip()
 
     def validate(self, attrs):
-
-        if attrs.get("followup_datetime") is None:
+        if not self.partial and attrs.get("followup_datetime") is None and not self.instance:
             raise serializers.ValidationError(
                 {
                     "followup_datetime":
                         "Follow-up date & time is required."
                 }
             )
-
+        if "followup_datetime" in attrs and attrs.get("followup_datetime") is None:
+            raise serializers.ValidationError(
+                {
+                    "followup_datetime":
+                        "Follow-up date & time cannot be null."
+                }
+            )
         return attrs

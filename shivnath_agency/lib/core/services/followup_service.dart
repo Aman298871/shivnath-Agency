@@ -248,16 +248,45 @@ class FollowupService {
       };
     }
 
-    String message = "Something went wrong.";
+    String message = "Unable to process follow-up request.";
     if (decoded is Map<String, dynamic>) {
       if (decoded['code'] == 'token_not_valid' ||
           (decoded['detail'] != null && decoded['detail'].toString().contains('token not valid'))) {
         message = 'Your session has expired. Please log in again.';
         _sessionService.refreshAccessToken();
-      } else if (decoded['message'] != null) {
+      } else if (decoded['message'] != null && decoded['message'].toString().trim().isNotEmpty) {
         message = decoded['message'].toString();
-      } else if (decoded['detail'] != null) {
+      } else if (decoded['error'] != null && decoded['error'].toString().trim().isNotEmpty) {
+        message = decoded['error'].toString();
+      } else if (decoded['detail'] != null && decoded['detail'].toString().trim().isNotEmpty) {
         message = decoded['detail'].toString();
+      } else if (decoded['errors'] != null) {
+        final errs = decoded['errors'];
+        if (errs is Map) {
+          final parts = <String>[];
+          errs.forEach((k, v) {
+            if (v is List) {
+              parts.add('$k: ${v.join(", ")}');
+            } else {
+              parts.add('$k: $v');
+            }
+          });
+          if (parts.isNotEmpty) message = parts.join('; ');
+        } else if (errs is List) {
+          message = errs.join('; ');
+        }
+      } else {
+        final parts = <String>[];
+        decoded.forEach((k, v) {
+          if (k != 'success' && k != 'data' && k != 'statusCode') {
+            if (v is List) {
+              parts.add('$k: ${v.join(", ")}');
+            } else if (v is String) {
+              parts.add('$k: $v');
+            }
+          }
+        });
+        if (parts.isNotEmpty) message = parts.join('; ');
       }
     }
 

@@ -45,9 +45,11 @@ class AppToast {
     required AppToastType type,
   }) {
     ScaffoldMessengerState? messenger;
-    if (context != null && context.mounted) {
-      messenger = ScaffoldMessenger.maybeOf(context);
-    }
+    try {
+      if (context != null && context.mounted) {
+        messenger = ScaffoldMessenger.maybeOf(context);
+      }
+    } catch (_) {}
     messenger ??= rootScaffoldMessengerKey.currentState;
 
     if (messenger == null) return;

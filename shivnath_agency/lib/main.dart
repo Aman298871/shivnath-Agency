@@ -16,8 +16,9 @@ void main() {
   };
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
-    return Material(
-      color: Colors.transparent,
+    final errorText = details.exceptionAsString();
+    return Directionality(
+      textDirection: TextDirection.ltr,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -26,7 +27,7 @@ void main() {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: const Color(0xFFFCA5A5)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withAlpha(12),
@@ -38,27 +39,45 @@ void main() {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.info_outline_rounded,
-                  color: Color(0xFF0284C7),
-                  size: 38,
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEE2E2),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    '!',
+                    style: TextStyle(
+                      color: Color(0xFFDC2626),
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Section Temporarily Unavailable',
+                  'Component Display Error',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF0F172A),
+                    decoration: TextDecoration.none,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Data is refreshing or currently being synced. Please pull down to refresh or switch tabs.',
+                Text(
+                  errorText.isNotEmpty
+                      ? (errorText.length > 120 ? '${errorText.substring(0, 120)}...' : errorText)
+                      : 'An unexpected rendering issue occurred. Please retry.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF64748B),
+                    fontWeight: FontWeight.normal,
+                    decoration: TextDecoration.none,
                   ),
                 ),
               ],

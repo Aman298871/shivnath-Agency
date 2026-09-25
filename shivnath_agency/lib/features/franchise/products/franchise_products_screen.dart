@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/OrderService.dart';
 import '../../../core/services/InventoryService.dart';
 import '../../../core/services/product_service.dart';
-import '../../../core/services/session_service.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../models/product_model.dart';
 import '../../customer/products/product_detail_screen.dart';
@@ -36,6 +34,7 @@ class _FranchiseProductsScreenState
   Future<void> _fetchProducts() async {
     if (mounted) setState(() => _loadingProducts = true);
     await ProductService().getProducts(
+      status: 'Active',
       categoryId: selectedCategoryId,
       category: selectedCategoryId == null && selectedCategoryName != 'All' ? selectedCategoryName : null,
     );
@@ -81,185 +80,39 @@ class _FranchiseProductsScreenState
   }
 
   Future<void> _openOrderDialog(ProductModel product) async {
-    final quantityController = TextEditingController(text: '10');
-    final notesController = TextEditingController();
-    int quantity = 10;
-    bool isSubmitting = false;
+    final statusLower = product.status.trim().toLowerCase();
+    final skuUpper = product.sku.trim().toUpperCase();
+    if (statusLower == 'inactive' || skuUpper == 'BOTTEL1' || skuUpper.isEmpty) {
+      AppToast.warning(context, 'This item is not an active catalog product and cannot be ordered.');
+      return;
+    }
 
-    await showDialog(
+    final int? orderedQty = await showDialog<int>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (dialogStateContext, setDialogState) {
-            final totalAmount = quantity * product.price;
-
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Row(
-                children: [
-                  Icon(Icons.shopping_bag_outlined, color: Color(0xFF0284C7)),
-                  SizedBox(width: 8),
-                  Text('Request Stock from Plant', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-                ],
-              ),
-              content: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(dialogStateContext).size.width * 0.9,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE0F2FE),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.local_drink_rounded, color: Color(0xFF0284C7)),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(product.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                                  Text('₹${product.price.toStringAsFixed(0)} / ${product.unit}', style: const TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w700, fontSize: 12)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: quantityController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Quantity (Units / Boxes)',
-                          prefixIcon: Icon(Icons.format_list_numbered_rounded),
-                        ),
-                        onChanged: (val) {
-                          setDialogState(() {
-                            quantity = int.tryParse(val) ?? 0;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: notesController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'Delivery Notes (Optional)',
-                          prefixIcon: Icon(Icons.note_alt_outlined),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE0F2FE),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Total Estimated Cost:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0369A1))),
-                            Text('₹${totalAmount.toStringAsFixed(0)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0284C7))),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '• Stock request will be sent to company admin for review and dispatch.',
-                        style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0284C7),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: isSubmitting || quantity <= 0
-                      ? null
-                      : () async {
-                          setDialogState(() => isSubmitting = true);
-
-                          final res = await InventoryService().createDealerStockRequest({
-                            'items': [
-                              {
-                                'product_id': product.id,
-                                'sku': product.sku,
-                                'product_sku': product.sku,
-                                'quantity': quantity,
-                                'requested_quantity': quantity,
-                              }
-                            ],
-                            'notes': notesController.text.trim(),
-                          });
-
-                          if (!dialogContext.mounted) return;
-
-                          if (res['success'] == true) {
-                            Navigator.pop(dialogContext);
-                            if (mounted) {
-                              AppToast.success(context, 'Stock request of $quantity x ${product.name} submitted successfully to Central Plant!');
-                            }
-                          } else {
-                            setDialogState(() => isSubmitting = false);
-                            final msg = res['message'] ?? 'Unable to submit stock request.';
-                            AppToast.error(dialogContext, msg.toString());
-                          }
-                        },
-                  child: isSubmitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Submit Stock Request'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (dialogCtx) => _StockRequestDialog(product: product),
     );
 
-    quantityController.dispose();
-    notesController.dispose();
+    if (orderedQty != null && orderedQty > 0 && mounted) {
+      AppToast.success(
+        context,
+        'Stock request of $orderedQty x ${product.name} submitted successfully to Central Plant!',
+      );
+    }
   }
 
 
   @override
   Widget build(BuildContext context) {
     final products = ProductService.products.where((product) {
-      return product.name
-          .toLowerCase()
-          .contains(search.toLowerCase());
+      final statusLower = product.status.trim().toLowerCase();
+      if (statusLower.isNotEmpty && statusLower != 'active') return false;
+      final skuUpper = product.sku.trim().toUpperCase();
+      if (skuUpper == 'BOTTEL1') return false;
+
+      final query = search.trim().toLowerCase();
+      if (query.isEmpty) return true;
+      return product.name.toLowerCase().contains(query) ||
+          product.sku.toLowerCase().contains(query);
     }).toList();
 
     return LayoutBuilder(
@@ -542,3 +395,246 @@ class _FranchiseProductsScreenState
     );
   }
 }
+
+class _StockRequestDialog extends StatefulWidget {
+  final ProductModel product;
+
+  const _StockRequestDialog({required this.product});
+
+  @override
+  State<_StockRequestDialog> createState() => _StockRequestDialogState();
+}
+
+class _StockRequestDialogState extends State<_StockRequestDialog> {
+  late final TextEditingController _quantityController;
+  late final TextEditingController _notesController;
+  int _quantity = 10;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(text: '10');
+    _notesController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  double get _totalAmount => _quantity * widget.product.price;
+
+  Future<void> _submit() async {
+    if (_quantity <= 0 || _isSubmitting) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final res = await InventoryService().createDealerStockRequest({
+        'items': [
+          {
+            'product_id': widget.product.id,
+            'sku': widget.product.sku,
+            'product_sku': widget.product.sku,
+            'quantity': _quantity,
+            'requested_quantity': _quantity,
+          }
+        ],
+        'notes': _notesController.text.trim(),
+      });
+
+      if (!mounted) return;
+
+      if (res['success'] == true) {
+        Navigator.pop(context, _quantity);
+      } else {
+        setState(() => _isSubmitting = false);
+        final msg = res['message'] ?? 'Unable to submit stock request.';
+        AppToast.error(context, msg.toString());
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      AppToast.error(context, 'Error submitting stock request: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0F2FE),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.add_shopping_cart, color: Color(0xFF0284C7), size: 20),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Stock Request (Dealer)',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.9,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.local_drink_rounded, color: Color(0xFF0284C7)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.product.name,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                          ),
+                          Text(
+                            '₹${widget.product.price.toStringAsFixed(0)} / ${widget.product.unit}',
+                            style: const TextStyle(
+                              color: Color(0xFF0284C7),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                children: [10, 25, 50, 100, 500].map((preset) {
+                  final isSelected = _quantity == preset;
+                  return ChoiceChip(
+                    label: Text('$preset'),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _quantity = preset;
+                          _quantityController.text = preset.toString();
+                        });
+                      }
+                    },
+                    selectedColor: const Color(0xFF0284C7),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : const Color(0xFF334155),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _quantityController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Quantity (Units / Boxes)',
+                  prefixIcon: Icon(Icons.format_list_numbered_rounded),
+                ),
+                onChanged: (val) {
+                  setState(() {
+                    _quantity = int.tryParse(val) ?? 0;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Delivery Notes (Optional)',
+                  prefixIcon: Icon(Icons.note_alt_outlined),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Estimated Cost:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0369A1)),
+                    ),
+                    Text(
+                      '₹${_totalAmount.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0284C7)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '• Stock request will be sent to company admin for review and dispatch.',
+                style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0284C7),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          onPressed: _isSubmitting || _quantity <= 0 ? null : _submit,
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('Submit Stock Request'),
+        ),
+      ],
+    );
+  }
+}

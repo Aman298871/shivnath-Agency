@@ -49,10 +49,33 @@ def generate_invoice_for_order(order):
 @transaction.atomic
 def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', reference_number='', actor=None, receipt_file=None, notes=''):
     """
-    Atomically records a payment transaction, updates invoice status and dealer credit profile.
+    Atomically records a payment transaction, updates invoice status, linked order payment status,
+    and dealer credit profile.
+    Strictly enforces that payment cannot exceed invoice outstanding balance.
     """
     invoice = Invoice.objects.select_for_update().get(id=invoice_id)
     amount_paid_dec = Decimal(str(amount_paid))
+
+    if amount_paid_dec <= Decimal('0.00'):
+        raise ValueError("Payment amount must be greater than zero.")
+
+    if amount_paid_dec > invoice.outstanding_balance:
+        raise ValueError(
+            f"Payment amount (₹{amount_paid_dec}) cannot exceed invoice outstanding balance (₹{invoice.outstanding_balance})."
+        )
+
+    # Normalize payment method
+    method_upper = str(payment_method).upper().strip()
+    if 'CASH' in method_upper:
+        clean_method = 'CASH'
+    elif 'CHEQUE' in method_upper or 'CHECK' in method_upper:
+        clean_method = 'CHEQUE'
+    elif any(x in method_upper for x in ['BANK', 'NEFT', 'RTGS', 'TRANSFER']):
+        clean_method = 'NEFT_RTGS'
+    elif 'CREDIT' in method_upper:
+        clean_method = 'CREDIT_ADJUSTMENT'
+    else:
+        clean_method = 'UPI'
 
     count = PaymentTransaction.objects.count() + 1
     txn_number = f"PAY-{timezone.now().strftime('%Y%m%d')}-{count:05d}"
@@ -60,13 +83,13 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
     txn = PaymentTransaction.objects.create(
         transaction_number=txn_number,
         invoice=invoice,
-        payment_method=payment_method,
+        payment_method=clean_method,
         amount_paid=amount_paid_dec,
-        reference_number=reference_number,
+        reference_number=reference_number or '',
         payment_status='SUCCESS',
         receipt_file=receipt_file,
         received_by=actor,
-        notes=notes
+        notes=notes or ''
     )
 
     invoice.amount_paid = Decimal(str(invoice.amount_paid or '0.00')) + amount_paid_dec
@@ -74,7 +97,16 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
         invoice.status = 'PAID'
     elif invoice.amount_paid > Decimal('0.00'):
         invoice.status = 'PARTIALLY_PAID'
-    invoice.save()
+    invoice.save(update_fields=['amount_paid', 'status'])
+
+    # Synchronize linked Order payment_status if present
+    if invoice.order:
+        order = invoice.order
+        if invoice.status == 'PAID':
+            order.payment_status = 'paid'
+        elif invoice.status == 'PARTIALLY_PAID':
+            order.payment_status = 'partial'
+        order.save(update_fields=['payment_status', 'updated_at'])
 
     # If this is a dealer purchase invoice, update DealerCreditProfile
     if invoice.invoice_type == 'DEALER_PURCHASE_INVOICE':
@@ -94,7 +126,6 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
             if credit_profile.current_outstanding <= limit:
                 credit_profile.credit_status = 'GOOD_STANDING'
             credit_profile.save()
-
 
     return txn
 

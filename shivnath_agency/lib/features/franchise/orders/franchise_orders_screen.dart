@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/services/OrderService.dart';
 import '../../../core/services/session_service.dart';
+import '../../../core/utils/app_toast.dart';
+import '../../../core/utils/contact_action_helper.dart';
 
 class FranchiseOrdersScreen extends StatefulWidget {
   const FranchiseOrdersScreen({super.key});
@@ -64,6 +66,10 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     ? mappedItem['franchise']!.toString()
                     : 'Packaged Water');
 
+          final double totalAmt = double.tryParse(mappedItem['amount']?.toString() ?? '0') ?? 0.0;
+          final double amtPaid = double.tryParse(item['amount_paid']?.toString() ?? mappedItem['amount_paid']?.toString() ?? '0') ?? 0.0;
+          final double outstandingAmt = double.tryParse(item['outstanding_amount']?.toString() ?? mappedItem['outstanding_amount']?.toString() ?? '${(totalAmt - amtPaid).clamp(0.0, totalAmt)}') ?? (totalAmt - amtPaid).clamp(0.0, totalAmt);
+
           return {
             'db_id': rawDbId,
             'id': orderCode,
@@ -71,6 +77,11 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
             'customer_name':
                 item['created_by_name']?.toString() ??
                 mappedItem['customer_name']?.toString() ??
+                '',
+            'customer_phone':
+                item['customer_phone']?.toString() ??
+                mappedItem['customer_phone']?.toString() ??
+                item['phone']?.toString() ??
                 '',
             'delivery_address':
                 item['delivery_address']?.toString() ??
@@ -81,7 +92,9 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
             'qty':
                 mappedItem['items'] ??
                 (itemsList.isNotEmpty ? itemsList.length : 1),
-            'amount': mappedItem['amount'] ?? 0,
+            'amount': totalAmt,
+            'amount_paid': amtPaid,
+            'outstanding_amount': outstandingAmt,
             'status': mappedItem['status']?.toString() ?? 'Plant Approval',
             'payment': mappedItem['payment']?.toString() ?? 'Pending',
             'city':
@@ -517,10 +530,20 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
           ),
 
           SizedBox(
-            width: 80,
+            width: 120,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if ((double.tryParse(order['outstanding_amount']?.toString() ?? '0') ?? 0) > 0)
+                  IconButton(
+                    tooltip: 'Collect Payment',
+                    onPressed: () => _showCollectPaymentDialog(order),
+                    icon: const Icon(
+                      Icons.payment_rounded,
+                      size: 20,
+                      color: Color(0xFF16A34A),
+                    ),
+                  ),
                 IconButton(
                   tooltip: 'Update Status',
                   onPressed: () {
@@ -786,22 +809,46 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     ],
                   ),
                 ),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if ((double.tryParse(order['outstanding_amount']?.toString() ?? '0') ?? 0) > 0)
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: const Color(0xFF16A34A),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: const Icon(Icons.payment_rounded, size: 15),
+                        label: const Text('Collect', style: TextStyle(fontSize: 12)),
+                        onPressed: () => _showCollectPaymentDialog(order),
+                      ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: const Color(0xFF0284C7),
+                        side: const BorderSide(color: Color(0xFFBAE6FD)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      icon: const Icon(Icons.edit_note_rounded, size: 16),
+                      label: const Text('Update', style: TextStyle(fontSize: 12)),
+                      onPressed: () => _showUpdateStatusDialog(order),
                     ),
-                    visualDensity: VisualDensity.compact,
-                    foregroundColor: const Color(0xFF0284C7),
-                    side: const BorderSide(color: Color(0xFFBAE6FD)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  icon: const Icon(Icons.edit_note_rounded, size: 16),
-                  label: const Text('Update', style: TextStyle(fontSize: 12)),
-                  onPressed: () => _showUpdateStatusDialog(order),
+                  ],
                 ),
               ],
             ),
@@ -821,12 +868,15 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
     final quantityController = TextEditingController(text: '10');
     final notesController = TextEditingController();
     bool isSubmitting = false;
+    bool orderPlaced = false;
+    int placedQuantity = 0;
+    String placedProduct = '';
 
     await showDialog(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogInnerContext, setDialogState) {
             return AlertDialog(
               title: const Text('Place New Order'),
               content: ConstrainedBox(
@@ -982,28 +1032,24 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                             if (!dialogContext.mounted) return;
 
                             if (res['success'] == true) {
-                              Navigator.pop(dialogContext);
-                              await _fetchOrders();
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Order of $quantity x $selectedProduct placed successfully!',
-                                    ),
-                                    backgroundColor: const Color(0xFF0284C7),
-                                  ),
-                                );
+                              orderPlaced = true;
+                              placedQuantity = quantity;
+                              placedProduct = selectedProduct;
+                              if (dialogContext.mounted) {
+                                Navigator.pop(dialogContext);
                               }
                             } else {
                               setDialogState(() => isSubmitting = false);
                               final msg =
                                   res['message'] ?? 'Failed to place order';
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(
-                                SnackBar(
-                                  content: Text(msg.toString()),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
+                              if (dialogContext.mounted) {
+                                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                  SnackBar(
+                                    content: Text(msg.toString()),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
                             }
                           },
                     child: isSubmitting
@@ -1025,8 +1071,19 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
       },
     );
 
-    quantityController.dispose();
-    notesController.dispose();
+    Future.delayed(const Duration(milliseconds: 500), () {
+      quantityController.dispose();
+      notesController.dispose();
+    });
+
+    if (orderPlaced && mounted) {
+      await _fetchOrders();
+      if (!mounted) return;
+      AppToast.success(
+        context,
+        'Order of $placedQuantity x $placedProduct placed successfully!',
+      );
+    }
   }
 
   // =========================================================
@@ -1069,6 +1126,56 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                   _detailRow('Date', '${order['date']}'),
                   if ((order['customer_name'] ?? '').toString().isNotEmpty)
                     _detailRow('Customer', '${order['customer_name']}'),
+                  if ((order['customer_phone'] ?? '').toString().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 120,
+                            child: Text(
+                              'Phone',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '${order['customer_phone']}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            tooltip: 'Call Customer',
+                            icon: const Icon(Icons.call, size: 18, color: Color(0xFF0284C7)),
+                            onPressed: () => ContactActionHelper.makePhoneCall(
+                              dialogContext,
+                              order['customer_phone']?.toString(),
+                            ),
+                          ),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            tooltip: 'Chat / SMS',
+                            icon: const Icon(Icons.chat_outlined, size: 18, color: Color(0xFF16A34A)),
+                            onPressed: () => ContactActionHelper.openMessagingChooser(
+                              dialogContext,
+                              phone: order['customer_phone']?.toString(),
+                              contactName: order['customer_name']?.toString(),
+                              defaultMessage: 'Hello ${order['customer_name'] ?? 'Customer'}, regarding your order #${order['id']}...',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if ((order['delivery_address'] ?? '').toString().isNotEmpty)
                     _detailRow(
                       'Delivery Address',
@@ -1078,6 +1185,8 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     _detailRow('City', '${order['city']}'),
                   _detailRow('Status', '${order['status']}'),
                   _detailRow('Payment', '${order['payment']}'),
+                  _detailRow('Paid Amount', '₹${_formatAmount(order['amount_paid'])}'),
+                  _detailRow('Outstanding', '₹${_formatAmount(order['outstanding_amount'])}'),
                   const SizedBox(height: 12),
                   const Text(
                     'Ordered Products',
@@ -1170,6 +1279,22 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
             ),
           ),
           actions: [
+            if ((double.tryParse(order['outstanding_amount']?.toString() ?? '0') ?? 0) > 0)
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF16A34A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _showCollectPaymentDialog(order);
+                },
+                icon: const Icon(Icons.payment_rounded, size: 18),
+                label: const Text('Collect Payment'),
+              ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0284C7),
@@ -1204,6 +1329,11 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
       );
       return;
     }
+
+    final double totalAmount = double.tryParse(order['amount']?.toString() ?? '0') ?? 0.0;
+    final double alreadyPaid = double.tryParse(order['amount_paid']?.toString() ?? '0') ?? 0.0;
+    final double maxOutstanding = (totalAmount - alreadyPaid) > 0 ? (totalAmount - alreadyPaid) : 0.0;
+
     String rawStatus = order['status']?.toString() ?? 'Plant Approval';
     String selectedNewStatus = 'Plant Approval';
     final lower = rawStatus.toLowerCase();
@@ -1232,90 +1362,699 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
       'Cancelled',
     ];
 
+    bool collectPayment = false;
+    String paymentType = 'FULL'; // FULL, PARTIAL
+    String paymentMode = 'CASH'; // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
+    final amountController = TextEditingController(text: maxOutstanding.toStringAsFixed(2));
+    final refController = TextEditingController();
+    final notesController = TextEditingController();
+    bool isSubmitting = false;
+
     showDialog(
       context: context,
       builder: (dlgCtx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            'Update Order Status (#${order['id']})',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Select the new fulfillment status for this order:',
-                style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: statusOptions.contains(selectedNewStatus)
-                    ? selectedNewStatus
-                    : statusOptions.first,
-                decoration: const InputDecoration(
-                  labelText: 'Fulfillment Status',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.local_shipping_outlined),
+        builder: (ctx, setDlgState) {
+          final enteredAmount = double.tryParse(amountController.text) ?? 0.0;
+          final remainingAfterPayment = (maxOutstanding - enteredAmount).clamp(0.0, maxOutstanding);
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                const Icon(Icons.local_shipping_outlined, color: Color(0xFF0284C7)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Update Status (#${order['id']})',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                  ),
                 ),
-                items: statusOptions
-                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                    .toList(),
-                onChanged: (val) {
-                  if (val != null) setDlgState(() => selectedNewStatus = val);
-                },
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 480,
+                maxHeight: MediaQuery.of(ctx).size.height * 0.72,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Select the new fulfillment status for this customer order:',
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Fulfillment Status Dropdown
+                    DropdownButtonFormField<String>(
+                      initialValue: statusOptions.contains(selectedNewStatus)
+                          ? selectedNewStatus
+                          : statusOptions.first,
+                      decoration: const InputDecoration(
+                        labelText: 'Fulfillment Status',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.local_shipping_outlined),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      items: statusOptions
+                          .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDlgState(() {
+                            selectedNewStatus = val;
+                            if (val.toLowerCase() == 'delivered' && maxOutstanding > 0 && !collectPayment) {
+                              collectPayment = true;
+                              amountController.text = maxOutstanding.toStringAsFixed(2);
+                            }
+                          });
+                        }
+                      },
+                    ),
+
+                    if (maxOutstanding <= 0) ...[
+                      Container(
+                        margin: const EdgeInsets.only(top: 14),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFBBF7D0)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Payment Status: Fully Paid (₹${totalAmount.toStringAsFixed(2)})',
+                                style: const TextStyle(
+                                  color: Color(0xFF166534),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      // Integrated Payment Collection Option
+                      Container(
+                        margin: const EdgeInsets.only(top: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: collectPayment ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: collectPayment ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Checkbox(
+                                    value: collectPayment,
+                                    activeColor: const Color(0xFF16A34A),
+                                    onChanged: (val) {
+                                      setDlgState(() {
+                                        collectPayment = val ?? false;
+                                        if (collectPayment) {
+                                          amountController.text = maxOutstanding.toStringAsFixed(2);
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setDlgState(() {
+                                        collectPayment = !collectPayment;
+                                        if (collectPayment) {
+                                          amountController.text = maxOutstanding.toStringAsFixed(2);
+                                        }
+                                      });
+                                    },
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Record Payment Collected',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                            color: Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                        Text(
+                                          'Due: ₹${maxOutstanding.toStringAsFixed(2)} (Total: ₹${totalAmount.toStringAsFixed(2)})',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            if (collectPayment) ...[
+                              const Divider(height: 18),
+
+                              // Payment Type (Full vs Partial)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ChoiceChip(
+                                      label: const Center(child: Text('FULL PAYMENT')),
+                                      selected: paymentType == 'FULL',
+                                      selectedColor: const Color(0xFFDCFCE7),
+                                      labelStyle: TextStyle(
+                                        color: paymentType == 'FULL' ? const Color(0xFF166534) : const Color(0xFF475569),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11,
+                                      ),
+                                      onSelected: (sel) {
+                                        if (sel) {
+                                          setDlgState(() {
+                                            paymentType = 'FULL';
+                                            amountController.text = maxOutstanding.toStringAsFixed(2);
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ChoiceChip(
+                                      label: const Center(child: Text('PARTIAL')),
+                                      selected: paymentType == 'PARTIAL',
+                                      selectedColor: const Color(0xFFFEF3C7),
+                                      labelStyle: TextStyle(
+                                        color: paymentType == 'PARTIAL' ? const Color(0xFF92400E) : const Color(0xFF475569),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11,
+                                      ),
+                                      onSelected: (sel) {
+                                        if (sel) {
+                                          setDlgState(() {
+                                            paymentType = 'PARTIAL';
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Payment Mode
+                              DropdownButtonFormField<String>(
+                                initialValue: paymentMode,
+                                decoration: const InputDecoration(
+                                  labelText: 'Payment Mode',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'CASH', child: Text('Cash')),
+                                  DropdownMenuItem(value: 'UPI', child: Text('UPI / Online QR')),
+                                  DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Bank Transfer (NEFT/RTGS)')),
+                                  DropdownMenuItem(value: 'CHEQUE', child: Text('Cheque')),
+                                  DropdownMenuItem(value: 'OTHER', child: Text('Other')),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setDlgState(() => paymentMode = val);
+                                },
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Amount Field
+                              TextField(
+                                controller: amountController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                readOnly: paymentType == 'FULL',
+                                onChanged: (_) => setDlgState(() {}),
+                                decoration: InputDecoration(
+                                  labelText: 'Amount Collected (₹)',
+                                  border: const OutlineInputBorder(),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  prefixText: '₹ ',
+                                  helperText: paymentType == 'PARTIAL'
+                                      ? 'Remaining Due: ₹${remainingAfterPayment.toStringAsFixed(2)}'
+                                      : 'Full outstanding amount will be cleared.',
+                                  helperStyle: TextStyle(
+                                    color: remainingAfterPayment > 0 ? const Color(0xFFD97706) : const Color(0xFF16A34A),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Reference / Txn ID
+                              TextField(
+                                controller: refController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Reference ID / Cheque No. (Optional)',
+                                  hintText: 'e.g. UPI-123456 or Cheque #',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Notes
+                              TextField(
+                                controller: notesController,
+                                maxLines: 1,
+                                decoration: const InputDecoration(
+                                  labelText: 'Remarks / Notes (Optional)',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: collectPayment ? const Color(0xFF16A34A) : const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        double entered = 0.0;
+                        if (collectPayment) {
+                          entered = double.tryParse(amountController.text) ?? 0.0;
+                          if (entered <= 0) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('Payment amount must be greater than zero.')),
+                            );
+                            return;
+                          }
+                          if (entered > maxOutstanding + 0.01) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text('Cannot collect more than outstanding due (₹${maxOutstanding.toStringAsFixed(2)}).'),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                            return;
+                          }
+                        }
+
+                        setDlgState(() => isSubmitting = true);
+
+                        // 1. Update order fulfillment status
+                        final statusRes = await OrderService().updateOrderStatus(
+                          dbId,
+                          selectedNewStatus,
+                        );
+
+                        if (!mounted) return;
+
+                        if (statusRes['success'] != true) {
+                          setDlgState(() => isSubmitting = false);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  statusRes['message']?.toString() ?? 'Failed to update order status',
+                                ),
+                                backgroundColor: Colors.red.shade700,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
+                        // 2. If payment collection was selected, record the payment
+                        if (collectPayment) {
+                          final paymentPayload = {
+                            'amount': entered,
+                            'payment_method': paymentMode,
+                            'reference_number': refController.text.trim(),
+                            'transaction_reference': refController.text.trim(),
+                            'notes': notesController.text.trim(),
+                          };
+
+                          final payRes = await OrderService().recordOrderPayment(dbId, paymentPayload);
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (!mounted) return;
+
+                          if (payRes['success'] == true) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Order #${order['id']} updated to $selectedNewStatus & collected ₹${entered.toStringAsFixed(2)} ($paymentMode)!',
+                                ),
+                                backgroundColor: const Color(0xFF16A34A),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Status updated to $selectedNewStatus, but payment recording failed: ${payRes['message'] ?? 'Unknown error'}',
+                                ),
+                                backgroundColor: Colors.orange.shade800,
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                          }
+                          _fetchOrders();
+                        } else {
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Order #${order['id']} status updated to $selectedNewStatus'),
+                              backgroundColor: const Color(0xFF16A34A),
+                            ),
+                          );
+                          _fetchOrders();
+                        }
+                      },
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(collectPayment ? 'Update & Record Payment' : 'Confirm Status'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCollectPaymentDialog(Map<String, dynamic> order) {
+    final int? dbId = order['db_id'] as int?;
+    if (dbId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot collect payment: missing order ID')),
+      );
+      return;
+    }
+
+    final double totalAmount = double.tryParse(order['amount']?.toString() ?? '0') ?? 0.0;
+    final double alreadyPaid = double.tryParse(order['amount_paid']?.toString() ?? '0') ?? 0.0;
+    final double maxOutstanding = (totalAmount - alreadyPaid) > 0 ? (totalAmount - alreadyPaid) : 0.0;
+
+    String paymentType = 'FULL'; // FULL, PARTIAL
+    String paymentMode = 'CASH'; // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
+    final amountController = TextEditingController(text: maxOutstanding.toStringAsFixed(2));
+    final refController = TextEditingController();
+    final notesController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          final enteredAmount = double.tryParse(amountController.text) ?? 0.0;
+          final remainingAfterPayment = (maxOutstanding - enteredAmount).clamp(0.0, maxOutstanding);
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.payment_rounded, color: Color(0xFF16A34A)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Collect Payment (#${order['id']})',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                  ),
+                ),
+              ],
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0284C7),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(ctx).size.width * 0.9,
+                maxHeight: 520,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total Order:', style: TextStyle(color: Color(0xFF475569), fontSize: 12)),
+                              Text('₹${totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Already Paid:', style: TextStyle(color: Color(0xFF475569), fontSize: 12)),
+                              Text('₹${alreadyPaid.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF0284C7), fontSize: 13)),
+                            ],
+                          ),
+                          const Divider(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Outstanding Due:', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF166534), fontSize: 13)),
+                              Text('₹${maxOutstanding.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF166534), fontSize: 14)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Payment Type: Full or Partial
+                    const Text('Payment Type', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF334155))),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Center(child: Text('FULL PAYMENT')),
+                            selected: paymentType == 'FULL',
+                            selectedColor: const Color(0xFFDCFCE7),
+                            labelStyle: TextStyle(
+                              color: paymentType == 'FULL' ? const Color(0xFF166534) : const Color(0xFF475569),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
+                            onSelected: (sel) {
+                              if (sel) {
+                                setDlgState(() {
+                                  paymentType = 'FULL';
+                                  amountController.text = maxOutstanding.toStringAsFixed(2);
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Center(child: Text('PARTIAL')),
+                            selected: paymentType == 'PARTIAL',
+                            selectedColor: const Color(0xFFFEF3C7),
+                            labelStyle: TextStyle(
+                              color: paymentType == 'PARTIAL' ? const Color(0xFF92400E) : const Color(0xFF475569),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
+                            onSelected: (sel) {
+                              if (sel) {
+                                setDlgState(() {
+                                  paymentType = 'PARTIAL';
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Payment Mode Dropdown
+                    DropdownButtonFormField<String>(
+                      initialValue: paymentMode,
+                      decoration: const InputDecoration(
+                        labelText: 'Payment Mode',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'CASH', child: Text('Cash')),
+                        DropdownMenuItem(value: 'UPI', child: Text('UPI / Online')),
+                        DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Bank Transfer (NEFT/RTGS)')),
+                        DropdownMenuItem(value: 'CHEQUE', child: Text('Cheque')),
+                        DropdownMenuItem(value: 'OTHER', child: Text('Other')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setDlgState(() => paymentMode = val);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Amount Field
+                    TextField(
+                      controller: amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      readOnly: paymentType == 'FULL',
+                      onChanged: (_) => setDlgState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'Amount to Collect (₹)',
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        prefixText: '₹ ',
+                        helperText: paymentType == 'PARTIAL'
+                            ? 'Remaining Due: ₹${remainingAfterPayment.toStringAsFixed(2)}'
+                            : 'Full amount will clear outstanding balance.',
+                        helperStyle: TextStyle(
+                          color: remainingAfterPayment > 0 ? const Color(0xFFD97706) : const Color(0xFF16A34A),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Reference / Txn ID
+                    TextField(
+                      controller: refController,
+                      decoration: const InputDecoration(
+                        labelText: 'Transaction Reference / Cheque No.',
+                        hintText: 'e.g. UPI-123456 or Cheque #',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Notes
+                    TextField(
+                      controller: notesController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Remarks / Notes',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final res = await OrderService().updateOrderStatus(
-                  dbId,
-                  selectedNewStatus,
-                );
-                if (!mounted) return;
-                if (res['success'] == true) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Order #${order['id']} status updated to $selectedNewStatus',
-                      ),
-                      backgroundColor: const Color(0xFF16A34A),
-                    ),
-                  );
-                  _fetchOrders();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        res['message']?.toString() ??
-                            'Failed to update order status',
-                      ),
-                      backgroundColor: Colors.red.shade700,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Confirm Status'),
             ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF16A34A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final entered = double.tryParse(amountController.text) ?? 0.0;
+                        if (entered <= 0) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('Payment amount must be greater than zero.')),
+                          );
+                          return;
+                        }
+                        if (entered > maxOutstanding + 0.01) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text('Cannot collect more than outstanding due (₹${maxOutstanding.toStringAsFixed(2)}).'),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                          return;
+                        }
+
+                        setDlgState(() => isSubmitting = true);
+                        final payload = {
+                          'amount': entered,
+                          'payment_method': paymentMode,
+                          'transaction_reference': refController.text.trim(),
+                          'notes': notesController.text.trim(),
+                        };
+
+                        final res = await OrderService().recordOrderPayment(dbId, payload);
+                        if (!mounted) return;
+
+                        if (res['success'] == true) {
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Payment of ₹$entered recorded successfully!'),
+                              backgroundColor: const Color(0xFF16A34A),
+                            ),
+                          );
+                          _fetchOrders();
+                        } else {
+                          setDlgState(() => isSubmitting = false);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text(res['message']?.toString() ?? 'Failed to record payment'),
+                                backgroundColor: Colors.red.shade700,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                child: isSubmitting
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Record Payment'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

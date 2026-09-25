@@ -311,6 +311,8 @@ class OrderService {
       'total_delivered_units': int.tryParse(item['total_delivered_units']?.toString() ?? '0') ?? 0,
       'total_pending_stock_units': int.tryParse(item['total_pending_stock_units']?.toString() ?? '0') ?? 0,
 
+      'amount_paid': double.tryParse(item['amount_paid']?.toString() ?? '0') ?? 0.0,
+      'outstanding_amount': double.tryParse(item['outstanding_amount']?.toString() ?? '0') ?? 0.0,
       'previous_outstanding': double.tryParse(item['previous_outstanding']?.toString() ?? '0') ?? 0.0,
       'current_order_amount': double.tryParse(item['current_order_amount']?.toString() ?? item['amount']?.toString() ?? '0') ?? 0.0,
       'total_exposure': double.tryParse(item['total_exposure']?.toString() ?? '0') ?? 0.0,
@@ -322,6 +324,46 @@ class OrderService {
 
       'raw': item,
     };
+  }
+
+  // =====================================================
+  // RECORD ORDER PAYMENT (FRANCHISE / ADMIN)
+  // =====================================================
+
+  Future<Map<String, dynamic>> recordOrderPayment(
+    int orderId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/billing/orders/$orderId/payments/'),
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to record payment. Please check your connection.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> getOrderPayments(int orderId) async {
+    try {
+      final response = await ApiClient.get(
+        Uri.parse('$baseUrl/api/billing/orders/$orderId/payments/'),
+        headers: await _headers(),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to fetch order payments.',
+      };
+    }
   }
 
   // =====================================================

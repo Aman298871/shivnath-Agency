@@ -73,9 +73,12 @@ class CartProvider extends ChangeNotifier {
   double get subtotal =>
       _items.fold(0, (total, item) => total + item.total);
 
-  double get deliveryCharge => subtotal >= 500 ? 0 : 30;
+  double get deliveryCharge {
+    if (subtotal == 0) return 0;
+    return subtotal >= 500 ? 0 : 30;
+  }
 
-  double get totalAmount => subtotal + deliveryCharge;
+  double get totalAmount => subtotal == 0 ? 0 : (subtotal + deliveryCharge);
 
   /// Adds a product to the cart with stock validation.
   /// Returns null on success, or an error message if stock limit is exceeded.

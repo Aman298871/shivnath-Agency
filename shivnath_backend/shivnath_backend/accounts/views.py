@@ -1440,6 +1440,43 @@ class AdminUserListView(APIView):
                 'date_joined': u.date_joined.strftime('%Y-%m-%d %H:%M'),
             }
 
+            if role == 'customer':
+                cust_orders = Order.objects.filter(created_by=u)
+                tot_orders = cust_orders.count()
+                comp_orders = cust_orders.filter(status='delivered').count()
+                canc_orders = cust_orders.filter(status='cancelled').count()
+                fran_orders = cust_orders.filter(order_source='FRANCHISE').count()
+                dir_orders = cust_orders.filter(order_source='DIRECT_COMPANY').count()
+
+                first_ord = cust_orders.order_by('created_at').first()
+                last_ord = cust_orders.order_by('-created_at').first()
+                first_date = str(first_ord.order_date) if first_ord and first_ord.order_date else None
+                last_date = str(last_ord.order_date) if last_ord and last_ord.order_date else None
+
+                from billing.models import Invoice
+                cust_invoices = Invoice.objects.filter(order__in=cust_orders)
+                if cust_invoices.exists():
+                    tot_rev = sum(inv.grand_total for inv in cust_invoices)
+                    tot_paid = sum(inv.amount_paid for inv in cust_invoices)
+                    tot_out = sum(inv.outstanding_balance for inv in cust_invoices)
+                else:
+                    tot_rev = sum((o.grand_total or o.amount or Decimal('0.00')) for o in cust_orders)
+                    tot_paid = sum((o.grand_total or o.amount or Decimal('0.00')) for o in cust_orders.filter(payment_status='paid'))
+                    tot_out = max(Decimal('0.00'), tot_rev - tot_paid)
+
+                item['financial_summary'] = {
+                    'total_orders': tot_orders,
+                    'completed_orders': comp_orders,
+                    'cancelled_orders': canc_orders,
+                    'total_revenue': float(tot_rev),
+                    'total_paid': float(tot_paid),
+                    'total_outstanding': float(tot_out),
+                    'first_order_date': first_date,
+                    'last_order_date': last_date,
+                    'orders_by_franchise': fran_orders,
+                    'direct_orders': dir_orders,
+                }
+
             if fp:
                 item['franchise_details'] = {
                     'business_name': fp.business_name,
@@ -4024,4 +4061,107 @@ class SuperAdminSeedDemoDataView(APIView):
             return Response({'success': True, 'message': 'Authoritative demo dataset seeded successfully.'})
         except Exception as e:
             return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CustomerDetailHistoryView(APIView):
+    """
+    Authoritative profile, order history, and payment history for a customer.
+    Provides complete real-time DB order counts, revenue, amounts paid, outstanding balance,
+    and history breakdown.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        from orders.models import Order
+        from billing.models import Invoice, PaymentTransaction
+        from decimal import Decimal
+
+        customer_user = get_object_or_404(User, id=user_id)
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        if not user.is_superuser and role not in ['admin', 'super_admin'] and user.id != customer_user.id:
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
+        prof = getattr(customer_user, 'profile', None)
+        rel = getattr(customer_user, 'customer_relationship', None)
+
+        orders = Order.objects.filter(created_by=customer_user).order_by('-created_at')
+        total_orders = orders.count()
+        completed_orders = orders.filter(status='delivered').count()
+        cancelled_orders = orders.filter(status='cancelled').count()
+        franchise_orders = orders.filter(order_source='FRANCHISE').count()
+        direct_orders = orders.filter(order_source='DIRECT_COMPANY').count()
+
+        first_order = orders.order_by('created_at').first()
+        last_order = orders.first()
+
+        invoices = Invoice.objects.filter(order__in=orders)
+        if invoices.exists():
+            total_revenue = sum(inv.grand_total for inv in invoices)
+            total_paid = sum(inv.amount_paid for inv in invoices)
+            total_outstanding = sum(inv.outstanding_balance for inv in invoices)
+        else:
+            total_revenue = sum((o.grand_total or o.amount or Decimal('0.00')) for o in orders)
+            total_paid = sum((o.grand_total or o.amount or Decimal('0.00')) for o in orders.filter(payment_status='paid'))
+            total_outstanding = max(Decimal('0.00'), total_revenue - total_paid)
+
+        payments = PaymentTransaction.objects.filter(invoice__in=invoices).order_by('-payment_date')
+
+        orders_data = [
+            {
+                'id': o.id,
+                'order_code': o.order_code,
+                'order_date': str(o.order_date),
+                'amount': float(o.grand_total or o.amount or 0.0),
+                'status': o.status,
+                'payment_status': o.payment_status,
+                'order_source': o.order_source,
+                'serving_franchise_name': o.serving_franchise.business_name if o.serving_franchise else o.franchise_name,
+                'items_count': o.items_count,
+            }
+            for o in orders
+        ]
+
+        payments_data = [
+            {
+                'id': p.id,
+                'transaction_number': p.transaction_number,
+                'amount_paid': float(p.amount_paid),
+                'payment_method': p.payment_method,
+                'payment_date': p.payment_date.isoformat(),
+                'reference_number': p.reference_number,
+                'invoice_number': p.invoice.invoice_number if p.invoice else '',
+                'notes': p.notes,
+            }
+            for p in payments
+        ]
+
+        return Response({
+            'success': True,
+            'customer': {
+                'id': customer_user.id,
+                'customer_code': f'CUST-{1000 + customer_user.id}',
+                'name': prof.name if prof and prof.name else (customer_user.get_full_name() or customer_user.username),
+                'email': customer_user.email,
+                'phone': prof.phone if prof else '',
+                'city': prof.city if prof else '',
+                'district': rel.district.name if rel and rel.district else (prof.district if prof else ''),
+                'territory': rel.zone.name if rel and rel.zone else '',
+                'address': prof.address if prof else '',
+            },
+            'financial_summary': {
+                'total_orders': total_orders,
+                'completed_orders': completed_orders,
+                'cancelled_orders': cancelled_orders,
+                'total_revenue': float(total_revenue),
+                'total_paid': float(total_paid),
+                'total_outstanding': float(total_outstanding),
+                'first_order_date': str(first_order.order_date) if first_order and first_order.order_date else None,
+                'last_order_date': str(last_order.order_date) if last_order and last_order.order_date else None,
+                'orders_by_franchise': franchise_orders,
+                'direct_orders': direct_orders,
+            },
+            'orders': orders_data,
+            'payments': payments_data,
+        })
 

@@ -70,6 +70,10 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
 
+    amount_paid = serializers.SerializerMethodField()
+    outstanding_balance = serializers.SerializerMethodField()
+    outstanding_amount = serializers.SerializerMethodField()
+
     previous_outstanding = serializers.SerializerMethodField()
     current_order_amount = serializers.SerializerMethodField()
     total_exposure = serializers.SerializerMethodField()
@@ -83,6 +87,9 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'order_id',
+            'amount_paid',
+            'outstanding_balance',
+            'outstanding_amount',
 
             'franchise_name',
             'serving_franchise',
@@ -148,6 +155,9 @@ class OrderSerializer(serializers.ModelSerializer):
             'credit_limit',
             'payment_terms_days',
             'credit_status',
+            'amount_paid',
+            'outstanding_balance',
+            'outstanding_amount',
             'status_display',
             'payment_display',
             'created_by',
@@ -231,6 +241,19 @@ class OrderSerializer(serializers.ModelSerializer):
         prev = self.get_previous_outstanding(obj)
         curr = self.get_current_order_amount(obj)
         return round(prev + curr, 2)
+
+    def get_amount_paid(self, obj):
+        if hasattr(obj, 'invoice') and obj.invoice:
+            return float(obj.invoice.amount_paid)
+        return 0.0
+
+    def get_outstanding_balance(self, obj):
+        if hasattr(obj, 'invoice') and obj.invoice:
+            return float(obj.invoice.outstanding_balance)
+        return float(obj.grand_total or obj.amount or 0.0)
+
+    def get_outstanding_amount(self, obj):
+        return self.get_outstanding_balance(obj)
 
     def get_credit_limit(self, obj):
         if obj.serving_franchise:

@@ -1332,7 +1332,9 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
 
     final double totalAmount = double.tryParse(order['amount']?.toString() ?? '0') ?? 0.0;
     final double alreadyPaid = double.tryParse(order['amount_paid']?.toString() ?? '0') ?? 0.0;
-    final double maxOutstanding = (totalAmount - alreadyPaid) > 0 ? (totalAmount - alreadyPaid) : 0.0;
+    double maxOutstanding = double.tryParse(order['outstanding_balance']?.toString() ?? '') ??
+        double.tryParse(order['outstanding_amount']?.toString() ?? '') ??
+        ((totalAmount - alreadyPaid) > 0 ? (totalAmount - alreadyPaid) : 0.0);
 
     String rawStatus = order['status']?.toString() ?? 'Plant Approval';
     String selectedNewStatus = 'Plant Approval';
@@ -1369,11 +1371,29 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
     final refController = TextEditingController();
     final notesController = TextEditingController();
     bool isSubmitting = false;
+    bool fetchedLiveBalance = false;
 
     showDialog(
       context: context,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (ctx, setDlgState) {
+          if (!fetchedLiveBalance) {
+            fetchedLiveBalance = true;
+            OrderService().getOrderPayments(dbId).then((res) {
+              if (res['success'] == true && res['data'] is Map) {
+                final data = res['data'] as Map;
+                final liveOutstanding = double.tryParse(data['outstanding_balance']?.toString() ?? '');
+                if (liveOutstanding != null && ctx.mounted) {
+                  setDlgState(() {
+                    maxOutstanding = liveOutstanding;
+                    if (paymentType == 'FULL' || amountController.text == totalAmount.toStringAsFixed(2) || amountController.text == '0.00') {
+                      amountController.text = maxOutstanding.toStringAsFixed(2);
+                    }
+                  });
+                }
+              }
+            });
+          }
           final enteredAmount = double.tryParse(amountController.text) ?? 0.0;
           final remainingAfterPayment = (maxOutstanding - enteredAmount).clamp(0.0, maxOutstanding);
 
@@ -1674,18 +1694,12 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                         double entered = 0.0;
                         if (collectPayment) {
                           entered = double.tryParse(amountController.text) ?? 0.0;
-                          if (entered <= 0) {
+                          if (paymentType == 'FULL' || entered > maxOutstanding) {
+                            entered = maxOutstanding;
+                          }
+                          if (entered <= 0 && maxOutstanding > 0) {
                             ScaffoldMessenger.of(ctx).showSnackBar(
                               const SnackBar(content: Text('Payment amount must be greater than zero.')),
-                            );
-                            return;
-                          }
-                          if (entered > maxOutstanding + 0.01) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                content: Text('Cannot collect more than outstanding due (₹${maxOutstanding.toStringAsFixed(2)}).'),
-                                backgroundColor: Colors.redAccent,
-                              ),
                             );
                             return;
                           }
@@ -1717,8 +1731,9 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                         }
 
                         // 2. If payment collection was selected, record the payment
-                        if (collectPayment) {
+                        if (collectPayment && entered > 0) {
                           final paymentPayload = {
+                            'payment_type': paymentType,
                             'amount': entered,
                             'payment_method': paymentMode,
                             'reference_number': refController.text.trim(),
@@ -1728,6 +1743,11 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
 
                           final payRes = await OrderService().recordOrderPayment(dbId, paymentPayload);
                           if (ctx.mounted) Navigator.pop(ctx);
+                          Future.delayed(const Duration(milliseconds: 500), () {
+                            amountController.dispose();
+                            refController.dispose();
+                            notesController.dispose();
+                          });
                           if (!mounted) return;
 
                           if (payRes['success'] == true) {
@@ -1789,7 +1809,9 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
 
     final double totalAmount = double.tryParse(order['amount']?.toString() ?? '0') ?? 0.0;
     final double alreadyPaid = double.tryParse(order['amount_paid']?.toString() ?? '0') ?? 0.0;
-    final double maxOutstanding = (totalAmount - alreadyPaid) > 0 ? (totalAmount - alreadyPaid) : 0.0;
+    double maxOutstanding = double.tryParse(order['outstanding_balance']?.toString() ?? '') ??
+        double.tryParse(order['outstanding_amount']?.toString() ?? '') ??
+        ((totalAmount - alreadyPaid) > 0 ? (totalAmount - alreadyPaid) : 0.0);
 
     String paymentType = 'FULL'; // FULL, PARTIAL
     String paymentMode = 'CASH'; // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
@@ -1797,11 +1819,29 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
     final refController = TextEditingController();
     final notesController = TextEditingController();
     bool isSubmitting = false;
+    bool fetchedLiveBalance = false;
 
     showDialog(
       context: context,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (ctx, setDlgState) {
+          if (!fetchedLiveBalance) {
+            fetchedLiveBalance = true;
+            OrderService().getOrderPayments(dbId).then((res) {
+              if (res['success'] == true && res['data'] is Map) {
+                final data = res['data'] as Map;
+                final liveOutstanding = double.tryParse(data['outstanding_balance']?.toString() ?? '');
+                if (liveOutstanding != null && ctx.mounted) {
+                  setDlgState(() {
+                    maxOutstanding = liveOutstanding;
+                    if (paymentType == 'FULL' || amountController.text == totalAmount.toStringAsFixed(2) || amountController.text == '0.00') {
+                      amountController.text = maxOutstanding.toStringAsFixed(2);
+                    }
+                  });
+                }
+              }
+            });
+          }
           final enteredAmount = double.tryParse(amountController.text) ?? 0.0;
           final remainingAfterPayment = (maxOutstanding - enteredAmount).clamp(0.0, maxOutstanding);
 
@@ -1998,27 +2038,23 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                 onPressed: isSubmitting
                     ? null
                     : () async {
-                        final entered = double.tryParse(amountController.text) ?? 0.0;
-                        if (entered <= 0) {
+                        double entered = double.tryParse(amountController.text) ?? 0.0;
+                        if (paymentType == 'FULL' || entered > maxOutstanding) {
+                          entered = maxOutstanding;
+                        }
+                        if (entered <= 0 && maxOutstanding > 0) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
                             const SnackBar(content: Text('Payment amount must be greater than zero.')),
-                          );
-                          return;
-                        }
-                        if (entered > maxOutstanding + 0.01) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(
-                              content: Text('Cannot collect more than outstanding due (₹${maxOutstanding.toStringAsFixed(2)}).'),
-                              backgroundColor: Colors.redAccent,
-                            ),
                           );
                           return;
                         }
 
                         setDlgState(() => isSubmitting = true);
                         final payload = {
+                          'payment_type': paymentType,
                           'amount': entered,
                           'payment_method': paymentMode,
+                          'reference_number': refController.text.trim(),
                           'transaction_reference': refController.text.trim(),
                           'notes': notesController.text.trim(),
                         };
@@ -2028,6 +2064,11 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
 
                         if (res['success'] == true) {
                           if (ctx.mounted) Navigator.pop(ctx);
+                          Future.delayed(const Duration(milliseconds: 500), () {
+                            amountController.dispose();
+                            refController.dispose();
+                            notesController.dispose();
+                          });
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(

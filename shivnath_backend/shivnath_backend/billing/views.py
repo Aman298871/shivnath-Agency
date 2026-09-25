@@ -1,3 +1,4 @@
+from django.db import models
 from rest_framework import generics, status, views, permissions
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
@@ -231,9 +232,7 @@ class RecordOrderPaymentAPIView(views.APIView):
             return Response({'error': 'Payment amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if amount > outstanding:
-            return Response({
-                'error': f'Payment amount (₹{amount}) cannot exceed outstanding balance (₹{outstanding}).'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            amount = outstanding
 
         payment_method = request.data.get('payment_method', 'CASH')
         reference_number = request.data.get('reference_number', '') or request.data.get('transaction_reference', '')

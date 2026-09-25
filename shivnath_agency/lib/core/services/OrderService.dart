@@ -312,7 +312,10 @@ class OrderService {
       'total_pending_stock_units': int.tryParse(item['total_pending_stock_units']?.toString() ?? '0') ?? 0,
 
       'amount_paid': double.tryParse(item['amount_paid']?.toString() ?? '0') ?? 0.0,
-      'outstanding_amount': double.tryParse(item['outstanding_amount']?.toString() ?? '0') ?? 0.0,
+      'outstanding_balance': double.tryParse(item['outstanding_balance']?.toString() ?? '') ??
+          double.tryParse(item['outstanding_amount']?.toString() ?? '') ?? 0.0,
+      'outstanding_amount': double.tryParse(item['outstanding_amount']?.toString() ?? '') ??
+          double.tryParse(item['outstanding_balance']?.toString() ?? '') ?? 0.0,
       'previous_outstanding': double.tryParse(item['previous_outstanding']?.toString() ?? '0') ?? 0.0,
       'current_order_amount': double.tryParse(item['current_order_amount']?.toString() ?? item['amount']?.toString() ?? '0') ?? 0.0,
       'total_exposure': double.tryParse(item['total_exposure']?.toString() ?? '0') ?? 0.0,
@@ -400,6 +403,8 @@ class OrderService {
         _sessionService.refreshAccessToken();
       } else if (decoded['message'] != null) {
         message = decoded['message'].toString();
+      } else if (decoded['error'] != null) {
+        message = decoded['error'].toString();
       } else if (decoded['detail'] != null) {
         message = decoded['detail'].toString();
       } else if (decoded['errors'] != null) {
@@ -491,8 +496,6 @@ class OrderService {
         return value;
     }
   }
-
-  String _statusDisplay(String value) => normalizeStatusDisplay(value);
 
   // =====================================================
   // PAYMENT CONVERSION

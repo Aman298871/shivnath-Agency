@@ -1064,8 +1064,10 @@ class _WhatsAppTemplatesTabState extends State<WhatsAppTemplatesTab> {
       },
     );
 
-    nameController.dispose();
-    messageController.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      nameController.dispose();
+      messageController.dispose();
+    });
   }
 
   // =========================================================

@@ -1197,21 +1197,23 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
       );
     }
 
-    owner.dispose();
-    phone.dispose();
-    email.dispose();
-    city.dispose();
-    territory.dispose();
-    gst.dispose();
-    pan.dispose();
-    aadhaar.dispose();
-    deposit.dispose();
-    commission.dispose();
-    renewal.dispose();
-    businessName.dispose();
-    address.dispose();
-    password.dispose();
-    confirmPassword.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      owner.dispose();
+      phone.dispose();
+      email.dispose();
+      city.dispose();
+      territory.dispose();
+      gst.dispose();
+      pan.dispose();
+      aadhaar.dispose();
+      deposit.dispose();
+      commission.dispose();
+      renewal.dispose();
+      businessName.dispose();
+      address.dispose();
+      password.dispose();
+      confirmPassword.dispose();
+    });
   }
 
   Widget _formHeader({
@@ -1728,9 +1730,11 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
       },
     );
 
-    final name = item['owner'].toString();
+    final name = item['owner']?.toString() ?? 'Franchise';
 
-    reasonController.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      reasonController.dispose();
+    });
 
     if (rejectionReason == null || rejectionReason!.trim().isEmpty) {
       return;

@@ -1801,12 +1801,14 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
       );
     }
 
-    nameController.dispose();
-    skuController.dispose();
-    sizeController.dispose();
-    priceController.dispose();
-    gstController.dispose();
-    stockController.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      nameController.dispose();
+      skuController.dispose();
+      sizeController.dispose();
+      priceController.dispose();
+      gstController.dispose();
+      stockController.dispose();
+    });
   }
 
   Future<void> _deleteProduct(Map<String, dynamic> product) async {

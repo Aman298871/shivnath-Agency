@@ -2154,13 +2154,15 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
       );
     }
 
-    nameController.dispose();
-    phoneController.dispose();
-    cityController.dispose();
-    districtController.dispose();
-    experienceController.dispose();
-    locationController.dispose();
-    followupController.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      nameController.dispose();
+      phoneController.dispose();
+      cityController.dispose();
+      districtController.dispose();
+      experienceController.dispose();
+      locationController.dispose();
+      followupController.dispose();
+    });
   }
 
   Widget _professionalField({

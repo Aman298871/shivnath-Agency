@@ -747,13 +747,15 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       );
     }
 
-    name.dispose();
-    contact.dispose();
-    phone.dispose();
-    email.dispose();
-    category.dispose();
-    gst.dispose();
-    city.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      name.dispose();
+      contact.dispose();
+      phone.dispose();
+      email.dispose();
+      category.dispose();
+      gst.dispose();
+      city.dispose();
+    });
   }
 
   Widget _dialogHeader(String title, String subtitle, VoidCallback close) {

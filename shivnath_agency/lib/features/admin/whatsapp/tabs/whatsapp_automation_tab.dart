@@ -795,9 +795,11 @@ class _WhatsAppAutomationTabState
       },
     );
 
-    titleController.dispose();
-    dayController.dispose();
-    messageController.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      titleController.dispose();
+      dayController.dispose();
+      messageController.dispose();
+    });
   }
 
   BoxDecoration _cardDecoration() {

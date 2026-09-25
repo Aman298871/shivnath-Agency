@@ -1080,9 +1080,9 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
           },
         );
       },
-    );
-
-    qtyController.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      qtyController.dispose();
+    });
   }
 
   Widget _stockApprovalSection(bool desktop) {
@@ -1506,9 +1506,9 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
           ],
         );
       },
-    );
-
-    reasonController.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      reasonController.dispose();
+    });
 
     if (!rejected || !mounted) {
       return;
@@ -1928,15 +1928,15 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
             : '${name.text.trim()} added successfully.',
         title: editing ? 'Inventory Updated' : 'Inventory Item Added',
       );
-    }
-
-    name.dispose();
-    sku.dispose();
-    stock.dispose();
-    minStock.dispose();
-    rate.dispose();
-    batch.dispose();
-    supplier.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      name.dispose();
+      sku.dispose();
+      stock.dispose();
+      minStock.dispose();
+      rate.dispose();
+      batch.dispose();
+      supplier.dispose();
+    });
   }
 
   // =========================================================

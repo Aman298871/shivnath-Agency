@@ -929,7 +929,9 @@ else
         );
       },
     );
-    outcomeController.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      outcomeController.dispose();
+    });
   }
 
   Future<void> _reschedule(Map<String, dynamic> item) async {

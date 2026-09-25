@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../../core/services/InventoryService.dart';
 import '../../../core/widgets/app_toast.dart';
+
+int _asInt(dynamic val) {
+  if (val == null) return 0;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  return num.tryParse(val.toString())?.toInt() ?? 0;
+}
 
 class AdminBillingScreen extends StatefulWidget {
   const AdminBillingScreen({super.key});
@@ -11,6 +19,55 @@ class AdminBillingScreen extends StatefulWidget {
 class _AdminBillingScreenState extends State<AdminBillingScreen> {
   String search = '';
   String statusFilter = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBackendInvoices();
+  }
+
+  Future<void> _loadBackendInvoices() async {
+    try {
+      final res = await InventoryService().getInvoices();
+      if (res['success'] == true && res['data'] is List) {
+        final list = (res['data'] as List).cast<Map<String, dynamic>>();
+        if (list.isNotEmpty) {
+          final mapped = list.map((item) {
+            final total = _asInt(item['total_amount'] ?? item['total']);
+            final paid = _asInt(item['amount_paid'] ?? item['paid']);
+            final subtotal = _asInt(item['subtotal'] ?? (total * 0.82).round());
+            final gst = _asInt(item['tax_amount'] ?? (total - subtotal));
+
+            return {
+              'id': item['id'],
+              'invoice': item['invoice_number'] ?? 'INV-${item['id']}',
+              'order': item['order_number'] ?? (item['order'] != null ? 'ORD-${item['order']}' : 'ORD-MANUAL'),
+              'franchise': item['dealer_name'] ?? item['franchise_name'] ?? item['customer_name'] ?? 'Authorized Dealer',
+              'date': item['issue_date'] ?? item['created_at']?.toString().split('T').first ?? 'Today',
+              'subtotal': subtotal,
+              'gst': gst,
+              'total': total,
+              'paid': paid,
+              'creditDays': _asInt(item['credit_days'] ?? item['creditDays'] ?? 15),
+              'dueDate': item['due_date'] ?? 'N/A',
+              'status': item['status']?.toString() ?? (paid >= total && total > 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Unpaid')),
+              'lastReminder': item['last_reminder'] ?? '-',
+            };
+          }).toList();
+
+          if (mounted) {
+            setState(() {
+              for (final liveInv in mapped.reversed) {
+                if (!invoices.any((e) => e['invoice'] == liveInv['invoice'])) {
+                  invoices.insert(0, liveInv);
+                }
+              }
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
 
   final List<Map<String, dynamic>> invoices = [
     {
@@ -356,9 +413,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   }
 
   Widget _tableRow(Map<String, dynamic> invoice) {
-    final total = (invoice['total'] as num).toInt();
+    final total = _asInt(invoice['total']);
 
-    final paid = (invoice['paid'] as num).toInt();
+    final paid = _asInt(invoice['paid']);
 
     final balance = total - paid;
 
@@ -458,9 +515,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   Widget _mobileList() {
     return Column(
       children: filtered.map((invoice) {
-        final total = (invoice['total'] as num).toInt();
+        final total = _asInt(invoice['total']);
 
-        final paid = (invoice['paid'] as num).toInt();
+        final paid = _asInt(invoice['paid']);
 
         final balance = total - paid;
 
@@ -1095,12 +1152,14 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
       },
     );
 
-    orderController.dispose();
-    franchiseController.dispose();
-    subtotalController.dispose();
-    gstController.dispose();
-    creditController.dispose();
-    notesController.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      orderController.dispose();
+      franchiseController.dispose();
+      subtotalController.dispose();
+      gstController.dispose();
+      creditController.dispose();
+      notesController.dispose();
+    });
 
     if (created && mounted) {
       AppToast.success(
@@ -1279,108 +1338,43 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   }
 
   Future<void> _recordPayment(Map<String, dynamic> invoice) async {
-    final total = (invoice['total'] as num).toInt();
-
-    final paid = (invoice['paid'] as num).toInt();
-
-    final balance = total - paid;
-
-    final amountController = TextEditingController();
-
-    bool saved = false;
-
-    await showDialog(
+    final result = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Record Payment'),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _invoiceLine('Invoice', invoice['invoice']),
-                _invoiceLine('Outstanding', _currency(balance)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: amountController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Payment Amount *',
-                    prefixText: '₹ ',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Cancel'),
-            ),
-            SizedBox(
-              width: 125,
-              height: 42,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(0, 42),
-                  maximumSize: const Size(125, 42),
-                ),
-                onPressed: () {
-                  final amount = int.tryParse(amountController.text.trim());
+        return _AdminRecordPaymentDialog(
+          invoice: invoice,
+          onPaymentRecorded: (amount) {
+            final total = _asInt(invoice['total']);
+            final paid = _asInt(invoice['paid']);
+            final newPaid = paid + amount;
 
-                  if (amount == null || amount <= 0 || amount > balance) {
-                    AppToast.error(
-                      context,
-                      'Enter a valid payment amount up to ${_currency(balance)}.',
-                      title: 'Invalid Payment',
-                    );
-                    return;
-                  }
-
-                  final newPaid = paid + amount;
-
-                  setState(() {
-                    invoice['paid'] = newPaid;
-
-                    if (newPaid >= total) {
-                      invoice['status'] = 'Paid';
-                    } else {
-                      invoice['status'] = 'Partial';
-                    }
-                  });
-
-                  saved = true;
-
-                  Navigator.pop(dialogContext);
-                },
-                child: const Text('Save Payment'),
-              ),
-            ),
-          ],
+            setState(() {
+              invoice['paid'] = newPaid;
+              if (newPaid >= total) {
+                invoice['status'] = 'Paid';
+              } else {
+                invoice['status'] = 'Partial';
+              }
+            });
+          },
         );
       },
     );
 
-    amountController.dispose();
-
-    if (saved && mounted) {
+    if (result == true && mounted) {
       AppToast.success(
         context,
         'Payment recorded successfully.',
-        title: 'Payment Collected',
+        title: 'Payment Recorded',
       );
     }
   }
 
   Future<void> _sendReminder(Map<String, dynamic> invoice) async {
-    final total = (invoice['total'] as num).toInt();
+    final total = _asInt(invoice['total']);
 
-    final paid = (invoice['paid'] as num).toInt();
+    final paid = _asInt(invoice['paid']);
 
     final balance = total - paid;
 
@@ -1518,7 +1512,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
       },
     );
 
-    controller.dispose();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      controller.dispose();
+    });
 
     if (updated && mounted) {
       AppToast.success(
@@ -1530,15 +1526,15 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   }
 
   void _viewInvoice(Map<String, dynamic> invoice) {
-    final total = (invoice['total'] as num).toInt();
+    final total = _asInt(invoice['total']);
 
-    final paid = (invoice['paid'] as num).toInt();
+    final paid = _asInt(invoice['paid']);
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(invoice['invoice']),
+          title: Text(invoice['invoice'].toString()),
           content: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
@@ -1956,3 +1952,219 @@ const TextStyle _billingCellBold = TextStyle(
   fontWeight: FontWeight.w700,
   color: Color(0xFF111827),
 );
+
+class _AdminRecordPaymentDialog extends StatefulWidget {
+  final Map<String, dynamic> invoice;
+  final ValueChanged<int> onPaymentRecorded;
+
+  const _AdminRecordPaymentDialog({
+    required this.invoice,
+    required this.onPaymentRecorded,
+  });
+
+  @override
+  State<_AdminRecordPaymentDialog> createState() =>
+      _AdminRecordPaymentDialogState();
+}
+
+class _AdminRecordPaymentDialogState extends State<_AdminRecordPaymentDialog> {
+  late final TextEditingController _amountController;
+  late final TextEditingController _refController;
+  late final TextEditingController _notesController;
+  String _paymentMethod = 'UPI';
+  bool _isSubmitting = false;
+
+  late final int _total;
+  late final int _paid;
+  late final int _balance;
+
+  @override
+  void initState() {
+    super.initState();
+    _total = _asInt(widget.invoice['total']);
+    _paid = _asInt(widget.invoice['paid']);
+    _balance = (_total - _paid).clamp(0, _total);
+
+    _amountController =
+        TextEditingController(text: _balance > 0 ? _balance.toString() : '');
+    _refController = TextEditingController();
+    _notesController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _refController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitPayment() async {
+    final text = _amountController.text.trim();
+    final amount = int.tryParse(text);
+
+    if (amount == null || amount <= 0 || amount > _balance) {
+      AppToast.error(
+        context,
+        'Enter a valid payment amount up to ₹$_balance.',
+        title: 'Invalid Payment',
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final invId = widget.invoice['id'] ?? widget.invoice['invoice_id'];
+      if (invId != null) {
+        final parsedId = int.tryParse(invId.toString());
+        if (parsedId != null && parsedId > 0) {
+          await InventoryService().recordPayment(parsedId, {
+            'amount': amount,
+            'payment_method': _paymentMethod,
+            'reference_number': _refController.text.trim(),
+            'notes': _notesController.text.trim(),
+          });
+        }
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    widget.onPaymentRecorded(amount);
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.payments_outlined, color: Color(0xFF16A34A), size: 24),
+          SizedBox(width: 8),
+          Text('Record Payment'),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.9,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _dialogLine('Invoice', widget.invoice['invoice']?.toString() ?? '-'),
+              _dialogLine('Franchise', widget.invoice['franchise']?.toString() ?? '-'),
+              _dialogLine('Total Amount', '₹$_total'),
+              _dialogLine('Paid Amount', '₹$_paid'),
+              _dialogLine(
+                'Outstanding',
+                '₹$_balance',
+                isBold: true,
+                color: const Color(0xFFDC2626),
+              ),
+              const Divider(height: 20),
+              TextField(
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Payment Amount *',
+                  prefixText: '₹ ',
+                  helperText: 'Max payable: ₹$_balance',
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _paymentMethod,
+                decoration: const InputDecoration(
+                  labelText: 'Payment Method',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'UPI', child: Text('UPI')),
+                  DropdownMenuItem(
+                    value: 'Bank Transfer',
+                    child: Text('Bank Transfer (NEFT/RTGS)'),
+                  ),
+                  DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                  DropdownMenuItem(value: 'Cheque', child: Text('Cheque')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _paymentMethod = val);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _refController,
+                decoration: const InputDecoration(
+                  labelText: 'Reference Number / UTR',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Notes (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF16A34A),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+          onPressed: _isSubmitting ? null : _submitPayment,
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Record Payment'),
+        ),
+      ],
+    );
+  }
+
+  Widget _dialogLine(
+    String label,
+    String value, {
+    bool isBold = false,
+    Color? color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+              color: color ?? const Color(0xFF1E293B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

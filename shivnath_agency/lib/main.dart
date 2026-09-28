@@ -10,9 +10,8 @@ import 'routes/app_routes.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await NotificationService().initialize(navKey: rootNavigatorKey);
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
@@ -93,6 +92,11 @@ void main() async {
   };
 
   runApp(const WaterBusinessApp());
+
+  // Initialize notification service asynchronously without blocking splash screen or app startup
+  NotificationService().initialize(navKey: rootNavigatorKey).catchError((e) {
+    debugPrint('FCM init non-fatal error: $e');
+  });
 }
 
 class WaterBusinessApp extends StatelessWidget {

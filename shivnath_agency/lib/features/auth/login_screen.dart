@@ -147,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Non-fatal FCM token registration
       try {
-        NotificationService().registerDeviceTokenWithBackend();
+        await NotificationService().registerDeviceTokenWithBackend();
       } catch (fcmErr) {
         debugPrint('FCM token registration warning: $fcmErr');
       }

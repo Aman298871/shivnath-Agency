@@ -214,28 +214,34 @@ class NotificationService {
 
     try {
       final deviceType = Platform.isAndroid ? 'android' : (Platform.isIOS ? 'ios' : 'web');
-      final url = Uri.parse('${AppConstants.apiBaseUrl}/api/notifications/register-device/');
-      
-      final response = await ApiClient.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'token': _currentFcmToken,
-          'device_type': deviceType,
-        }),
-      );
+      final candidates = [
+        '${AppConstants.apiBaseUrl}/api/auth/notifications/register-device/',
+        '${AppConstants.apiBaseUrl}/api/notifications/register-device/',
+      ];
 
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        debugPrint('FCM: Device token successfully registered with backend.');
-        return true;
-      } else {
-        debugPrint('FCM: Failed to register device token. Status: ${response.statusCode}, Body: ${response.body}');
-        return false;
+      for (final endpoint in candidates) {
+        final url = Uri.parse(endpoint);
+        final response = await ApiClient.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'token': _currentFcmToken,
+            'device_type': deviceType,
+          }),
+        );
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          debugPrint('FCM: Device token successfully registered with backend via $endpoint');
+          return true;
+        } else {
+          debugPrint('FCM: Attempt via $endpoint gave ${response.statusCode}');
+        }
       }
+      return false;
     } catch (e) {
       debugPrint('FCM: Exception registering device token: $e');
       return false;
@@ -250,22 +256,30 @@ class NotificationService {
     final token = await session.getAccessToken();
     if (token == null || token.isEmpty) return;
 
-    try {
-      final url = Uri.parse('${AppConstants.apiBaseUrl}/api/notifications/unregister-device/');
-      await ApiClient.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'token': _currentFcmToken,
-        }),
-      );
-      debugPrint('FCM: Device token unregistered successfully.');
-    } catch (e) {
-      debugPrint('FCM: Failed to unregister device token: $e');
+    final candidates = [
+      '${AppConstants.apiBaseUrl}/api/auth/notifications/unregister-device/',
+      '${AppConstants.apiBaseUrl}/api/notifications/unregister-device/',
+    ];
+
+    for (final endpoint in candidates) {
+      try {
+        final url = Uri.parse(endpoint);
+        final response = await ApiClient.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'token': _currentFcmToken,
+          }),
+        );
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          debugPrint('FCM: Device token unregistered successfully.');
+          break;
+        }
+      } catch (_) {}
     }
   }
 

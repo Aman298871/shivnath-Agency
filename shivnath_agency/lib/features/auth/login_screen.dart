@@ -94,20 +94,30 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     try {
-      final response = result['data'] as Map<String, dynamic>;
+      final rawData = result['data'];
+      final Map<String, dynamic> response = rawData is Map
+          ? Map<String, dynamic>.from(rawData)
+          : <String, dynamic>{};
+
       final accessToken = response['access']?.toString() ?? '';
       final refreshToken = response['refresh']?.toString() ?? '';
-      final userJson = response['user'];
+      final rawUser = response['user'];
 
-      if (accessToken.isEmpty || refreshToken.isEmpty || userJson is! Map<String, dynamic>) {
-        throw Exception('Invalid login response');
+      final Map<String, dynamic> userJson = rawUser is Map
+          ? Map<String, dynamic>.from(rawUser)
+          : <String, dynamic>{};
+
+      if (accessToken.isEmpty || userJson.isEmpty) {
+        throw Exception('Server returned incomplete login data');
       }
 
       final user = UserModel.fromJson(userJson);
 
       // Flexible role validation supporting super_admin, admin, sales_executive
       bool hasAccess = false;
-      if (role == AppConstants.adminRole) {
+      if (role.isEmpty) {
+        hasAccess = true;
+      } else if (role == AppConstants.adminRole) {
         hasAccess = user.isStaffOrAdmin;
       } else if (role == AppConstants.franchiseRole) {
         hasAccess = user.isDealer;
@@ -122,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
           isLoading = false;
         });
         _showMessage(
-          'This account does not have access to ${AppConstants.getRoleDisplayName(role)}.',
+          'This account is registered as ${user.roleDisplay}. Please log in using the correct portal.',
         );
         return;
       }
@@ -130,11 +140,17 @@ class _LoginScreenState extends State<LoginScreen> {
       // Save JWT & User Session
       await _sessionService.saveTokens(
         accessToken: accessToken,
-        refreshToken: refreshToken,
+        refreshToken: refreshToken.isNotEmpty ? refreshToken : accessToken,
       );
       await _sessionService.saveUser(user);
       await _sessionService.saveRole(user.role);
-      NotificationService().registerDeviceTokenWithBackend();
+
+      // Non-fatal FCM token registration
+      try {
+        NotificationService().registerDeviceTokenWithBackend();
+      } catch (fcmErr) {
+        debugPrint('FCM token registration warning: $fcmErr');
+      }
 
       if (!mounted) return;
 
@@ -144,10 +160,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _openDashboard(user.role);
     } catch (e) {
+      debugPrint('Login processing error: $e');
       setState(() {
         isLoading = false;
       });
-      _showMessage('Unable to process login response.');
+      _showMessage('Login error: ${e.toString().replaceAll("Exception: ", "")}');
     }
   }
 

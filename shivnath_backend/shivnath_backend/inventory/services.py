@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from decimal import Decimal
 import datetime
 
@@ -15,6 +16,28 @@ from inventory.models import (
 )
 from orders.models import Order, OrderItem, OrderItemBatchReservation
 from billing.models import Invoice, CompanyBillingProfile, DealerCreditProfile
+
+
+def _coerce_date(value, default=None):
+    if not value:
+        return default
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    if isinstance(value, str):
+        val_str = value.strip()
+        if not val_str:
+            return default
+        if 'T' in val_str:
+            val_str = val_str.split('T')[0]
+        try:
+            return datetime.date.fromisoformat(val_str)
+        except (ValueError, TypeError):
+            parsed = parse_date(val_str)
+            if parsed:
+                return parsed
+    return default
 
 
 @transaction.atomic
@@ -71,15 +94,21 @@ def create_production_batch_atomic(
     """
     product = Product.objects.select_for_update().get(id=product_id)
     now_date = timezone.now().date()
-    mfg_date = manufacture_date or now_date
+    mfg_date = _coerce_date(manufacture_date, default=now_date)
 
     # Shelf-life must be configurable per product/batch, never hardcoded.
+    try:
+        parsed_shelf_life = int(shelf_life_days) if shelf_life_days not in (None, '') else None
+    except (ValueError, TypeError):
+        parsed_shelf_life = None
+
     effective_shelf_life = (
-        int(shelf_life_days)
-        if shelf_life_days is not None and int(shelf_life_days) > 0
+        parsed_shelf_life
+        if parsed_shelf_life is not None and parsed_shelf_life > 0
         else (product.shelf_life_days or 180)
     )
-    exp_date = expiry_date or (mfg_date + datetime.timedelta(days=effective_shelf_life))
+    default_expiry = mfg_date + datetime.timedelta(days=effective_shelf_life)
+    exp_date = _coerce_date(expiry_date, default=default_expiry)
 
     if not batch_number:
         count = ProductionBatch.objects.filter(product=product).count() + 1

@@ -6,7 +6,8 @@ from decimal import Decimal
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
-from django.test import TestCase, Client
+from django.test import TestCase
+from rest_framework.test import APIClient
 from django.contrib.auth.models import User
 from django.utils import timezone
 from accounts.models import UserProfile
@@ -17,11 +18,11 @@ from inventory.services import create_production_batch_atomic, record_batch_coll
 
 class CentralManufacturingAndBulkFlowTestCase(TestCase):
     def setUp(self):
-        self.client = Client()
+        self.client = APIClient()
 
         # Admin user
         self.admin = User.objects.create_user(
-            username='central_plant_admin', email='plant@shivnath.com', password='password123'
+            username='central_plant_admin', email='plant@shivnath.com', password='password123', is_staff=True, is_superuser=True
         )
         profile, _ = UserProfile.objects.get_or_create(user=self.admin)
         profile.role = 'admin'
@@ -196,3 +197,34 @@ class CentralManufacturingAndBulkFlowTestCase(TestCase):
         print("Final Taken: 3,000 -> Remaining: 0 Stock Cleared")
         print("Configured Shelf Life (Mfg + 90 Days) = Expiry Date verified")
         print("========================================================\n")
+
+    def test_create_production_batch_api_with_string_dates_and_expiry_serialization(self):
+        """
+        Verify that POST /api/inventory/production-batches/ succeeds when string dates
+        (e.g. from Flutter: expiry_date="2027-03-27") are passed, and that is_expired
+        serializes properly without throwing 'TypeError: >= not supported between instances of datetime.date and str'.
+        """
+        self.client.force_authenticate(user=self.admin)
+        payload = {
+            "product_id": str(self.product_250ml.id),
+            "batch_number": "BATCH-666152",
+            "quantity_produced_units": 5000,
+            "shelf_life_days": 180,
+            "expiry_date": "2027-03-27",
+            "client_name": "",
+            "linked_order": None,
+            "label_requirement": "",
+            "printing_requirement": "",
+            "branding_requirement": ""
+        }
+        response = self.client.post(
+            '/api/inventory/production-batches/',
+            data=payload,
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['batch_number'], 'BATCH-666152')
+        self.assertEqual(response.data['quantity_produced_units'], 5000)
+        self.assertEqual(response.data['expiry_date'], '2027-03-27')
+        self.assertFalse(response.data['is_expired'])
+

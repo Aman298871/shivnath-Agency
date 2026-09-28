@@ -717,7 +717,7 @@ class ProductionBatchListCreateAPIView(views.APIView):
                 manufacture_date=mfg_date,
                 expiry_date=exp_date,
                 batch_number=batch_number,
-                shelf_life_days=int(shelf_life_days) if shelf_life_days is not None else None,
+                shelf_life_days=int(shelf_life_days) if shelf_life_days not in (None, '') and str(shelf_life_days).strip().isdigit() else None,
                 client_name=client_name,
                 linked_order=linked_order,
                 label_requirement=label_requirement,
@@ -725,6 +725,7 @@ class ProductionBatchListCreateAPIView(views.APIView):
                 branding_requirement=branding_requirement,
                 actor=request.user
             )
+            batch.refresh_from_db()
             return Response(ProductionBatchSerializer(batch).data, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

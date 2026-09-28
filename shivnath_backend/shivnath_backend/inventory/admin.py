@@ -93,8 +93,8 @@ class DealerStockRequestAllocationInline(admin.TabularInline):
     from .models import DealerStockRequestAllocation
     model = DealerStockRequestAllocation
     extra = 0
-    fields = ['production_batch', 'allocated_quantity', 'allocated_at']
-    readonly_fields = ['allocated_at']
+    fields = ['production_batch', 'allocated_quantity', 'created_at']
+    readonly_fields = ['created_at']
 
 
 @admin.register(DealerStockRequest)
@@ -134,10 +134,10 @@ class DealerStockRequestAllocationAdmin(admin.ModelAdmin):
         'stock_request',
         'production_batch',
         'allocated_quantity',
-        'allocated_at',
+        'created_at',
     ]
     list_filter = [
-        'allocated_at',
+        'created_at',
     ]
     search_fields = [
         'stock_request__request_number',

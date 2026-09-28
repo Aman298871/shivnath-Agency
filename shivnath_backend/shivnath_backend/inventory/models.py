@@ -215,7 +215,16 @@ class ProductionBatch(models.Model):
     @property
     def is_expired(self):
         from django.utils import timezone
-        return timezone.now().date() >= self.expiry_date
+        import datetime
+        from django.utils.dateparse import parse_date
+        exp = self.expiry_date
+        if isinstance(exp, str):
+            exp = parse_date(exp.strip().split('T')[0])
+        elif isinstance(exp, datetime.datetime):
+            exp = exp.date()
+        if not exp:
+            return False
+        return timezone.now().date() >= exp
 
 
 class DealerStockBatch(models.Model):
@@ -268,7 +277,16 @@ class DealerStockBatch(models.Model):
     @property
     def is_expired(self):
         from django.utils import timezone
-        return timezone.now().date() >= self.expiry_date
+        import datetime
+        from django.utils.dateparse import parse_date
+        exp = self.expiry_date
+        if isinstance(exp, str):
+            exp = parse_date(exp.strip().split('T')[0])
+        elif isinstance(exp, datetime.datetime):
+            exp = exp.date()
+        if not exp:
+            return False
+        return timezone.now().date() >= exp
 
 
 # =====================================================================

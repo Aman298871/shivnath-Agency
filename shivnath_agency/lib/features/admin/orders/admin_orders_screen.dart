@@ -887,16 +887,57 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                 final oldS = h['old_status'] ?? '-';
                                 final newS = h['new_status'] ?? '-';
                                 final byUser = h['changed_by_name'] ?? 'System';
+                                final role = (h['performer_role'] ?? '').toString();
                                 final changedAt =
                                     h['created_at']?.toString() ?? '';
-                                final notes = h['notes']?.toString() ?? '';
+                                final notes = (h['display_notes'] != null && h['display_notes'].toString().isNotEmpty)
+                                    ? h['display_notes'].toString()
+                                    : (h['notes']?.toString() ?? '');
+                                final title = (h['display_title'] != null && h['display_title'].toString().isNotEmpty)
+                                    ? h['display_title'].toString()
+                                    : '$oldS → $newS';
+
+                                Color roleColor = const Color(0xFF0284C7);
+                                Color roleBg = const Color(0xFFE0F2FE);
+                                IconData stepIcon = Icons.history_rounded;
+
+                                final stLower = (h['new_status'] ?? '').toString().toLowerCase();
+                                if (stLower.contains('placement') || stLower.contains('create') || role == 'Client') {
+                                  roleColor = const Color(0xFF7C3AED);
+                                  roleBg = const Color(0xFFF3E8FF);
+                                  stepIcon = Icons.shopping_bag_outlined;
+                                } else if (stLower.contains('approval')) {
+                                  roleColor = const Color(0xFF0284C7);
+                                  roleBg = const Color(0xFFE0F2FE);
+                                  stepIcon = Icons.fact_check_outlined;
+                                } else if (stLower.contains('invoice')) {
+                                  roleColor = const Color(0xFF0D9488);
+                                  roleBg = const Color(0xFFCCFBF1);
+                                  stepIcon = Icons.receipt_long_outlined;
+                                } else if (stLower.contains('preparing')) {
+                                  roleColor = const Color(0xFFD97706);
+                                  roleBg = const Color(0xFFFEF3C7);
+                                  stepIcon = Icons.inventory_2_outlined;
+                                } else if (stLower.contains('dispatch')) {
+                                  roleColor = const Color(0xFF2563EB);
+                                  roleBg = const Color(0xFFDBEAFE);
+                                  stepIcon = Icons.local_shipping_outlined;
+                                } else if (stLower.contains('deliver')) {
+                                  roleColor = const Color(0xFF16A34A);
+                                  roleBg = const Color(0xFFDCFCE7);
+                                  stepIcon = Icons.task_alt_rounded;
+                                } else if (stLower.contains('cancel')) {
+                                  roleColor = const Color(0xFFDC2626);
+                                  roleBg = const Color(0xFFFEE2E2);
+                                  stepIcon = Icons.cancel_outlined;
+                                }
 
                                 return Container(
-                                  margin: const EdgeInsets.only(bottom: 6),
-                                  padding: const EdgeInsets.all(10),
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
                                       color: const Color(0xFFE2E8F0),
                                     ),
@@ -905,40 +946,82 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Icon(
-                                        Icons.history_rounded,
-                                        size: 16,
-                                        color: Color(0xFF0284C7),
+                                      Container(
+                                        padding: const EdgeInsets.all(7),
+                                        decoration: BoxDecoration(
+                                          color: roleBg,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(
+                                          stepIcon,
+                                          size: 18,
+                                          color: roleColor,
+                                        ),
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 10),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Text(
-                                              '$oldS → $newS',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 12,
-                                              ),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    title,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w700,
+                                                      fontSize: 13,
+                                                      color: Color(0xFF0F172A),
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (role.isNotEmpty)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: roleBg,
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: Text(
+                                                      role.toUpperCase(),
+                                                      style: TextStyle(
+                                                        fontSize: 9,
+                                                        fontWeight: FontWeight.w800,
+                                                        color: roleColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
-                                            const SizedBox(height: 2),
+                                            const SizedBox(height: 3),
                                             Text(
-                                              'By: $byUser ${changedAt.isNotEmpty ? '• ${changedAt.substring(0, changedAt.length > 19 ? 19 : changedAt.length).replaceAll('T', ' ')}' : ''}',
+                                              'Performed by: $byUser ${changedAt.isNotEmpty ? '• ${changedAt.substring(0, changedAt.length > 19 ? 19 : changedAt.length).replaceAll('T', ' ')}' : ''}',
                                               style: const TextStyle(
                                                 fontSize: 11,
+                                                fontWeight: FontWeight.w500,
                                                 color: Color(0xFF64748B),
                                               ),
                                             ),
                                             if (notes.isNotEmpty) ...[
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                notes,
-                                                style: const TextStyle(
-                                                  fontSize: 11,
-                                                  fontStyle: FontStyle.italic,
-                                                  color: Color(0xFF475569),
+                                              const SizedBox(height: 4),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(
+                                                    color: const Color(0xFFCBD5E1),
+                                                    width: 0.8,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  notes,
+                                                  style: const TextStyle(
+                                                    fontSize: 11.5,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Color(0xFF334155),
+                                                  ),
                                                 ),
                                               ),
                                             ],

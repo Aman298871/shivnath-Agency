@@ -24,6 +24,11 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):
     changed_by_name = serializers.SerializerMethodField()
+    performer_role = serializers.SerializerMethodField()
+    client_name = serializers.SerializerMethodField()
+    franchise_name = serializers.SerializerMethodField()
+    display_title = serializers.SerializerMethodField()
+    display_notes = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderStatusHistory
@@ -33,14 +38,135 @@ class OrderStatusHistorySerializer(serializers.ModelSerializer):
             'new_status',
             'changed_by',
             'changed_by_name',
+            'performer_role',
+            'client_name',
+            'franchise_name',
+            'display_title',
+            'display_notes',
             'notes',
             'created_at',
         ]
 
+    def _resolve_client_name(self, order):
+        if not order:
+            return 'Client'
+        if order.client_name:
+            return order.client_name
+        if order.created_by:
+            name = order.created_by.get_full_name()
+            if name:
+                return name
+            if hasattr(order.created_by, 'customer_profile') and order.created_by.customer_profile:
+                return order.created_by.customer_profile.business_name or order.created_by.customer_profile.contact_person
+            return order.created_by.username
+        return 'Client'
+
+    def _resolve_franchise_name(self, order):
+        if not order:
+            return 'Shivnath Central Plant'
+        if order.snapshot_serving_dealer_name:
+            return order.snapshot_serving_dealer_name
+        if order.serving_franchise:
+            return order.serving_franchise.business_name
+        if order.franchise_name and order.franchise_name.lower() != 'direct company':
+            return order.franchise_name
+        return 'Shivnath Central Plant'
+
+    def get_client_name(self, obj):
+        return self._resolve_client_name(obj.order)
+
+    def get_franchise_name(self, obj):
+        return self._resolve_franchise_name(obj.order)
+
+    def get_performer_role(self, obj):
+        st = (obj.new_status or '').lower()
+        if st in ['order_placement', 'created', 'cancelled_by_customer']:
+            return 'Client'
+        if st in ['plant_approval', 'admin_approved']:
+            return 'Admin'
+        if st in ['invoice_generated', 'preparing', 'dispatch', 'delivered']:
+            if obj.order and obj.order.serving_franchise:
+                return 'Franchise'
+            return 'Admin'
+        if obj.changed_by:
+            if hasattr(obj.changed_by, 'franchise_profile'):
+                return 'Franchise'
+            if obj.changed_by.is_staff or obj.changed_by.is_superuser:
+                return 'Admin'
+            if hasattr(obj.changed_by, 'customer_profile'):
+                return 'Client'
+        return 'System'
+
     def get_changed_by_name(self, obj):
-        if not obj.changed_by:
-            return 'System'
-        return obj.changed_by.get_full_name() or obj.changed_by.username
+        st = (obj.new_status or '').lower()
+        order = obj.order
+
+        # 1. Order placement is always by the Client
+        if st in ['order_placement', 'created', 'placed']:
+            return self._resolve_client_name(order)
+
+        # 2. Plant approval is by Central Admin
+        if st in ['plant_approval', 'admin_approved']:
+            if obj.changed_by and (obj.changed_by.is_staff or obj.changed_by.is_superuser):
+                return obj.changed_by.get_full_name() or 'Shivnath Plant Admin'
+            return 'Shivnath Central Admin'
+
+        # 3. Invoice generation, preparation, dispatch, delivery
+        if st in ['invoice_generated', 'preparing', 'dispatch', 'delivered']:
+            if order and order.serving_franchise:
+                return f"{order.serving_franchise.business_name} (Franchise)"
+            if order and order.snapshot_serving_dealer_name:
+                return f"{order.snapshot_serving_dealer_name} (Franchise)"
+            return 'Shivnath Agency Admin'
+
+        # Fallback to user with role badge
+        if obj.changed_by:
+            if hasattr(obj.changed_by, 'franchise_profile'):
+                return f"{obj.changed_by.franchise_profile.business_name} (Franchise)"
+            if obj.changed_by.is_staff or obj.changed_by.is_superuser:
+                return f"{obj.changed_by.get_full_name() or obj.changed_by.username} (Admin)"
+            if hasattr(obj.changed_by, 'customer_profile'):
+                return f"{obj.changed_by.get_full_name() or obj.changed_by.username} (Client)"
+            return obj.changed_by.get_full_name() or obj.changed_by.username
+
+        return 'System'
+
+    def get_display_title(self, obj):
+        st = (obj.new_status or '').lower()
+        titles = {
+            'order_placement': 'Order Placed by Client',
+            'plant_approval': 'Plant Approval Confirmed',
+            'invoice_generated': 'Tax Invoice Generated',
+            'preparing': 'Bottles Packaged & Staged',
+            'dispatch': 'Dispatched for Delivery',
+            'delivered': 'Delivered Successfully',
+            'cancelled': 'Order Cancelled',
+        }
+        return titles.get(st, f"Status: {obj.new_status}")
+
+    def get_display_notes(self, obj):
+        order = obj.order
+        st = (obj.new_status or '').lower()
+        client = self._resolve_client_name(order)
+        franchise = self._resolve_franchise_name(order)
+
+        if st == 'order_placement':
+            return f"Order placed by client {client}"
+        elif st == 'plant_approval':
+            return "Production and fulfillment approved by Shivnath Central Plant Admin"
+        elif st == 'invoice_generated':
+            return f"Official Tax Invoice generated by {franchise}"
+        elif st == 'preparing':
+            return f"Goods packaged and staged at {franchise} distribution hub"
+        elif st == 'dispatch':
+            return f"Dispatched on delivery vehicle by {franchise}"
+        elif st == 'delivered':
+            return f"Successfully delivered to {client} by {franchise}"
+        elif st == 'cancelled':
+            return obj.notes or f"Order cancelled"
+
+        return obj.notes or f"Status changed to {obj.new_status}"
+
 
 
 class OrderSerializer(serializers.ModelSerializer):

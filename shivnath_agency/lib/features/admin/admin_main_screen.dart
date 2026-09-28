@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/services/OrderService.dart';
+import '../../core/services/InventoryService.dart';
 import '../../core/services/session_service.dart';
 import '../../core/widgets/ai_chatbot_modal.dart';
 import '../../core/widgets/support_desk_modal.dart';
@@ -44,6 +45,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   int _lastMaxOrderId = 0;
   bool _baselineOrdersLoaded = false;
   final OrderService _orderService = OrderService();
+  final InventoryService _inventoryService = InventoryService();
+  int _lastMaxStockRequestId = 0;
+  bool _baselineStockRequestsLoaded = false;
 
   @override
   void initState() {
@@ -60,8 +64,10 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
 
   void _startOrderPolling() {
     _pollOrders();
-    _orderPollTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+    _pollStockRequests();
+    _orderPollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       _pollOrders();
+      _pollStockRequests();
     });
   }
 
@@ -158,6 +164,161 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
             _selectMenu(7);
           },
         ),
+      ),
+    );
+  }
+
+  Future<void> _pollStockRequests() async {
+    try {
+      final res = await _inventoryService.getDealerStockRequests();
+      if (!mounted) return;
+      if (res['success'] == true && res['data'] is List) {
+        final List items = res['data'] as List;
+        if (items.isEmpty) {
+          _baselineStockRequestsLoaded = true;
+          return;
+        }
+
+        int currentMaxId = 0;
+        Map<String, dynamic>? latestNewRequest;
+
+        for (final it in items) {
+          final idVal = it['id'] is int
+              ? it['id'] as int
+              : int.tryParse(it['id']?.toString() ?? '0') ?? 0;
+          if (idVal > currentMaxId) {
+            currentMaxId = idVal;
+            latestNewRequest = Map<String, dynamic>.from(it as Map);
+          }
+        }
+
+        if (!_baselineStockRequestsLoaded) {
+          _lastMaxStockRequestId = currentMaxId;
+          _baselineStockRequestsLoaded = true;
+        } else if (currentMaxId > _lastMaxStockRequestId && latestNewRequest != null) {
+          _lastMaxStockRequestId = currentMaxId;
+          _showNewStockRequestDialog(latestNewRequest);
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _showNewStockRequestDialog(Map<String, dynamic> req) {
+    if (!mounted) return;
+    final reqNum = req['request_number'] ?? 'REQ-${req['id']}';
+    final dealerName = req['dealer_name'] ?? 'Franchise';
+    final prodName = req['product_name'] ?? req['product_sku'] ?? 'Packaged Water Products';
+    final qty = req['requested_quantity'] ?? req['quantity_cases'] ?? 0;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dlgCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.local_shipping_rounded,
+                color: Colors.orange,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Stock Request Received!',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  Text(
+                    'Franchise Needs Central Stock',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    dealerName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: Color(0xFF0284C7),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Requested: $qty Cases of $prodName',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Reference: $reqNum',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dlgCtx),
+            child: const Text('Dismiss', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+            label: const Text('Open & Allocate', style: TextStyle(fontWeight: FontWeight.w700)),
+            onPressed: () {
+              Navigator.pop(dlgCtx);
+              _selectMenu(21); // Go directly to Central Stock Requests tab
+            },
+          ),
+        ],
       ),
     );
   }

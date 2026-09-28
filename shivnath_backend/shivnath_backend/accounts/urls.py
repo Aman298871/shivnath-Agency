@@ -39,6 +39,9 @@ from .views import (
     DealerKYCVerifyView,
     SuperAdminSeedDemoDataView,
     CustomerDetailHistoryView,
+    RegisterDeviceTokenView,
+    UnregisterDeviceTokenView,
+    SendTestPushNotificationView,
 )
 
 
@@ -266,5 +269,20 @@ urlpatterns = [
         'super-admin/seed-demo-data/',
         SuperAdminSeedDemoDataView.as_view(),
         name='super_admin_seed_demo_data'
+    ),
+    path(
+        'notifications/register-device/',
+        RegisterDeviceTokenView.as_view(),
+        name='register_device_token'
+    ),
+    path(
+        'notifications/unregister-device/',
+        UnregisterDeviceTokenView.as_view(),
+        name='unregister_device_token'
+    ),
+    path(
+        'notifications/test-push/',
+        SendTestPushNotificationView.as_view(),
+        name='send_test_push'
     ),
 ]

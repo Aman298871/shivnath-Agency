@@ -374,6 +374,8 @@ class OrderListCreateView(APIView):
             # Targeted Notifications to Actual Serving Franchise and Admin
             try:
                 send_order_placed_notifications(order, stock_cycle)
+                from accounts.fcm_services import notify_order_created
+                notify_order_created(order)
             except Exception:
                 pass
 
@@ -681,6 +683,7 @@ class OrderStatusUpdateView(APIView):
                 # Notify customer & admin about status update (franchise updates)
                 try:
                     from accounts.models import AdminNotification
+                    from accounts.fcm_services import notify_order_status_update
                     changed_by_name = user.get_full_name() or user.username
                     AdminNotification.objects.create(
                         title=f'Order {order.order_code} Status Updated',
@@ -688,6 +691,7 @@ class OrderStatusUpdateView(APIView):
                         notification_type='order_update',
                         reference_id=order.id,
                     )
+                    notify_order_status_update(order, new_status, actor_name=changed_by_name)
                 except Exception:
                     pass
 

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/services/session_service.dart';
 import '../../core/theme/brand_colors.dart';
 import '../../core/theme/role_theme.dart';
@@ -52,6 +53,8 @@ class _SplashScreenState extends State<SplashScreen> {
       }
       return;
     }
+
+    NotificationService().registerDeviceTokenWithBackend();
 
     final roleProvider = Provider.of<RoleThemeProvider>(context, listen: false);
     if (user.role == AppConstants.customerRole) {

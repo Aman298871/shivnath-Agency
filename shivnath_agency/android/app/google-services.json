@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "877164366331",
+    "project_id": "shivnath-agency",
+    "storage_bucket": "shivnath-agency.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:877164366331:android:fe3ad322e623c3cf41235e",
+        "android_client_info": {
+          "package_name": "com.example.shivnath_agency"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZz_-8scO6ChipNz582SMdxXAKr8_fjAo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

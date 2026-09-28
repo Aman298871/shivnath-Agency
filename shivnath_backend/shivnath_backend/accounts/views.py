@@ -4164,4 +4164,74 @@ class CustomerDetailHistoryView(APIView):
             'orders': orders_data,
             'payments': payments_data,
         })
+
+
+# =========================================================
+# FIREBASE PUSH NOTIFICATION VIEWS
+# =========================================================
+
+class RegisterDeviceTokenView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get('token', '').strip()
+        device_type = request.data.get('device_type', 'android').strip().lower()
+
+        if not token:
+            return Response(
+                {'success': False, 'message': 'Device token is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from accounts.models import DeviceToken
+        device_token, created = DeviceToken.objects.update_or_create(
+            token=token,
+            defaults={
+                'user': request.user,
+                'device_type': device_type,
+                'is_active': True,
+            }
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Device token registered successfully.',
+            'created': created,
+            'device_type': device_token.device_type,
+        })
+
+
+class UnregisterDeviceTokenView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get('token', '').strip()
+        if token:
+            from accounts.models import DeviceToken
+            DeviceToken.objects.filter(token=token, user=request.user).update(is_active=False)
+
+        return Response({
+            'success': True,
+            'message': 'Device token unregistered successfully.'
+        })
+
+
+class SendTestPushNotificationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from accounts.fcm_services import send_fcm_notification
+        title = request.data.get('title', 'Shivnath Agency Test Push')
+        body = request.data.get('body', 'Real Firebase push notifications are live and working!')
+
+        res = send_fcm_notification(
+            users=[request.user],
+            title=title,
+            body=body,
+            data={'type': 'test', 'user': request.user.username},
+            notification_type='general'
+        )
+
+        return Response(res)
+
 

@@ -55,6 +55,10 @@ urlpatterns = [
         'api/accounts/',
         include('accounts.urls')
     ),
+    path(
+        'api/notifications/',
+        include('accounts.urls')
+    ),
 
     # JWT refresh
     path(

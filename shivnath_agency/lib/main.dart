@@ -3,12 +3,16 @@ import 'package:provider/provider.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/role_theme.dart';
+import 'core/services/notification_service.dart';
 import 'core/widgets/app_toast.dart';
 import 'features/customer/cart/cart_provider.dart';
 import 'routes/app_routes.dart';
 
-void main() {
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService().initialize(navKey: rootNavigatorKey);
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
@@ -109,6 +113,7 @@ class WaterBusinessApp extends StatelessWidget {
         builder: (context, roleThemeProvider, _) {
           return MaterialApp(
             title: AppConstants.appName,
+            navigatorKey: rootNavigatorKey,
             scaffoldMessengerKey: rootScaffoldMessengerKey,
             debugShowCheckedModeBanner: false,
             theme: roleThemeProvider.currentThemeData,

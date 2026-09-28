@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/services/session_service.dart';
 import '../../core/theme/brand_colors.dart';
 import '../../core/theme/role_theme.dart';
@@ -133,6 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       await _sessionService.saveUser(user);
       await _sessionService.saveRole(user.role);
+      NotificationService().registerDeviceTokenWithBackend();
 
       if (!mounted) return;
 

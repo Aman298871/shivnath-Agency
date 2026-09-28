@@ -248,9 +248,10 @@ class RecordOrderPaymentAPIView(views.APIView):
                 notes=notes
             )
 
-            # Create notification for Admin & Super Admin
+            # Create notification for Admin & Super Admin & Customer Push
             try:
                 from accounts.models import AdminNotification
+                from accounts.fcm_services import notify_payment_received
                 collector_name = user.get_full_name() or user.username
                 if role == 'franchise' and hasattr(user, 'franchise_profile'):
                     collector_name = f"Franchise {user.franchise_profile.business_name}"
@@ -260,6 +261,7 @@ class RecordOrderPaymentAPIView(views.APIView):
                     notification_type='general',
                     reference_id=order.id
                 )
+                notify_payment_received(order, amount, collector_name=collector_name)
             except Exception:
                 pass
 

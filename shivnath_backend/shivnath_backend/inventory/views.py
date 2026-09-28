@@ -1016,6 +1016,9 @@ class DealerStockRequestListCreateAPIView(views.APIView):
                         notification_type='stock_alert',
                         reference_id=created_requests[0].id,
                     )
+                    from accounts.fcm_services import notify_stock_request_created
+                    for cr in created_requests:
+                        notify_stock_request_created(cr)
                 except Exception:
                     pass
 
@@ -1072,6 +1075,8 @@ class DealerStockRequestListCreateAPIView(views.APIView):
                     notification_type='stock_alert',
                     reference_id=stock_req.id,
                 )
+                from accounts.fcm_services import notify_stock_request_created
+                notify_stock_request_created(stock_req)
             except Exception:
                 pass
 
@@ -1155,6 +1160,11 @@ class DealerStockRequestDispatchAPIView(views.APIView):
                 allocations_list=allocations_data,
                 actor=request.user
             )
+            try:
+                from accounts.fcm_services import notify_stock_request_status
+                notify_stock_request_status(req_obj, 'DISPATCHED', actor_name=request.user.get_full_name() or request.user.username)
+            except Exception:
+                pass
             return Response({
                 'success': True,
                 'message': f'Dispatched successfully! Wholesale invoice #{invoice.invoice_number} generated.',

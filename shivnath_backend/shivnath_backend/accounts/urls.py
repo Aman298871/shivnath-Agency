@@ -285,4 +285,19 @@ urlpatterns = [
         SendTestPushNotificationView.as_view(),
         name='send_test_push'
     ),
+    path(
+        'register-device/',
+        RegisterDeviceTokenView.as_view(),
+        name='register_device_token_direct'
+    ),
+    path(
+        'unregister-device/',
+        UnregisterDeviceTokenView.as_view(),
+        name='unregister_device_token_direct'
+    ),
+    path(
+        'test-push/',
+        SendTestPushNotificationView.as_view(),
+        name='send_test_push_direct'
+    ),
 ]

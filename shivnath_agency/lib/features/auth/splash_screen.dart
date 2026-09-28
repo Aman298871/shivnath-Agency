@@ -27,23 +27,60 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkSession() async {
-    // Smooth splash dwell time for brand display
-    await Future.delayed(const Duration(milliseconds: 2200));
+    try {
+      // Snappy splash dwell time for brand display
+      await Future.delayed(const Duration(milliseconds: 1200));
 
-    final user = await _sessionService.getUser();
+      final user = await _sessionService.getUser();
 
-    if (!mounted) return;
-
-    if (user == null) {
-      final prefs = await SharedPreferences.getInstance();
-      final onboardingDone =
-          prefs.getBool(OnboardingScreen.keyCompleted) ?? false;
       if (!mounted) return;
 
-      if (!onboardingDone) {
+      if (user == null) {
+        final prefs = await SharedPreferences.getInstance();
+        final onboardingDone =
+            prefs.getBool(OnboardingScreen.keyCompleted) ?? false;
+        if (!mounted) return;
+
+        if (!onboardingDone) {
+          Navigator.pushReplacementNamed(
+            context,
+            AppRoutes.onboarding,
+          );
+        } else {
+          Navigator.pushReplacementNamed(
+            context,
+            AppRoutes.roleSelection,
+          );
+        }
+        return;
+      }
+
+      try {
+        NotificationService().registerDeviceTokenWithBackend();
+      } catch (e) {
+        debugPrint('Token registration non-fatal: $e');
+      }
+
+      final roleProvider = Provider.of<RoleThemeProvider>(context, listen: false);
+      if (user.role == AppConstants.customerRole) {
+        roleProvider.setRole('customer');
         Navigator.pushReplacementNamed(
           context,
-          AppRoutes.onboarding,
+          AppRoutes.customerDashboard,
+        );
+      } else if (user.role == AppConstants.franchiseRole) {
+        roleProvider.setRole('franchise');
+        Navigator.pushReplacementNamed(
+          context,
+          AppRoutes.franchiseDashboard,
+        );
+      } else if (user.role == AppConstants.adminRole ||
+          user.role == AppConstants.superAdminRole ||
+          user.role == AppConstants.salesExecutiveRole) {
+        roleProvider.setRole('admin');
+        Navigator.pushReplacementNamed(
+          context,
+          AppRoutes.adminDashboard,
         );
       } else {
         Navigator.pushReplacementNamed(
@@ -51,37 +88,14 @@ class _SplashScreenState extends State<SplashScreen> {
           AppRoutes.roleSelection,
         );
       }
-      return;
-    }
-
-    NotificationService().registerDeviceTokenWithBackend();
-
-    final roleProvider = Provider.of<RoleThemeProvider>(context, listen: false);
-    if (user.role == AppConstants.customerRole) {
-      roleProvider.setRole('customer');
-      Navigator.pushReplacementNamed(
-        context,
-        AppRoutes.customerDashboard,
-      );
-    } else if (user.role == AppConstants.franchiseRole) {
-      roleProvider.setRole('franchise');
-      Navigator.pushReplacementNamed(
-        context,
-        AppRoutes.franchiseDashboard,
-      );
-    } else if (user.role == AppConstants.adminRole ||
-        user.role == AppConstants.superAdminRole ||
-        user.role == AppConstants.salesExecutiveRole) {
-      roleProvider.setRole('admin');
-      Navigator.pushReplacementNamed(
-        context,
-        AppRoutes.adminDashboard,
-      );
-    } else {
-      Navigator.pushReplacementNamed(
-        context,
-        AppRoutes.roleSelection,
-      );
+    } catch (e) {
+      debugPrint('Splash navigation error: $e');
+      if (mounted) {
+        Navigator.pushReplacementNamed(
+          context,
+          AppRoutes.roleSelection,
+        );
+      }
     }
   }
 

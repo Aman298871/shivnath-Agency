@@ -201,7 +201,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      value: selectedRole,
+                      initialValue: selectedRole,
                       isExpanded: true,
                       isDense: true,
                       decoration: const InputDecoration(
@@ -256,7 +256,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      value: selectedScope,
+                      initialValue: selectedScope,
                       isExpanded: true,
                       isDense: true,
                       decoration: const InputDecoration(
@@ -327,53 +327,55 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
               ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryBlue,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
-                if (nameCtrl.text.trim().isEmpty ||
-                    emailCtrl.text.trim().isEmpty ||
-                    passCtrl.text.trim().isEmpty) {
-                  AppToast.error(
-                    context,
-                    'Name, email, and password are required.',
-                  );
-                  return;
-                }
-                final payload = {
-                  'name': nameCtrl.text.trim(),
-                  'email': emailCtrl.text.trim(),
-                  'phone': phoneCtrl.text.trim(),
-                  'password': passCtrl.text.trim(),
-                  'role': selectedRole,
-                  'data_scope_type': selectedScope,
-                  'admin_permissions': selectedPermissions.toList(),
-                };
-                final res = await _authService.createSuperAdminAdmin(payload);
-                if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-                if (res['success'] == true) {
-                  AppToast.success(context, 'Admin account created securely.');
-                  _fetchAdmins();
-                } else {
-                  AppToast.error(
-                    context,
-                    res['message'] ?? 'Failed to create admin.',
-                  );
-                }
-              },
-              child: const Text('Create Admin Account'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty ||
+                  emailCtrl.text.trim().isEmpty ||
+                  passCtrl.text.trim().isEmpty) {
+                AppToast.error(
+                  dialogCtx,
+                  'Name, email, and password are required.',
+                );
+                return;
+              }
+              final payload = {
+                'name': nameCtrl.text.trim(),
+                'email': emailCtrl.text.trim(),
+                'phone': phoneCtrl.text.trim(),
+                'password': passCtrl.text.trim(),
+                'role': selectedRole,
+                'data_scope_type': selectedScope,
+                'admin_permissions': selectedPermissions.toList(),
+              };
+              final res = await _authService.createSuperAdminAdmin(payload);
+              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+              if (!mounted) return;
+              if (res['success'] == true) {
+                AppToast.success(context, 'Admin account created securely.');
+                _fetchAdmins();
+              } else {
+                AppToast.error(
+                  context,
+                  res['message'] ?? 'Failed to create admin.',
+                );
+              }
+            },
+            child: const Text('Create Admin Account'),
+          ),
+        ],
       ),
-    );
+    ),
+  );
   }
 
   void _openEditAdminDialog(Map<String, dynamic> admin) {
@@ -384,12 +386,15 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
     final emailCtrl = TextEditingController(text: admin['email'] ?? '');
     final phoneCtrl = TextEditingController(text: admin['phone'] ?? '');
     String selectedRole = (admin['role'] ?? 'admin').toString().toLowerCase();
-    if (selectedRole != 'admin' && selectedRole != 'sales_executive')
+    if (selectedRole != 'admin' && selectedRole != 'sales_executive') {
       selectedRole = 'admin';
+    }
     String selectedScope = (admin['data_scope_type'] ?? 'all_data')
         .toString()
         .toLowerCase();
-    if (!dataScopes.containsKey(selectedScope)) selectedScope = 'all_data';
+    if (!dataScopes.containsKey(selectedScope)) {
+      selectedScope = 'all_data';
+    }
 
     final rawPerms = admin['admin_permissions'];
     final selectedPermissions = rawPerms is List
@@ -443,7 +448,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      value: selectedRole,
+                      initialValue: selectedRole,
                       isExpanded: true,
                       isDense: true,
                       decoration: const InputDecoration(
@@ -489,7 +494,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      value: selectedScope,
+                      initialValue: selectedScope,
                       isExpanded: true,
                       isDense: true,
                       decoration: const InputDecoration(
@@ -560,49 +565,51 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
               ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryBlue,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
-                final payload = {
-                  'name': nameCtrl.text.trim(),
-                  'email': emailCtrl.text.trim(),
-                  'phone': phoneCtrl.text.trim(),
-                  'role': selectedRole,
-                  'data_scope_type': selectedScope,
-                  'admin_permissions': selectedPermissions.toList(),
-                };
-                final res = await _authService.updateSuperAdminAdmin(
-                  id,
-                  payload,
-                );
-                if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-                if (res['success'] == true) {
-                  AppToast.success(
-                    context,
-                    'Admin permissions and scope updated.',
-                  );
-                  _fetchAdmins();
-                } else {
-                  AppToast.error(
-                    context,
-                    res['message'] ?? 'Failed to update admin.',
-                  );
-                }
-              },
-              child: const Text('Save Changes'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final payload = {
+                'name': nameCtrl.text.trim(),
+                'email': emailCtrl.text.trim(),
+                'phone': phoneCtrl.text.trim(),
+                'role': selectedRole,
+                'data_scope_type': selectedScope,
+                'admin_permissions': selectedPermissions.toList(),
+              };
+              final res = await _authService.updateSuperAdminAdmin(
+                id,
+                payload,
+              );
+              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+              if (!mounted) return;
+              if (res['success'] == true) {
+                AppToast.success(
+                  context,
+                  'Admin permissions and scope updated.',
+                );
+                _fetchAdmins();
+              } else {
+                AppToast.error(
+                  context,
+                  res['message'] ?? 'Failed to update admin.',
+                );
+              }
+            },
+            child: const Text('Save Changes'),
+          ),
+        ],
       ),
-    );
+    ),
+  );
   }
 
   void _openResetPasswordDialog(Map<String, dynamic> admin) {
@@ -637,7 +644,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
             ),
             onPressed: () async {
               if (passCtrl.text.trim().isEmpty) {
-                AppToast.error(context, 'Password cannot be empty.');
+                AppToast.error(ctx, 'Password cannot be empty.');
                 return;
               }
               final res = await _authService.resetSuperAdminAdminPassword(
@@ -645,6 +652,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                 passCtrl.text.trim(),
               );
               if (ctx.mounted) Navigator.pop(ctx);
+              if (!mounted) return;
               if (res['success'] == true) {
                 AppToast.success(
                   context,
@@ -670,6 +678,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
     final newActive = !currentActive;
 
     final res = await _authService.toggleSuperAdminAdminActive(id, newActive);
+    if (!mounted) return;
     if (res['success'] == true) {
       AppToast.success(
         context,
@@ -803,7 +812,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                         bottom: 90,
                       ),
                       itemCount: _filteredAdmins.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      separatorBuilder: (_, index) => const SizedBox(height: 10),
                       itemBuilder: (ctx, idx) {
                         final a = _filteredAdmins[idx];
                         final isActive = a['is_active'] == true;

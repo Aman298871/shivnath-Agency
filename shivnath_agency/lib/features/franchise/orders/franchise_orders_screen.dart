@@ -344,22 +344,25 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     : 'All',
                 isExpanded: true,
                 items: const [
-                  DropdownMenuItem(value: 'All', child: Text('All Status')),
+                  DropdownMenuItem(
+                    value: 'All',
+                    child: Text('All Status', overflow: TextOverflow.ellipsis, maxLines: 1),
+                  ),
                   DropdownMenuItem(
                     value: 'Plant Approval',
-                    child: Text('Plant Approval'),
+                    child: Text('Plant Approval', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                   DropdownMenuItem(
                     value: 'Invoice Generated',
-                    child: Text('Invoice Generated'),
+                    child: Text('Invoice Generated', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                   DropdownMenuItem(
                     value: 'Dispatched',
-                    child: Text('Dispatched'),
+                    child: Text('Dispatched', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                   DropdownMenuItem(
                     value: 'Delivered',
-                    child: Text('Delivered'),
+                    child: Text('Delivered', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                 ],
                 onChanged: (value) {
@@ -889,31 +892,32 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     children: [
                       DropdownButtonFormField<String>(
                         initialValue: selectedProduct,
+                        isExpanded: true,
                         decoration: const InputDecoration(labelText: 'Product'),
                         items: const [
                           DropdownMenuItem(
                             value: '250ml Water Bottle',
-                            child: Text('250ml Water Bottle'),
+                            child: Text('250ml Water Bottle', overflow: TextOverflow.ellipsis, maxLines: 1),
                           ),
                           DropdownMenuItem(
                             value: '500ml Water Bottle',
-                            child: Text('500ml Water Bottle'),
+                            child: Text('500ml Water Bottle', overflow: TextOverflow.ellipsis, maxLines: 1),
                           ),
                           DropdownMenuItem(
                             value: '1 Litre Water Bottle',
-                            child: Text('1 Litre Water Bottle'),
+                            child: Text('1 Litre Water Bottle', overflow: TextOverflow.ellipsis, maxLines: 1),
                           ),
                           DropdownMenuItem(
                             value: '2 Litre Water Bottle',
-                            child: Text('2 Litre Water Bottle'),
+                            child: Text('2 Litre Water Bottle', overflow: TextOverflow.ellipsis, maxLines: 1),
                           ),
                           DropdownMenuItem(
                             value: '5 Litre Water Jar',
-                            child: Text('5 Litre Water Jar'),
+                            child: Text('5 Litre Water Jar', overflow: TextOverflow.ellipsis, maxLines: 1),
                           ),
                           DropdownMenuItem(
                             value: '20 Litre Water Jar',
-                            child: Text('20 Litre Water Jar'),
+                            child: Text('20 Litre Water Jar', overflow: TextOverflow.ellipsis, maxLines: 1),
                           ),
                         ],
                         onChanged: (value) {
@@ -1434,6 +1438,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                       initialValue: statusOptions.contains(selectedNewStatus)
                           ? selectedNewStatus
                           : statusOptions.first,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Fulfillment Status',
                         border: OutlineInputBorder(),
@@ -1441,7 +1446,16 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),
                       items: statusOptions
-                          .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(
+                                s,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          )
                           .toList(),
                       onChanged: (val) {
                         if (val != null) {
@@ -1604,17 +1618,33 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                               // Payment Mode
                               DropdownButtonFormField<String>(
                                 initialValue: paymentMode,
+                                isExpanded: true,
                                 decoration: const InputDecoration(
                                   labelText: 'Payment Mode',
                                   border: OutlineInputBorder(),
                                   contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                 ),
                                 items: const [
-                                  DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                                  DropdownMenuItem(value: 'UPI', child: Text('UPI / Online QR')),
-                                  DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Bank Transfer (NEFT/RTGS)')),
-                                  DropdownMenuItem(value: 'CHEQUE', child: Text('Cheque')),
-                                  DropdownMenuItem(value: 'OTHER', child: Text('Other')),
+                                  DropdownMenuItem(
+                                    value: 'CASH',
+                                    child: Text('Cash', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'UPI',
+                                    child: Text('UPI / Online QR', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'BANK_TRANSFER',
+                                    child: Text('Bank Transfer (NEFT/RTGS)', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'CHEQUE',
+                                    child: Text('Cheque', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'OTHER',
+                                    child: Text('Other', overflow: TextOverflow.ellipsis),
+                                  ),
                                 ],
                                 onChanged: (val) {
                                   if (val != null) setDlgState(() => paymentMode = val);
@@ -1958,17 +1988,33 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     // Payment Mode Dropdown
                     DropdownButtonFormField<String>(
                       initialValue: paymentMode,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Payment Mode',
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                        DropdownMenuItem(value: 'UPI', child: Text('UPI / Online')),
-                        DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Bank Transfer (NEFT/RTGS)')),
-                        DropdownMenuItem(value: 'CHEQUE', child: Text('Cheque')),
-                        DropdownMenuItem(value: 'OTHER', child: Text('Other')),
+                        DropdownMenuItem(
+                          value: 'CASH',
+                          child: Text('Cash', overflow: TextOverflow.ellipsis),
+                        ),
+                        DropdownMenuItem(
+                          value: 'UPI',
+                          child: Text('UPI / Online', overflow: TextOverflow.ellipsis),
+                        ),
+                        DropdownMenuItem(
+                          value: 'BANK_TRANSFER',
+                          child: Text('Bank Transfer (NEFT/RTGS)', overflow: TextOverflow.ellipsis),
+                        ),
+                        DropdownMenuItem(
+                          value: 'CHEQUE',
+                          child: Text('Cheque', overflow: TextOverflow.ellipsis),
+                        ),
+                        DropdownMenuItem(
+                          value: 'OTHER',
+                          child: Text('Other', overflow: TextOverflow.ellipsis),
+                        ),
                       ],
                       onChanged: (val) {
                         if (val != null) setDlgState(() => paymentMode = val);

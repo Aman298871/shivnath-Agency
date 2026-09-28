@@ -1507,6 +1507,7 @@ class _CentralPlantInventoryScreenState
                           // Payment Status Dropdown
                           DropdownButtonFormField<String>(
                             value: paymentStatus,
+                            isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Payment Status',
                               isDense: true,
@@ -1515,9 +1516,30 @@ class _CentralPlantInventoryScreenState
                               filled: true,
                             ),
                             items: const [
-                              DropdownMenuItem(value: 'FULL', child: Text('FULL PAYMENT (Paid in Full)')),
-                              DropdownMenuItem(value: 'PARTIAL', child: Text('PARTIAL PAYMENT (Balance Remaining)')),
-                              DropdownMenuItem(value: 'UNPAID', child: Text('UNPAID (Full Amount Outstanding)')),
+                              DropdownMenuItem(
+                                value: 'FULL',
+                                child: Text(
+                                  'FULL PAYMENT (Paid in Full)',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'PARTIAL',
+                                child: Text(
+                                  'PARTIAL PAYMENT (Balance Remaining)',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'UNPAID',
+                                child: Text(
+                                  'UNPAID (Full Amount Outstanding)',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
                             ],
                             onChanged: (v) {
                               if (v == null) return;
@@ -1531,6 +1553,7 @@ class _CentralPlantInventoryScreenState
                           // Payment Method Dropdown
                           DropdownButtonFormField<String>(
                             value: paymentMethod,
+                            isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Payment Method',
                               isDense: true,
@@ -1539,11 +1562,29 @@ class _CentralPlantInventoryScreenState
                               filled: true,
                             ),
                             items: const [
-                              DropdownMenuItem(value: 'CASH', child: Text('CASH')),
-                              DropdownMenuItem(value: 'ONLINE', child: Text('UPI / ONLINE')),
-                              DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('BANK TRANSFER (NEFT/RTGS)')),
-                              DropdownMenuItem(value: 'CHEQUE', child: Text('CHEQUE')),
-                              DropdownMenuItem(value: 'OTHER', child: Text('OTHER')),
+                              DropdownMenuItem(
+                                value: 'CASH',
+                                child: Text('CASH', overflow: TextOverflow.ellipsis),
+                              ),
+                              DropdownMenuItem(
+                                value: 'ONLINE',
+                                child: Text('UPI / ONLINE', overflow: TextOverflow.ellipsis),
+                              ),
+                              DropdownMenuItem(
+                                value: 'BANK_TRANSFER',
+                                child: Text(
+                                  'BANK TRANSFER (NEFT/RTGS)',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'CHEQUE',
+                                child: Text('CHEQUE', overflow: TextOverflow.ellipsis),
+                              ),
+                              DropdownMenuItem(
+                                value: 'OTHER',
+                                child: Text('OTHER', overflow: TextOverflow.ellipsis),
+                              ),
                             ],
                             onChanged: (v) {
                               if (v != null) setDlgState(() => paymentMethod = v);
@@ -1831,21 +1872,27 @@ class _CentralPlantInventoryScreenState
                     items: const [
                       DropdownMenuItem(
                         value: 'preform',
-                        child: Text('Preform'),
+                        child: Text('Preform', overflow: TextOverflow.ellipsis, maxLines: 1),
                       ),
-                      DropdownMenuItem(value: 'cap', child: Text('Cap')),
-                      DropdownMenuItem(value: 'label', child: Text('Label')),
+                      DropdownMenuItem(
+                        value: 'cap',
+                        child: Text('Cap', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ),
+                      DropdownMenuItem(
+                        value: 'label',
+                        child: Text('Label', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ),
                       DropdownMenuItem(
                         value: 'box',
-                        child: Text('Box / Carton'),
+                        child: Text('Box / Carton', overflow: TextOverflow.ellipsis, maxLines: 1),
                       ),
                       DropdownMenuItem(
                         value: 'chemical',
-                        child: Text('Chemical / Minerals'),
+                        child: Text('Chemical / Minerals', overflow: TextOverflow.ellipsis, maxLines: 1),
                       ),
                       DropdownMenuItem(
                         value: 'water',
-                        child: Text('Raw Water'),
+                        child: Text('Raw Water', overflow: TextOverflow.ellipsis, maxLines: 1),
                       ),
                     ],
                     onChanged: (val) =>
@@ -1859,11 +1906,26 @@ class _CentralPlantInventoryScreenState
                       labelText: 'Unit of Measure',
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'pcs', child: Text('Pcs')),
-                      DropdownMenuItem(value: 'litres', child: Text('Litres')),
-                      DropdownMenuItem(value: 'rolls', child: Text('Rolls')),
-                      DropdownMenuItem(value: 'boxes', child: Text('Boxes')),
-                      DropdownMenuItem(value: 'kg', child: Text('Kg')),
+                      DropdownMenuItem(
+                        value: 'pcs',
+                        child: Text('Pcs', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ),
+                      DropdownMenuItem(
+                        value: 'litres',
+                        child: Text('Litres', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ),
+                      DropdownMenuItem(
+                        value: 'rolls',
+                        child: Text('Rolls', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ),
+                      DropdownMenuItem(
+                        value: 'boxes',
+                        child: Text('Boxes', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ),
+                      DropdownMenuItem(
+                        value: 'kg',
+                        child: Text('Kg', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ),
                     ],
                     onChanged: (val) => setDlgState(() => uom = val ?? uom),
                   ),

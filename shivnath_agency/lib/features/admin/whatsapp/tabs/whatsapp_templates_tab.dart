@@ -396,7 +396,12 @@ class _WhatsAppTemplatesTabState extends State<WhatsAppTemplatesTab> {
           .map(
             (value) => DropdownMenuItem(
               value: value,
-              child: Text(value, style: const TextStyle(fontSize: 11)),
+              child: Text(
+                value,
+                style: const TextStyle(fontSize: 11),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             ),
           )
           .toList(),
@@ -1211,7 +1216,12 @@ class _WhatsAppTemplatesTabState extends State<WhatsAppTemplatesTab> {
           items: items.map((item) {
             return DropdownMenuItem<String>(
               value: item,
-              child: Text(item, style: const TextStyle(fontSize: 11)),
+              child: Text(
+                item,
+                style: const TextStyle(fontSize: 11),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             );
           }).toList(),
           onChanged: (selected) {

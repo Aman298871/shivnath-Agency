@@ -210,34 +210,60 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           initialValue: quotationType,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Quotation Type',
                             border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                           ),
                           items: const [
                             DropdownMenuItem(
                               value: 'customer',
-                              child: Text('Customer Quotation'),
+                              child: Text(
+                                'Customer Quotation',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'bottle',
-                              child: Text('Bottle Quotation'),
+                              child: Text(
+                                'Bottle Quotation',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'jar',
-                              child: Text('Jar Quotation'),
+                              child: Text(
+                                'Jar Quotation',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'franchise',
-                              child: Text('Franchise Quotation'),
+                              child: Text(
+                                'Franchise Quotation',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'bulk',
-                              child: Text('Bulk Quantity Quotation'),
+                              child: Text(
+                                'Bulk Quantity Quotation',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'custom',
-                              child: Text('Custom Quotation'),
+                              child: Text(
+                                'Custom Quotation',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                           ],
                           onChanged: (val) {
@@ -250,22 +276,36 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           initialValue: targetAudience,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Target Audience',
                             border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                           ),
                           items: const [
                             DropdownMenuItem(
                               value: 'customer',
-                              child: Text('Customer'),
+                              child: Text(
+                                'Customer',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'franchise',
-                              child: Text('Franchise'),
+                              child: Text(
+                                'Franchise',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'both',
-                              child: Text('Both'),
+                              child: Text(
+                                'Both',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                           ],
                           onChanged: (val) {
@@ -279,20 +319,28 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int?>(
                     initialValue: selectedProductId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Related Product (Optional)',
                       border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
                     items: [
                       const DropdownMenuItem<int?>(
                         value: null,
-                        child: Text('None (General / Bulk Tier)'),
+                        child: Text(
+                          'None (General / Bulk Tier)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                       ..._products.map(
                         (p) => DropdownMenuItem<int?>(
                           value: int.tryParse(p.id),
                           child: Text(
                             '${p.name} (${p.size}) - Regular: ₹${p.price}',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                       ),

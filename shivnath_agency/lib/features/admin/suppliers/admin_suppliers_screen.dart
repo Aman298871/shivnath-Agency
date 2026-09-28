@@ -208,11 +208,21 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
 
     final filter = DropdownButtonFormField<String>(
       initialValue: _status,
+      isExpanded: true,
       decoration: const InputDecoration(labelText: 'Status'),
       items: const [
-        DropdownMenuItem(value: 'All', child: Text('All Status')),
-        DropdownMenuItem(value: 'Active', child: Text('Active')),
-        DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
+        DropdownMenuItem(
+          value: 'All',
+          child: Text('All Status', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Active',
+          child: Text('Active', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Inactive',
+          child: Text('Inactive', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
       ],
       onChanged: (value) async {
         if (value == null) return;
@@ -916,7 +926,10 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
       isExpanded: true,
       decoration: _inputDecoration(label, icon),
       items: items
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .map((item) => DropdownMenuItem(
+                value: item,
+                child: Text(item, overflow: TextOverflow.ellipsis, maxLines: 1),
+              ))
           .toList(),
       onChanged: onChanged,
     );

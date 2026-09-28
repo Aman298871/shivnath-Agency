@@ -40,9 +40,11 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
             children: [
               Icon(Icons.password_rounded, color: Color(0xFF0284C7)),
               SizedBox(width: 10),
-              Text(
-                'Change Password',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+              Expanded(
+                child: Text(
+                  'Change Password',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                ),
               ),
             ],
           ),
@@ -203,9 +205,11 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
           children: [
             Icon(Icons.privacy_tip_rounded, color: Color(0xFF0284C7)),
             SizedBox(width: 10),
-            Text(
-              'Franchise Privacy Policy',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            Expanded(
+              child: Text(
+                'Franchise Privacy Policy',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
             ),
           ],
         ),
@@ -251,9 +255,11 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
           children: [
             Icon(Icons.gavel_rounded, color: Color(0xFF0284C7)),
             SizedBox(width: 10),
-            Text(
-              'Franchise Agreement Terms',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            Expanded(
+              child: Text(
+                'Franchise Agreement Terms',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
             ),
           ],
         ),
@@ -322,9 +328,11 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
           children: [
             Icon(Icons.system_update_rounded, color: Color(0xFF16A34A)),
             SizedBox(width: 10),
-            Text(
-              'Software Updates',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            Expanded(
+              child: Text(
+                'Software Updates',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+              ),
             ),
           ],
         ),

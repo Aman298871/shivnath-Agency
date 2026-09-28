@@ -127,6 +127,8 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           title: const Row(
             children: [
               Icon(Icons.person_add_alt_1_rounded, color: primaryBlue),
@@ -139,107 +141,158 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
           ),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name *',
-                      hintText: 'e.g. Ramesh Sharma',
-                      border: OutlineInputBorder(),
+            child: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name *',
+                        hintText: 'e.g. Ramesh Sharma',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: emailCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Email Address *',
-                      hintText: 'e.g. admin.ramesh@shivnath.com',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Email Address *',
+                        hintText: 'e.g. admin.ramesh@shivnath.com',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
                     ),
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: phoneCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Phone Number (Optional)',
-                      hintText: 'e.g. +91 98062 47194',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Phone Number (Optional)',
+                        hintText: 'e.g. +91 98062 47194',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.phone,
                     ),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: passCtrl,
-                    obscureText: obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: 'Initial Login Password *',
-                      hintText: 'Enter secure password',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: passCtrl,
+                      obscureText: obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'Initial Login Password *',
+                        hintText: 'Enter secure password',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
                           color: Colors.grey,
+                          onPressed: () {
+                            setDialogState(() {
+                              obscurePassword = !obscurePassword;
+                            });
+                          },
                         ),
-                        onPressed: () {
-                          setDialogState(() {
-                            obscurePassword = !obscurePassword;
-                          });
-                        },
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    value: selectedRole,
-                    decoration: const InputDecoration(
-                      labelText: 'Staff Role',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: selectedRole,
+                      isExpanded: true,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Staff Role',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      selectedItemBuilder: (context) {
+                        return [
+                          'Operational Plant Admin',
+                          'Sales Executive (Optional Field Role)',
+                          'Super Admin (Platform Owner)',
+                        ].map((roleText) {
+                          return Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              roleText,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          );
+                        }).toList();
+                      },
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'admin',
+                          child: Text(
+                            'Operational Plant Admin',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'sales_executive',
+                          child: Text(
+                            'Sales Executive (Optional Field Role)',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'super_admin',
+                          child: Text(
+                            'Super Admin (Platform Owner)',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) =>
+                          setDialogState(() => selectedRole = v ?? 'admin'),
                     ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'admin',
-                        child: Text('Operational Plant Admin'),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: selectedScope,
+                      isExpanded: true,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Server-Side Data Scope',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),
-                      DropdownMenuItem(
-                        value: 'sales_executive',
-                        child: Text('Sales Executive (Optional Field Role)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'super_admin',
-                        child: Text('Super Admin (Platform Owner)'),
-                      ),
-                    ],
-                    onChanged: (v) =>
-                        setDialogState(() => selectedRole = v ?? 'admin'),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    value: selectedScope,
-                    decoration: const InputDecoration(
-                      labelText: 'Server-Side Data Scope',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: dataScopes.entries
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e.key,
+                      selectedItemBuilder: (context) {
+                        return dataScopes.entries.map((e) {
+                          return Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               e.value,
                               style: const TextStyle(fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) =>
-                        setDialogState(() => selectedScope = v ?? 'all_data'),
-                  ),
+                          );
+                        }).toList();
+                      },
+                      items: dataScopes.entries
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e.key,
+                              child: Text(
+                                e.value,
+                                style: const TextStyle(fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) =>
+                          setDialogState(() => selectedScope = v ?? 'all_data'),
+                    ),
                   const SizedBox(height: 16),
                   const Text(
                     'Authorized Module Permissions:',
@@ -350,81 +403,129 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           title: Text(
             'Edit Admin: ${admin['name'] ?? admin['username']}',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
           ),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 500, maxHeight: 550),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: emailCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Email Address',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: phoneCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Phone',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    value: selectedRole,
-                    decoration: const InputDecoration(
-                      labelText: 'Role',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'admin',
-                        child: Text('Operational Plant Admin'),
+            child: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name',
+                        border: OutlineInputBorder(),
                       ),
-                      DropdownMenuItem(
-                        value: 'sales_executive',
-                        child: Text('Sales Executive'),
-                      ),
-                    ],
-                    onChanged: (v) =>
-                        setDialogState(() => selectedRole = v ?? 'admin'),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    value: selectedScope,
-                    decoration: const InputDecoration(
-                      labelText: 'Data Scope',
-                      border: OutlineInputBorder(),
                     ),
-                    items: dataScopes.entries
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e.key,
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Email Address',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Phone',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: selectedRole,
+                      isExpanded: true,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Role',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      selectedItemBuilder: (context) {
+                        return [
+                          'Operational Plant Admin',
+                          'Sales Executive',
+                        ].map((roleText) {
+                          return Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              roleText,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          );
+                        }).toList();
+                      },
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'admin',
+                          child: Text(
+                            'Operational Plant Admin',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'sales_executive',
+                          child: Text(
+                            'Sales Executive',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) =>
+                          setDialogState(() => selectedRole = v ?? 'admin'),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: selectedScope,
+                      isExpanded: true,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Data Scope',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      selectedItemBuilder: (context) {
+                        return dataScopes.entries.map((e) {
+                          return Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               e.value,
                               style: const TextStyle(fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) =>
-                        setDialogState(() => selectedScope = v ?? 'all_data'),
-                  ),
+                          );
+                        }).toList();
+                      },
+                      items: dataScopes.entries
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e.key,
+                              child: Text(
+                                e.value,
+                                style: const TextStyle(fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) =>
+                          setDialogState(() => selectedScope = v ?? 'all_data'),
+                    ),
                   const SizedBox(height: 16),
                   const Text(
                     'Permissions:',

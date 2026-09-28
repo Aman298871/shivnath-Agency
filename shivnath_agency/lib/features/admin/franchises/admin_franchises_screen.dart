@@ -320,14 +320,33 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
   Widget _statusFilter() {
     return DropdownButtonFormField<String>(
       initialValue: statusFilter,
+      isExpanded: true,
       decoration: const InputDecoration(labelText: 'Status'),
       items: const [
-        DropdownMenuItem(value: 'All', child: Text('All Status')),
-        DropdownMenuItem(value: 'Active', child: Text('Active')),
-        DropdownMenuItem(value: 'Pending', child: Text('Pending')),
-        DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
-        DropdownMenuItem(value: 'Suspended', child: Text('Suspended')),
-        DropdownMenuItem(value: 'Rejected', child: Text('Rejected')),
+        DropdownMenuItem(
+          value: 'All',
+          child: Text('All Status', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Active',
+          child: Text('Active', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Pending',
+          child: Text('Pending', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Inactive',
+          child: Text('Inactive', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Suspended',
+          child: Text('Suspended', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Rejected',
+          child: Text('Rejected', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
       ],
       onChanged: (value) {
         setState(() {
@@ -1426,7 +1445,11 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
           .map(
             (e) => DropdownMenuItem(
               value: e,
-              child: Text(e.isEmpty ? 'Select' : e),
+              child: Text(
+                e.isEmpty ? 'Select' : e,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             ),
           )
           .toList(),

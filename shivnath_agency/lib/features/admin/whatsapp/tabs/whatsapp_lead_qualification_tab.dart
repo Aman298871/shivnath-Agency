@@ -545,7 +545,7 @@ class _WhatsAppLeadQualificationTabState
         (value) {
           return DropdownMenuItem(
             value: value,
-            child: Text(value),
+            child: Text(value, overflow: TextOverflow.ellipsis, maxLines: 1),
           );
         },
       ).toList(),

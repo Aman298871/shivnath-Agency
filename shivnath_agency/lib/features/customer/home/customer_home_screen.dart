@@ -113,9 +113,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           children: [
             Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 26),
             SizedBox(width: 10),
-            Text(
-              'Purity & Quality Standards',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            Expanded(
+              child: Text(
+                'Purity & Quality Standards',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
             ),
           ],
         ),
@@ -223,9 +225,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               size: 24,
             ),
             SizedBox(width: 10),
-            Text(
-              'Customer Water Wallet',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            Expanded(
+              child: Text(
+                'Customer Water Wallet',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
             ),
           ],
         ),
@@ -308,9 +312,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           children: [
             Icon(Icons.stars_rounded, color: Color(0xFF9333EA), size: 24),
             SizedBox(width: 10),
-            Text(
-              'Shivnath Hydration Rewards',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            Expanded(
+              child: Text(
+                'Shivnath Hydration Rewards',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
             ),
           ],
         ),

@@ -295,18 +295,21 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue:
-                            availableDistricts.contains(
-                              districtController.text.trim(),
-                            )
+                        value: availableDistricts.contains(
+                                  districtController.text.trim(),
+                                )
                             ? districtController.text.trim()
                             : availableDistricts.first,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'District *',
                           prefixIcon: Icon(Icons.map_outlined),
                         ),
                         items: availableDistricts.map((d) {
-                          return DropdownMenuItem(value: d, child: Text(d));
+                          return DropdownMenuItem(
+                            value: d,
+                            child: Text(d, overflow: TextOverflow.ellipsis, maxLines: 1),
+                          );
                         }).toList(),
                         onChanged: (val) {
                           if (val != null) {
@@ -419,7 +422,11 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                           items: territories.map((t) {
                             return DropdownMenuItem<int>(
                               value: t['id'] as int,
-                              child: Text(t['name']?.toString() ?? ''),
+                              child: Text(
+                                t['name']?.toString() ?? '',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             );
                           }).toList(),
                           onChanged: (id) {

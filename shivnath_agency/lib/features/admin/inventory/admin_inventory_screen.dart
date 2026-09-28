@@ -441,12 +441,19 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
   Widget _typeDropdown() {
     return DropdownButtonFormField<String>(
       initialValue: typeFilter,
+      isExpanded: true,
       items: const [
-        DropdownMenuItem(value: 'All', child: Text('All Types')),
-        DropdownMenuItem(value: 'Raw Material', child: Text('Raw Material')),
+        DropdownMenuItem(
+          value: 'All',
+          child: Text('All Types', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Raw Material',
+          child: Text('Raw Material', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
         DropdownMenuItem(
           value: 'Finished Product',
-          child: Text('Finished Product'),
+          child: Text('Finished Product', overflow: TextOverflow.ellipsis, maxLines: 1),
         ),
       ],
       onChanged: (value) {
@@ -739,6 +746,9 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
 
     final qtyController = TextEditingController();
     final reasonController = TextEditingController();
+    bool submitted = false;
+    String submittedItemName = '';
+    String submittedAction = '';
 
     await showDialog(
       context: context,
@@ -836,7 +846,11 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                               items: inventory.map((item) {
                                 return DropdownMenuItem<int>(
                                   value: item['id'] as int,
-                                  child: Text(item['name'].toString()),
+                                  child: Text(
+                                    item['name'].toString(),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
                                 );
                               }).toList(),
                               onChanged: (value) {
@@ -899,6 +913,7 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
 
                             DropdownButtonFormField<String>(
                               initialValue: action,
+                              isExpanded: true,
                               decoration: _dialogInputDecoration(
                                 'Transaction Type',
                                 Icons.swap_vert_rounded,
@@ -906,11 +921,11 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                               items: const [
                                 DropdownMenuItem(
                                   value: 'Stock In',
-                                  child: Text('Stock In'),
+                                  child: Text('Stock In', overflow: TextOverflow.ellipsis, maxLines: 1),
                                 ),
                                 DropdownMenuItem(
                                   value: 'Stock Out',
-                                  child: Text('Stock Out'),
+                                  child: Text('Stock Out', overflow: TextOverflow.ellipsis, maxLines: 1),
                                 ),
                               ],
                               onChanged: (value) {
@@ -1037,28 +1052,22 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                                       );
 
                                   if (result['success'] == true) {
-                                    if (context.mounted) {
+                                    submitted = true;
+                                    submittedItemName = itemName;
+                                    submittedAction = action;
+
+                                    if (dialogContext.mounted) {
                                       Navigator.pop(dialogContext);
                                     }
-
-                                    await _loadData();
-
-                                    if (!mounted) {
-                                      return;
-                                    }
-
-                                    AppToast.success(
-                                      context,
-                                      '$itemName - $action request submitted for approval.',
-                                      title: 'Approval Requested',
-                                    );
                                   } else {
-                                    AppToast.error(
-                                      context,
-                                      result['message'] ??
-                                          'Unable to submit request.',
-                                      title: 'Request Failed',
-                                    );
+                                    if (dialogContext.mounted) {
+                                      AppToast.error(
+                                        dialogContext,
+                                        result['message'] ??
+                                            'Unable to submit request.',
+                                        title: 'Request Failed',
+                                      );
+                                    }
                                   }
                                 },
                                 icon: const Icon(Icons.save_outlined, size: 18),
@@ -1080,8 +1089,21 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
           },
         );
       },
+    );
+
+    if (submitted && mounted) {
+      await _loadData();
+      if (!mounted) return;
+      AppToast.success(
+        context,
+        '$submittedItemName - $submittedAction request submitted for approval.',
+        title: 'Approval Requested',
+      );
+    }
+
     Future.delayed(const Duration(milliseconds: 600), () {
       qtyController.dispose();
+      reasonController.dispose();
     });
   }
 
@@ -1493,11 +1515,13 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                       Navigator.pop(dialogContext);
                     }
                   } else {
-                    AppToast.error(
-                      context,
-                      result['message'] ?? 'Unable to reject request.',
-                      title: 'Rejection Failed',
-                    );
+                    if (dialogContext.mounted) {
+                      AppToast.error(
+                        dialogContext,
+                        result['message'] ?? 'Unable to reject request.',
+                        title: 'Rejection Failed',
+                      );
+                    }
                   }
                 },
                 child: const Text('Reject'),
@@ -1506,6 +1530,8 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
           ],
         );
       },
+    );
+
     Future.delayed(const Duration(milliseconds: 600), () {
       reasonController.dispose();
     });
@@ -1883,20 +1909,20 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
                                   if (result['success'] == true) {
                                     saved = true;
 
-                                    if (context.mounted) {
+                                    if (dialogContext.mounted) {
                                       Navigator.pop(dialogContext);
                                     }
-
-                                    await _loadData();
                                   } else {
-                                    AppToast.error(
-                                      context,
-                                      result['message'] ??
-                                          'Unable to save item.',
-                                      title: editing
-                                          ? 'Update Failed'
-                                          : 'Create Failed',
-                                    );
+                                    if (dialogContext.mounted) {
+                                      AppToast.error(
+                                        dialogContext,
+                                        result['message'] ??
+                                            'Unable to save item.',
+                                        title: editing
+                                            ? 'Update Failed'
+                                            : 'Create Failed',
+                                      );
+                                    }
                                   }
                                 },
                                 icon: const Icon(Icons.save_outlined, size: 18),
@@ -1928,6 +1954,9 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
             : '${name.text.trim()} added successfully.',
         title: editing ? 'Inventory Updated' : 'Inventory Item Added',
       );
+      await _loadData();
+    }
+
     Future.delayed(const Duration(milliseconds: 600), () {
       name.dispose();
       sku.dispose();
@@ -2153,7 +2182,11 @@ class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
           .map(
             (e) => DropdownMenuItem(
               value: e,
-              child: Text(e.isEmpty ? 'Select' : e),
+              child: Text(
+                e.isEmpty ? 'Select' : e,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             ),
           )
           .toList(),

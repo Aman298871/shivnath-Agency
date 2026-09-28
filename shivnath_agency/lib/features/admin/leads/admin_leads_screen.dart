@@ -952,7 +952,10 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                       ),
                     ),
                     items: statuses
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1),
+                            ))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -993,7 +996,10 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                       ),
                     ),
                     items: scores
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1),
+                            ))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) setModalState(() => currentScore = val);
@@ -1220,7 +1226,10 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                       ),
                     ),
                     items: types
-                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .map((t) => DropdownMenuItem(
+                              value: t,
+                              child: Text(t, overflow: TextOverflow.ellipsis, maxLines: 1),
+                            ))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) setModalState(() => followupType = val);

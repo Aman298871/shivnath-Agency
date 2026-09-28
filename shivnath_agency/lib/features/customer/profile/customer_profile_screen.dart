@@ -136,9 +136,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           children: [
             Icon(Icons.person_outline, color: Color(0xFF0284C7)),
             SizedBox(width: 10),
-            Text(
-              'Personal Information',
-              style: TextStyle(fontWeight: FontWeight.w700),
+            Expanded(
+              child: Text(
+                'Personal Information',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
           ],
         ),
@@ -513,9 +515,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           children: [
             Icon(Icons.settings_outlined, color: Color(0xFF0284C7)),
             SizedBox(width: 10),
-            Text(
-              'App Preferences',
-              style: TextStyle(fontWeight: FontWeight.w700),
+            Expanded(
+              child: Text(
+                'App Preferences',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
           ],
         ),

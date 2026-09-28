@@ -361,7 +361,10 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       ),
       items: const ['All', 'Paid', 'Partial', 'Unpaid'].map((value) {
-        return DropdownMenuItem(value: value, child: Text(value));
+        return DropdownMenuItem(
+          value: value,
+          child: Text(value, overflow: TextOverflow.ellipsis, maxLines: 1),
+        );
       }).toList(),
       onChanged: (value) {
         if (value == null) return;
@@ -2076,18 +2079,31 @@ class _AdminRecordPaymentDialogState extends State<_AdminRecordPaymentDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: _paymentMethod,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Payment Method',
                   border: OutlineInputBorder(),
                 ),
                 items: const [
-                  DropdownMenuItem(value: 'UPI', child: Text('UPI')),
+                  DropdownMenuItem(
+                    value: 'UPI',
+                    child: Text('UPI', overflow: TextOverflow.ellipsis),
+                  ),
                   DropdownMenuItem(
                     value: 'Bank Transfer',
-                    child: Text('Bank Transfer (NEFT/RTGS)'),
+                    child: Text(
+                      'Bank Transfer (NEFT/RTGS)',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                  DropdownMenuItem(value: 'Cheque', child: Text('Cheque')),
+                  DropdownMenuItem(
+                    value: 'Cash',
+                    child: Text('Cash', overflow: TextOverflow.ellipsis),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Cheque',
+                    child: Text('Cheque', overflow: TextOverflow.ellipsis),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) setState(() => _paymentMethod = val);

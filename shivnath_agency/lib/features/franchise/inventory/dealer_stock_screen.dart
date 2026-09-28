@@ -750,9 +750,11 @@ class _DealerStockScreenState extends State<DealerStockScreen>
               children: [
                 Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF0284C7)),
                 SizedBox(width: 8),
-                Text(
-                  'Request Central Plant Stock',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                Expanded(
+                  child: Text(
+                    'Request Central Plant Stock',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
                 ),
               ],
             ),
@@ -979,9 +981,11 @@ class _DealerStockScreenState extends State<DealerStockScreen>
               children: [
                 Icon(Icons.inventory_rounded, color: Color(0xFF10B981)),
                 SizedBox(width: 8),
-                Text(
-                  'Confirm Goods Receipt',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                Expanded(
+                  child: Text(
+                    'Confirm Goods Receipt',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
                 ),
               ],
             ),

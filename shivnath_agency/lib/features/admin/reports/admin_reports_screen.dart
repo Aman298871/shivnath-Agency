@@ -362,6 +362,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           value: val,
           child: Text(
             val,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,

@@ -259,7 +259,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             children: [
               Icon(Icons.shopping_bag_outlined, color: Color(0xFF0284C7)),
               SizedBox(width: 10),
-              Text('Confirm Order'),
+              Expanded(
+                child: Text('Confirm Order'),
+              ),
             ],
           ),
           content: Column(
@@ -623,6 +625,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const SizedBox(height: 10),
                   DropdownButtonFormField<int>(
                     initialValue: selectedFranchiseId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.location_city_outlined),
                       labelText: 'Select Serving Franchise',
@@ -641,6 +644,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         child: Text(
                           label,
                           overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                           style: TextStyle(
                             fontWeight: isPrimary
                                 ? FontWeight.w700

@@ -330,6 +330,7 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 initialValue: selectedType,
+                isExpanded: true,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -342,31 +343,31 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                 items: const [
                   DropdownMenuItem(
                     value: 'FSSAI License',
-                    child: Text('FSSAI Food Safety & Water License'),
+                    child: Text('FSSAI Food Safety & Water License', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                   DropdownMenuItem(
                     value: 'GST Certificate',
-                    child: Text('GST Registration Certificate'),
+                    child: Text('GST Registration Certificate', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                   DropdownMenuItem(
                     value: 'Trade License',
-                    child: Text('Municipal Trade License'),
+                    child: Text('Municipal Trade License', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                   DropdownMenuItem(
                     value: 'Lab Test Report',
-                    child: Text('Water Mineral & TDS Lab Report'),
+                    child: Text('Water Mineral & TDS Lab Report', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                   DropdownMenuItem(
                     value: 'Rent / Property Agreement',
-                    child: Text('Plant / Shop Rent Agreement'),
+                    child: Text('Plant / Shop Rent Agreement', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                   DropdownMenuItem(
                     value: 'Identity Proof',
-                    child: Text('Aadhaar / Voter ID'),
+                    child: Text('Aadhaar / Voter ID', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                   DropdownMenuItem(
                     value: 'PAN Card',
-                    child: Text('Business / Personal PAN Card'),
+                    child: Text('Business / Personal PAN Card', overflow: TextOverflow.ellipsis, maxLines: 1),
                   ),
                 ],
                 onChanged: (val) {

@@ -1169,13 +1169,20 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
 
   Widget _categoryDropdown() {
     final List<DropdownMenuItem<dynamic>> dropdownItems = [
-      const DropdownMenuItem(value: 'All', child: Text('All Categories')),
+      const DropdownMenuItem(
+        value: 'All',
+        child: Text('All Categories', overflow: TextOverflow.ellipsis, maxLines: 1),
+      ),
       ...flatCategories.map((cat) {
         final id = cat['id'];
         final fullPath = cat['full_path'] ?? cat['name'];
         return DropdownMenuItem(
           value: id,
-          child: Text(fullPath.toString(), overflow: TextOverflow.ellipsis),
+          child: Text(
+            fullPath.toString(),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
         );
       }),
     ];
@@ -2025,7 +2032,10 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
       isExpanded: true,
       decoration: _formDecoration(label, icon),
       items: effectiveItems
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .map((item) => DropdownMenuItem(
+                value: item,
+                child: Text(item, overflow: TextOverflow.ellipsis, maxLines: 1),
+              ))
           .toList(),
       onChanged: onChanged,
     );
@@ -2050,7 +2060,11 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
       items: [
         const DropdownMenuItem<int?>(
           value: null,
-          child: Text('None / Select Category'),
+          child: Text(
+            'None / Select Category',
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
         ),
         ...items.map((cat) {
           return DropdownMenuItem<int?>(
@@ -2058,6 +2072,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
             child: Text(
               cat['full_path']?.toString() ?? cat['name']?.toString() ?? '',
               overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           );
         }),

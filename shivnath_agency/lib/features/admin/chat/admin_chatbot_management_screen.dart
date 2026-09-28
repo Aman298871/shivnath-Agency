@@ -116,6 +116,7 @@ class _AdminChatbotManagementScreenState
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: inquiryType,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Target Audience / Inquiry Type',
                       border: OutlineInputBorder(),
@@ -123,15 +124,27 @@ class _AdminChatbotManagementScreenState
                     items: const [
                       DropdownMenuItem(
                         value: 'customer',
-                        child: Text('Customer / Product'),
+                        child: Text(
+                          'Customer / Product',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'franchise',
-                        child: Text('Franchise'),
+                        child: Text(
+                          'Franchise',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'both',
-                        child: Text('Both (Universal)'),
+                        child: Text(
+                          'Both (Universal)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                     ],
                     onChanged: (val) {
@@ -141,6 +154,7 @@ class _AdminChatbotManagementScreenState
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int?>(
                     initialValue: selectedParentId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Parent Option (Leave blank for Root)',
                       border: OutlineInputBorder(),
@@ -148,7 +162,11 @@ class _AdminChatbotManagementScreenState
                     items: [
                       const DropdownMenuItem<int?>(
                         value: null,
-                        child: Text('None (Root Level Menu)'),
+                        child: Text(
+                          'None (Root Level Menu)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                       ..._options
                           .where(
@@ -159,6 +177,8 @@ class _AdminChatbotManagementScreenState
                               value: o['id'] as int,
                               child: Text(
                                 '${o['inquiry_type'].toString().toUpperCase()}: ${o['title']}',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             );
                           }),
@@ -190,6 +210,7 @@ class _AdminChatbotManagementScreenState
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int?>(
                     initialValue: selectedProductId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Link to Product (Optional)',
                       border: OutlineInputBorder(),
@@ -197,12 +218,20 @@ class _AdminChatbotManagementScreenState
                     items: [
                       const DropdownMenuItem<int?>(
                         value: null,
-                        child: Text('None'),
+                        child: Text(
+                          'None',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                       ..._products.map(
                         (p) => DropdownMenuItem<int?>(
                           value: int.tryParse(p.id),
-                          child: Text('${p.name} (₹${p.price})'),
+                          child: Text(
+                            '${p.name} (₹${p.price})',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         ),
                       ),
                     ],
@@ -212,6 +241,7 @@ class _AdminChatbotManagementScreenState
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int?>(
                     initialValue: selectedQuotationId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Link to Quotation (Optional)',
                       border: OutlineInputBorder(),
@@ -219,13 +249,19 @@ class _AdminChatbotManagementScreenState
                     items: [
                       const DropdownMenuItem<int?>(
                         value: null,
-                        child: Text('None'),
+                        child: Text(
+                          'None',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                       ..._quotations.map(
                         (q) => DropdownMenuItem<int?>(
                           value: q['id'] as int?,
                           child: Text(
                             '${q['title']} (₹${q['total_price'] ?? q['unit_price']})',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                       ),

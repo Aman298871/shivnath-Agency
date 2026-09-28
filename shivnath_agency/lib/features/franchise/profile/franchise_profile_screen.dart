@@ -172,6 +172,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                   const SizedBox(height: 18),
                   DropdownButtonFormField<String>(
                     initialValue: selectedType,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Document Type *',
                       border: OutlineInputBorder(),
@@ -186,6 +187,8 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                         child: Text(
                           e.value,
                           style: const TextStyle(fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       );
                     }).toList(),
@@ -741,13 +744,17 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: selectedDistrict,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Select District',
                       border: OutlineInputBorder(),
                     ),
                     items: districts.map((d) {
                       final name = d['name'].toString();
-                      return DropdownMenuItem(value: name, child: Text(name));
+                      return DropdownMenuItem(
+                        value: name,
+                        child: Text(name, overflow: TextOverflow.ellipsis, maxLines: 1),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -768,6 +775,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                   const SizedBox(height: 14),
                   DropdownButtonFormField<int>(
                     initialValue: selectedZoneId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Select Territory / Zone',
                       border: OutlineInputBorder(),
@@ -776,7 +784,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                       final name = z['name'].toString();
                       return DropdownMenuItem(
                         value: z['id'] as int?,
-                        child: Text(name),
+                        child: Text(name, overflow: TextOverflow.ellipsis, maxLines: 1),
                       );
                     }).toList(),
                     onChanged: (val) {
@@ -794,12 +802,16 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     initialValue: selectedArea,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Service Area / Locality',
                       border: OutlineInputBorder(),
                     ),
                     items: availableAreas
-                        .map((a) => DropdownMenuItem(value: a, child: Text(a)))
+                        .map((a) => DropdownMenuItem(
+                              value: a,
+                              child: Text(a, overflow: TextOverflow.ellipsis, maxLines: 1),
+                            ))
                         .toList(),
                     onChanged: (val) => setSheetState(() => selectedArea = val),
                   ),

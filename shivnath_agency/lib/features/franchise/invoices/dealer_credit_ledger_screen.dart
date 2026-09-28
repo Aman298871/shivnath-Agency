@@ -659,18 +659,31 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: method,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Payment Method',
                     border: OutlineInputBorder(),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 'UPI', child: Text('UPI')),
+                    DropdownMenuItem(
+                      value: 'UPI',
+                      child: Text('UPI', overflow: TextOverflow.ellipsis),
+                    ),
                     DropdownMenuItem(
                       value: 'Bank Transfer',
-                      child: Text('NEFT / RTGS / IMPS'),
+                      child: Text(
+                        'NEFT / RTGS / IMPS',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                    DropdownMenuItem(value: 'Cheque', child: Text('Cheque')),
+                    DropdownMenuItem(
+                      value: 'Cash',
+                      child: Text('Cash', overflow: TextOverflow.ellipsis),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Cheque',
+                      child: Text('Cheque', overflow: TextOverflow.ellipsis),
+                    ),
                   ],
                   onChanged: (val) {
                     if (val != null) setDlgState(() => method = val);

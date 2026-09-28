@@ -1217,7 +1217,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                     '45 Days',
                     '60 Days',
                   ].map((value) {
-                    return DropdownMenuItem(value: value, child: Text(value));
+                    return DropdownMenuItem(
+                      value: value,
+                      child: Text(value, overflow: TextOverflow.ellipsis, maxLines: 1),
+                    );
                   }).toList(),
               onChanged: (value) {
                 if (value == null) {
@@ -1247,7 +1250,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 prefixIcon: Icon(Icons.currency_rupee),
               ),
               items: const ['INR - Indian Rupee'].map((value) {
-                return DropdownMenuItem(value: value, child: Text(value));
+                return DropdownMenuItem(
+                  value: value,
+                  child: Text(value, overflow: TextOverflow.ellipsis, maxLines: 1),
+                );
               }).toList(),
               onChanged: (value) {
                 if (value == null) {
@@ -2395,7 +2401,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             ),
           ),
           items: items.map((item) {
-            return DropdownMenuItem(value: item, child: Text(item));
+            return DropdownMenuItem(
+              value: item,
+              child: Text(item, overflow: TextOverflow.ellipsis, maxLines: 1),
+            );
           }).toList(),
           onChanged: onChanged,
         ),

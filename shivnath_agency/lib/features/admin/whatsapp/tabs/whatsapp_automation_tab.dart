@@ -658,6 +658,7 @@ class _WhatsAppAutomationTabState
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: type,
+                        isExpanded: true,
                         decoration:
                             const InputDecoration(
                           labelText:
@@ -673,7 +674,7 @@ class _WhatsAppAutomationTabState
                           (value) {
                             return DropdownMenuItem(
                               value: value,
-                              child: Text(value),
+                              child: Text(value, overflow: TextOverflow.ellipsis, maxLines: 1),
                             );
                           },
                         ).toList(),

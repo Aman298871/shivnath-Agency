@@ -242,9 +242,13 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
     return DropdownButtonFormField<String>(
       initialValue: activeFilter,
+      isExpanded: true,
       decoration: const InputDecoration(labelText: 'Order Status'),
       items: filterOptions
-          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+          .map((e) => DropdownMenuItem(
+                value: e,
+                child: Text(e, overflow: TextOverflow.ellipsis, maxLines: 1),
+              ))
           .toList(),
       onChanged: (value) {
         if (value != null) setState(() => filter = value);
@@ -1037,11 +1041,14 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 initialValue: statuses.contains(selected)
                     ? selected
                     : statuses.first,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Order Status'),
                 items: statuses
                     .map(
-                      (status) =>
-                          DropdownMenuItem(value: status, child: Text(status)),
+                      (status) => DropdownMenuItem(
+                        value: status,
+                        child: Text(status, overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ),
                     )
                     .toList(),
                 onChanged: (value) {

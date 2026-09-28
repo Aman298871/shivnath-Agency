@@ -134,7 +134,7 @@ class _CentralPlantInventoryScreenState
           tabs: const [
             Tab(text: 'Production Batches'),
             Tab(text: 'Raw Materials'),
-            Tab(text: 'Dealer Dispatches'),
+            Tab(text: 'Dealer Stock Requests'),
           ],
         ),
       ),
@@ -900,15 +900,18 @@ class _CentralPlantInventoryScreenState
   // =========================================================================
 
   Widget _buildDealerDispatchesTab() {
-    final pending = _dealerRequests.where((r) {
+    final activeRequests = _dealerRequests.where((r) {
       final s = (r['status'] ?? '').toString().toUpperCase();
-      return s == 'PENDING' || s == 'PARTIALLY_DISPATCHED';
+      return s != 'CANCELLED' && s != 'REJECTED';
     }).toList();
 
-    if (pending.isEmpty) {
+    final displayList = activeRequests.isNotEmpty ? activeRequests : _dealerRequests;
+
+    if (displayList.isEmpty) {
       return const Center(
         child: Text(
-          'No pending dealer stock requests to dispatch.',
+          'No dealer stock requests found.\nWhen franchises request stock, requests appear here for batch allocation and dispatch.',
+          textAlign: TextAlign.center,
           style: TextStyle(color: Color(0xFF64748B)),
         ),
       );
@@ -916,12 +919,15 @@ class _CentralPlantInventoryScreenState
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: pending.length,
+      itemCount: displayList.length,
       itemBuilder: (context, idx) {
-        final req = pending[idx];
+        final req = displayList[idx];
         final id = req['id'];
         final reqNum = req['request_number'] ?? 'REQ-$id';
         final dealerName = req['dealer_name'] ?? 'Franchise';
+        final rawStatus = (req['status'] ?? 'REQUESTED').toString().toUpperCase();
+        final statusDisplay = rawStatus.replaceAll('_', ' ');
+        final isDispatched = rawStatus == 'DISPATCHED' || rawStatus == 'RECEIVED';
         final rawItems = req['items'];
         final List<Map<String, dynamic>> items = [];
         if (rawItems is List) {
@@ -971,15 +977,19 @@ class _CentralPlantInventoryScreenState
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
+                        color: isDispatched
+                            ? const Color(0xFFDCFCE7)
+                            : Colors.orange.shade50,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        'READY FOR DISPATCH',
+                      child: Text(
+                        statusDisplay,
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 10,
-                          color: Colors.orange,
+                          color: isDispatched
+                              ? const Color(0xFF166534)
+                              : Colors.orange.shade800,
                         ),
                       ),
                     ),

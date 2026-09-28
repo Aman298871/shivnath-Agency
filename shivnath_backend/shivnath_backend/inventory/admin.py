@@ -3,6 +3,8 @@ from django.contrib import admin
 from .models import (
     InventoryItem,
     StockRequest,
+    DealerStockRequest,
+    DealerStockRequestAllocation,
 )
 
 
@@ -85,3 +87,59 @@ class StockRequestAdmin(admin.ModelAdmin):
         'created_at',
         'approved_at',
     ]
+
+
+class DealerStockRequestAllocationInline(admin.TabularInline):
+    from .models import DealerStockRequestAllocation
+    model = DealerStockRequestAllocation
+    extra = 0
+    fields = ['production_batch', 'allocated_quantity', 'allocated_at']
+    readonly_fields = ['allocated_at']
+
+
+@admin.register(DealerStockRequest)
+class DealerStockRequestAdmin(admin.ModelAdmin):
+    list_display = [
+        'request_number',
+        'dealer',
+        'product',
+        'requested_quantity',
+        'approved_quantity',
+        'dispatched_quantity',
+        'received_quantity',
+        'status',
+        'created_at',
+    ]
+    list_filter = [
+        'status',
+        'product',
+        'created_at',
+    ]
+    search_fields = [
+        'request_number',
+        'dealer__business_name',
+        'dealer__owner_name',
+        'dealer__phone',
+        'product__name',
+    ]
+    ordering = ['-created_at']
+    readonly_fields = ['created_at', 'received_at']
+    inlines = [DealerStockRequestAllocationInline]
+
+
+@admin.register(DealerStockRequestAllocation)
+class DealerStockRequestAllocationAdmin(admin.ModelAdmin):
+    list_display = [
+        'id',
+        'stock_request',
+        'production_batch',
+        'allocated_quantity',
+        'allocated_at',
+    ]
+    list_filter = [
+        'allocated_at',
+    ]
+    search_fields = [
+        'stock_request__request_number',
+        'production_batch__batch_number',
+    ]

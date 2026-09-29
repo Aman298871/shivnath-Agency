@@ -212,6 +212,32 @@ class ProductionBatch(models.Model):
     def available_quantity(self):
         return max(0, self.quantity_remaining_company - self.reserved_quantity)
 
+    def _normalize_dates(self):
+        import datetime
+        if isinstance(self.manufacture_date, str):
+            try:
+                self.manufacture_date = datetime.datetime.strptime(self.manufacture_date.split('T')[0], '%Y-%m-%d').date()
+            except Exception:
+                pass
+        elif isinstance(self.manufacture_date, datetime.datetime):
+            self.manufacture_date = self.manufacture_date.date()
+
+        if isinstance(self.expiry_date, str):
+            try:
+                self.expiry_date = datetime.datetime.strptime(self.expiry_date.split('T')[0], '%Y-%m-%d').date()
+            except Exception:
+                pass
+        elif isinstance(self.expiry_date, datetime.datetime):
+            self.expiry_date = self.expiry_date.date()
+
+    def clean(self):
+        super().clean()
+        self._normalize_dates()
+
+    def save(self, *args, **kwargs):
+        self._normalize_dates()
+        super().save(*args, **kwargs)
+
     @property
     def is_expired(self):
         from django.utils import timezone
@@ -269,6 +295,32 @@ class DealerStockBatch(models.Model):
 
     def __str__(self):
         return f"[{self.dealer.business_name}] {self.product.name} ({self.batch_number}) Rem: {self.remaining_quantity}, Res: {self.reserved_quantity} (Exp: {self.expiry_date})"
+
+    def _normalize_dates(self):
+        import datetime
+        if isinstance(self.manufacture_date, str):
+            try:
+                self.manufacture_date = datetime.datetime.strptime(self.manufacture_date.split('T')[0], '%Y-%m-%d').date()
+            except Exception:
+                pass
+        elif isinstance(self.manufacture_date, datetime.datetime):
+            self.manufacture_date = self.manufacture_date.date()
+
+        if isinstance(self.expiry_date, str):
+            try:
+                self.expiry_date = datetime.datetime.strptime(self.expiry_date.split('T')[0], '%Y-%m-%d').date()
+            except Exception:
+                pass
+        elif isinstance(self.expiry_date, datetime.datetime):
+            self.expiry_date = self.expiry_date.date()
+
+    def clean(self):
+        super().clean()
+        self._normalize_dates()
+
+    def save(self, *args, **kwargs):
+        self._normalize_dates()
+        super().save(*args, **kwargs)
 
     @property
     def available_quantity(self):

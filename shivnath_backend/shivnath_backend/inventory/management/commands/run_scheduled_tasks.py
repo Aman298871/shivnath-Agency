@@ -46,7 +46,13 @@ class Command(BaseCommand):
         # Company Production Batches
         active_company_batches = ProductionBatch.objects.filter(status='ACTIVE', quantity_remaining_company__gt=0)
         for pb in active_company_batches:
-            days_left = (pb.expiry_date - today).days
+            pb_exp = pb.expiry_date
+            if isinstance(pb_exp, str):
+                try:
+                    pb_exp = date.fromisoformat(pb_exp.split('T')[0])
+                except Exception:
+                    pb_exp = today
+            days_left = (pb_exp - today).days
             for threshold_days, level_key, level_label in tiers:
                 if (threshold_days == 0 and days_left <= 0) or (threshold_days > 0 and 0 < days_left <= threshold_days):
                     dedup_hash = ExpiryAlertLog.compute_hash('COMPANY', pb.id, level_key)
@@ -98,7 +104,13 @@ class Command(BaseCommand):
         # Dealer Stock Batches
         active_dealer_batches = DealerStockBatch.objects.filter(is_active=True, remaining_quantity__gt=0)
         for db in active_dealer_batches:
-            days_left = (db.expiry_date - today).days
+            db_exp = db.expiry_date
+            if isinstance(db_exp, str):
+                try:
+                    db_exp = date.fromisoformat(db_exp.split('T')[0])
+                except Exception:
+                    db_exp = today
+            days_left = (db_exp - today).days
             for threshold_days, level_key, level_label in tiers:
                 if (threshold_days == 0 and days_left <= 0) or (threshold_days > 0 and 0 < days_left <= threshold_days):
                     dedup_hash = ExpiryAlertLog.compute_hash('DEALER', db.id, level_key)

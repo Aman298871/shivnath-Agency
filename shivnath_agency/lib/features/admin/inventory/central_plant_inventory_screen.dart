@@ -1111,7 +1111,7 @@ class _CentralPlantInventoryScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<ProductModel>(
-                    initialValue: selectedProduct,
+                    value: selectedProduct,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Manufactured Product Variant *',

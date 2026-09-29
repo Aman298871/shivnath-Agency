@@ -19,6 +19,11 @@ from billing.models import Invoice, CompanyBillingProfile, DealerCreditProfile
 
 
 def _coerce_date(value, default=None):
+    """
+    Safely converts date, datetime, or ISO string to a datetime.date object.
+    Prevents TypeError comparisons between datetime.date and str.
+    Uses fromisoformat first, falls back to Django's parse_date.
+    """
     if not value:
         return default
     if isinstance(value, datetime.datetime):
@@ -401,7 +406,8 @@ def allocate_and_dispatch_stock_request_atomic(stock_request, allocations_list, 
             continue
 
         pbatch = ProductionBatch.objects.select_for_update().get(id=batch_id)
-        if pbatch.expiry_date <= today:
+        exp = _coerce_date(pbatch.expiry_date, default=today)
+        if exp <= today:
             raise ValidationError(f"Batch {pbatch.batch_number} is expired ({pbatch.expiry_date}) and cannot be allocated.")
         if pbatch.available_quantity < qty:
             raise ValidationError(
@@ -957,7 +963,8 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
         if not batch:
             continue
 
-        days_left = (batch.expiry_date - today).days
+        exp = _coerce_date(batch.expiry_date, default=today)
+        days_left = (exp - today).days
         if days_left > 60:
             continue
 
@@ -1035,7 +1042,7 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
             'allocated_quantity': alloc.allocated_quantity,
             'collected_quantity': alloc.received_quantity,
             'pending_quantity': pending,
-            'expiry_date': batch.expiry_date.isoformat(),
+            'expiry_date': exp.isoformat() if hasattr(exp, 'isoformat') else str(batch.expiry_date),
             'remaining_days': days_left,
             'alert_level': level_key,
             'is_expired': days_left <= 0,
@@ -1066,7 +1073,8 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
         if not batch:
             continue
 
-        days_left = (batch.expiry_date - today).days
+        exp = _coerce_date(batch.expiry_date, default=today)
+        days_left = (exp - today).days
         if days_left > 60:
             continue
 
@@ -1111,7 +1119,7 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
                 'allocated_quantity': res.reserved_quantity,
                 'collected_quantity': res.consumed_quantity,
                 'pending_quantity': pending,
-                'expiry_date': batch.expiry_date,
+                'expiry_date': exp,
                 'remaining_days': days_left,
                 'alert_level': level_key,
                 'status': 'RESOLVED' if pending <= 0 else 'ACTIVE',
@@ -1122,7 +1130,7 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
             rec.collected_quantity = res.consumed_quantity
             rec.pending_quantity = pending
             rec.remaining_days = days_left
-            rec.expiry_date = batch.expiry_date
+            rec.expiry_date = exp
             if pending <= 0:
                 rec.status = 'RESOLVED'
                 if not rec.resolved_at:
@@ -1150,7 +1158,7 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
             'allocated_quantity': res.reserved_quantity,
             'collected_quantity': res.consumed_quantity,
             'pending_quantity': pending,
-            'expiry_date': batch.expiry_date.isoformat(),
+            'expiry_date': exp.isoformat() if hasattr(exp, 'isoformat') else str(batch.expiry_date),
             'remaining_days': days_left,
             'alert_level': level_key,
             'is_expired': days_left <= 0,

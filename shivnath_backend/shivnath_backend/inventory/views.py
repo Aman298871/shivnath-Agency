@@ -804,12 +804,9 @@ class DealerStockBatchListAPIView(generics.ListAPIView):
         user = self.request.user
         qs = DealerStockBatch.objects.select_related('product', 'dealer').all()
 
-        if hasattr(user, 'profile') and user.profile.role == 'franchise':
-            dealer = getattr(user, 'franchise_profile', None)
-            if dealer:
-                qs = qs.filter(dealer=dealer)
-            else:
-                qs = qs.none()
+        dealer = getattr(user, 'franchise_profile', None)
+        if dealer:
+            qs = qs.filter(dealer=dealer)
         else:
             dealer_id = self.request.query_params.get('dealer_id')
             if dealer_id:
@@ -829,12 +826,9 @@ class DealerStockRequestListCreateAPIView(views.APIView):
         user = request.user
         qs = DealerStockRequest.objects.select_related('product', 'dealer').prefetch_related('allocations__production_batch').all()
 
-        if hasattr(user, 'profile') and user.profile.role == 'franchise':
-            dealer = getattr(user, 'franchise_profile', None)
-            if dealer:
-                qs = qs.filter(dealer=dealer)
-            else:
-                qs = qs.none()
+        dealer = getattr(user, 'franchise_profile', None)
+        if dealer:
+            qs = qs.filter(dealer=dealer)
         else:
             dealer_id = request.query_params.get('dealer_id')
             if dealer_id:
@@ -1292,12 +1286,9 @@ class InventoryLedgerListAPIView(generics.ListAPIView):
         user = self.request.user
         qs = InventoryTransactionLedger.objects.select_related('product', 'raw_material', 'dealer', 'actor').all()
 
-        if hasattr(user, 'profile') and user.profile.role == 'franchise':
-            dealer = getattr(user, 'franchise_profile', None)
-            if dealer:
-                qs = qs.filter(dealer=dealer)
-            else:
-                qs = qs.none()
+        dealer = getattr(user, 'franchise_profile', None)
+        if dealer:
+            qs = qs.filter(dealer=dealer)
         else:
             dealer_id = self.request.query_params.get('dealer_id')
             if dealer_id:

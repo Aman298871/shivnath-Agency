@@ -338,7 +338,10 @@ class _DealerStockScreenState extends State<DealerStockScreen>
               style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 4),
-            Row(
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 2,
               children: [
                 Text(
                   '$cases Cases + $looseUnits Units',
@@ -349,7 +352,7 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                   ),
                 ),
                 Text(
-                  ' (Total: $totalUnits units)',
+                  '(Total: $totalUnits units)',
                   style: const TextStyle(
                     fontSize: 11,
                     color: Color(0xFF94A3B8),
@@ -431,17 +434,22 @@ class _DealerStockScreenState extends State<DealerStockScreen>
         color: const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        runAlignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 6,
         children: [
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(
                 Icons.qr_code_2_rounded,
                 size: 16,
                 color: Color(0xFF64748B),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 batchNum,
                 style: const TextStyle(
@@ -452,6 +460,7 @@ class _DealerStockScreenState extends State<DealerStockScreen>
             ],
           ),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 '$remaining units',
@@ -460,7 +469,7 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                   fontSize: 12,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -617,9 +626,18 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(bn, style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
-                          Text('$dispatched units · Exp: $exp',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                          Expanded(
+                            child: Text(
+                              bn,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$dispatched units · Exp: $exp',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          ),
                         ],
                       ),
                     );

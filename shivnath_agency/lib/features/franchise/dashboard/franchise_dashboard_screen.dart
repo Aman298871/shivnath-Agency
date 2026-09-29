@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/services/InventoryService.dart';
 import '../../../core/services/franchise_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
@@ -82,13 +83,42 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
   Future<void> _loadStats() async {
     setState(() => _loadingStats = true);
     final res = await _franchiseService.getDashboardStats();
-    if (mounted && res['success'] == true && res['data'] is Map) {
+    Map<String, dynamic> data = {};
+    if (res['success'] == true && res['data'] is Map) {
+      data = Map<String, dynamic>.from(res['data']);
+      if (data['stats'] is Map) {
+        data.addAll(Map<String, dynamic>.from(data['stats']));
+      }
+    }
+
+    // Direct dealer batches verification: if active_stock is 0 or null, check batches
+    if (data['active_stock'] == null || data['active_stock'] == 0) {
+      try {
+        final batchRes = await InventoryService().getDealerBatches();
+        if (batchRes['success'] == true && batchRes['data'] is List) {
+          int totalActive = 0;
+          int totalOnHold = 0;
+          for (final b in batchRes['data']) {
+            if (b is Map) {
+              totalActive += (b['remaining_quantity'] as num? ?? 0).toInt();
+              totalOnHold += (b['reserved_quantity'] as num? ?? 0).toInt();
+            }
+          }
+          if (totalActive > 0) {
+            data['active_stock'] = totalActive;
+            data['on_hold'] = totalOnHold;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (mounted) {
       setState(() {
-        _stats = Map<String, dynamic>.from(res['data']);
+        if (data.isNotEmpty) {
+          _stats = data;
+        }
         _loadingStats = false;
       });
-    } else if (mounted) {
-      setState(() => _loadingStats = false);
     }
   }
 
@@ -321,6 +351,14 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                   title: const Text('Wholesale Dealer Dashboard'),
                   actions: [
                     IconButton(
+                      tooltip: 'Refresh Dashboard',
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Color(0xFF0284C7),
+                      ),
+                      onPressed: _loadStats,
+                    ),
+                    IconButton(
                       tooltip: 'AI Operations Assistant',
                       icon: const Icon(
                         Icons.auto_awesome_rounded,
@@ -360,9 +398,13 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
             onPressed: () =>
                 AiChatbotModal.show(context, mode: ChatbotMode.franchise),
           ),
-          body: SingleChildScrollView(
-            padding: EdgeInsets.all(desktop ? 28 : 16),
-            child: Center(
+          body: RefreshIndicator(
+            onRefresh: _loadStats,
+            color: const Color(0xFF0284C7),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.all(desktop ? 28 : 16),
+              child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1250),
                 child: Column(
@@ -514,7 +556,8 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
               ),
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }

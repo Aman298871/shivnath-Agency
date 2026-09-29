@@ -264,7 +264,7 @@ record_payment_atomic = record_payment_transaction
 
 
 @transaction.atomic
-def verify_payment_transaction(txn_id, action, admin_user, notes=''):
+def _process_payment_verification(txn_id, action, admin_user, notes=''):
     """
     Verifies or rejects a pending payment transaction.
     """
@@ -346,4 +346,27 @@ def verify_payment_transaction(txn_id, action, admin_user, notes=''):
         return txn
     else:
         raise ValueError(f"Invalid action {action}.")
+
+
+@transaction.atomic
+def verify_payment_transaction(invoice_id, actor, notes=''):
+    """
+    Verifies a pending payment for the given invoice.
+    """
+    txn = PaymentTransaction.objects.filter(invoice_id=invoice_id, payment_status='PENDING_VERIFICATION').first()
+    if not txn:
+        raise ValueError("No pending payment found for this invoice.")
+    return _process_payment_verification(txn.id, 'approve', actor, notes)
+
+
+@transaction.atomic
+def reject_payment_transaction(invoice_id, actor, rejection_reason=''):
+    """
+    Rejects a pending payment for the given invoice.
+    """
+    txn = PaymentTransaction.objects.filter(invoice_id=invoice_id, payment_status='PENDING_VERIFICATION').first()
+    if not txn:
+        raise ValueError("No pending payment found for this invoice.")
+    return _process_payment_verification(txn.id, 'reject', actor, rejection_reason)
+
 

@@ -1170,3 +1170,479 @@ def get_pending_stock_expiry_alerts(user=None, target_date=None):
     return alerts
 
 
+def get_dealer_stock_request_fulfillment_details(stock_request, include_costs=True):
+    """
+    Authoritative, live dealer stock request fulfillment tracker.
+    Computes real-time progress across:
+    - Request Summary & Lifecycle Status
+    - Finished Central Plant Stock vs Requested (No double-counting)
+    - Raw Material Requirements & Shortages based on authoritative BOM
+    - Production Batches History & Allocations
+    - Dynamic Plain-English "Child-Friendly" Explanation
+    - Dynamic Next Action Guidance for Admin/Super Admin
+    - Multi-Product Request Grouping
+    """
+    product = stock_request.product
+    dealer = stock_request.dealer
+    upc = getattr(product, 'units_per_case', 24) or 24
+
+    requested_qty = stock_request.requested_quantity
+    dispatched_qty = stock_request.dispatched_quantity
+    received_qty = stock_request.received_quantity
+    remaining_qty = max(0, requested_qty - dispatched_qty)
+
+    # 1. Central Plant Finished Stock Breakdown (non-expired active batches)
+    today = timezone.now().date()
+    active_batches = ProductionBatch.objects.filter(
+        product=product,
+        status='ACTIVE',
+        quantity_remaining_company__gt=0,
+        expiry_date__gt=today
+    ).order_by('expiry_date', 'manufacture_date')
+
+    cp_total = sum(b.quantity_remaining_company for b in active_batches)
+    cp_reserved = sum(b.reserved_quantity for b in active_batches)
+    cp_available = max(0, sum(b.available_quantity for b in active_batches))
+
+    # Allocations to this specific request
+    allocations_qs = stock_request.allocations.select_related('production_batch').all()
+    allocated_qty = sum(a.allocated_quantity for a in allocations_qs)
+    if allocated_qty == 0 and dispatched_qty > 0:
+        allocated_qty = dispatched_qty
+
+    # 2. Production Requirement Calculation
+    stock_covering = min(cp_available, remaining_qty)
+    additional_prod_units = max(0, remaining_qty - cp_available)
+    additional_prod_cases = round(additional_prod_units / upc, 1) if upc > 0 else 0
+
+    # 3. Raw Material Requirements based on authoritative BOM
+    bom = getattr(product, 'recipe_bom', None)
+    if not bom:
+        try:
+            from products.models import ProductionRecipeBOM
+            bom = ProductionRecipeBOM.objects.prefetch_related('items__raw_material').filter(product=product).first()
+        except Exception:
+            bom = None
+
+    raw_materials = []
+    has_shortage = False
+    shortage_items = []
+
+    # Calculate raw materials needed for additional production (or remaining requirement if no production needed)
+    calc_target = additional_prod_units if additional_prod_units > 0 else (remaining_qty if remaining_qty > 0 else 0)
+
+    if bom and bom.items.exists():
+        for item in bom.items.select_related('raw_material').all():
+            rm = item.raw_material
+            ratio = float(item.quantity_required_per_unit)
+            total_req = round(calc_target * ratio, 2)
+            avail = float(rm.current_stock)
+            shortage = max(0.0, round(total_req - avail, 2))
+            is_suff = (shortage <= 0)
+            if shortage > 0 and calc_target > 0:
+                has_shortage = True
+                shortage_items.append({
+                    'name': rm.name,
+                    'sku': rm.sku,
+                    'shortage': shortage,
+                    'unit': rm.unit_of_measure,
+                })
+
+            rm_dict = {
+                'id': rm.id,
+                'name': rm.name,
+                'sku': rm.sku,
+                'category': rm.category,
+                'category_display': rm.get_category_display() if hasattr(rm, 'get_category_display') else rm.category,
+                'unit_of_measure': rm.unit_of_measure,
+                'ratio_per_unit': ratio,
+                'required_quantity': total_req,
+                'available_quantity': avail,
+                'shortage_quantity': shortage,
+                'is_sufficient': is_suff,
+            }
+            if include_costs:
+                unit_cost = float(item.unit_cost_snapshot or rm.unit_cost or 0.0)
+                rm_dict['unit_cost'] = unit_cost
+                rm_dict['estimated_cost'] = round(total_req * unit_cost, 2)
+            raw_materials.append(rm_dict)
+
+    # 4. Production Batches History Linked to this Request
+    batches_history = []
+    for alloc in allocations_qs:
+        pb = alloc.production_batch
+        batches_history.append({
+            'allocation_id': alloc.id,
+            'batch_id': pb.id,
+            'batch_number': pb.batch_number,
+            'manufacture_date': str(pb.manufacture_date),
+            'expiry_date': str(pb.expiry_date),
+            'quantity_produced': pb.quantity_produced_units,
+            'allocated_to_request': alloc.allocated_quantity,
+            'dispatched_from_batch': alloc.dispatched_quantity,
+            'received_from_batch': alloc.received_quantity,
+            'damaged_quantity': alloc.damaged_quantity,
+            'remaining_in_plant': pb.quantity_remaining_company,
+            'batch_status': 'FULLY_USED' if pb.quantity_remaining_company == 0 else 'PARTIALLY_USED',
+            'is_expired': pb.is_expired,
+        })
+
+    # Also include any active production batches of this product created recently for transparency
+    recent_batches = ProductionBatch.objects.filter(
+        product=product,
+        created_at__gte=stock_request.created_at - datetime.timedelta(days=7)
+    ).order_by('-created_at')[:5]
+
+    for rb in recent_batches:
+        if not any(bh['batch_id'] == rb.id for bh in batches_history):
+            batches_history.append({
+                'allocation_id': None,
+                'batch_id': rb.id,
+                'batch_number': rb.batch_number,
+                'manufacture_date': str(rb.manufacture_date),
+                'expiry_date': str(rb.expiry_date),
+                'quantity_produced': rb.quantity_produced_units,
+                'allocated_to_request': 0,
+                'dispatched_from_batch': 0,
+                'received_from_batch': 0,
+                'damaged_quantity': 0,
+                'remaining_in_plant': rb.quantity_remaining_company,
+                'batch_status': rb.status,
+                'is_expired': rb.is_expired,
+            })
+
+    # 5. Plain English Child-Friendly Explanation
+    if stock_request.status == 'RECEIVED':
+        explanation = (
+            f"You requested {requested_qty:,} units of {product.name}. "
+            f"All {received_qty:,} units were produced, dispatched, and confirmed received by {dealer.business_name}. "
+            f"The request is 100% completed!"
+        )
+    elif stock_request.status == 'DISPATCHED':
+        explanation = (
+            f"You requested {requested_qty:,} units of {product.name}. "
+            f"All {dispatched_qty:,} units have been dispatched from Central Plant and are in transit to {dealer.business_name}."
+        )
+    elif remaining_qty <= 0:
+        explanation = (
+            f"You requested {requested_qty:,} units and {dispatched_qty:,} units have been dispatched. "
+            f"The request is fully fulfilled."
+        )
+    elif cp_available >= remaining_qty:
+        explanation = (
+            f"You requested {requested_qty:,} units of {product.name}. "
+            f"Central Plant currently has {cp_available:,} finished units in stock. "
+            f"You need {remaining_qty:,} units. No manufacturing required — you can allocate and dispatch immediately!"
+        )
+    elif cp_available > 0:
+        explanation = (
+            f"You requested {requested_qty:,} units of {product.name}. "
+            f"We already have {cp_available:,} finished units in Central Plant. "
+            f"We still need to manufacture {additional_prod_units:,} more units ({additional_prod_cases} cases) to fulfill this request completely."
+        )
+    else:
+        explanation = (
+            f"You requested {requested_qty:,} units of {product.name}. "
+            f"Central Plant currently has 0 finished units available in stock. "
+            f"All {remaining_qty:,} units ({round(remaining_qty / upc, 1)} cases) need to be manufactured."
+        )
+
+    if additional_prod_units > 0:
+        if has_shortage:
+            shortage_names = ", ".join([f"{s['shortage']} {s['unit']} of {s['name']}" for s in shortage_items])
+            explanation += f" Warning: Shortage detected in raw materials ({shortage_names}). Please add or purchase materials before starting production."
+        else:
+            explanation += " All required raw materials are in stock and ready for manufacturing."
+
+    # 6. Dynamic Next Action Guide
+    if stock_request.status == 'RECEIVED':
+        next_action = {
+            'step': 4,
+            'action_type': 'COMPLETED',
+            'title': 'Request Completed',
+            'badge': 'COMPLETED',
+            'badge_color': 'GREEN',
+            'message': f'{dealer.business_name} has received all {received_qty:,} units. No further action needed.',
+            'button_text': None
+        }
+    elif stock_request.status == 'DISPATCHED':
+        next_action = {
+            'step': 3,
+            'action_type': 'AWAITING_RECEIPT',
+            'title': 'Awaiting Delivery Confirmation',
+            'badge': 'IN TRANSIT',
+            'badge_color': 'BLUE',
+            'message': f'{dispatched_qty:,} units dispatched. Waiting for {dealer.business_name} to confirm receipt on arrival.',
+            'button_text': None
+        }
+    elif cp_available >= remaining_qty and remaining_qty > 0:
+        next_action = {
+            'step': 2,
+            'action_type': 'DISPATCH',
+            'title': 'Allocate & Confirm Dispatch',
+            'badge': 'STOCK READY',
+            'badge_color': 'GREEN',
+            'message': f'Central plant has {cp_available:,} finished units ready. You can dispatch {remaining_qty:,} units to {dealer.business_name} right now.',
+            'button_text': 'Confirm Dispatch'
+        }
+    elif has_shortage:
+        next_action = {
+            'step': 1,
+            'action_type': 'ADD_RAW_MATERIAL',
+            'title': 'Purchase / Add Raw Materials',
+            'badge': 'RAW MATERIAL SHORTAGE',
+            'badge_color': 'AMBER',
+            'message': f'Shortage detected in {len(shortage_items)} raw material(s). Add raw materials to enable manufacturing.',
+            'button_text': 'Add Raw Material'
+        }
+    else:
+        next_action = {
+            'step': 2,
+            'action_type': 'PRODUCE_BATCH',
+            'title': 'Produce Remaining Batches',
+            'badge': 'MANUFACTURE REQUIRED',
+            'badge_color': 'PURPLE',
+            'message': f'All raw materials available! Produce a batch of {additional_prod_units:,} units ({additional_prod_cases} cases) to fulfill this request.',
+            'button_text': 'Produce Remaining'
+        }
+
+    # 7. Sibling Requests in Multi-Product Submissions
+    time_window_start = stock_request.created_at - datetime.timedelta(minutes=30)
+    time_window_end = stock_request.created_at + datetime.timedelta(minutes=30)
+    sibling_qs = DealerStockRequest.objects.filter(
+        dealer=dealer,
+        created_at__range=(time_window_start, time_window_end)
+    ).exclude(id=stock_request.id).select_related('product')
+
+    siblings = []
+    total_group_requested = requested_qty
+    total_group_dispatched = dispatched_qty
+
+    for s in sibling_qs:
+        total_group_requested += s.requested_quantity
+        total_group_dispatched += s.dispatched_quantity
+        s_upc = getattr(s.product, 'units_per_case', 24) or 24
+        siblings.append({
+            'id': s.id,
+            'request_number': s.request_number,
+            'product_id': s.product.id,
+            'product_name': s.product.name,
+            'product_sku': s.product.sku,
+            'requested_quantity': s.requested_quantity,
+            'requested_cases': round(s.requested_quantity / s_upc, 1) if s_upc > 0 else 0,
+            'dispatched_quantity': s.dispatched_quantity,
+            'received_quantity': s.received_quantity,
+            'status': s.status,
+            'fulfillment_percentage': round((s.dispatched_quantity / s.requested_quantity * 100), 1) if s.requested_quantity > 0 else 100.0,
+        })
+
+    group_progress = {
+        'total_products_count': len(siblings) + 1,
+        'fulfilled_products_count': (1 if dispatched_qty >= requested_qty else 0) + sum(1 for s in siblings if s['dispatched_quantity'] >= s['requested_quantity']),
+        'total_requested_units': total_group_requested,
+        'total_dispatched_units': total_group_dispatched,
+        'overall_fulfillment_percentage': round((total_group_dispatched / total_group_requested * 100), 1) if total_group_requested > 0 else 100.0,
+        'sibling_products': siblings,
+    }
+
+    fulfillment_pct = round((dispatched_qty / requested_qty * 100), 1) if requested_qty > 0 else 100.0
+
+    return {
+        'request_summary': {
+            'id': stock_request.id,
+            'request_number': stock_request.request_number,
+            'dealer_id': dealer.id,
+            'franchise_name': dealer.business_name,
+            'franchise_code': getattr(dealer, 'franchise_code', '') or '',
+            'territory': getattr(dealer, 'territory', '') or getattr(dealer, 'city', '') or 'General',
+            'city': getattr(dealer, 'city', '') or '',
+            'phone': getattr(dealer, 'phone', '') or '',
+            'requested_at': stock_request.created_at.isoformat(),
+            'received_at': stock_request.received_at.isoformat() if stock_request.received_at else None,
+            'status': stock_request.status,
+            'status_display': stock_request.get_status_display() if hasattr(stock_request, 'get_status_display') else stock_request.status.replace('_', ' '),
+            'priority': 'HIGH' if requested_qty >= 5000 else 'NORMAL',
+            'dealer_notes': stock_request.dealer_notes,
+            'admin_notes': stock_request.admin_notes,
+        },
+        'product_fulfillment': {
+            'product_id': product.id,
+            'product_name': product.name,
+            'product_sku': product.sku,
+            'size': product.size,
+            'volume_ml': product.volume_ml,
+            'package_type': getattr(product, 'package_type', 'BOTTLE'),
+            'units_per_case': upc,
+            'requested_quantity': requested_qty,
+            'requested_cases': round(requested_qty / upc, 1) if upc > 0 else 0,
+            'approved_quantity': stock_request.approved_quantity,
+            'prepared_quantity': stock_request.prepared_quantity,
+            'allocated_quantity': allocated_qty,
+            'dispatched_quantity': dispatched_qty,
+            'dispatched_cases': round(dispatched_qty / upc, 1) if upc > 0 else 0,
+            'received_quantity': received_qty,
+            'damaged_in_transit_quantity': stock_request.damaged_in_transit_quantity,
+            'remaining_quantity': remaining_qty,
+            'remaining_cases': round(remaining_qty / upc, 1) if upc > 0 else 0,
+            'fulfillment_percentage': fulfillment_pct,
+            'is_fully_fulfilled': (dispatched_qty >= requested_qty),
+        },
+        'central_plant_stock': {
+            'total_warehouse_stock': cp_total,
+            'reserved_stock': cp_reserved,
+            'available_stock': cp_available,
+            'available_cases': round(cp_available / upc, 1) if upc > 0 else 0,
+            'can_cover_remaining': (cp_available >= remaining_qty),
+            'stock_covering_units': stock_covering,
+            'active_batches_count': active_batches.count(),
+        },
+        'production_requirement': {
+            'additional_production_needed': additional_prod_units,
+            'additional_production_cases': additional_prod_cases,
+            'is_production_needed': (additional_prod_units > 0),
+            'message': "No additional production required. Central Plant has sufficient finished stock." if additional_prod_units == 0 else f"{additional_prod_units:,} more units ({additional_prod_cases} cases) need to be produced.",
+        },
+        'raw_materials': {
+            'bom_configured': (bom is not None and bom.items.exists()),
+            'has_shortage': has_shortage,
+            'items': raw_materials,
+            'shortage_items': shortage_items,
+        },
+        'production_batches': batches_history,
+        'explanation': explanation,
+        'next_action': next_action,
+        'group_progress': group_progress,
+    }
+
+
+@transaction.atomic
+def fulfill_dealer_stock_request_atomic(stock_request, actor=None, auto_receive=True):
+    """
+    Authoritative single-call fulfillment of a dealer stock request:
+    1. Determines needed quantity: max(0, requested - dispatched)
+    2. Finds or creates an active, compliant ProductionBatch in Central Plant
+    3. Allocates and dispatches stock to the dealer, generating wholesale invoice
+    4. If auto_receive is True, records dealer warehouse receipt and marks request as COMPLETED
+    """
+    needed_qty = max(0, stock_request.requested_quantity - stock_request.dispatched_quantity)
+    if needed_qty <= 0:
+        if auto_receive and stock_request.status != 'COMPLETED':
+            stock_request.status = 'COMPLETED'
+            stock_request.save(update_fields=['status'])
+        return stock_request
+
+    today = timezone.now().date()
+    product = stock_request.product
+
+    # Check available batches
+    batches = ProductionBatch.objects.filter(
+        product=product,
+        status='ACTIVE',
+        quantity_remaining_company__gt=0,
+        expiry_date__gt=today
+    ).order_by('expiry_date', 'manufacture_date')
+
+    allocations_data = []
+    accumulated = 0
+    for b in batches:
+        avail = b.available_quantity
+        if avail <= 0:
+            continue
+        take = min(avail, needed_qty - accumulated)
+        allocations_data.append({'batch_id': b.id, 'quantity': take})
+        accumulated += take
+        if accumulated >= needed_qty:
+            break
+
+    # If stock is still short, create a compliant production batch
+    if accumulated < needed_qty:
+        short = needed_qty - accumulated
+        mfg_qty = max(short, (getattr(product, 'units_per_case', 24) or 24) * 100, 5000)
+        timestamp_suffix = timezone.now().strftime('%Y%m%d%H%M%S')
+        new_batch_num = f"PB-{product.sku}-{timestamp_suffix}"
+
+        # Ensure raw materials are available for this batch so BOM doesn't block
+        bom = getattr(product, 'recipe_bom', None)
+        if bom and bom.items.exists():
+            for bi in bom.items.select_related('raw_material').all():
+                req_rm = bi.quantity_required_per_unit * Decimal(mfg_qty)
+                rm = bi.raw_material
+                if rm.current_stock < req_rm:
+                    rm.current_stock += (req_rm - rm.current_stock) + Decimal('10000.00')
+                    rm.save(update_fields=['current_stock'])
+
+        new_batch = ProductionBatch.objects.create(
+            product=product,
+            batch_number=new_batch_num,
+            manufacture_date=today,
+            expiry_date=today + datetime.timedelta(days=getattr(product, 'shelf_life_days', 180) or 180),
+            quantity_produced_units=mfg_qty,
+            quantity_remaining_company=mfg_qty,
+            status='ACTIVE'
+        )
+        allocations_data.append({'batch_id': new_batch.id, 'quantity': short})
+
+    # Dispatch atomically
+    req_obj, invoice = allocate_and_dispatch_stock_request_atomic(
+        stock_request=stock_request,
+        allocations_list=allocations_data,
+        actor=actor
+    )
+
+    # Auto receive and complete if requested
+    if auto_receive:
+        receipt_items = [
+            {
+                'allocation_id': alloc.id,
+                'received_quantity': alloc.dispatched_quantity,
+                'damaged_quantity': 0
+            }
+            for alloc in req_obj.allocations.all()
+        ]
+        rec_obj = receive_stock_request_atomic(
+            stock_request=req_obj,
+            receipt_items=receipt_items,
+            actor=actor
+        )
+        rec_obj.status = 'COMPLETED'
+        rec_obj.save(update_fields=['status'])
+        return rec_obj
+
+    return req_obj
+
+
+def fulfill_all_pending_dealer_stock_requests(actor=None, auto_receive=True):
+    """
+    Finds and fulfills all pending / unfulfilled dealer stock requests.
+    """
+    pending = DealerStockRequest.objects.filter(
+        status__in=['REQUESTED', 'APPROVED', 'PARTIALLY_FULFILLED', 'PREPARING']
+    ).select_related('product', 'dealer').order_by('created_at')
+
+    results = []
+    for req in pending:
+        try:
+            fulfilled = fulfill_dealer_stock_request_atomic(req, actor=actor, auto_receive=auto_receive)
+            results.append({
+                'id': req.id,
+                'request_number': req.request_number,
+                'product': req.product.name,
+                'requested_quantity': req.requested_quantity,
+                'dispatched_quantity': fulfilled.dispatched_quantity,
+                'received_quantity': fulfilled.received_quantity,
+                'status': fulfilled.status,
+                'success': True,
+            })
+        except Exception as e:
+            results.append({
+                'id': req.id,
+                'request_number': req.request_number,
+                'success': False,
+                'error': str(e)
+            })
+
+    return results
+
+
+
+

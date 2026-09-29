@@ -657,6 +657,9 @@ from .services import (
     record_batch_collection_atomic,
     allocate_and_dispatch_stock_request_atomic,
     receive_stock_request_atomic,
+    get_dealer_stock_request_fulfillment_details,
+    fulfill_dealer_stock_request_atomic,
+    fulfill_all_pending_dealer_stock_requests,
 )
 
 
@@ -1206,6 +1209,79 @@ class DealerStockRequestReceiveAPIView(views.APIView):
             return Response(DealerStockRequestSerializer(req_obj).data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DealerStockRequestFulfillmentTrackerAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        stock_req = get_object_or_404(DealerStockRequest, pk=pk)
+        user = request.user
+        is_franchise = hasattr(user, 'profile') and user.profile.role == 'franchise'
+        if is_franchise:
+            dealer = getattr(user, 'franchise_profile', None)
+            if not dealer or stock_req.dealer_id != dealer.id:
+                return Response(
+                    {'success': False, 'message': 'Permission denied: cannot view stock requests belonging to another franchise.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        include_costs = not is_franchise
+        try:
+            details = get_dealer_stock_request_fulfillment_details(stock_req, include_costs=include_costs)
+            return Response({'success': True, 'fulfillment': details}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception("Error calculating fulfillment tracker details: %s", str(e))
+            return Response({'success': False, 'error': str(e), 'message': f'Fulfillment calculation error: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DealerStockRequestFulfillSingleAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        user = request.user
+        if hasattr(user, 'profile') and user.profile.role == 'franchise':
+            return Response({'success': False, 'message': 'Only plant admins can fulfill stock requests.'}, status=status.HTTP_403_FORBIDDEN)
+
+        stock_req = get_object_or_404(DealerStockRequest, pk=pk)
+        auto_receive = request.data.get('auto_receive', True)
+        try:
+            fulfilled = fulfill_dealer_stock_request_atomic(stock_req, actor=user, auto_receive=auto_receive)
+            return Response({
+                'success': True,
+                'message': f"Request {fulfilled.request_number} fulfilled and completed successfully.",
+                'request_number': fulfilled.request_number,
+                'status': fulfilled.status,
+                'dispatched_quantity': fulfilled.dispatched_quantity,
+                'received_quantity': fulfilled.received_quantity,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception("Error fulfilling dealer stock request %s: %s", pk, str(e))
+            return Response({'success': False, 'error': str(e), 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DealerStockRequestFulfillAllAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if hasattr(user, 'profile') and user.profile.role == 'franchise':
+            return Response({'success': False, 'message': 'Only plant admins can fulfill stock requests.'}, status=status.HTTP_403_FORBIDDEN)
+
+        auto_receive = request.data.get('auto_receive', True)
+        try:
+            results = fulfill_all_pending_dealer_stock_requests(actor=user, auto_receive=auto_receive)
+            success_count = sum(1 for r in results if r.get('success'))
+            return Response({
+                'success': True,
+                'message': f"Completed fulfillment of {success_count} dealer stock request(s).",
+                'count': len(results),
+                'success_count': success_count,
+                'results': results,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception("Error executing fulfill-all dealer stock requests: %s", str(e))
+            return Response({'success': False, 'error': str(e), 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class InventoryLedgerListAPIView(generics.ListAPIView):

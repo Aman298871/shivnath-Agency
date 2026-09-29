@@ -1847,7 +1847,7 @@ class _CentralPlantInventoryScreenState
     final costCtrl = TextEditingController(text: '1.00');
     final stockCtrl = TextEditingController(text: '1000');
     final reorderCtrl = TextEditingController(text: '200');
-    String category = 'preform';
+    String category = 'bottle';
     String uom = 'pcs';
     bool isSaving = false;
 
@@ -1881,27 +1881,31 @@ class _CentralPlantInventoryScreenState
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: const [
                       DropdownMenuItem(
+                        value: 'bottle',
+                        child: Text('Bottle / Finished Bottle', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      ),
+                      DropdownMenuItem(
                         value: 'preform',
-                        child: Text('Preform', overflow: TextOverflow.ellipsis, maxLines: 1),
+                        child: Text('Bottle Preform', overflow: TextOverflow.ellipsis, maxLines: 1),
                       ),
                       DropdownMenuItem(
                         value: 'cap',
-                        child: Text('Cap', overflow: TextOverflow.ellipsis, maxLines: 1),
+                        child: Text('Cap / Closure', overflow: TextOverflow.ellipsis, maxLines: 1),
                       ),
                       DropdownMenuItem(
                         value: 'label',
-                        child: Text('Label', overflow: TextOverflow.ellipsis, maxLines: 1),
+                        child: Text('Label / Sticker', overflow: TextOverflow.ellipsis, maxLines: 1),
                       ),
                       DropdownMenuItem(
-                        value: 'box',
-                        child: Text('Box / Carton', overflow: TextOverflow.ellipsis, maxLines: 1),
+                        value: 'packaging',
+                        child: Text('Box / Carton / Packaging', overflow: TextOverflow.ellipsis, maxLines: 1),
                       ),
                       DropdownMenuItem(
                         value: 'chemical',
                         child: Text('Chemical / Minerals', overflow: TextOverflow.ellipsis, maxLines: 1),
                       ),
                       DropdownMenuItem(
-                        value: 'water',
+                        value: 'raw_water',
                         child: Text('Raw Water', overflow: TextOverflow.ellipsis, maxLines: 1),
                       ),
                     ],
@@ -1984,7 +1988,7 @@ class _CentralPlantInventoryScreenState
                         setDlgState(() => isSaving = true);
                         final res = await _invService.createRawMaterial({
                           'name': nameCtrl.text.trim(),
-                          'code': codeCtrl.text.trim(),
+                          'sku': codeCtrl.text.trim(),
                           'category': category,
                           'unit_of_measure': uom,
                           'unit_cost':

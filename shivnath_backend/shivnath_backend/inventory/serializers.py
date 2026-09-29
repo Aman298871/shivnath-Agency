@@ -345,6 +345,19 @@ class DealerStockRequestAllocationSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+    def get_expiry_date(self, obj):
+        try:
+            exp = obj.production_batch.expiry_date
+            if not exp:
+                return None
+            if isinstance(exp, str):
+                from django.utils.dateparse import parse_date
+                exp = parse_date(exp.strip().split('T')[0])
+            elif isinstance(exp, datetime.datetime):
+                exp = exp.date()
+            return exp.isoformat() if exp else None
+        except Exception:
+            return None
 
 class DealerStockRequestSerializer(serializers.ModelSerializer):
     dealer_name = serializers.CharField(source='dealer.business_name', read_only=True)
@@ -381,20 +394,6 @@ class DealerStockRequestSerializer(serializers.ModelSerializer):
             'created_at',
             'allocations',
         ]
-
-    def get_expiry_date(self, obj):
-        try:
-            exp = obj.production_batch.expiry_date
-            if not exp:
-                return None
-            if isinstance(exp, str):
-                from django.utils.dateparse import parse_date
-                exp = parse_date(exp.strip().split('T')[0])
-            elif isinstance(exp, datetime.datetime):
-                exp = exp.date()
-            return exp.isoformat() if exp else None
-        except Exception:
-            return None
 
 
 class InventoryTransactionLedgerSerializer(serializers.ModelSerializer):

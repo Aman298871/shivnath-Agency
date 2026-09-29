@@ -505,14 +505,19 @@ class _DealerStockScreenState extends State<DealerStockScreen>
         final id = req['id'];
         final reqNum = req['request_number'] ?? 'REQ-$id';
         final status = (req['status'] ?? 'PENDING').toString().toUpperCase();
-        final items = (req['items'] as List?) ?? [];
-        final notes = req['notes']?.toString() ?? '';
         final createdAt = req['created_at']?.toString() ?? '';
+        final productName = req['product_name']?.toString() ?? req['product_sku']?.toString() ?? 'Product';
+        final productSku = req['product_sku']?.toString() ?? '';
+        final requestedQty = req['requested_quantity'] ?? 0;
+        final dispatchedQty = req['dispatched_quantity'] ?? 0;
+        final receivedQty = req['received_quantity'] ?? 0;
+        final dealerNotes = req['dealer_notes']?.toString() ?? '';
+        final allocations = (req['allocations'] as List?) ?? [];
 
-        Color statusColor = Colors.orange;
-        if (status == 'DISPATCHED' || status == 'PARTIALLY_DISPATCHED')
-          statusColor = Colors.blue;
-        if (status == 'RECEIVED') statusColor = Colors.green;
+        Color statusColor = const Color(0xFFF59E0B);
+        if (status == 'DISPATCHED' || status == 'PARTIALLY_DISPATCHED') statusColor = const Color(0xFF0284C7);
+        if (status == 'RECEIVED') statusColor = const Color(0xFF10B981);
+        if (status == 'APPROVED') statusColor = const Color(0xFF7C3AED);
         if (status == 'CANCELLED') statusColor = Colors.grey;
 
         return Card(
@@ -558,51 +563,79 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                 const SizedBox(height: 8),
                 Text(
                   'Requested: ${_formatDate(createdAt)}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF94A3B8),
-                  ),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                ),
+                const Divider(height: 14),
+                // Product
+                Row(
+                  children: [
+                    const Icon(Icons.water_drop_rounded, size: 14, color: Color(0xFF0284C7)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        productName,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (productSku.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(productSku,
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF0369A1))),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Items Requested:',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                // Quantity chips
+                Row(
+                  children: [
+                    Expanded(child: _buildQtyChip('Requested', '$requestedQty', const Color(0xFF0284C7))),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildQtyChip('Dispatched', '$dispatchedQty', const Color(0xFF10B981))),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildQtyChip('Received', '$receivedQty', const Color(0xFF7C3AED))),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                ...items.map((it) {
-                  final sku = it['product_sku'] ?? it['sku'] ?? 'SKU';
-                  final qtyCases = it['quantity_cases'] ?? 0;
-                  final qtyUnits = it['quantity_units'] ?? 0;
-                  final fulfilledCases = it['fulfilled_cases'] ?? 0;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '$sku: $qtyCases Cases ($qtyUnits units)',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        Text(
-                          'Dispatched: $fulfilledCases Cases',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0284C7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-                if (notes.isNotEmpty) ...[
+                // Batch allocations
+                if (allocations.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text('Batch Allocations:',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: Color(0xFF64748B))),
+                  const SizedBox(height: 4),
+                  ...allocations.map((alloc) {
+                    final bn = alloc['batch_number']?.toString() ?? '';
+                    final exp = alloc['expiry_date']?.toString() ?? '';
+                    final dispatched = alloc['dispatched_quantity'] ?? 0;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(bn, style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
+                          Text('$dispatched units · Exp: $exp',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+                // Notes
+                if (dealerNotes.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    'Note: $notes',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                    ),
+                  Row(
+                    children: [
+                      const Icon(Icons.sticky_note_2_outlined, size: 13, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(dealerNotes,
+                            style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFF64748B))),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -610,6 +643,26 @@ class _DealerStockScreenState extends State<DealerStockScreen>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildQtyChip(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(value,
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: color)),
+          Text(label,
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color.withValues(alpha: 0.7))),
+        ],
+      ),
     );
   }
 

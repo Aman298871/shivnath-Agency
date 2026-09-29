@@ -2014,18 +2014,37 @@ class _CentralPlantInventoryScreenState
                 onPressed: isSaving
                     ? null
                     : () async {
+                        final name = nameCtrl.text.trim();
+                        if (name.isEmpty) {
+                          ScaffoldMessenger.of(rootCtx).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a Material Name.'),
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+
+                        var sku = codeCtrl.text.trim();
+                        if (sku.isEmpty) {
+                          final prefix = category.toUpperCase().replaceAll('_', '');
+                          final pfx = prefix.length > 4 ? prefix.substring(0, 4) : prefix;
+                          sku = 'RM-$pfx-${DateTime.now().millisecondsSinceEpoch % 100000}';
+                        }
+
                         setDlgState(() => isSaving = true);
                         final res = await _invService.createRawMaterial({
-                          'name': nameCtrl.text.trim(),
-                          'sku': codeCtrl.text.trim(),
+                          'name': name,
+                          'sku': sku,
                           'category': category,
                           'unit_of_measure': uom,
                           'unit_cost':
-                              double.tryParse(costCtrl.text.trim()) ?? 0.0,
+                              double.tryParse(costCtrl.text.trim().replaceAll(',', '')) ?? 0.0,
                           'current_stock':
-                              double.tryParse(stockCtrl.text.trim()) ?? 0.0,
+                              double.tryParse(stockCtrl.text.trim().replaceAll(',', '')) ?? 0.0,
                           'reorder_level':
-                              double.tryParse(reorderCtrl.text.trim()) ?? 0.0,
+                              double.tryParse(reorderCtrl.text.trim().replaceAll(',', '')) ?? 0.0,
                         });
                         setDlgState(() => isSaving = false);
                         if (res['success'] == true) {

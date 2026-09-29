@@ -843,6 +843,8 @@ class InventoryService {
         message = decoded['detail'].toString();
       } else if (decoded['errors'] != null) {
         message = _formatErrors(decoded['errors']);
+      } else if (decoded.isNotEmpty) {
+        message = _formatErrors(decoded);
       }
     }
 
@@ -859,10 +861,11 @@ class InventoryService {
       final messages = <String>[];
 
       errors.forEach((key, value) {
+        final field = key.toString();
         if (value is List) {
-          messages.add(value.join(', '));
+          messages.add('$field: ${value.join(', ')}');
         } else {
-          messages.add(value.toString());
+          messages.add('$field: $value');
         }
       });
 

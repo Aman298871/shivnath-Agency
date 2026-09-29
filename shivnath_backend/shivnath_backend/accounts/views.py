@@ -2679,33 +2679,53 @@ class FranchiseDashboardStatsView(APIView):
             .count()
         )
 
-        # 3. Active Stock: stock cycles with serving_franchise=franchise, service_status='active'
-        active_stock = CustomerStockCycle.objects.filter(
-            serving_franchise=franchise,
-            service_status='active',
-        ).count()
+        # 3. Active Stock & Inventory Metrics (Authoritative DealerStockBatch)
+        from inventory.models import DealerStockBatch
+        from django.db.models import Sum
 
-        # 4. Low Stock: serving_franchise=franchise, service_status='active', expected_end_date between today and today+7
-        # Note: Cycles on hold are EXCLUDED (service_status='active' required)
-        low_stock = CustomerStockCycle.objects.filter(
-            serving_franchise=franchise,
-            service_status='active',
-            expected_end_date__gte=today,
-            expected_end_date__lte=low_stock_cutoff,
-        ).count()
+        dealer_batches = DealerStockBatch.objects.filter(dealer=franchise)
+        has_dealer_batches = dealer_batches.exists()
 
-        # 5. On Hold: serving_franchise=franchise, service_status='hold'
-        on_hold = CustomerStockCycle.objects.filter(
-            serving_franchise=franchise,
-            service_status='hold',
-        ).count()
+        if has_dealer_batches:
+            active_stock = dealer_batches.filter(
+                is_active=True,
+                remaining_quantity__gt=0,
+            ).aggregate(t=Sum('remaining_quantity'))['t'] or 0
 
-        # 6. Expired Stock: serving_franchise=franchise, service_status='active', expected_end_date < today
-        expired_stock = CustomerStockCycle.objects.filter(
-            serving_franchise=franchise,
-            service_status='active',
-            expected_end_date__lt=today,
-        ).count()
+            on_hold = dealer_batches.filter(
+                is_active=True,
+            ).aggregate(t=Sum('reserved_quantity'))['t'] or 0
+
+            expired_stock = dealer_batches.filter(
+                expiry_date__lt=today,
+            ).aggregate(t=Sum('remaining_quantity'))['t'] or 0
+
+            low_stock = dealer_batches.filter(
+                is_active=True,
+                expiry_date__gte=today,
+                expiry_date__lte=low_stock_cutoff,
+            ).aggregate(t=Sum('remaining_quantity'))['t'] or 0
+        else:
+            # Fallback to CustomerStockCycle for traditional jar delivery franchises
+            active_stock = CustomerStockCycle.objects.filter(
+                serving_franchise=franchise,
+                service_status='active',
+            ).count()
+            low_stock = CustomerStockCycle.objects.filter(
+                serving_franchise=franchise,
+                service_status='active',
+                expected_end_date__gte=today,
+                expected_end_date__lte=low_stock_cutoff,
+            ).count()
+            on_hold = CustomerStockCycle.objects.filter(
+                serving_franchise=franchise,
+                service_status='hold',
+            ).count()
+            expired_stock = CustomerStockCycle.objects.filter(
+                serving_franchise=franchise,
+                service_status='active',
+                expected_end_date__lt=today,
+            ).count()
 
         # 7. Pending / Relevant Orders: serving_franchise=franchise, status in pending states
         pending_orders = Order.objects.filter(
@@ -2750,21 +2770,31 @@ class FranchiseDashboardStatsView(APIView):
             'is_assigned': is_assigned,
         }
 
+        stats_dict = {
+            'customers_served': customers_served,
+            'registered_customers': registered_customers,
+            'active_stock': active_stock,
+            'low_stock': low_stock,
+            'on_hold': on_hold,
+            'expired_stock': expired_stock,
+            'pending_orders': pending_orders,
+            'total_orders': total_orders,
+        }
+
         return Response({
             'success': True,
             'franchise_id': franchise.id,
             'franchise_name': franchise.business_name,
             'territory_info': territory_info,
-            'stats': {
-                'customers_served': customers_served,
-                'registered_customers': registered_customers,
-                'active_stock': active_stock,
-                'low_stock': low_stock,
-                'on_hold': on_hold,
-                'expired_stock': expired_stock,
-                'pending_orders': pending_orders,
-                'total_orders': total_orders,
-            }
+            'customers_served': customers_served,
+            'registered_customers': registered_customers,
+            'active_stock': active_stock,
+            'low_stock': low_stock,
+            'on_hold': on_hold,
+            'expired_stock': expired_stock,
+            'pending_orders': pending_orders,
+            'total_orders': total_orders,
+            'stats': stats_dict,
         }, status=status.HTTP_200_OK)
 
 

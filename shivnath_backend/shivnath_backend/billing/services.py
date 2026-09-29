@@ -49,10 +49,31 @@ def generate_invoice_for_order(order):
 @transaction.atomic
 def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', reference_number='', actor=None, receipt_file=None, notes=''):
     """
-    Atomically records a payment transaction, updates invoice status, linked order payment status,
-    and dealer credit profile.
-    Strictly enforces that payment cannot exceed invoice outstanding balance.
+    Records payment. If actor is a franchise dealer, it is submitted for verification
+    to prevent unilateral marking of unpaid invoices as paid.
+    If actor is admin/staff, it is settled immediately.
     """
+    is_admin = False
+    if actor:
+        is_admin = (
+            actor.is_staff or 
+            actor.is_superuser or 
+            (hasattr(actor, 'profile') and actor.profile.role in ['super_admin', 'admin'])
+        )
+
+    if not is_admin:
+        return submit_payment_for_verification(
+            invoice_id=invoice_id,
+            amount_paid=amount_paid,
+            payment_method=payment_method,
+            reference_number=reference_number,
+            actor=actor,
+            receipt_file=receipt_file,
+            notes=notes
+        )
+
+    # Actor is Admin: immediate settlement
+    from accounts.models import FranchiseProfile, Notification
     invoice = Invoice.objects.select_for_update().get(id=invoice_id)
     amount_paid_dec = Decimal(str(amount_paid))
 
@@ -64,13 +85,12 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
             f"Payment amount (₹{amount_paid_dec}) cannot exceed invoice outstanding balance (₹{invoice.outstanding_balance})."
         )
 
-    # Normalize payment method
     method_upper = str(payment_method).upper().strip()
     if 'CASH' in method_upper:
         clean_method = 'CASH'
     elif 'CHEQUE' in method_upper or 'CHECK' in method_upper:
         clean_method = 'CHEQUE'
-    elif any(x in method_upper for x in ['BANK', 'NEFT', 'RTGS', 'TRANSFER']):
+    elif any(x in method_upper for x in ['BANK', 'NEFT', 'RTGS', 'TRANSFER', 'IMPS']):
         clean_method = 'NEFT_RTGS'
     elif 'CREDIT' in method_upper:
         clean_method = 'CREDIT_ADJUSTMENT'
@@ -111,10 +131,9 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
     # If this is a dealer purchase invoice, update DealerCreditProfile
     if invoice.invoice_type == 'DEALER_PURCHASE_INVOICE':
         dealer = None
-        if invoice.stock_request:
+        if invoice.stock_request and invoice.stock_request.dealer:
             dealer = invoice.stock_request.dealer
         else:
-            from accounts.models import FranchiseProfile
             dealer = FranchiseProfile.objects.filter(business_name=invoice.billed_to_name).first()
 
         if dealer:
@@ -127,12 +146,26 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
                 credit_profile.credit_status = 'GOOD_STANDING'
             credit_profile.save()
 
+            if dealer.user:
+                try:
+                    Notification.objects.create(
+                        recipient=dealer.user,
+                        notification_type='PAYMENT_REMINDER',
+                        title='Payment Received & Recorded',
+                        message=f"Admin recorded receipt of ₹{amount_paid_dec} for Invoice {invoice.invoice_number}. Your ledger is updated.",
+                        entity_type='invoice',
+                        entity_id=invoice.id
+                    )
+                except Exception:
+                    pass
+
     return txn
 
 
 def get_dealer_aging_report(dealer_id):
     """
     Calculates 0-30, 31-60, 61-90, 90+ days aging breakdown for a dealer.
+    Enriches with both current_outstanding and current_balance and all bucket keys.
     """
     from django.db.models import Q
     dealer_credit = DealerCreditProfile.objects.filter(dealer_id=dealer_id).first()
@@ -159,17 +192,27 @@ def get_dealer_aging_report(dealer_id):
         else:
             bucket_90_plus += balance
 
+    out = dealer_credit.current_outstanding if dealer_credit else Decimal('0.00')
+    limit = dealer_credit.credit_limit if dealer_credit else Decimal('0.00')
+
     return {
         'dealer_id': dealer_id,
         'dealer_code': dealer_credit.dealer.dealer_code if dealer_credit else '',
         'dealer_name': dealer_credit.dealer.business_name if dealer_credit else '',
-        'credit_limit': dealer_credit.credit_limit if dealer_credit else Decimal('0.00'),
-        'total_outstanding': dealer_credit.current_outstanding if dealer_credit else Decimal('0.00'),
+        'credit_limit': limit,
+        'total_outstanding': out,
+        'current_outstanding': out,
+        'current_balance': out,
         'credit_status': dealer_credit.credit_status if dealer_credit else 'GOOD_STANDING',
         'current_terms_bucket': current_bucket,
         'bucket_16_to_30': bucket_30,
         'bucket_31_to_60': bucket_60,
-        'bucket_60_plus': bucket_90_plus
+        'bucket_60_plus': bucket_90_plus,
+        # Aliases for frontend compatibility
+        'current': current_bucket,
+        'days_1_15': current_bucket,
+        'days_16_30': bucket_30,
+        'days_over_30': bucket_60 + bucket_90_plus,
     }
 
 

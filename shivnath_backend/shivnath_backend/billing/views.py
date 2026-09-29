@@ -10,7 +10,13 @@ from billing.serializers import (
     InvoiceSerializer,
     PaymentTransactionSerializer,
 )
-from billing.services import record_payment_transaction, get_dealer_aging_report
+from billing.services import (
+    record_payment_transaction,
+    submit_payment_for_verification,
+    verify_payment_transaction,
+    reject_payment_transaction,
+    get_dealer_aging_report,
+)
 
 
 class InvoiceListAPIView(generics.ListAPIView):
@@ -28,7 +34,8 @@ class InvoiceListAPIView(generics.ListAPIView):
             if dealer:
                 qs = qs.filter(
                     models.Q(stock_request__dealer=dealer) |
-                    models.Q(order__serving_franchise=dealer)
+                    models.Q(order__serving_franchise=dealer) |
+                    models.Q(billed_to_name=dealer.business_name)
                 )
             else:
                 qs = qs.none()
@@ -62,7 +69,7 @@ class RecordPaymentAPIView(views.APIView):
         notes = request.data.get('notes', '')
 
         if not amount:
-            return Response({'error': 'Amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'success': False, 'message': 'Amount is required.', 'error': 'Amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             txn = record_payment_transaction(
@@ -73,20 +80,103 @@ class RecordPaymentAPIView(views.APIView):
                 actor=request.user,
                 notes=notes
             )
-            return Response(PaymentTransactionSerializer(txn).data, status=status.HTTP_201_CREATED)
+            is_pending = (txn.payment_status == 'PENDING')
+            msg = 'Payment submitted. Awaiting Admin verification and approval.' if is_pending else 'Payment recorded and verified successfully.'
+            return Response({
+                'success': True,
+                'message': msg,
+                'is_pending_verification': is_pending,
+                'data': PaymentTransactionSerializer(txn).data
+            }, status=status.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'success': False, 'message': str(e), 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VerifyPaymentAPIView(views.APIView):
+    """
+    Admin verifies funds receipt into company bank/cash account.
+    Marks transaction SUCCESS, invoice PAID/PARTIAL, and deducts dealer credit profile.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, invoice_id):
+        is_admin = (
+            request.user.is_staff or 
+            request.user.is_superuser or 
+            (hasattr(request.user, 'profile') and request.user.profile.role in ['super_admin', 'admin'])
+        )
+        if not is_admin:
+            return Response({
+                'success': False,
+                'message': 'Unauthorized. Only administrators can verify and approve payments.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            txn = verify_payment_transaction(
+                invoice_id=invoice_id,
+                actor=request.user,
+                notes=request.data.get('notes', '')
+            )
+            return Response({
+                'success': True,
+                'message': f'Payment of ₹{txn.amount_paid} verified and approved successfully. Dealer ledger updated.',
+                'data': PaymentTransactionSerializer(txn).data
+            })
+        except Exception as e:
+            return Response({'success': False, 'message': str(e), 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RejectPaymentAPIView(views.APIView):
+    """
+    Admin rejects unverified or fraudulent payment references.
+    Reverts invoice back to UNPAID or PARTIALLY_PAID and notifies dealer.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, invoice_id):
+        is_admin = (
+            request.user.is_staff or 
+            request.user.is_superuser or 
+            (hasattr(request.user, 'profile') and request.user.profile.role in ['super_admin', 'admin'])
+        )
+        if not is_admin:
+            return Response({
+                'success': False,
+                'message': 'Unauthorized. Only administrators can reject payments.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        reason = request.data.get('reason', request.data.get('notes', 'Payment could not be verified in bank statement.'))
+        try:
+            txn = reject_payment_transaction(
+                invoice_id=invoice_id,
+                actor=request.user,
+                rejection_reason=reason
+            )
+            return Response({
+                'success': True,
+                'message': 'Payment rejected. Dealer has been notified.',
+                'data': PaymentTransactionSerializer(txn).data
+            })
+        except Exception as e:
+            return Response({'success': False, 'message': str(e), 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 def _resolve_dealer(user, dealer_id):
     from accounts.models import FranchiseProfile
+    # 1. If logged-in user is a franchise, ALWAYS return their own franchise profile
+    if hasattr(user, 'franchise_profile') and user.franchise_profile:
+        return user.franchise_profile
+    if hasattr(user, 'profile') and user.profile.role == 'franchise':
+        dealer = FranchiseProfile.objects.filter(user=user).first()
+        if dealer:
+            return dealer
+
+    # 2. Otherwise (e.g. Admin inspecting a specific dealer):
     dealer = None
     if dealer_id and int(dealer_id) > 0:
         dealer = FranchiseProfile.objects.filter(id=dealer_id).first()
         if not dealer:
             dealer = FranchiseProfile.objects.filter(user_id=dealer_id).first()
-    if not dealer and hasattr(user, 'franchise_profile'):
-        dealer = user.franchise_profile
     if not dealer:
         dealer = FranchiseProfile.objects.filter(status='approved').first() or FranchiseProfile.objects.first()
     return dealer

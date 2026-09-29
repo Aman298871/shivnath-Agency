@@ -11,6 +11,7 @@ class CompanyBillingProfileSerializer(serializers.ModelSerializer):
 class DealerCreditProfileSerializer(serializers.ModelSerializer):
     dealer_name = serializers.CharField(source='dealer.business_name', read_only=True)
     dealer_code = serializers.CharField(source='dealer.dealer_code', read_only=True)
+    current_balance = serializers.DecimalField(source='current_outstanding', max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
         model = DealerCreditProfile
@@ -22,6 +23,7 @@ class DealerCreditProfileSerializer(serializers.ModelSerializer):
             'credit_limit',
             'payment_terms_days',
             'current_outstanding',
+            'current_balance',
             'credit_status',
             'last_payment_date',
             'updated_at',
@@ -52,6 +54,11 @@ class PaymentTransactionSerializer(serializers.ModelSerializer):
 class InvoiceSerializer(serializers.ModelSerializer):
     payments = PaymentTransactionSerializer(many=True, read_only=True)
     outstanding_balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    total_amount = serializers.DecimalField(source='grand_total', max_digits=12, decimal_places=2, read_only=True)
+    invoice_date = serializers.DateTimeField(source='issued_at', read_only=True)
+    dealer_name = serializers.CharField(source='billed_to_name', read_only=True)
+    franchise_name = serializers.CharField(source='billed_to_name', read_only=True)
+    latest_pending_payment = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
@@ -64,15 +71,26 @@ class InvoiceSerializer(serializers.ModelSerializer):
             'billed_to_name',
             'billed_to_gstin',
             'billed_to_address',
+            'dealer_name',
+            'franchise_name',
             'subtotal',
             'cgst_amount',
             'sgst_amount',
             'igst_amount',
             'grand_total',
+            'total_amount',
             'amount_paid',
             'outstanding_balance',
             'status',
             'issued_at',
+            'invoice_date',
             'due_date',
             'payments',
+            'latest_pending_payment',
         ]
+
+    def get_latest_pending_payment(self, obj):
+        pending = obj.payments.filter(payment_status='PENDING').order_by('-payment_date').first()
+        if pending:
+            return PaymentTransactionSerializer(pending).data
+        return None

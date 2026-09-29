@@ -774,6 +774,40 @@ class InventoryService {
     }
   }
 
+  Future<Map<String, dynamic>> verifyInvoicePayment({
+    required int invoiceId,
+    String notes = '',
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/billing/invoices/$invoiceId/verify-payment/');
+      final response = await ApiClient.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({'notes': notes}),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> rejectInvoicePayment({
+    required int invoiceId,
+    String reason = '',
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/billing/invoices/$invoiceId/reject-payment/');
+      final response = await ApiClient.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({'reason': reason}),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   // =====================================================
   // BOM RECIPE & MASTER PRICING METHODS
   // =====================================================

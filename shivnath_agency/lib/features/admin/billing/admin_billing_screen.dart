@@ -33,35 +33,47 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
         final list = (res['data'] as List).cast<Map<String, dynamic>>();
         if (list.isNotEmpty) {
           final mapped = list.map((item) {
-            final total = _asInt(item['total_amount'] ?? item['total']);
+            final total = _asInt(item['grand_total'] ?? item['total_amount'] ?? item['total']);
             final paid = _asInt(item['amount_paid'] ?? item['paid']);
             final subtotal = _asInt(item['subtotal'] ?? (total * 0.82).round());
-            final gst = _asInt(item['tax_amount'] ?? (total - subtotal));
+            final gst = _asInt(item['cgst_amount'] != null ? (_asInt(item['cgst_amount']) + _asInt(item['sgst_amount'])) : (item['tax_amount'] ?? (total - subtotal)));
+            final rawStatus = item['status']?.toString() ?? '';
+            String status = 'Unpaid';
+            if (rawStatus == 'PAID' || rawStatus == 'Paid') {
+              status = 'Paid';
+            } else if (rawStatus == 'PARTIALLY_PAID' || rawStatus == 'Partial') {
+              status = 'Partial';
+            } else if (rawStatus == 'PAYMENT_PENDING_VERIFICATION') {
+              status = 'Payment Verification Required';
+            } else if (paid >= total && total > 0) {
+              status = 'Paid';
+            } else if (paid > 0) {
+              status = 'Partial';
+            }
 
             return {
               'id': item['id'],
               'invoice': item['invoice_number'] ?? 'INV-${item['id']}',
-              'order': item['order_number'] ?? (item['order'] != null ? 'ORD-${item['order']}' : 'ORD-MANUAL'),
-              'franchise': item['dealer_name'] ?? item['franchise_name'] ?? item['customer_name'] ?? 'Authorized Dealer',
-              'date': item['issue_date'] ?? item['created_at']?.toString().split('T').first ?? 'Today',
+              'order': item['order_number'] ?? (item['order'] != null ? 'ORD-${item['order']}' : 'WHL-STOCK-TRANSFER'),
+              'franchise': item['dealer_name'] ?? item['franchise_name'] ?? item['billed_to_name'] ?? item['customer_name'] ?? 'Authorized Dealer',
+              'date': item['issue_date'] ?? item['invoice_date'] ?? item['issued_at']?.toString().split('T').first ?? 'Today',
               'subtotal': subtotal,
               'gst': gst,
               'total': total,
               'paid': paid,
               'creditDays': _asInt(item['credit_days'] ?? item['creditDays'] ?? 15),
               'dueDate': item['due_date'] ?? 'N/A',
-              'status': item['status']?.toString() ?? (paid >= total && total > 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Unpaid')),
+              'status': status,
+              'raw_status': rawStatus,
+              'latest_pending_payment': item['latest_pending_payment'],
               'lastReminder': item['last_reminder'] ?? '-',
             };
           }).toList();
 
           if (mounted) {
             setState(() {
-              for (final liveInv in mapped.reversed) {
-                if (!invoices.any((e) => e['invoice'] == liveInv['invoice'])) {
-                  invoices.insert(0, liveInv);
-                }
-              }
+              invoices.clear();
+              invoices.addAll(mapped);
             });
           }
         }
@@ -470,7 +482,20 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                   icon: const Icon(Icons.visibility_outlined, size: 18),
                 ),
 
-                if (invoice['status'] != 'Paid')
+                if (invoice['status'] == 'Payment Verification Required')
+                  IconButton(
+                    tooltip: 'Verify & Approve Payment',
+                    onPressed: () {
+                      _verifyPayment(invoice);
+                    },
+                    icon: const Icon(
+                      Icons.verified_user_rounded,
+                      size: 20,
+                      color: Color(0xFFD97706),
+                    ),
+                  ),
+
+                if (invoice['status'] != 'Paid' && invoice['status'] != 'Payment Verification Required')
                   IconButton(
                     tooltip: 'Record Payment',
                     onPressed: () {
@@ -571,7 +596,21 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                     label: const Text('View'),
                   ),
 
-                  if (invoice['status'] != 'Paid')
+                  if (invoice['status'] == 'Payment Verification Required')
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD97706),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 40),
+                      ),
+                      onPressed: () {
+                        _verifyPayment(invoice);
+                      },
+                      icon: const Icon(Icons.verified_user_rounded, size: 16),
+                      label: const Text('Verify Payment'),
+                    ),
+
+                  if (invoice['status'] != 'Paid' && invoice['status'] != 'Payment Verification Required')
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 40),
@@ -1371,6 +1410,26 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
         'Payment recorded successfully.',
         title: 'Payment Recorded',
       );
+      _loadBackendInvoices();
+    }
+  }
+
+  Future<void> _verifyPayment(Map<String, dynamic> invoice) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return _AdminVerifyPaymentDialog(
+          invoice: invoice,
+          onVerified: () {
+            _loadBackendInvoices();
+          },
+        );
+      },
+    );
+
+    if (result == true && mounted) {
+      _loadBackendInvoices();
     }
   }
 
@@ -1724,20 +1783,25 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
     Color background;
     Color foreground;
 
-    switch (status) {
-      case 'Paid':
-        background = const Color(0xFFECFDF5);
-        foreground = const Color(0xFF15803D);
-        break;
+    if (status.contains('Verification') || status.contains('PENDING') || status == 'Payment Verification Required') {
+      background = const Color(0xFFFEF3C7);
+      foreground = const Color(0xFFB45309);
+    } else {
+      switch (status) {
+        case 'Paid':
+          background = const Color(0xFFECFDF5);
+          foreground = const Color(0xFF15803D);
+          break;
 
-      case 'Partial':
-        background = const Color(0xFFFFF7ED);
-        foreground = const Color(0xFFEA580C);
-        break;
+        case 'Partial':
+          background = const Color(0xFFFFF7ED);
+          foreground = const Color(0xFFEA580C);
+          break;
 
-      default:
-        background = const Color(0xFFFEF2F2);
-        foreground = const Color(0xFFDC2626);
+        default:
+          background = const Color(0xFFFEF2F2);
+          foreground = const Color(0xFFDC2626);
+      }
     }
 
     return Align(
@@ -2181,6 +2245,290 @@ class _AdminRecordPaymentDialogState extends State<_AdminRecordPaymentDialog> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AdminVerifyPaymentDialog extends StatefulWidget {
+  final Map<String, dynamic> invoice;
+  final VoidCallback onVerified;
+
+  const _AdminVerifyPaymentDialog({
+    required this.invoice,
+    required this.onVerified,
+  });
+
+  @override
+  State<_AdminVerifyPaymentDialog> createState() =>
+      _AdminVerifyPaymentDialogState();
+}
+
+class _AdminVerifyPaymentDialogState extends State<_AdminVerifyPaymentDialog> {
+  final TextEditingController _notesController = TextEditingController();
+  bool _isProcessing = false;
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Widget _dialogLine(
+    String label,
+    String value, {
+    bool isBold = false,
+    Color? color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+                color: color ?? const Color(0xFF1E293B),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = widget.invoice['latest_pending_payment'] as Map<String, dynamic>?;
+    final invId = widget.invoice['id'] ?? widget.invoice['invoice_id'];
+    final pendingAmount = pending != null
+        ? _asInt(pending['amount_paid'])
+        : _asInt(widget.invoice['total'] - widget.invoice['paid']);
+    final method = pending?['payment_method']?.toString() ?? 'UPI';
+    final ref = pending?['reference_number']?.toString() ?? 'Not provided';
+    final notes = pending?['notes']?.toString() ?? '';
+    final date = pending?['payment_date']?.toString().split('T').first ?? 'Recent';
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.verified_user_rounded,
+              color: Color(0xFFD97706),
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Verify Payment Receipt',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.9,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'The franchise submitted this payment. Verify that funds have reached your agency bank account or cash collection before approving.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    _dialogLine('Invoice #', widget.invoice['invoice']?.toString() ?? '-'),
+                    _dialogLine('Franchise', widget.invoice['franchise']?.toString() ?? '-'),
+                    _dialogLine(
+                      'Claimed Amount',
+                      '₹$pendingAmount',
+                      isBold: true,
+                      color: const Color(0xFF16A34A),
+                    ),
+                    _dialogLine('Payment Mode', method),
+                    _dialogLine(
+                      'UTR / Reference #',
+                      ref,
+                      isBold: true,
+                      color: const Color(0xFF0284C7),
+                    ),
+                    _dialogLine('Submitted Date', date),
+                    if (notes.isNotEmpty) _dialogLine('Dealer Notes', notes),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Verification Notes (Optional)',
+                  hintText: 'e.g. Verified with bank statement',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isProcessing ? null : () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFDC2626),
+            side: const BorderSide(color: Color(0xFFDC2626)),
+          ),
+          onPressed: _isProcessing
+              ? null
+              : () async {
+                  final reasonCtrl = TextEditingController();
+                  final rejectConfirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (rejectCtx) => AlertDialog(
+                      title: const Text('Reject Payment Proof'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Please state why this payment proof could not be verified (e.g. UTR not found in bank statement, incorrect amount):',
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: reasonCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Rejection Reason *',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(rejectCtx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFDC2626),
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () {
+                            if (reasonCtrl.text.trim().isEmpty) return;
+                            Navigator.pop(rejectCtx, true);
+                          },
+                          child: const Text('Confirm Reject'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (rejectConfirmed == true) {
+                    setState(() => _isProcessing = true);
+                    final parsedId = int.tryParse(invId.toString()) ?? 0;
+                    if (parsedId > 0) {
+                      final res = await InventoryService().rejectInvoicePayment(
+                        invoiceId: parsedId,
+                        reason: reasonCtrl.text.trim(),
+                      );
+                      if (mounted) {
+                        Navigator.pop(context, true);
+                        if (res['success'] == true) {
+                          AppToast.success(
+                            context,
+                            'Payment proof rejected. Franchise notified.',
+                            title: 'Payment Rejected',
+                          );
+                          widget.onVerified();
+                        } else {
+                          AppToast.error(
+                            context,
+                            res['message']?.toString() ?? 'Failed to reject payment',
+                            title: 'Error',
+                          );
+                        }
+                      }
+                    }
+                  }
+                },
+          icon: const Icon(Icons.close, size: 16),
+          label: const Text('Reject Proof'),
+        ),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF16A34A),
+            foregroundColor: Colors.white,
+          ),
+          onPressed: _isProcessing
+              ? null
+              : () async {
+                  setState(() => _isProcessing = true);
+                  final parsedId = int.tryParse(invId.toString()) ?? 0;
+                  if (parsedId > 0) {
+                    final res = await InventoryService().verifyInvoicePayment(
+                      invoiceId: parsedId,
+                      notes: _notesController.text.trim(),
+                    );
+                    if (mounted) {
+                      Navigator.pop(context, true);
+                      if (res['success'] == true) {
+                        AppToast.success(
+                          context,
+                          'Payment verified & approved! Ledger updated.',
+                          title: 'Approved',
+                        );
+                        widget.onVerified();
+                      } else {
+                        AppToast.error(
+                          context,
+                          res['message']?.toString() ?? 'Failed to verify payment',
+                          title: 'Error',
+                        );
+                      }
+                    }
+                  }
+                },
+          icon: _isProcessing
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.check, size: 16),
+          label: const Text('Approve & Confirm'),
+        ),
+      ],
     );
   }
 }

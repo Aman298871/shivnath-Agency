@@ -97,6 +97,7 @@ class Invoice(models.Model):
     STATUS_CHOICES = [
         ('UNPAID', 'Unpaid'),
         ('PARTIALLY_PAID', 'Partially Paid'),
+        ('PAYMENT_PENDING_VERIFICATION', 'Payment Submitted (Pending Verification)'),
         ('PAID', 'Paid'),
         ('CANCELLED', 'Cancelled'),
     ]
@@ -135,7 +136,7 @@ class Invoice(models.Model):
     grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     status = models.CharField(
-        max_length=20,
+        max_length=40,
         choices=STATUS_CHOICES,
         default='UNPAID'
     )
@@ -170,6 +171,7 @@ class PaymentTransaction(models.Model):
     STATUS_CHOICES = [
         ('SUCCESS', 'Success'),
         ('PENDING', 'Pending Verification'),
+        ('REJECTED', 'Rejected'),
         ('FAILED', 'Failed'),
     ]
 
@@ -199,7 +201,7 @@ class PaymentTransaction(models.Model):
         help_text="UTR / Cheque No / Payment Gateway Reference ID"
     )
     payment_status = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=STATUS_CHOICES,
         default='SUCCESS'
     )

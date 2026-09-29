@@ -154,19 +154,26 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
         0.0;
     final currentBalance =
         double.tryParse(
+          _creditProfile?['current_outstanding']?.toString() ??
           _creditProfile?['current_balance']?.toString() ?? '0',
         ) ??
         0.0;
-    final availableCredit = creditLimit - currentBalance;
+    final availableCredit = (creditLimit - currentBalance).clamp(0.0, double.infinity);
     final paymentTerms =
         _creditProfile?['payment_terms_days']?.toString() ?? '15';
     final commissionPct =
         _creditProfile?['commission_percentage']?.toString() ?? '0';
 
     final d16_30 =
-        double.tryParse(_agingReport?['days_16_30']?.toString() ?? '0') ?? 0.0;
+        double.tryParse(
+          _agingReport?['days_16_30']?.toString() ??
+          _agingReport?['bucket_16_to_30']?.toString() ?? '0',
+        ) ?? 0.0;
     final dOver30 =
-        double.tryParse(_agingReport?['days_over_30']?.toString() ?? '0') ??
+        double.tryParse(
+          _agingReport?['days_over_30']?.toString() ??
+          _agingReport?['bucket_60_plus']?.toString() ?? '0',
+        ) ??
         0.0;
     final overdueAmount = d16_30 + dOver30;
 
@@ -362,13 +369,26 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
 
   Widget _buildAgingBreakdownCard() {
     final current =
-        double.tryParse(_agingReport?['current']?.toString() ?? '0') ?? 0.0;
+        double.tryParse(
+          _agingReport?['days_1_15']?.toString() ??
+          _agingReport?['current_terms_bucket']?.toString() ??
+          _agingReport?['current']?.toString() ?? '0',
+        ) ?? 0.0;
     final d1_15 =
-        double.tryParse(_agingReport?['days_1_15']?.toString() ?? '0') ?? 0.0;
+        double.tryParse(
+          _agingReport?['days_1_15']?.toString() ??
+          _agingReport?['current_terms_bucket']?.toString() ?? '0',
+        ) ?? 0.0;
     final d16_30 =
-        double.tryParse(_agingReport?['days_16_30']?.toString() ?? '0') ?? 0.0;
+        double.tryParse(
+          _agingReport?['days_16_30']?.toString() ??
+          _agingReport?['bucket_16_to_30']?.toString() ?? '0',
+        ) ?? 0.0;
     final dOver30 =
-        double.tryParse(_agingReport?['days_over_30']?.toString() ?? '0') ??
+        double.tryParse(
+          _agingReport?['days_over_30']?.toString() ??
+          _agingReport?['bucket_60_plus']?.toString() ?? '0',
+        ) ??
         0.0;
 
     return Container(
@@ -467,17 +487,33 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
       children: _invoices.map((inv) {
         final invNum = inv['invoice_number']?.toString() ?? 'INV';
         final total =
-            double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
+            double.tryParse(inv['grand_total']?.toString() ?? inv['total_amount']?.toString() ?? '0') ?? 0.0;
         final amountPaid =
             double.tryParse(inv['amount_paid']?.toString() ?? '0') ?? 0.0;
-        final balance = total - amountPaid;
+        final balance = (total - amountPaid).clamp(0.0, total);
         final status = (inv['status']?.toString() ?? 'UNPAID').toUpperCase();
         final dueDateStr = inv['due_date']?.toString() ?? '';
-        final invDateStr = inv['invoice_date']?.toString() ?? '';
+        final invDateStr = inv['issued_at']?.toString().split('T').first ?? inv['invoice_date']?.toString().split('T').first ?? '';
 
         Color statusColor = BrandColors.redDark;
-        if (status == 'PAID') statusColor = BrandColors.greenDark;
-        if (status == 'PARTIALLY_PAID') statusColor = BrandColors.yellowDark;
+        String statusDisplay = 'UNPAID';
+        IconData statusIcon = Icons.receipt_long_rounded;
+
+        if (status == 'PAID') {
+          statusColor = BrandColors.greenDark;
+          statusDisplay = 'PAID';
+          statusIcon = Icons.check_circle_outline_rounded;
+        } else if (status == 'PARTIALLY_PAID') {
+          statusColor = const Color(0xFFD97706);
+          statusDisplay = 'PARTIALLY PAID';
+          statusIcon = Icons.pie_chart_outline_rounded;
+        } else if (status == 'PAYMENT_PENDING_VERIFICATION') {
+          statusColor = const Color(0xFFD97706);
+          statusDisplay = 'VERIFICATION PENDING';
+          statusIcon = Icons.hourglass_top_rounded;
+        }
+
+        final isPendingVerification = (status == 'PAYMENT_PENDING_VERIFICATION');
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
@@ -489,7 +525,11 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: BrandColors.border),
+              border: Border.all(
+                color: isPendingVerification ? const Color(0xFFFDE68A) : BrandColors.border,
+                width: isPendingVerification ? 1.5 : 1.0,
+              ),
+              color: isPendingVerification ? const Color(0xFFFFFBEB) : Colors.white,
             ),
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -504,7 +544,7 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                           radius: 16,
                           backgroundColor: statusColor.withValues(alpha: 0.12),
                           child: Icon(
-                            Icons.receipt_long_rounded,
+                            statusIcon,
                             color: statusColor,
                             size: 18,
                           ),
@@ -550,7 +590,7 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Due: $dueDateStr',
+                      dueDateStr.isNotEmpty ? 'Due: $dueDateStr' : 'Net Terms',
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFF64748B),
@@ -568,7 +608,7 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            status,
+                            statusDisplay,
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
@@ -576,7 +616,7 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                             ),
                           ),
                         ),
-                        if (balance > 0) ...[
+                        if (balance > 0 && !isPendingVerification) ...[
                           const SizedBox(width: 8),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
@@ -593,7 +633,7 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                             ),
                             onPressed: () => _openRecordPaymentDialog(inv),
                             child: const Text(
-                              'Pay',
+                              'Pay Now',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -605,7 +645,37 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                     ),
                   ],
                 ),
-                if (balance > 0) ...[
+                if (isPendingVerification) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFCD34D)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 14,
+                          color: Color(0xFFB45309),
+                        ),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Payment submitted. Admin is verifying bank receipt.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (balance > 0) ...[
                   const SizedBox(height: 4),
                   Text(
                     'Balance Due: ₹${balance.toStringAsFixed(2)}',
@@ -627,13 +697,14 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
   void _openRecordPaymentDialog(Map<String, dynamic> inv) {
     final invId = inv['id'];
     final total =
-        double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
+        double.tryParse(inv['grand_total']?.toString() ?? inv['total_amount']?.toString() ?? '0') ?? 0.0;
     final amountPaid =
         double.tryParse(inv['amount_paid']?.toString() ?? '0') ?? 0.0;
-    final balance = total - amountPaid;
+    final balance = (total - amountPaid).clamp(0.0, total);
 
     final amtCtrl = TextEditingController(text: balance.toStringAsFixed(2));
     final refCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
     String method = 'UPI';
     bool isSubmitting = false;
 
@@ -642,62 +713,118 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
       builder: (dlgCtx) => StatefulBuilder(
         builder: (context, setDlgState) {
           return AlertDialog(
-            title: Text('Record Payment for ${inv['invoice_number']}'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
+            title: Row(
               children: [
-                TextField(
-                  controller: amtCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Amount (INR)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: method,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Payment Method',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'UPI',
-                      child: Text('UPI', overflow: TextOverflow.ellipsis),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Bank Transfer',
-                      child: Text(
-                        'NEFT / RTGS / IMPS',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Cash',
-                      child: Text('Cash', overflow: TextOverflow.ellipsis),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Cheque',
-                      child: Text('Cheque', overflow: TextOverflow.ellipsis),
-                    ),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setDlgState(() => method = val);
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: refCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Reference Number / UTR',
-                    border: OutlineInputBorder(),
+                const Icon(Icons.payment_rounded, color: BrandColors.greenDark, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Submit Payment (${inv['invoice_number']})',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ),
               ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Outstanding Balance:',
+                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        ),
+                        Text(
+                          '₹${balance.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: BrandColors.redDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: amtCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Payment Amount (INR) *',
+                      prefixText: '₹ ',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: method,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Payment Method *',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'UPI',
+                        child: Text('UPI (GPay / PhonePe / Paytm)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Bank Transfer',
+                        child: Text('Bank Transfer (NEFT / RTGS / IMPS)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Cash',
+                        child: Text('Cash Handover'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Cheque',
+                        child: Text('Cheque Deposit'),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDlgState(() => method = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: refCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'UTR / Transaction Reference No *',
+                      hintText: 'e.g. 423589123456 or Cheque #',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (Optional)',
+                      hintText: 'e.g. Paid via ICICI bank',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Note: Admin will verify arrival of funds before updating your ledger.',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF64748B),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -713,7 +840,35 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                     ? null
                     : () async {
                         final amt = double.tryParse(amtCtrl.text.trim()) ?? 0.0;
-                        if (amt <= 0) return;
+                        if (amt <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a valid amount.'),
+                              backgroundColor: BrandColors.error,
+                            ),
+                          );
+                          return;
+                        }
+                        if (amt > balance) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Amount cannot exceed outstanding balance of ₹${balance.toStringAsFixed(2)}'),
+                              backgroundColor: BrandColors.error,
+                            ),
+                          );
+                          return;
+                        }
+
+                        final ref = refCtrl.text.trim();
+                        if (ref.isEmpty && method != 'Cash') {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter UTR or Transaction reference number for verification.'),
+                              backgroundColor: BrandColors.error,
+                            ),
+                          );
+                          return;
+                        }
 
                         setDlgState(() => isSubmitting = true);
                         final res = await _invService.recordInvoicePayment(
@@ -722,7 +877,8 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                               : int.parse(invId.toString()),
                           amount: amt,
                           paymentMethod: method,
-                          referenceNumber: refCtrl.text.trim(),
+                          referenceNumber: ref,
+                          notes: notesCtrl.text.trim(),
                         );
 
                         if (!context.mounted) return;
@@ -730,9 +886,13 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
 
                         if (res['success'] == true) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Payment recorded successfully!'),
+                            SnackBar(
+                              content: Text(
+                                res['message']?.toString() ??
+                                    'Payment submitted! Admin will verify bank receipt.',
+                              ),
                               backgroundColor: BrandColors.greenDark,
+                              duration: const Duration(seconds: 4),
                             ),
                           );
                           _loadData();
@@ -741,7 +901,7 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                             SnackBar(
                               content: Text(
                                 res['message']?.toString() ??
-                                    'Failed to record payment',
+                                    'Failed to submit payment',
                               ),
                               backgroundColor: BrandColors.error,
                             ),

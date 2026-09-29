@@ -17,6 +17,7 @@ from .models import (
     CustomerNotification,
     AdminNotification,
     SupportContact,
+    DealerDocument,
 )
 
 
@@ -46,8 +47,14 @@ class UserProfileAdmin(admin.ModelAdmin):
         return obj.user.email
 
 
+class DealerDocumentInline(admin.TabularInline):
+    model = DealerDocument
+    extra = 0
+    readonly_fields = ('uploaded_at',)
+
 @admin.register(FranchiseProfile)
 class FranchiseProfileAdmin(admin.ModelAdmin):
+    inlines = [DealerDocumentInline]
 
     list_display = (
         'business_name',
@@ -322,5 +329,18 @@ class SupportContactAdmin(admin.ModelAdmin):
     )
     list_filter = ('role',)
     search_fields = ('name', 'phone', 'email')
+
+
+@admin.register(DealerDocument)
+class DealerDocumentAdmin(admin.ModelAdmin):
+    list_display = (
+        'dealer',
+        'document_type',
+        'verification_status',
+        'uploaded_at',
+    )
+    list_filter = ('verification_status', 'document_type')
+    search_fields = ('dealer__business_name', 'dealer__user__email')
+    readonly_fields = ('uploaded_at',)
 
 

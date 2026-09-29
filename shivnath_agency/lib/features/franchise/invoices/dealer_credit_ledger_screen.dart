@@ -48,14 +48,16 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
       // 1. Fetch credit profile
       if (dealerId > 0) {
         final cpRes = await _invService.getDealerCreditProfile(dealerId);
-        if (cpRes['success'] == true && cpRes['data'] is Map<String, dynamic>) {
-          _creditProfile = cpRes['data'] as Map<String, dynamic>;
+        if (cpRes['success'] == true) {
+          final data = cpRes['data'] is Map ? cpRes['data'] : cpRes;
+          _creditProfile = Map<String, dynamic>.from(data as Map);
         }
 
         // 2. Fetch aging report
         final arRes = await _invService.getDealerAgingReport(dealerId);
-        if (arRes['success'] == true && arRes['data'] is Map<String, dynamic>) {
-          _agingReport = arRes['data'] as Map<String, dynamic>;
+        if (arRes['success'] == true) {
+          final data = arRes['data'] is Map ? arRes['data'] : arRes;
+          _agingReport = Map<String, dynamic>.from(data as Map);
         }
       }
 
@@ -158,7 +160,9 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
           _creditProfile?['current_balance']?.toString() ?? '0',
         ) ??
         0.0;
-    final availableCredit = (creditLimit - currentBalance).clamp(0.0, double.infinity);
+    final availableCredit = _creditProfile?['available_credit'] != null
+        ? (double.tryParse(_creditProfile!['available_credit'].toString()) ?? (creditLimit - currentBalance).clamp(0.0, double.infinity))
+        : (creditLimit - currentBalance).clamp(0.0, double.infinity);
     final paymentTerms =
         _creditProfile?['payment_terms_days']?.toString() ?? '15';
     final commissionPct =
@@ -560,7 +564,7 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
                         child: ListView.separated(
                           shrinkWrap: true,
                           itemCount: bucketInvoices.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (_, i) {
                             final inv = bucketInvoices[i];
                             final total = double.tryParse(inv['grand_total']?.toString() ?? inv['total_amount']?.toString() ?? '0') ?? 0.0;

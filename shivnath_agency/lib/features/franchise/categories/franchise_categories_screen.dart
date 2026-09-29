@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/product_service.dart';
-import '../../../core/utils/app_toast.dart';
 
 class FranchiseCategoriesScreen extends StatefulWidget {
   const FranchiseCategoriesScreen({super.key});

@@ -213,6 +213,10 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
     available_quantity = serializers.IntegerField(read_only=True)
     is_expired = serializers.SerializerMethodField()
     linked_order_code = serializers.SerializerMethodField()
+    order_name = serializers.SerializerMethodField()
+    order_number = serializers.SerializerMethodField()
+    client_name = serializers.SerializerMethodField()
+    order_details = serializers.SerializerMethodField()
     quantity_taken = serializers.IntegerField(read_only=True)
     quantity_pending_collection = serializers.IntegerField(read_only=True)
     dynamic_remaining_company = serializers.IntegerField(read_only=True)
@@ -228,6 +232,9 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
             'client_name',
             'linked_order',
             'linked_order_code',
+            'order_name',
+            'order_number',
+            'order_details',
             'label_requirement',
             'printing_requirement',
             'branding_requirement',
@@ -249,6 +256,53 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
             'is_expired',
             'created_at',
         ]
+
+    def get_client_name(self, obj):
+        if obj.client_name and obj.client_name.strip():
+            return obj.client_name.strip()
+        if obj.linked_order:
+            return (obj.linked_order.client_name or obj.linked_order.franchise_name or f"Order #{obj.linked_order.id}").strip()
+        return ""
+
+    def get_order_name(self, obj):
+        if obj.linked_order:
+            name = (obj.linked_order.client_name or obj.linked_order.franchise_name or "").strip()
+            code = obj.linked_order.order_code
+            if name:
+                return f"{code} - {name}"
+            return code
+        if obj.client_name and obj.client_name.strip():
+            return obj.client_name.strip()
+        return ""
+
+    def get_order_number(self, obj):
+        if obj.linked_order:
+            try:
+                return obj.linked_order.order_code
+            except Exception:
+                return f"ORD-{1000 + obj.linked_order.id}"
+        if obj.client_name:
+            import re
+            m = re.search(r'(ORD-?\d+)', obj.client_name, re.IGNORECASE)
+            if m:
+                return m.group(1).upper()
+        return ""
+
+    def get_order_details(self, obj):
+        if not obj.linked_order:
+            return None
+        ord_obj = obj.linked_order
+        return {
+            'id': ord_obj.id,
+            'order_code': ord_obj.order_code,
+            'client_name': ord_obj.client_name or '',
+            'franchise_name': ord_obj.franchise_name or '',
+            'status': ord_obj.status,
+            'payment_status': ord_obj.payment_status,
+            'items_count': ord_obj.items_count,
+            'grand_total': float(ord_obj.grand_total or 0),
+            'order_source': ord_obj.order_source,
+        }
 
     def get_linked_order_code(self, obj):
         if obj.linked_order:

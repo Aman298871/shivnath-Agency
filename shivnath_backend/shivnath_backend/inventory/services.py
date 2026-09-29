@@ -119,15 +119,28 @@ def create_production_batch_atomic(
         count = ProductionBatch.objects.filter(product=product).count() + 1
         batch_number = f"PB-{mfg_date.strftime('%Y%m')}-{product.sku}-{count:03d}"
 
-    # Resolve linked order if passed as ID
+    # Resolve linked order if passed as ID or ORD-code
     order_instance = None
     if linked_order:
         if isinstance(linked_order, Order):
             order_instance = linked_order
         else:
             try:
-                order_instance = Order.objects.select_for_update().get(id=linked_order)
-            except Order.DoesNotExist:
+                raw_ord = str(linked_order).strip()
+                if raw_ord.upper().startswith('ORD-'):
+                    cleaned_num = raw_ord.upper().replace('ORD-', '')
+                    parsed_val = int(cleaned_num)
+                    # Order code is ORD-(1000 + id)
+                    if parsed_val > 1000:
+                        order_instance = Order.objects.select_for_update().filter(id=parsed_val - 1000).first()
+                    if not order_instance:
+                        order_instance = Order.objects.select_for_update().filter(id=parsed_val).first()
+                else:
+                    parsed_val = int(raw_ord)
+                    order_instance = Order.objects.select_for_update().filter(id=parsed_val).first()
+                    if not order_instance and parsed_val > 1000:
+                        order_instance = Order.objects.select_for_update().filter(id=parsed_val - 1000).first()
+            except Exception:
                 order_instance = None
 
     # Resolve client name
@@ -232,7 +245,8 @@ def record_batch_collection_atomic(
     payment_method='CASH',
     reference_number='',
     amount_due=None,
-    amount_paid=None
+    amount_paid=None,
+    delivery_status=None,
 ):
     """
     Authoritative handler for customer/dealer partial collection or dispatch from a ProductionBatch.
@@ -271,7 +285,13 @@ def record_batch_collection_atomic(
             order.total_delivered_units += qty
         if hasattr(order, 'total_pending_stock_units'):
             order.total_pending_stock_units = max(0, getattr(order, 'total_produced_units', 0) - getattr(order, 'total_delivered_units', 0))
-        if hasattr(order, 'total_delivered_units') and hasattr(order, 'total_produced_units') and order.total_delivered_units >= order.total_produced_units and order.total_produced_units > 0:
+        
+        # Explicit delivery status chosen by Admin, else auto-determine based on quantities
+        if delivery_status and delivery_status in dict(Order.STATUS_CHOICES).keys():
+            order.status = delivery_status
+            if delivery_status == 'delivered':
+                order.delivered_at = timezone.now()
+        elif hasattr(order, 'total_delivered_units') and hasattr(order, 'total_produced_units') and order.total_delivered_units >= order.total_produced_units and order.total_produced_units > 0:
             order.status = 'delivered'
             order.delivered_at = timezone.now()
         else:

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from rest_framework import serializers
 from billing.models import CompanyBillingProfile, DealerCreditProfile, Invoice, PaymentTransaction
 
@@ -9,9 +10,16 @@ class CompanyBillingProfileSerializer(serializers.ModelSerializer):
 
 
 class DealerCreditProfileSerializer(serializers.ModelSerializer):
+    dealer = serializers.PrimaryKeyRelatedField(read_only=True)
     dealer_name = serializers.CharField(source='dealer.business_name', read_only=True)
     dealer_code = serializers.CharField(source='dealer.dealer_code', read_only=True)
     current_balance = serializers.DecimalField(source='current_outstanding', max_digits=12, decimal_places=2, read_only=True)
+    available_credit = serializers.SerializerMethodField()
+
+    def get_available_credit(self, obj):
+        limit = obj.credit_limit or Decimal('0.00')
+        out = obj.current_outstanding or Decimal('0.00')
+        return max(Decimal('0.00'), limit - out)
 
     class Meta:
         model = DealerCreditProfile
@@ -24,6 +32,7 @@ class DealerCreditProfileSerializer(serializers.ModelSerializer):
             'payment_terms_days',
             'current_outstanding',
             'current_balance',
+            'available_credit',
             'credit_status',
             'last_payment_date',
             'updated_at',
@@ -32,6 +41,26 @@ class DealerCreditProfileSerializer(serializers.ModelSerializer):
 
 class PaymentTransactionSerializer(serializers.ModelSerializer):
     recorded_by_name = serializers.CharField(source='received_by.get_full_name', read_only=True)
+    invoice_number = serializers.CharField(source='invoice.invoice_number', read_only=True)
+    order_code = serializers.SerializerMethodField()
+    franchise_name = serializers.SerializerMethodField()
+
+    def get_order_code(self, obj):
+        if obj.invoice and obj.invoice.order:
+            return obj.invoice.order.order_code
+        return ''
+
+    def get_franchise_name(self, obj):
+        if not obj.invoice:
+            return 'Franchise'
+        inv = obj.invoice
+        if inv.stock_request and inv.stock_request.dealer:
+            return inv.stock_request.dealer.business_name
+        if inv.order and inv.order.serving_franchise:
+            return inv.order.serving_franchise.business_name
+        if obj.received_by and hasattr(obj.received_by, 'franchise_profile'):
+            return obj.received_by.franchise_profile.business_name
+        return inv.billed_to_name or 'Franchise'
 
     class Meta:
         model = PaymentTransaction
@@ -39,6 +68,9 @@ class PaymentTransactionSerializer(serializers.ModelSerializer):
             'id',
             'transaction_number',
             'invoice',
+            'invoice_number',
+            'order_code',
+            'franchise_name',
             'payment_method',
             'amount_paid',
             'reference_number',

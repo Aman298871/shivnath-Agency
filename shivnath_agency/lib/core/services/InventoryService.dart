@@ -605,7 +605,7 @@ class InventoryService {
     }
   }
 
-  /// Record Customer / Dealer Partial Collection or Dispatch from a Production Batch with Payment details
+  /// Record Customer / Dealer Partial Collection or Dispatch from a Production Batch with Payment details & Delivery Status
   Future<Map<String, dynamic>> recordBatchCollection({
     required int batchId,
     required int quantityCollected,
@@ -616,6 +616,7 @@ class InventoryService {
     String? referenceNumber,
     double? amountDue,
     double? amountPaid,
+    String? deliveryStatus,
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/production-batches/$batchId/collection/');
@@ -631,6 +632,7 @@ class InventoryService {
           if (referenceNumber != null && referenceNumber.isNotEmpty) 'reference_number': referenceNumber,
           if (amountDue != null) 'amount_due': amountDue,
           if (amountPaid != null) 'amount_paid': amountPaid,
+          if (deliveryStatus != null && deliveryStatus.isNotEmpty) 'delivery_status': deliveryStatus,
         }),
       );
       return _decodeResponse(response);
@@ -859,6 +861,50 @@ class InventoryService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/billing/invoices/$invoiceId/reject-payment/');
+      final response = await ApiClient.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({'reason': reason}),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getPendingPayments() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/billing/pending-payments/');
+      final response = await ApiClient.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyPaymentByTxnId({
+    required int txnId,
+    String notes = '',
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/billing/payments/$txnId/verify/');
+      final response = await ApiClient.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({'notes': notes}),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> rejectPaymentByTxnId({
+    required int txnId,
+    String reason = '',
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/billing/payments/$txnId/reject/');
       final response = await ApiClient.post(
         uri,
         headers: await _headers(),

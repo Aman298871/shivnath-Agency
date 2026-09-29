@@ -15,6 +15,7 @@ from billing.services import (
     submit_payment_for_verification,
     verify_payment_transaction,
     reject_payment_transaction,
+    _process_payment_verification,
     get_dealer_aging_report,
 )
 
@@ -80,7 +81,7 @@ class RecordPaymentAPIView(views.APIView):
                 actor=request.user,
                 notes=notes
             )
-            is_pending = (txn.payment_status == 'PENDING')
+            is_pending = (txn.payment_status in ['PENDING', 'PENDING_VERIFICATION'])
             msg = 'Payment submitted. Awaiting Admin verification and approval.' if is_pending else 'Payment recorded and verified successfully.'
             return Response({
                 'success': True,
@@ -163,7 +164,19 @@ class RejectPaymentAPIView(views.APIView):
 
 def _resolve_dealer(user, dealer_id):
     from accounts.models import FranchiseProfile
-    # 1. If logged-in user is a franchise, ALWAYS return their own franchise profile
+    is_admin = (
+        user.is_staff or 
+        user.is_superuser or 
+        (hasattr(user, 'profile') and user.profile.role in ['super_admin', 'admin'])
+    )
+    if is_admin and dealer_id and int(dealer_id) > 0:
+        dealer = FranchiseProfile.objects.filter(id=dealer_id).first()
+        if not dealer:
+            dealer = FranchiseProfile.objects.filter(user_id=dealer_id).first()
+        if dealer:
+            return dealer
+
+    # If logged-in user is a franchise, ALWAYS return their own franchise profile
     if hasattr(user, 'franchise_profile') and user.franchise_profile:
         return user.franchise_profile
     if hasattr(user, 'profile') and user.profile.role == 'franchise':
@@ -171,7 +184,6 @@ def _resolve_dealer(user, dealer_id):
         if dealer:
             return dealer
 
-    # 2. Otherwise (e.g. Admin inspecting a specific dealer):
     dealer = None
     if dealer_id and int(dealer_id) > 0:
         dealer = FranchiseProfile.objects.filter(id=dealer_id).first()
@@ -193,6 +205,17 @@ class DealerCreditProfileAPIView(views.APIView):
         return Response(DealerCreditProfileSerializer(profile).data)
 
     def put(self, request, dealer_id):
+        is_admin = (
+            request.user.is_staff or 
+            request.user.is_superuser or 
+            (hasattr(request.user, 'profile') and request.user.profile.role in ['super_admin', 'admin'])
+        )
+        if not is_admin:
+            return Response({
+                'success': False,
+                'message': 'Unauthorized. Only administrators can update franchise credit limit and terms.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
         dealer = _resolve_dealer(request.user, dealer_id)
         if not dealer:
             return Response({'error': 'Dealer not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -200,7 +223,13 @@ class DealerCreditProfileAPIView(views.APIView):
         serializer = DealerCreditProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            data = serializer.data
+            return Response({
+                'success': True,
+                'message': 'Credit profile updated successfully.',
+                'data': data,
+                **data
+            })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -337,6 +366,7 @@ class RecordOrderPaymentAPIView(views.APIView):
                 actor=user,
                 notes=notes
             )
+            is_pending = (txn.payment_status in ['PENDING', 'PENDING_VERIFICATION'])
 
             # Create notification for Admin & Super Admin & Customer Push
             try:
@@ -345,22 +375,34 @@ class RecordOrderPaymentAPIView(views.APIView):
                 collector_name = user.get_full_name() or user.username
                 if role == 'franchise' and hasattr(user, 'franchise_profile'):
                     collector_name = f"Franchise {user.franchise_profile.business_name}"
-                AdminNotification.objects.create(
-                    title=f"Payment Collected: Order #{order.order_code}",
-                    message=f"₹{amount} collected for Order #{order.order_code} by {collector_name} via {payment_method}. Remaining balance: ₹{invoice.outstanding_balance}.",
-                    notification_type='general',
-                    reference_id=order.id
+
+                notif_type = 'payment_verification' if is_pending else 'general'
+                notif_title = f"Payment Verification Required: Order #{order.order_code}" if is_pending else f"Payment Collected: Order #{order.order_code}"
+                notif_msg = (
+                    f"₹{amount} payment submitted for Order #{order.order_code} by {collector_name} via {payment_method}. Awaiting Admin verification."
+                    if is_pending else
+                    f"₹{amount} collected for Order #{order.order_code} by {collector_name} via {payment_method}. Remaining balance: ₹{invoice.outstanding_balance}."
                 )
-                notify_payment_received(order, amount, collector_name=collector_name)
+                AdminNotification.objects.create(
+                    title=notif_title,
+                    message=notif_msg,
+                    notification_type=notif_type,
+                    reference_id=invoice.id
+                )
+                if not is_pending:
+                    notify_payment_received(order, amount, collector_name=collector_name)
             except Exception:
                 pass
 
             invoice.refresh_from_db()
             order.refresh_from_db()
 
+            msg = f"Payment of ₹{amount} submitted for Admin verification." if is_pending else f"Payment of ₹{amount} successfully recorded."
+
             return Response({
                 'success': True,
-                'message': f"Payment of ₹{amount} successfully recorded.",
+                'message': msg,
+                'is_pending_verification': is_pending,
                 'transaction': PaymentTransactionSerializer(txn).data,
                 'invoice': InvoiceSerializer(invoice).data,
                 'order_payment_status': order.payment_status,
@@ -368,4 +410,113 @@ class RecordOrderPaymentAPIView(views.APIView):
             }, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PendingPaymentsAPIView(views.APIView):
+    """
+    Returns all real database PaymentTransactions awaiting admin verification.
+    Direct authoritative query from PaymentTransaction model.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        is_admin = (
+            request.user.is_staff or 
+            request.user.is_superuser or 
+            (hasattr(request.user, 'profile') and request.user.profile.role in ['super_admin', 'admin'])
+        )
+        if not is_admin:
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
+        pending_txns = PaymentTransaction.objects.filter(
+            payment_status='PENDING_VERIFICATION'
+        ).select_related('invoice', 'invoice__order', 'received_by').order_by('-payment_date')
+
+        data = []
+        for txn in pending_txns:
+            inv = txn.invoice
+            order = inv.order if inv else None
+            franchise_name = 'Franchise'
+            if inv:
+                if inv.stock_request and inv.stock_request.dealer:
+                    franchise_name = inv.stock_request.dealer.business_name
+                elif order and order.serving_franchise:
+                    franchise_name = order.serving_franchise.business_name
+                elif txn.received_by and hasattr(txn.received_by, 'franchise_profile'):
+                    franchise_name = txn.received_by.franchise_profile.business_name
+                elif inv.billed_to_name:
+                    franchise_name = inv.billed_to_name
+
+            data.append({
+                'id': txn.id,
+                'transaction_number': txn.transaction_number,
+                'invoice_id': inv.id if inv else None,
+                'invoice_number': inv.invoice_number if inv else 'N/A',
+                'order_id': order.id if order else None,
+                'order_code': order.order_code if order else '',
+                'franchise_name': franchise_name,
+                'customer_name': inv.billed_to_name if inv else 'N/A',
+                'amount': float(txn.amount_paid),
+                'amount_paid': float(txn.amount_paid),
+                'payment_method': txn.payment_method,
+                'reference_number': txn.reference_number,
+                'notes': txn.notes,
+                'payment_status': txn.payment_status,
+                'submitted_at': txn.payment_date.strftime('%Y-%m-%d %H:%M') if txn.payment_date else '',
+                'submitted_by': txn.received_by.get_full_name() or txn.received_by.username if txn.received_by else 'Franchise',
+            })
+
+        return Response({
+            'success': True,
+            'count': len(data),
+            'payments': data,
+            'data': data,
+        })
+
+
+class VerifyPaymentByTxnAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, txn_id):
+        is_admin = (
+            request.user.is_staff or 
+            request.user.is_superuser or 
+            (hasattr(request.user, 'profile') and request.user.profile.role in ['super_admin', 'admin'])
+        )
+        if not is_admin:
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            txn = _process_payment_verification(txn_id, 'approve', request.user, notes=request.data.get('notes', ''))
+            return Response({
+                'success': True,
+                'message': f'Payment of ₹{txn.amount_paid} approved and verified successfully. Ledger and credit updated.',
+                'data': PaymentTransactionSerializer(txn).data
+            })
+        except Exception as e:
+            return Response({'success': False, 'message': str(e), 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RejectPaymentByTxnAPIView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, txn_id):
+        is_admin = (
+            request.user.is_staff or 
+            request.user.is_superuser or 
+            (hasattr(request.user, 'profile') and request.user.profile.role in ['super_admin', 'admin'])
+        )
+        if not is_admin:
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
+        reason = request.data.get('reason', request.data.get('notes', 'Payment could not be verified in bank statement.'))
+        try:
+            txn = _process_payment_verification(txn_id, 'reject', request.user, notes=reason)
+            return Response({
+                'success': True,
+                'message': 'Payment rejected. Franchise has been notified.',
+                'data': PaymentTransactionSerializer(txn).data
+            })
+        except Exception as e:
+            return Response({'success': False, 'message': str(e), 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

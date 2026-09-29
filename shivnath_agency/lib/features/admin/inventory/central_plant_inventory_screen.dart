@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/InventoryService.dart';
+import '../../../core/services/OrderService.dart';
 import '../../../core/services/product_service.dart';
 import '../../../models/product_model.dart';
 import 'dealer_stock_request_fulfillment_screen.dart';
@@ -188,17 +189,60 @@ class _CentralPlantInventoryScreenState
       itemCount: _productionBatches.length,
       itemBuilder: (context, idx) {
         final b = _productionBatches[idx];
-        final bId = b['id'] is int
-            ? b['id'] as int
-            : int.tryParse(b['id']?.toString() ?? '0') ?? 0;
         final bNum = b['batch_number']?.toString() ?? 'BATCH';
         final pName = b['product_name'] ?? 'Packaged Drinking Water';
         final sku = b['product_sku'] ?? b['sku'] ?? '';
-        final clientName = b['client_name']?.toString() ?? '';
-        final orderCode = b['linked_order_code']?.toString() ?? '';
+        final clientName = (b['client_name'] ?? '').toString().trim();
+        final rawLinkedOrder = b['linked_order'];
+        final orderDetails = b['order_details'] as Map<String, dynamic>?;
+
+        String rawOrdNum = (b['order_number'] ??
+                b['linked_order_code'] ??
+                (orderDetails != null ? orderDetails['order_code'] : null) ??
+                (rawLinkedOrder is Map ? rawLinkedOrder['order_code'] : null))
+            ?.toString()
+            .trim() ?? '';
+
+        if (rawOrdNum.isEmpty && rawLinkedOrder != null && rawLinkedOrder.toString() != 'null') {
+          final idVal = rawLinkedOrder is Map ? rawLinkedOrder['id'] : rawLinkedOrder;
+          if (idVal != null && int.tryParse(idVal.toString()) != null) {
+            rawOrdNum = 'ORD-${1000 + int.parse(idVal.toString())}';
+          } else if (rawLinkedOrder.toString().isNotEmpty) {
+            rawOrdNum = rawLinkedOrder.toString();
+          }
+        }
+        final orderNumber = rawOrdNum;
+
+        String rawOrdName = (b['order_name'] ??
+                (orderDetails != null ? orderDetails['client_name'] : null) ??
+                (rawLinkedOrder is Map ? rawLinkedOrder['client_name'] : null) ??
+                clientName)
+            ?.toString()
+            .trim() ?? '';
+        final orderName = rawOrdName;
+
+        final linkedOrderId = rawLinkedOrder is int
+            ? rawLinkedOrder
+            : (rawLinkedOrder is Map && rawLinkedOrder['id'] is int
+                ? rawLinkedOrder['id'] as int
+                : (orderDetails != null && orderDetails['id'] is int
+                    ? orderDetails['id'] as int
+                    : int.tryParse(rawLinkedOrder?.toString() ?? '')));
+
+        final orderStatus = (orderDetails != null
+                ? orderDetails['status']?.toString()
+                : (rawLinkedOrder is Map ? rawLinkedOrder['status']?.toString() : null)) ??
+            b['order_status']?.toString();
+
         final labelReq = b['label_requirement']?.toString() ?? '';
         final printingReq = b['printing_requirement']?.toString() ?? '';
         final brandingReq = b['branding_requirement']?.toString() ?? '';
+        final notes = b['notes']?.toString() ?? '';
+
+        final hasOrder = orderNumber.isNotEmpty ||
+            orderName.isNotEmpty ||
+            clientName.isNotEmpty ||
+            linkedOrderId != null;
 
         final produced =
             int.tryParse(b['quantity_produced_units']?.toString() ?? '0') ?? 0;
@@ -219,9 +263,6 @@ class _CentralPlantInventoryScreenState
         final shelfDays = b['shelf_life_days']?.toString() ?? '';
         final mfgDate = b['manufacture_date']?.toString() ?? '';
         final expiry = b['expiry_date']?.toString() ?? '';
-        final unitCost =
-            double.tryParse(b['unit_production_cost']?.toString() ?? '0') ??
-            0.0;
         final isExpired = b['is_expired'] == true;
         final isDepleted = remaining <= 0;
         final isHighlighted = widget.highlightBatchNumber != null &&
@@ -271,6 +312,7 @@ class _CentralPlantInventoryScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     CircleAvatar(
+                      radius: 20,
                       backgroundColor: isDepleted
                           ? Colors.grey.shade200
                           : (isExpired
@@ -280,6 +322,7 @@ class _CentralPlantInventoryScreenState
                         isDepleted
                             ? Icons.check_circle_outline_rounded
                             : Icons.water_drop_rounded,
+                        size: 22,
                         color: isDepleted
                             ? Colors.grey.shade600
                             : (isExpired
@@ -292,41 +335,77 @@ class _CentralPlantInventoryScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Flexible(
-                                child: Text(
-                                  bNum,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 16,
-                                  ),
+                              SelectableText(
+                                bNum,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                  color: Color(0xFF0F172A),
+                                  letterSpacing: 0.3,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              if (sku.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x1A0284C7),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    sku,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
+                                      color: Color(0xFF0284C7),
+                                    ),
+                                  ),
+                                ),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
+                                  horizontal: 8,
+                                  vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0x1A0284C7),
+                                  color: isDepleted
+                                      ? Colors.grey.shade100
+                                      : (isExpired
+                                            ? Colors.red.shade50
+                                            : const Color(0xFFECFDF5)),
                                   borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: isDepleted
+                                        ? Colors.grey.shade300
+                                        : (isExpired
+                                              ? Colors.red.shade200
+                                              : const Color(0xFFA7F3D0)),
+                                  ),
                                 ),
                                 child: Text(
-                                  sku,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 11,
-                                    color: Color(0xFF0284C7),
+                                  isDepleted
+                                      ? 'DEPLETED'
+                                      : (isExpired ? 'EXPIRED' : 'ACTIVE IN STOCK'),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 10,
+                                    color: isDepleted
+                                        ? Colors.grey.shade700
+                                        : (isExpired
+                                              ? Colors.red.shade700
+                                              : const Color(0xFF047857)),
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             pName,
                             style: const TextStyle(
@@ -338,147 +417,282 @@ class _CentralPlantInventoryScreenState
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDepleted
-                            ? Colors.grey.shade100
-                            : (isExpired
-                                  ? Colors.red.shade50
-                                  : const Color(0xFFECFDF5)),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isDepleted
-                              ? Colors.grey.shade300
-                              : (isExpired
-                                    ? Colors.red.shade200
-                                    : const Color(0xFFA7F3D0)),
-                        ),
-                      ),
-                      child: Text(
-                        isDepleted
-                            ? 'DEPLETED'
-                            : (isExpired ? 'EXPIRED' : 'ACTIVE IN STOCK'),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 10,
-                          color: isDepleted
-                              ? Colors.grey.shade700
-                              : (isExpired
-                                    ? Colors.red.shade700
-                                    : const Color(0xFF047857)),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
 
-                // Customer / Client Bulk Order Badges
-                if (clientName.isNotEmpty ||
-                    orderCode.isNotEmpty ||
+                // Linked Order & Client Full Information Card
+                if (hasOrder ||
                     labelReq.isNotEmpty ||
                     printingReq.isNotEmpty ||
                     brandingReq.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      if (clientName.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFBFDBFE)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.business_rounded,
-                                size: 12,
-                                color: Color(0xFF1D4ED8),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Customer: $clientName',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11,
-                                  color: Color(0xFF1D4ED8),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (orderNumber.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF7C3AED),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.receipt_long_rounded,
+                                      size: 13,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    SelectableText(
+                                      'ORDER #$orderNumber',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                            if (orderStatus != null && orderStatus.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: orderStatus.toLowerCase() == 'delivered'
+                                      ? const Color(0xFFECFDF5)
+                                      : (orderStatus.toLowerCase() == 'dispatch'
+                                          ? const Color(0xFFEFF6FF)
+                                          : const Color(0xFFFFFBEB)),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: orderStatus.toLowerCase() == 'delivered'
+                                        ? const Color(0xFFA7F3D0)
+                                        : (orderStatus.toLowerCase() == 'dispatch'
+                                            ? const Color(0xFFBFDBFE)
+                                            : const Color(0xFFFDE68A)),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Status: ${orderStatus.toUpperCase()}',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: orderStatus.toLowerCase() == 'delivered'
+                                        ? const Color(0xFF047857)
+                                        : (orderStatus.toLowerCase() == 'dispatch'
+                                            ? const Color(0xFF1D4ED8)
+                                            : const Color(0xFFB45309)),
+                                  ),
+                                ),
+                              ),
+                            if (linkedOrderId != null)
+                              InkWell(
+                                onTap: () => _openUpdateOrderStatusDialog(
+                                  orderId: linkedOrderId,
+                                  currentStatus: orderStatus ?? 'dispatch',
+                                  orderCode: orderNumber,
+                                  clientName: orderName.isNotEmpty ? orderName : clientName,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEDE9FE),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFDDD6FE)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.edit_note_rounded, size: 14, color: Color(0xFF6D28D9)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Update Status',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF6D28D9),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Full Order Name & Client
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(
+                                Icons.business_rounded,
+                                size: 15,
+                                color: Color(0xFF1D4ED8),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                orderName.isNotEmpty
+                                    ? 'Order Name: $orderName'
+                                    : (clientName.isNotEmpty ? 'Customer: $clientName' : 'Bulk Requirement'),
+                                softWrap: true,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (clientName.isNotEmpty && orderName.isNotEmpty && clientName != orderName) ...[
+                          const SizedBox(height: 3),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 21),
+                            child: Text(
+                              'Client: $clientName',
+                              softWrap: true,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                        ],
+                        // Custom Requirements
+                        if (labelReq.isNotEmpty || printingReq.isNotEmpty || brandingReq.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              if (labelReq.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(color: const Color(0xFFFDE68A)),
+                                  ),
+                                  child: Text(
+                                    'Label: $labelReq',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10.5,
+                                      color: Color(0xFF92400E),
+                                    ),
+                                  ),
+                                ),
+                              if (printingReq.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF0FDF4),
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                                  ),
+                                  child: Text(
+                                    'Print: $printingReq',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10.5,
+                                      color: Color(0xFF166534),
+                                    ),
+                                  ),
+                                ),
+                              if (brandingReq.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                                  ),
+                                  child: Text(
+                                    'Branding: $brandingReq',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10.5,
+                                      color: Color(0xFF1D4ED8),
+                                    ),
+                                  ),
+                                ),
+                              if (notes.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                                  ),
+                                  child: Text(
+                                    'Notes: $notes',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10.5,
+                                      color: Color(0xFF334155),
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
-                        ),
-                      if (orderCode.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF5F3FF),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFDDD6FE)),
-                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.inventory_2_outlined, size: 14, color: Color(0xFF64748B)),
+                        SizedBox(width: 6),
+                        Expanded(
                           child: Text(
-                            'Order: $orderCode',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
+                            'Central Plant Buffer Stock • Available for Dealer & Client Dispatch',
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF6D28D9),
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF475569),
                             ),
                           ),
                         ),
-                      if (labelReq.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFFDE68A)),
-                          ),
-                          child: Text(
-                            'Label: $labelReq',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11,
-                              color: Color(0xFF92400E),
-                            ),
-                          ),
-                        ),
-                      if (printingReq.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0FDF4),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFBBF7D0)),
-                          ),
-                          child: Text(
-                            'Print: $printingReq',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11,
-                              color: Color(0xFF166534),
-                            ),
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
 
@@ -645,20 +859,23 @@ class _CentralPlantInventoryScreenState
                 if (remaining > 0)
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0284C7),
-                        side: const BorderSide(color: Color(0xFF0284C7)),
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 1,
                       ),
-                      icon: const Icon(Icons.local_shipping_outlined, size: 18),
-                      label: const Text(
-                        'Dispatch / Record Customer Collection',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
+                      icon: const Icon(Icons.local_shipping_rounded, size: 18),
+                      label: Text(
+                        orderNumber.isNotEmpty
+                            ? 'Dispatch Pending Stock for #$orderNumber ($remaining Units)'
+                            : 'Dispatch Pending Stock ($remaining Units)',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
                           fontSize: 13,
                         ),
                       ),
@@ -1302,6 +1519,9 @@ class _CentralPlantInventoryScreenState
       text: (prefillQuantity ?? 5000).toString(),
     );
     final clientNameCtrl = TextEditingController(text: prefillClientName ?? '');
+    final orderIdCtrl = TextEditingController(
+      text: prefillOrderId != null ? prefillOrderId.toString() : '',
+    );
     final shelfDaysCtrl = TextEditingController(
       text: (prefillShelfDays ?? selectedProduct?.shelfLifeDays ?? 180)
           .toString(),
@@ -1387,6 +1607,14 @@ class _CentralPlantInventoryScreenState
                     decoration: const InputDecoration(
                       labelText: 'Customer / Client Name (Bulk Order)',
                       hintText: 'e.g. Digital Marketing Wala',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: orderIdCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Linked Order Code / ID (Optional)',
+                      hintText: 'e.g. ORD-1001 or 1001',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1489,7 +1717,9 @@ class _CentralPlantInventoryScreenState
                           'shelf_life_days': days,
                           'expiry_date': dynamicExpiry,
                           'client_name': clientNameCtrl.text.trim(),
-                          'linked_order': prefillOrderId,
+                          'linked_order': orderIdCtrl.text.trim().isNotEmpty
+                              ? orderIdCtrl.text.trim()
+                              : prefillOrderId,
                           'label_requirement': labelCtrl.text.trim(),
                           'printing_requirement': printCtrl.text.trim(),
                           'branding_requirement': brandingCtrl.text.trim(),
@@ -1550,7 +1780,9 @@ class _CentralPlantInventoryScreenState
         : int.tryParse(batch['id']?.toString() ?? '0') ?? 0;
     final bNum = batch['batch_number']?.toString() ?? 'BATCH';
     final pName = batch['product_name'] ?? 'Packaged Drinking Water';
-    final clientName = batch['client_name']?.toString() ?? '';
+    final clientName = (batch['client_name'] ?? '').toString().trim();
+    final orderNumber = (batch['order_number'] ?? batch['linked_order_code'] ?? '').toString().trim();
+    final orderName = (batch['order_name'] ?? clientName).toString().trim();
     final produced =
         int.tryParse(batch['quantity_produced_units']?.toString() ?? '0') ?? 0;
     final taken =
@@ -1581,6 +1813,7 @@ class _CentralPlantInventoryScreenState
     final notesCtrl = TextEditingController();
     final refCtrl = TextEditingController();
 
+    String deliveryStatus = (remaining <= initialQty) ? 'delivered' : 'dispatch';
     String paymentStatus = 'FULL'; // FULL, PARTIAL, UNPAID
     String paymentMethod = 'CASH'; // CASH, ONLINE
 
@@ -1660,13 +1893,60 @@ class _CentralPlantInventoryScreenState
                               color: Color(0xFF64748B),
                             ),
                           ),
-                          if (clientName.isNotEmpty)
-                            Text(
-                              'Client: $clientName',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                                color: Color(0xFF0284C7),
+                          if (orderNumber.isNotEmpty || orderName.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEDE9FE),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFDDD6FE)),
+                              ),
+                              child: Row(
+                                children: [
+                                  if (orderNumber.isNotEmpty) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF7C3AED),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'ORDER #$orderNumber',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Expanded(
+                                    child: Text(
+                                      orderName.isNotEmpty ? orderName : clientName,
+                                      softWrap: true,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12,
+                                        color: Color(0xFF5B21B6),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (clientName.isNotEmpty && (orderName.isEmpty || clientName != orderName))
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Client: $clientName',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  color: Color(0xFF0284C7),
+                                ),
                               ),
                             ),
                           const Divider(height: 14),
@@ -1718,6 +1998,57 @@ class _CentralPlantInventoryScreenState
                         hintText: 'e.g. Vehicle MH-12-AB-1234',
                         border: OutlineInputBorder(),
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Delivery & Fulfillment Status Dropdown
+                    DropdownButtonFormField<String>(
+                      value: deliveryStatus,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Fulfillment & Delivery Status *',
+                        helperText: 'Updates customer order & plant stock status',
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        fillColor: Colors.white,
+                        filled: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'delivered',
+                          child: Text(
+                            'DELIVERED (Complete Handover to Customer)',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF047857)),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'dispatch',
+                          child: Text(
+                            'DISPATCH / IN TRANSIT (Dispatched from Plant)',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1D4ED8)),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'preparing',
+                          child: Text(
+                            'PREPARING / PARTIAL (Partially Prepared/Dispatched)',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFB45309)),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'ready_for_pickup',
+                          child: Text(
+                            'READY FOR PICKUP (Waiting at Plant/Warehouse)',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF7C3AED)),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setDlgState(() => deliveryStatus = v);
+                      },
                     ),
                     const SizedBox(height: 16),
                     // Payment Section
@@ -2022,6 +2353,7 @@ class _CentralPlantInventoryScreenState
                               referenceNumber: refCtrl.text.trim(),
                               amountDue: due,
                               amountPaid: paid,
+                              deliveryStatus: deliveryStatus,
                             );
                             setDlgState(() => isSaving = false);
 
@@ -2066,6 +2398,129 @@ class _CentralPlantInventoryScreenState
                           ),
                   ),
                 ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _openUpdateOrderStatusDialog({
+    required int orderId,
+    required String currentStatus,
+    required String orderCode,
+    required String clientName,
+  }) {
+    String selectedStatus = currentStatus.toLowerCase();
+    final validStatuses = [
+      {'val': 'order_placement', 'label': 'Order Placement (New Order)'},
+      {'val': 'plant_approval', 'label': 'Plant Approval / Admin Approved'},
+      {'val': 'invoice_generated', 'label': 'Invoice Generated'},
+      {'val': 'preparing', 'label': 'Preparing / Bottling'},
+      {'val': 'dispatch', 'label': 'Dispatch / In Transit'},
+      {'val': 'delivered', 'label': 'Delivered (Complete Handover)'},
+      {'val': 'cancelled', 'label': 'Cancelled'},
+    ];
+    if (!validStatuses.any((s) => s['val'] == selectedStatus)) {
+      selectedStatus = 'dispatch';
+    }
+
+    bool isUpdating = false;
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (context, setDlgState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.sync_alt_rounded, color: Color(0xFF7C3AED)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Update Order Status ($orderCode)',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (clientName.isNotEmpty) ...[
+                  Text(
+                    'Order Name: $clientName',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF334155)),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                DropdownButtonFormField<String>(
+                  value: selectedStatus,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Order Status *',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: validStatuses.map((s) {
+                    return DropdownMenuItem(
+                      value: s['val']!,
+                      child: Text(s['label']!, overflow: TextOverflow.ellipsis),
+                    );
+                  }).toList(),
+                  onChanged: (v) {
+                    if (v != null) setDlgState(() => selectedStatus = v);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isUpdating ? null : () => Navigator.pop(dlgCtx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF7C3AED),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: isUpdating
+                    ? null
+                    : () async {
+                        setDlgState(() => isUpdating = true);
+                        final res = await OrderService().updateOrderStatus(orderId, selectedStatus);
+                        setDlgState(() => isUpdating = false);
+                        if (res['success'] == true) {
+                          if (mounted) {
+                            Navigator.pop(dlgCtx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Order status updated to ${selectedStatus.toUpperCase()}!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                            _loadData();
+                          }
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(res['message'] ?? 'Failed to update order status.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                child: isUpdating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('Update Status'),
               ),
             ],
           );

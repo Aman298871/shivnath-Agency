@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/followup_service.dart';
 import '../../../core/services/lead_service.dart';
@@ -667,23 +666,53 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         });
       }
 
-      // 2. Pending Payment Verifications
+      // 2. Pending Payment Verifications (from authoritative DB API + notifications)
+      final List<Map<String, dynamic>> paymentList = [];
+      final Set<int> seenTxnOrInvoice = {};
+
+      // 2a. Direct authoritative database queries of pending transactions
+      final directPayRes = await _inventoryService.getPendingPayments();
+      if (!mounted) return;
+      if (directPayRes['success'] == true) {
+        List rawTxns = [];
+        if (directPayRes['payments'] is List) {
+          rawTxns = directPayRes['payments'] as List;
+        } else if (directPayRes['data'] is List) {
+          rawTxns = directPayRes['data'] as List;
+        }
+        for (var t in rawTxns) {
+          if (t is Map) {
+            final tMap = Map<String, dynamic>.from(t);
+            final txnId = tMap['id'] is int ? tMap['id'] as int : int.tryParse('${tMap['id']}') ?? 0;
+            if (!_dismissedNotificationIds.contains(txnId)) {
+              seenTxnOrInvoice.add(txnId);
+              paymentList.add(tMap);
+            }
+          }
+        }
+      }
+
+      // 2b. Notifications fallback/merge
       final notifRes = await _notificationService.getAdminNotifications();
       if (!mounted) return;
       if (notifRes['success'] == true && notifRes['data'] is Map) {
         final List notifs = notifRes['data']['notifications'] ?? [];
-        final paymentVerifs = notifs.where((n) {
-          if (n is! Map) return false;
-          final type = (n['notification_type'] ?? '').toString();
-          final isRead = n['is_read'] == true;
-          final id = n['id'] is int ? n['id'] as int : int.tryParse('${n['id']}') ?? 0;
-          return type == 'payment_verification' && !isRead && !_dismissedNotificationIds.contains(id);
-        }).map((n) => Map<String, dynamic>.from(n as Map)).toList();
-
-        setState(() {
-          _pendingPaymentVerifications = paymentVerifs;
-        });
+        for (var n in notifs) {
+          if (n is Map) {
+            final type = (n['notification_type'] ?? '').toString();
+            final isRead = n['is_read'] == true;
+            final notifId = n['id'] is int ? n['id'] as int : int.tryParse('${n['id']}') ?? 0;
+            final refId = n['reference_id'] is int ? n['reference_id'] as int : int.tryParse('${n['reference_id']}') ?? 0;
+            if (type == 'payment_verification' && !isRead && !_dismissedNotificationIds.contains(notifId) && !seenTxnOrInvoice.contains(refId)) {
+              paymentList.add(Map<String, dynamic>.from(n));
+            }
+          }
+        }
       }
+
+      setState(() {
+        _pendingPaymentVerifications = paymentList;
+      });
     } catch (_) {}
   }
 
@@ -843,9 +872,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         // 2. Payment Verifications
         ..._pendingPaymentVerifications.map((notif) {
           final notifId = notif['id'] is int ? notif['id'] as int : int.tryParse('${notif['id']}') ?? 0;
-          final invId = notif['reference_id'] is int ? notif['reference_id'] as int : int.tryParse('${notif['reference_id']}') ?? 0;
-          final title = notif['title']?.toString() ?? 'Payment Verification Required';
-          final msg = notif['message']?.toString() ?? '';
+          final franchiseName = notif['franchise_name']?.toString() ?? 'Franchise';
+          final invNumber = notif['invoice_number']?.toString() ?? '';
+          final orderCode = notif['order_code']?.toString() ?? '';
+          final refNum = notif['reference_number']?.toString() ?? '';
+          final payMethod = notif['payment_method']?.toString() ?? 'UPI';
+          final amt = notif['amount'] ?? notif['amount_paid'];
+          final amtStr = amt != null ? '₹$amt' : '';
+          final title = notif['title']?.toString() ?? 'Payment Verification: $franchiseName ($amtStr)';
+          final msg = notif['message']?.toString() ??
+              '$franchiseName submitted $amtStr via $payMethod. Ref: ${refNum.isNotEmpty ? refNum : 'N/A'}${invNumber.isNotEmpty ? ' • Invoice: $invNumber' : ''}${orderCode.isNotEmpty ? ' • Order: #$orderCode' : ''}';
 
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -942,7 +978,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         'APPROVE PAYMENT',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
-                      onPressed: () => _handleApprovePayment(invId, notifId),
+                      onPressed: () => _handleApprovePayment(notif),
                     ),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -953,7 +989,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       icon: const Icon(Icons.cancel_outlined, size: 16),
                       label: const Text('REJECT PAYMENT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      onPressed: () => _handleRejectPayment(invId, notifId),
+                      onPressed: () => _handleRejectPayment(notif),
                     ),
                   ],
                 ),
@@ -965,12 +1001,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Future<void> _handleApprovePayment(int invoiceId, int notifId) async {
+  Future<void> _handleApprovePayment(Map<String, dynamic> notif) async {
+    final notifId = notif['id'] is int ? notif['id'] as int : int.tryParse('${notif['id']}') ?? 0;
+    final invId = notif['invoice_id'] is int
+        ? notif['invoice_id'] as int
+        : (notif['reference_id'] is int ? notif['reference_id'] as int : int.tryParse('${notif['reference_id'] ?? notif['invoice_id']}') ?? 0);
+    final txnId = notif['transaction_number'] != null ? notifId : 0;
+    final amt = notif['amount'] ?? notif['amount_paid'] ?? '';
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Approve Payment'),
-        content: const Text('Are you sure you want to approve and confirm this payment? This will update the company and franchise financial ledgers.'),
+        content: Text('Are you sure you want to approve and confirm this payment of ₹$amt? This will update the company and franchise financial ledgers.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
@@ -983,7 +1026,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
     if (confirm != true) return;
 
-    final res = await _inventoryService.verifyInvoicePayment(invoiceId: invoiceId);
+    Map<String, dynamic> res;
+    if (txnId > 0) {
+      res = await _inventoryService.verifyPaymentByTxnId(txnId: txnId);
+      if (res['success'] != true && invId > 0) {
+        res = await _inventoryService.verifyInvoicePayment(invoiceId: invId);
+      }
+    } else {
+      res = await _inventoryService.verifyInvoicePayment(invoiceId: invId);
+    }
+
     if (!mounted) return;
     if (res['success'] == true) {
       AppToast.success(context, res['message']?.toString() ?? 'Payment confirmed successfully!');
@@ -993,12 +1045,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _pendingPaymentVerifications.removeWhere((n) => n['id'] == notifId);
       });
       _loadDashboardData();
+      _loadActionableAlerts();
     } else {
       AppToast.error(context, res['message']?.toString() ?? 'Failed to approve payment');
     }
   }
 
-  Future<void> _handleRejectPayment(int invoiceId, int notifId) async {
+  Future<void> _handleRejectPayment(Map<String, dynamic> notif) async {
+    final notifId = notif['id'] is int ? notif['id'] as int : int.tryParse('${notif['id']}') ?? 0;
+    final invId = notif['invoice_id'] is int
+        ? notif['invoice_id'] as int
+        : (notif['reference_id'] is int ? notif['reference_id'] as int : int.tryParse('${notif['reference_id'] ?? notif['invoice_id']}') ?? 0);
+    final txnId = notif['transaction_number'] != null ? notifId : 0;
+
     final reasonCtrl = TextEditingController();
     final reason = await showDialog<String>(
       context: context,
@@ -1032,7 +1091,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
     if (reason == null) return;
 
-    final res = await _inventoryService.rejectInvoicePayment(invoiceId: invoiceId, reason: reason);
+    Map<String, dynamic> res;
+    if (txnId > 0) {
+      res = await _inventoryService.rejectPaymentByTxnId(txnId: txnId, reason: reason);
+      if (res['success'] != true && invId > 0) {
+        res = await _inventoryService.rejectInvoicePayment(invoiceId: invId, reason: reason);
+      }
+    } else {
+      res = await _inventoryService.rejectInvoicePayment(invoiceId: invId, reason: reason);
+    }
+
     if (!mounted) return;
     if (res['success'] == true) {
       AppToast.success(context, 'Payment rejected. Franchise has been notified.');
@@ -1042,6 +1110,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _pendingPaymentVerifications.removeWhere((n) => n['id'] == notifId);
       });
       _loadDashboardData();
+      _loadActionableAlerts();
     } else {
       AppToast.error(context, res['message']?.toString() ?? 'Failed to reject payment');
     }

@@ -755,6 +755,7 @@ class ProductionBatchCollectionAPIView(views.APIView):
         reference_number = request.data.get('reference_number', '')
         amount_due = request.data.get('amount_due')
         amount_paid = request.data.get('amount_paid')
+        delivery_status = request.data.get('delivery_status') or request.data.get('order_status')
 
         try:
             res = record_batch_collection_atomic(
@@ -768,6 +769,7 @@ class ProductionBatchCollectionAPIView(views.APIView):
                 reference_number=reference_number,
                 amount_due=amount_due,
                 amount_paid=amount_paid,
+                delivery_status=delivery_status,
             )
             return Response({
                 'success': True,

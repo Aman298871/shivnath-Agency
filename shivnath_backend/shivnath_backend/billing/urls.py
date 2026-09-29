@@ -9,6 +9,9 @@ from billing.views import (
     DealerCreditProfileAPIView,
     DealerAgingReportAPIView,
     CompanyBillingProfileAPIView,
+    PendingPaymentsAPIView,
+    VerifyPaymentByTxnAPIView,
+    RejectPaymentByTxnAPIView,
 )
 
 urlpatterns = [
@@ -17,6 +20,9 @@ urlpatterns = [
     path('invoices/<int:invoice_id>/payments/', RecordPaymentAPIView.as_view(), name='billing_record_payment'),
     path('invoices/<int:invoice_id>/verify-payment/', VerifyPaymentAPIView.as_view(), name='billing_verify_payment'),
     path('invoices/<int:invoice_id>/reject-payment/', RejectPaymentAPIView.as_view(), name='billing_reject_payment'),
+    path('pending-payments/', PendingPaymentsAPIView.as_view(), name='billing_pending_payments'),
+    path('payments/<int:txn_id>/verify/', VerifyPaymentByTxnAPIView.as_view(), name='billing_verify_payment_by_txn'),
+    path('payments/<int:txn_id>/reject/', RejectPaymentByTxnAPIView.as_view(), name='billing_reject_payment_by_txn'),
     path('orders/<int:order_id>/payments/', RecordOrderPaymentAPIView.as_view(), name='billing_record_order_payment'),
     path('dealers/<int:dealer_id>/credit-profile/', DealerCreditProfileAPIView.as_view(), name='billing_dealer_credit'),
     path('dealers/<int:dealer_id>/aging/', DealerAgingReportAPIView.as_view(), name='billing_dealer_aging'),

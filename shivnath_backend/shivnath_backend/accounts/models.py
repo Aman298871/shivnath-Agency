@@ -132,6 +132,7 @@ class AdminNotification(models.Model):
         ('bulk_order', 'Bulk Order Placed'),
         ('stock_alert', 'Stock Alert'),
         ('service_status', 'Service Status Update'),
+        ('payment_verification', 'Payment Verification Required'),
         ('general', 'General'),
     ]
 

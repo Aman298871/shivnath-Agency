@@ -740,8 +740,9 @@ class _CentralPlantInventoryScreenState
         else
           ..._rawMaterials.map((rm) {
             final name = rm['name']?.toString() ?? 'Material';
-            final code = rm['code']?.toString() ?? '';
-            final category = rm['category']?.toString() ?? '';
+            final sku = rm['sku']?.toString() ?? '';
+            final categoryKey = rm['category']?.toString() ?? '';
+            final categoryDisplay = rm['category_display']?.toString() ?? _categoryLabel(categoryKey);
             final stock =
                 double.tryParse(rm['current_stock']?.toString() ?? '0') ?? 0.0;
             final reorder =
@@ -749,6 +750,8 @@ class _CentralPlantInventoryScreenState
             final uom = rm['unit_of_measure']?.toString() ?? 'pcs';
             final unitCost =
                 double.tryParse(rm['unit_cost']?.toString() ?? '0') ?? 0.0;
+            final createdAt = rm['created_at']?.toString() ?? '';
+            final updatedAt = rm['updated_at']?.toString() ?? '';
             final isLow = stock <= reorder;
 
             return Card(
@@ -794,10 +797,10 @@ class _CentralPlantInventoryScreenState
                                   color: Color(0xFF0F172A),
                                 ),
                               ),
-                              if (code.isNotEmpty) ...[
+                              if (sku.isNotEmpty) ...[
                                 const SizedBox(height: 2),
                                 Text(
-                                  code,
+                                  'SKU: $sku',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -861,29 +864,14 @@ class _CentralPlantInventoryScreenState
                       spacing: 12,
                       runSpacing: 4,
                       children: [
-                        if (category.isNotEmpty)
-                          Text(
-                            'Category: $category',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        Text(
-                          'Unit Cost: ₹${unitCost.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155),
-                          ),
-                        ),
-                        Text(
-                          'Reorder: ${reorder.toStringAsFixed(0)} $uom',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF94A3B8),
-                          ),
-                        ),
+                        _rmChip(Icons.category_outlined, categoryDisplay, const Color(0xFF6366F1)),
+                        _rmChip(Icons.attach_money_rounded, '₹${unitCost.toStringAsFixed(2)}/unit', const Color(0xFF0284C7)),
+                        _rmChip(Icons.warning_amber_rounded, 'Reorder ≤ ${reorder.toStringAsFixed(0)} $uom',
+                            isLow ? Colors.red : const Color(0xFF94A3B8)),
+                        if (createdAt.isNotEmpty)
+                          _rmChip(Icons.schedule_rounded, 'Added: ${_fmtDateTime(createdAt)}', const Color(0xFF64748B)),
+                        if (updatedAt.isNotEmpty && updatedAt != createdAt)
+                          _rmChip(Icons.edit_calendar_rounded, 'Updated: ${_fmtDateTime(updatedAt)}', const Color(0xFF64748B)),
                       ],
                     ),
                   ],
@@ -891,6 +879,74 @@ class _CentralPlantInventoryScreenState
               ),
             );
           }),
+      ],
+    );
+  }
+
+  /// Returns allowed UoM options for a given category
+  List<String> _uomForCategory(String cat) {
+    switch (cat) {
+      case 'raw_water':
+        return ['litres'];
+      case 'chemical':
+        return ['kg', 'litres'];
+      case 'bottle':
+      case 'preform':
+      case 'cap':
+        return ['pcs'];
+      case 'label':
+        return ['rolls', 'pcs'];
+      case 'packaging':
+        return ['boxes', 'pcs'];
+      default:
+        return ['pcs', 'litres', 'rolls', 'boxes', 'kg'];
+    }
+  }
+
+  String _categoryLabel(String key) {
+    const map = {
+      'raw_water': 'Raw Water',
+      'bottle': 'Bottle / Finished Bottle',
+      'preform': 'Bottle Preform',
+      'cap': 'Cap / Closure',
+      'label': 'Label / Sticker',
+      'packaging': 'Box / Carton / Packaging',
+      'chemical': 'Chemical / Minerals',
+    };
+    return map[key] ?? key;
+  }
+
+  String _uomLabel(String key) {
+    const map = {
+      'pcs': 'Pieces (Pcs)',
+      'litres': 'Litres (L)',
+      'rolls': 'Rolls',
+      'boxes': 'Boxes / Cartons',
+      'kg': 'Kilograms (Kg)',
+    };
+    return map[key] ?? key;
+  }
+
+  String _fmtDateTime(String raw) {
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final h = dt.hour.toString().padLeft(2, '0');
+      final m = dt.minute.toString().padLeft(2, '0');
+      return '${dt.day} ${months[dt.month]} ${dt.year}, $h:$m';
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  Widget _rmChip(IconData icon, String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 3),
+        Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -1848,8 +1904,9 @@ class _CentralPlantInventoryScreenState
     final stockCtrl = TextEditingController(text: '1000');
     final reorderCtrl = TextEditingController(text: '200');
     String category = 'bottle';
-    String uom = 'pcs';
+    String uom = 'pcs'; // 'pcs' is valid for 'bottle'
     bool isSaving = false;
+    final rootCtx = context; // capture root ctx before dialog opens
 
     showDialog(
       context: context,
@@ -1875,73 +1932,45 @@ class _CentralPlantInventoryScreenState
                     ),
                   ),
                   const SizedBox(height: 10),
+                  // Category dropdown
                   DropdownButtonFormField<String>(
-                    initialValue: category,
+                    value: category,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: const [
-                      DropdownMenuItem(
-                        value: 'bottle',
-                        child: Text('Bottle / Finished Bottle', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                      DropdownMenuItem(
-                        value: 'preform',
-                        child: Text('Bottle Preform', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                      DropdownMenuItem(
-                        value: 'cap',
-                        child: Text('Cap / Closure', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                      DropdownMenuItem(
-                        value: 'label',
-                        child: Text('Label / Sticker', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                      DropdownMenuItem(
-                        value: 'packaging',
-                        child: Text('Box / Carton / Packaging', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                      DropdownMenuItem(
-                        value: 'chemical',
-                        child: Text('Chemical / Minerals', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                      DropdownMenuItem(
-                        value: 'raw_water',
-                        child: Text('Raw Water', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
+                      DropdownMenuItem(value: 'bottle',    child: Text('Bottle / Finished Bottle', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'preform',   child: Text('Bottle Preform',           overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'cap',       child: Text('Cap / Closure',            overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'label',     child: Text('Label / Sticker',          overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'packaging', child: Text('Box / Carton / Packaging', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'chemical',  child: Text('Chemical / Minerals',      overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'raw_water', child: Text('Raw Water',                overflow: TextOverflow.ellipsis)),
                     ],
-                    onChanged: (val) =>
-                        setDlgState(() => category = val ?? category),
+                    onChanged: (val) {
+                      if (val == null) return;
+                      final allowed = _uomForCategory(val);
+                      setDlgState(() {
+                        category = val;
+                        // reset uom to first valid option for this category
+                        if (!allowed.contains(uom)) uom = allowed.first;
+                      });
+                    },
                   ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: uom,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Unit of Measure',
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'pcs',
-                        child: Text('Pcs', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                      DropdownMenuItem(
-                        value: 'litres',
-                        child: Text('Litres', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                      DropdownMenuItem(
-                        value: 'rolls',
-                        child: Text('Rolls', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                      DropdownMenuItem(
-                        value: 'boxes',
-                        child: Text('Boxes', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                      DropdownMenuItem(
-                        value: 'kg',
-                        child: Text('Kg', overflow: TextOverflow.ellipsis, maxLines: 1),
-                      ),
-                    ],
-                    onChanged: (val) => setDlgState(() => uom = val ?? uom),
+                  // Unit of Measure — smart filtered by category
+                  Builder(
+                    builder: (ctx) {
+                      final allowed = _uomForCategory(category);
+                      return DropdownButtonFormField<String>(
+                        value: allowed.contains(uom) ? uom : allowed.first,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Unit of Measure'),
+                        items: allowed.map((k) => DropdownMenuItem(
+                          value: k,
+                          child: Text(_uomLabel(k), overflow: TextOverflow.ellipsis),
+                        )).toList(),
+                        onChanged: (val) => setDlgState(() => uom = val ?? uom),
+                      );
+                    },
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -2000,15 +2029,42 @@ class _CentralPlantInventoryScreenState
                         });
                         setDlgState(() => isSaving = false);
                         if (res['success'] == true) {
-                          if (mounted) {
-                            Navigator.pop(dlgCtx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Raw material registered!'),
-                                backgroundColor: Colors.green,
+                          Navigator.pop(dlgCtx);
+                          if (rootCtx.mounted) {
+                            final newMat = res['data'];
+                            final matName = (newMat is Map ? newMat['name'] : null)
+                                ?? nameCtrl.text.trim();
+                            ScaffoldMessenger.of(rootCtx).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        '✅ "$matName" added to Raw Materials!',
+                                        style: const TextStyle(fontWeight: FontWeight.w700),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: const Color(0xFF10B981),
+                                duration: const Duration(seconds: 3),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                             );
                             _loadData();
+                          }
+                        } else {
+                          if (rootCtx.mounted) {
+                            ScaffoldMessenger.of(rootCtx).showSnackBar(
+                              SnackBar(
+                                content: Text(res['message'] ?? 'Failed to add material.'),
+                                backgroundColor: Colors.red,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
                           }
                         }
                       },

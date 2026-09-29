@@ -462,6 +462,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           onOpenQuotations: () => _selectMenu(11),
           onOpenUsers: () => _selectMenu(14),
           onOpenNotifications: () => _selectMenu(15),
+          onOpenStockRequests: () => _selectMenu(21),
           onOpenInventoryWithBatch: (batch) {
             setState(() {
               _targetBatchNumber = batch;
@@ -551,6 +552,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           onOpenQuotations: () => _selectMenu(11),
           onOpenUsers: () => _selectMenu(14),
           onOpenNotifications: () => _selectMenu(15),
+          onOpenStockRequests: () => _selectMenu(21),
           onOpenInventoryWithBatch: (batch) {
             setState(() {
               _targetBatchNumber = batch;

@@ -291,12 +291,18 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '#${order['id']}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
+                Expanded(
+                  child: Text(
+                    (order['id']?.startsWith('#') ?? false)
+                        ? order['id']!
+                        : '#${order['id']}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   order['amount']!,
                   style: const TextStyle(
@@ -310,7 +316,13 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${order['date']}'),
+                  Expanded(
+                    child: Text(
+                      '${order['date']}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   AppStatusBadge.order(order['status']),
                 ],
               ),

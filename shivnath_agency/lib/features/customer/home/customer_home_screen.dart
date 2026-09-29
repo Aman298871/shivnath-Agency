@@ -602,7 +602,62 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
             ),
 
-            const SizedBox(height: 26),
+            const SizedBox(height: 20),
+
+            // MOBILE QUICK STATUS CARDS
+            Row(
+              children: [
+                Expanded(
+                  child: _MobileQuickStatusCard(
+                    title: 'My Orders',
+                    subtitle: 'Track delivery',
+                    icon: Icons.local_shipping_outlined,
+                    iconColor: const Color(0xFF0284C7),
+                    bgColor: const Color(0xFFE0F2FE),
+                    onTap: _handleOpenOrders,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MobileQuickStatusCard(
+                    title: 'Water Wallet',
+                    subtitle: '₹1,250.00',
+                    icon: Icons.account_balance_wallet_outlined,
+                    iconColor: const Color(0xFFD97706),
+                    bgColor: const Color(0xFFFEF3C7),
+                    onTap: _showWalletDialog,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _MobileQuickStatusCard(
+                    title: 'Rewards',
+                    subtitle: '320 Pts (Silver)',
+                    icon: Icons.stars_outlined,
+                    iconColor: const Color(0xFF9333EA),
+                    bgColor: const Color(0xFFF3E8FF),
+                    onTap: _showRewardsDialog,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MobileQuickStatusCard(
+                    title: 'Live Support',
+                    subtitle: '24/7 Desk',
+                    icon: Icons.support_agent_outlined,
+                    iconColor: const Color(0xFF10B981),
+                    bgColor: const Color(0xFFDCFCE7),
+                    onTap: _handleOpenSupport,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
 
             const _SectionTitle(title: 'Categories'),
 
@@ -697,7 +752,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 0.65,
+                childAspectRatio: 0.58,
               ),
               itemBuilder: (context, index) {
                 return _ProductCard(product: products[index]);
@@ -941,6 +996,86 @@ class _SectionTitle extends StatelessWidget {
 // =========================================================
 // MOBILE CARDS
 // =========================================================
+
+class _MobileQuickStatusCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color iconColor;
+  final Color bgColor;
+  final VoidCallback? onTap;
+
+  const _MobileQuickStatusCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.iconColor,
+    required this.bgColor,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 11),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 19),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _MobileCategoryCard extends StatelessWidget {
   final String title;

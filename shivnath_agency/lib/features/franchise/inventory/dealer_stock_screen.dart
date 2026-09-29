@@ -430,50 +430,65 @@ class _DealerStockScreenState extends State<DealerStockScreen>
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        runAlignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 10,
-        runSpacing: 6,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(
-                Icons.qr_code_2_rounded,
-                size: 16,
-                color: Color(0xFF64748B),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                batchNum,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$remaining units',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.qr_code_2_rounded,
+                      size: 16,
+                      color: Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        batchNum,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: Color(0xFF0F172A),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$remaining units',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    color: Color(0xFF0284C7),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: expiryColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
@@ -481,7 +496,7 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                 child: Text(
                   expiryText,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: expiryColor,
                   ),
@@ -532,14 +547,30 @@ class _DealerStockScreenState extends State<DealerStockScreen>
         if (status == 'APPROVED' || status == 'PREPARING') statusColor = const Color(0xFF7C3AED);
         if (status == 'CANCELLED') statusColor = Colors.grey;
 
+        void openTracker() {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DealerStockRequestFulfillmentScreen(
+                requestId: id is int ? id : int.tryParse('$id') ?? 0,
+                initialRequest: req,
+                isFranchiseView: true,
+              ),
+            ),
+          ).then((_) => _loadAll());
+        }
+
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+          child: InkWell(
+            onTap: openTracker,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -625,17 +656,16 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                     final dispatched = alloc['dispatched_quantity'] ?? 0;
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 2,
                         children: [
-                          Expanded(
-                            child: Text(
-                              bn,
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                          Text(
+                            bn,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
                           ),
-                          const SizedBox(width: 8),
                           Text(
                             '$dispatched units · Exp: $exp',
                             style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
@@ -693,7 +723,8 @@ class _DealerStockScreenState extends State<DealerStockScreen>
               ],
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }
@@ -767,9 +798,12 @@ class _DealerStockScreenState extends State<DealerStockScreen>
             borderRadius: BorderRadius.circular(14),
           ),
           elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+          child: InkWell(
+            onTap: () => _openConfirmReceiptDialog(req),
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -829,7 +863,8 @@ class _DealerStockScreenState extends State<DealerStockScreen>
               ],
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }
@@ -906,13 +941,30 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '$sku  ($upc units/case) — Current stock: $currentUnits units',
+                            '$sku ($upc units/case)',
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
+                              color: Color(0xFF0F172A),
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE0F2FE),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              'Current stock: $currentUnits units',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
                           TextField(
                             controller: quantities[sku],
                             keyboardType: TextInputType.number,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/InventoryService.dart';
 import '../../../core/services/product_service.dart';
 import '../../../models/product_model.dart';
+import '../../admin/inventory/dealer_stock_request_fulfillment_screen.dart';
 
 /// Authoritative Wholesale Dealer Stock Screen
 /// Displays 5 official variants (SHV-200, SHV-250, SHV-500, SHV-1L, SHV-20L),
@@ -638,6 +639,37 @@ class _DealerStockScreenState extends State<DealerStockScreen>
                     ],
                   ),
                 ],
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0284C7),
+                      side: const BorderSide(color: Color(0xFF0284C7)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.analytics_outlined, size: 16),
+                    label: const Text(
+                      'Live Fulfillment Tracker',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DealerStockRequestFulfillmentScreen(
+                            requestId: id is int ? id : int.tryParse('$id') ?? 0,
+                            initialRequest: req,
+                            isFranchiseView: true,
+                          ),
+                        ),
+                      ).then((_) => _loadAll());
+                    },
+                  ),
+                ),
               ],
             ),
           ),

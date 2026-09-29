@@ -484,6 +484,47 @@ class InventoryService {
     }
   }
 
+  /// Live Dealer Stock Request Fulfillment Tracker details
+  Future<Map<String, dynamic>> getStockRequestFulfillment(int id) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/$id/fulfillment/');
+      final response = await ApiClient.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Fulfill single dealer stock request atomically
+  Future<Map<String, dynamic>> fulfillSingleStockRequest(int id, {bool autoReceive = true}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/$id/fulfill/');
+      final response = await ApiClient.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({'auto_receive': autoReceive}),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Fulfill all pending dealer stock requests atomically
+  Future<Map<String, dynamic>> fulfillAllStockRequests({bool autoReceive = true}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/fulfill-all/');
+      final response = await ApiClient.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({'auto_receive': autoReceive}),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   /// Central Plant Raw Materials
   Future<Map<String, dynamic>> getRawMaterials() async {
     try {

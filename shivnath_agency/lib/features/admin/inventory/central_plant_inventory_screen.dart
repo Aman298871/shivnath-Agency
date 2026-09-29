@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/InventoryService.dart';
 import '../../../core/services/product_service.dart';
 import '../../../models/product_model.dart';
+import 'dealer_stock_request_fulfillment_screen.dart';
 
 /// Central Plant Inventory & Production Batch Operations Screen
 /// For Plant Admins: Manages finished production batches,
@@ -973,11 +974,86 @@ class _CentralPlantInventoryScreenState
       );
     }
 
+    final pendingCount = displayList.where((r) {
+      final s = (r['status'] ?? '').toString().toUpperCase();
+      return s != 'COMPLETED' && s != 'RECEIVED';
+    }).length;
+
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: displayList.length,
+      itemCount: displayList.length + 1,
       itemBuilder: (context, idx) {
-        final req = displayList[idx];
+        if (idx == 0) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.bolt_rounded, color: Colors.amberAccent, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        pendingCount > 0
+                            ? '$pendingCount Requests Pending'
+                            : 'All Dealer Requests Fulfilled',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        pendingCount > 0
+                            ? 'One-click auto produce & dispatch all'
+                            : 'All franchise requests up to date',
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                if (pendingCount > 0)
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0284C7),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.bolt_rounded, size: 16),
+                    label: const Text('Fulfill All', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                    onPressed: _handleFulfillAll,
+                  ),
+              ],
+            ),
+          );
+        }
+
+        final req = displayList[idx - 1];
         final id = req['id'];
         final reqNum = req['request_number'] ?? 'REQ-$id';
         final dealerName = req['dealer_name'] ?? 'Franchise';
@@ -1075,23 +1151,56 @@ class _CentralPlantInventoryScreenState
                   );
                 }),
                 const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0284C7),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0284C7),
+                          side: const BorderSide(color: Color(0xFF0284C7)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(Icons.analytics_outlined, size: 16),
+                        label: const Text(
+                          'Live Tracker',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DealerStockRequestFulfillmentScreen(
+                                requestId: id is int ? id : int.tryParse('$id') ?? 0,
+                                initialRequest: req,
+                              ),
+                            ),
+                          ).then((_) => _loadData());
+                        },
                       ),
                     ),
-                    icon: const Icon(Icons.local_shipping_rounded),
-                    label: const Text(
-                      'Allocate Batches & Dispatch',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0284C7),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(Icons.local_shipping_rounded, size: 16),
+                        label: const Text(
+                          'Dispatch',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                        ),
+                        onPressed: () => _openDispatchDialog(req),
+                      ),
                     ),
-                    onPressed: () => _openDispatchDialog(req),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -1104,6 +1213,74 @@ class _CentralPlantInventoryScreenState
   // =========================================================================
   // ACTIONS
   // =========================================================================
+
+  Future<void> _handleFulfillAll() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.bolt_rounded, color: Color(0xFF0284C7)),
+            SizedBox(width: 8),
+            Text('Fulfill All Requests', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          ],
+        ),
+        content: const Text(
+          'This will automatically verify stock, manufacture required batches if needed, allocate, dispatch with wholesale invoice, and confirm delivery for all pending requests in one atomic operation.\n\nProceed?',
+          style: TextStyle(fontSize: 14, color: Color(0xFF334155), height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Fulfill All Now'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _loading = true);
+    try {
+      final res = await _invService.fulfillAllStockRequests();
+      if (!mounted) return;
+      if (res['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'All requests fulfilled successfully!'),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        _loadData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'Fulfill all failed'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   void _openCreateBatchDialog({
     ProductModel? preselectedProduct,

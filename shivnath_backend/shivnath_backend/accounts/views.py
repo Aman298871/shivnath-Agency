@@ -1060,6 +1060,9 @@ class FranchiseRegisterView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []
+    
+    from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def post(self, request):
         with transaction.atomic():

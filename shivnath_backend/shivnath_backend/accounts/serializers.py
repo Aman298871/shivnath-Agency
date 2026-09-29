@@ -341,6 +341,16 @@ class FranchiseRegisterSerializer(serializers.Serializer):
         allow_blank=True
     )
 
+    document_file = serializers.FileField(required=True)
+    document_type = serializers.ChoiceField(choices=[
+        ('GST', 'GST Registration Certificate'),
+        ('PAN', 'PAN Card'),
+        ('AADHAAR', 'Aadhaar Card'),
+        ('AGREEMENT', 'Distributor / Wholesale Agreement'),
+        ('TRADE_LICENSE', 'Trade License'),
+        ('OTHER', 'Other KYC Document'),
+    ], required=True)
+
     def validate_phone(self, value):
         import re
         cleaned = re.sub(r'[\s\-\+]', '', value)
@@ -430,6 +440,9 @@ class FranchiseRegisterSerializer(serializers.Serializer):
             ''
         ).strip()
 
+        document_file = validated_data.pop('document_file')
+        document_type = validated_data.pop('document_type')
+
         user = User.objects.create_user(
             username=email,
             email=email,
@@ -450,7 +463,7 @@ class FranchiseRegisterSerializer(serializers.Serializer):
         profile.status = 'pending'
         profile.save()
 
-        FranchiseProfile.objects.create(
+        franchise_profile = FranchiseProfile.objects.create(
             user=user,
             business_name=business_name,
             city=city,
@@ -466,6 +479,16 @@ class FranchiseRegisterSerializer(serializers.Serializer):
             agreement_status='pending',
 
             status='pending',
+        )
+
+        # Save the KYC document
+        from .models import DealerDocument
+        DealerDocument.objects.create(
+            dealer=franchise_profile,
+            document_type=document_type,
+            document_file=document_file,
+            verification_status='PENDING',
+            uploaded_by=user
         )
 
         # Create Admin Notification

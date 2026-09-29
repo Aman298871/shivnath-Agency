@@ -418,10 +418,10 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildAgingPill('Current', current, BrandColors.greenDark),
-              _buildAgingPill('1-15 Days', d1_15, BrandColors.yellowDark),
-              _buildAgingPill('16-30 Days', d16_30, BrandColors.yellowDark),
-              _buildAgingPill('> 30 Days', dOver30, BrandColors.redDark),
+              _buildAgingPill('Current', current, BrandColors.greenDark, context),
+              _buildAgingPill('1-15 Days', d1_15, BrandColors.yellowDark, context),
+              _buildAgingPill('16-30 Days', d16_30, BrandColors.yellowDark, context),
+              _buildAgingPill('> 30 Days', dOver30, BrandColors.redDark, context),
             ],
           ),
         ],
@@ -429,38 +429,60 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
     );
   }
 
-  Widget _buildAgingPill(String title, double amount, Color color) {
+  Widget _buildAgingPill(String title, double amount, Color color, BuildContext context) {
     return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: color,
+      child: InkWell(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+              content: Text(
+                'This represents the total amount of unpaid invoices that fall under the "$title" category.\n\n'
+                'Current Amount: ₹${amount.toStringAsFixed(2)}\n\n'
+                'Keep this amount at zero to maintain a healthy credit profile!',
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ],
             ),
-            const SizedBox(height: 3),
-            Text(
-              '₹${amount.toStringAsFixed(0)}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: color,
+          );
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                '₹${amount.toStringAsFixed(0)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

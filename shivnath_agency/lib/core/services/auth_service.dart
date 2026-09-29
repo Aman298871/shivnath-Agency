@@ -201,11 +201,17 @@ class AuthService {
   required String territory,
   required String panNumber,
   required String aadhaarNumber,
+  required String documentType,
+  required String documentFilePath,
   String gstNumber = '',
 }) async {
-  return _post(
-    '/api/auth/register/franchise/',
-    {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/api/auth/register/franchise/'),
+    );
+
+    request.fields.addAll({
       'owner_name': ownerName,
       'business_name': businessName,
       'phone': phone,
@@ -218,8 +224,40 @@ class AuthService {
       'gst_number': gstNumber,
       'pan_number': panNumber,
       'aadhaar_number': aadhaarNumber,
-    },
-  );
+      'document_type': documentType,
+    });
+
+    request.files.add(
+      await http.MultipartFile.fromPath('document_file', documentFilePath),
+    );
+
+    final streamedResponse = await request.send().timeout(defaultTimeout);
+    final response = await http.Response.fromStream(streamedResponse);
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } catch (_) {
+      decoded = {};
+    }
+
+    final Map<String, dynamic> data = decoded is Map<String, dynamic> ? decoded : {};
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return {'success': true, 'data': data};
+    }
+
+    return {
+      'success': false,
+      'message': _extractError(data),
+      'data': data,
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'message': 'Failed to submit registration. Please check your connection and try again.',
+    };
+  }
 }
   Future<Map<String, dynamic>> _post(
     String endpoint,

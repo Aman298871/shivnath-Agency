@@ -47,6 +47,49 @@ def generate_invoice_for_order(order):
 
 
 @transaction.atomic
+def submit_payment_for_verification(invoice_id, amount_paid, payment_method='UPI', reference_number='', actor=None, receipt_file=None, notes=''):
+    """
+    Submits a payment for verification by the admin.
+    """
+    invoice = Invoice.objects.select_for_update().get(id=invoice_id)
+    amount_paid_dec = Decimal(str(amount_paid))
+
+    if amount_paid_dec <= Decimal('0.00'):
+        raise ValueError("Payment amount must be greater than zero.")
+
+    if amount_paid_dec > invoice.outstanding_balance:
+        raise ValueError(
+            f"Payment amount (₹{amount_paid_dec}) cannot exceed invoice outstanding balance (₹{invoice.outstanding_balance})."
+        )
+
+    method_upper = str(payment_method).upper().strip()
+    if 'CASH' in method_upper:
+        clean_method = 'CASH'
+    elif 'CHEQUE' in method_upper or 'CHECK' in method_upper:
+        clean_method = 'CHEQUE'
+    elif any(x in method_upper for x in ['BANK', 'NEFT', 'RTGS', 'TRANSFER', 'IMPS']):
+        clean_method = 'NEFT_RTGS'
+    else:
+        clean_method = 'UPI'
+
+    count = PaymentTransaction.objects.count() + 1
+    txn_number = f"PAY-PEND-{timezone.now().strftime('%Y%m%d')}-{count:05d}"
+
+    txn = PaymentTransaction.objects.create(
+        transaction_number=txn_number,
+        invoice=invoice,
+        payment_method=clean_method,
+        amount_paid=amount_paid_dec,
+        reference_number=reference_number or '',
+        payment_status='PENDING_VERIFICATION',
+        receipt_file=receipt_file,
+        received_by=actor,
+        notes=notes or ''
+    )
+    return txn
+
+
+@transaction.atomic
 def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', reference_number='', actor=None, receipt_file=None, notes=''):
     """
     Records payment. If actor is a franchise dealer, it is submitted for verification

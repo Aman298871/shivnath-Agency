@@ -262,3 +262,88 @@ def get_dealer_aging_report(dealer_id):
 # Alias for audit test compatibility
 record_payment_atomic = record_payment_transaction
 
+
+@transaction.atomic
+def verify_payment_transaction(txn_id, action, admin_user, notes=''):
+    """
+    Verifies or rejects a pending payment transaction.
+    """
+    from accounts.models import FranchiseProfile, Notification
+    txn = PaymentTransaction.objects.select_for_update().get(id=txn_id)
+    
+    if txn.payment_status != 'PENDING_VERIFICATION':
+        raise ValueError(f"Transaction {txn_id} is already processed.")
+
+    if action == 'approve':
+        txn.payment_status = 'SUCCESS'
+        txn.notes = f"{txn.notes}\nApproved by {admin_user.email}: {notes}".strip()
+        txn.save()
+
+        invoice = txn.invoice
+        amount_paid_dec = txn.amount_paid
+        invoice.amount_paid = Decimal(str(invoice.amount_paid or '0.00')) + amount_paid_dec
+        if invoice.amount_paid >= invoice.grand_total:
+            invoice.status = 'PAID'
+        elif invoice.amount_paid > Decimal('0.00'):
+            invoice.status = 'PARTIALLY_PAID'
+        invoice.save(update_fields=['amount_paid', 'status'])
+
+        if invoice.order:
+            order = invoice.order
+            if invoice.status == 'PAID':
+                order.payment_status = 'paid'
+            elif invoice.status == 'PARTIALLY_PAID':
+                order.payment_status = 'partial'
+            order.save(update_fields=['payment_status', 'updated_at'])
+
+        if invoice.invoice_type == 'DEALER_PURCHASE_INVOICE':
+            dealer = None
+            if invoice.stock_request and invoice.stock_request.dealer:
+                dealer = invoice.stock_request.dealer
+            else:
+                dealer = FranchiseProfile.objects.filter(business_name=invoice.billed_to_name).first()
+
+            if dealer:
+                credit_profile, _ = DealerCreditProfile.objects.select_for_update().get_or_create(dealer=dealer)
+                current_out = Decimal(str(credit_profile.current_outstanding or '0.00'))
+                limit = Decimal(str(credit_profile.credit_limit or '0.00'))
+                credit_profile.current_outstanding = max(Decimal('0.00'), current_out - amount_paid_dec)
+                credit_profile.last_payment_date = timezone.now().date()
+                if credit_profile.current_outstanding <= limit:
+                    credit_profile.credit_status = 'GOOD_STANDING'
+                credit_profile.save()
+
+                if dealer.user:
+                    try:
+                        Notification.objects.create(
+                            recipient=dealer.user,
+                            notification_type='PAYMENT_REMINDER',
+                            title='Payment Verified',
+                            message=f"Admin verified your payment of ₹{amount_paid_dec} for Invoice {invoice.invoice_number}. Your ledger is updated.",
+                            entity_type='invoice',
+                            entity_id=invoice.id
+                        )
+                    except Exception:
+                        pass
+        return txn
+    elif action == 'reject':
+        txn.payment_status = 'FAILED'
+        txn.notes = f"{txn.notes}\nRejected by {admin_user.email}: {notes}".strip()
+        txn.save()
+
+        if txn.received_by:
+            try:
+                Notification.objects.create(
+                    recipient=txn.received_by,
+                    notification_type='PAYMENT_REMINDER',
+                    title='Payment Rejected',
+                    message=f"Admin rejected your payment of ₹{txn.amount_paid} for Invoice {txn.invoice.invoice_number}. Reason: {notes}",
+                    entity_type='invoice',
+                    entity_id=txn.invoice.id
+                )
+            except Exception:
+                pass
+        return txn
+    else:
+        raise ValueError(f"Invalid action {action}.")
+

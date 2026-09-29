@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -117,10 +118,346 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<Map<String, String>> _followups = [];
   List<Map<String, String>> _leads = [];
 
+  Timer? _liveAlertTimer;
+  int _lastSeenOrderId = 0;
+  int _lastSeenStockReqId = 0;
+  bool _isCheckingLiveAlerts = false;
+
   @override
   void initState() {
     super.initState();
     _loadDashboardData();
+    _startLiveOrderWatcher();
+  }
+
+  @override
+  void dispose() {
+    _liveAlertTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startLiveOrderWatcher() {
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) _checkLiveOrdersAndStockRequests();
+    });
+    _liveAlertTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (mounted) _checkLiveOrdersAndStockRequests();
+    });
+  }
+
+  Future<void> _checkLiveOrdersAndStockRequests() async {
+    if (_isCheckingLiveAlerts || !mounted) return;
+    _isCheckingLiveAlerts = true;
+
+    try {
+      // 1. Check Customer Orders
+      final orderRes = await _orderService.getOrders();
+      if (orderRes['success'] == true) {
+        List ordersList = [];
+        if (orderRes['data'] is List) {
+          ordersList = orderRes['data'] as List;
+        } else if (orderRes['data'] is Map && orderRes['data']['orders'] is List) {
+          ordersList = orderRes['data']['orders'] as List;
+        } else if (orderRes['orders'] is List) {
+          ordersList = orderRes['orders'] as List;
+        }
+
+        if (ordersList.isNotEmpty) {
+          int maxOrderId = 0;
+          Map<String, dynamic>? newestOrder;
+          for (final ord in ordersList) {
+            if (ord is Map) {
+              final id = ord['id'] is int ? ord['id'] as int : int.tryParse('${ord['id']}') ?? 0;
+              if (id > maxOrderId) {
+                maxOrderId = id;
+                newestOrder = Map<String, dynamic>.from(ord);
+              }
+            }
+          }
+
+          if (_lastSeenOrderId == 0) {
+            _lastSeenOrderId = maxOrderId;
+          } else if (maxOrderId > _lastSeenOrderId && newestOrder != null) {
+            _lastSeenOrderId = maxOrderId;
+            if (mounted) {
+              _showLiveOrderAlertDialog(
+                type: 'Customer Order Placed',
+                code: newestOrder['order_code']?.toString() ?? 'ORD-$maxOrderId',
+                partyName: newestOrder['client_name']?.toString() ?? newestOrder['customer_name']?.toString() ?? newestOrder['franchise_name']?.toString() ?? 'Customer',
+                details: newestOrder['items_summary']?.toString() ?? '${newestOrder['items_count'] ?? 1} Items',
+                amountOrQty: '₹${newestOrder['amount'] ?? newestOrder['grand_total'] ?? 0}',
+                time: newestOrder['created_at']?.toString() ?? '',
+                onView: () {
+                  Navigator.of(context, rootNavigator: true).pop();
+                  widget.onOpenOrdersWithCode?.call(newestOrder?['order_code']?.toString());
+                  widget.onOpenOrders?.call();
+                },
+              );
+            }
+          }
+        }
+      }
+
+      // 2. Check Franchise Stock Requests
+      final reqRes = await _inventoryService.getDealerStockRequests();
+      if (reqRes['success'] == true) {
+        List reqList = [];
+        if (reqRes['data'] is List) {
+          reqList = reqRes['data'] as List;
+        } else if (reqRes['data'] is Map && reqRes['data']['requests'] is List) {
+          reqList = reqRes['data']['requests'] as List;
+        } else if (reqRes['requests'] is List) {
+          reqList = reqRes['requests'] as List;
+        }
+
+        if (reqList.isNotEmpty) {
+          int maxReqId = 0;
+          Map<String, dynamic>? newestReq;
+          for (final r in reqList) {
+            if (r is Map) {
+              final id = r['id'] is int ? r['id'] as int : int.tryParse('${r['id']}') ?? 0;
+              if (id > maxReqId) {
+                maxReqId = id;
+                newestReq = Map<String, dynamic>.from(r);
+              }
+            }
+          }
+
+          if (_lastSeenStockReqId == 0) {
+            _lastSeenStockReqId = maxReqId;
+          } else if (maxReqId > _lastSeenStockReqId && newestReq != null) {
+            _lastSeenStockReqId = maxReqId;
+            if (mounted) {
+              final reqProd = newestReq['product_name'] ?? newestReq['product_sku'] ?? 'Products';
+              final reqQty = newestReq['requested_quantity'] ?? 0;
+              _showLiveOrderAlertDialog(
+                type: 'Franchise Stock Request',
+                code: newestReq['request_number']?.toString() ?? 'REQ-$maxReqId',
+                partyName: newestReq['dealer_name'] ?? newestReq['franchise_name'] ?? 'Franchise Partner',
+                details: '$reqProd ($reqQty Units Requested)',
+                amountOrQty: '$reqQty Units',
+                time: newestReq['created_at']?.toString() ?? '',
+                isStockRequest: true,
+                onView: () {
+                  Navigator.of(context, rootNavigator: true).pop();
+                  widget.onOpenStockRequests?.call();
+                  widget.onOpenInventory?.call();
+                },
+              );
+            }
+          }
+        }
+      }
+    } catch (_) {
+    } finally {
+      _isCheckingLiveAlerts = false;
+    }
+  }
+
+  void _showLiveOrderAlertDialog({
+    required String type,
+    required String code,
+    required String partyName,
+    required String details,
+    required String amountOrQty,
+    required String time,
+    required VoidCallback onView,
+    bool isStockRequest = false,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: EdgeInsets.zero,
+        content: Container(
+          width: 420,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: Colors.white,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isStockRequest
+                        ? [const Color(0xFF7C3AED), const Color(0xFF6D28D9)]
+                        : [const Color(0xFF0284C7), const Color(0xFF0369A1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isStockRequest ? Icons.storefront_rounded : Icons.shopping_bag_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'NEW ${type.toUpperCase()}',
+                            style: const TextStyle(
+                              color: Colors.amberAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          Text(
+                            code,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Body Details
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            isStockRequest ? Icons.business_rounded : Icons.person_rounded,
+                            size: 20,
+                            color: const Color(0xFF475569),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isStockRequest ? 'Franchise Partner' : 'Customer Name',
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              ),
+                              Text(
+                                partyName,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Item Details', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            const SizedBox(height: 2),
+                            Text(
+                              details,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(isStockRequest ? 'Quantity' : 'Total Amount', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            const SizedBox(height: 2),
+                            Text(
+                              amountOrQty,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: isStockRequest ? const Color(0xFF7C3AED) : const Color(0xFF10B981),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            ),
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Dismiss', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isStockRequest ? const Color(0xFF7C3AED) : const Color(0xFF0284C7),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                            label: Text(
+                              isStockRequest ? 'Open Request' : 'View Order',
+                              style: const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            onPressed: onView,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadDashboardData() async {

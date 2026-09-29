@@ -517,8 +517,8 @@ class _DealerStockScreenState extends State<DealerStockScreen>
 
         Color statusColor = const Color(0xFFF59E0B);
         if (status == 'DISPATCHED' || status == 'PARTIALLY_DISPATCHED') statusColor = const Color(0xFF0284C7);
-        if (status == 'RECEIVED') statusColor = const Color(0xFF10B981);
-        if (status == 'APPROVED') statusColor = const Color(0xFF7C3AED);
+        if (status == 'RECEIVED' || status == 'COMPLETED') statusColor = const Color(0xFF10B981);
+        if (status == 'APPROVED' || status == 'PREPARING') statusColor = const Color(0xFF7C3AED);
         if (status == 'CANCELLED') statusColor = Colors.grey;
 
         return Card(

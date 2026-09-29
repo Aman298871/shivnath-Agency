@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/franchise_service.dart';
+import '../../../core/services/InventoryService.dart';
+import '../../../core/utils/app_toast.dart';
 
 class AdminFranchiseDetailScreen extends StatefulWidget {
   final int franchiseId;
@@ -20,6 +22,7 @@ class AdminFranchiseDetailScreen extends StatefulWidget {
 class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
     with SingleTickerProviderStateMixin {
   final FranchiseService _franchiseService = FranchiseService();
+  final InventoryService _inventoryService = InventoryService();
   bool isLoading = true;
   String? errorMessage;
   Map<String, dynamic>? detailData;
@@ -29,12 +32,18 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
   List<Map<String, dynamic>> _kycDocs = [];
   bool _loadingDocs = false;
 
+  // Credit Profile & Aging
+  Map<String, dynamic>? _creditProfile;
+  Map<String, dynamic>? _agingReport;
+  bool _loadingCredit = false;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadDetail();
     _loadKycDocs();
+    _loadCreditProfile();
   }
 
   @override
@@ -140,6 +149,145 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
     );
   }
 
+  Future<void> _loadCreditProfile() async {
+    setState(() => _loadingCredit = true);
+    try {
+      final cpRes = await _inventoryService.getDealerCreditProfile(widget.franchiseId);
+      final agRes = await _inventoryService.getDealerAgingReport(widget.franchiseId);
+      if (!mounted) return;
+      setState(() {
+        if (cpRes['success'] == true) {
+          _creditProfile = Map<String, dynamic>.from(cpRes['data'] ?? cpRes);
+        }
+        if (agRes['success'] == true) {
+          _agingReport = Map<String, dynamic>.from(agRes['data'] ?? agRes);
+        }
+        _loadingCredit = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingCredit = false);
+    }
+  }
+
+  Future<void> _showEditCreditDialog() async {
+    final limitCtrl = TextEditingController(
+      text: _creditProfile != null
+          ? (_creditProfile!['credit_limit']?.toString() ?? '0')
+          : '0',
+    );
+    final termsCtrl = TextEditingController(
+      text: _creditProfile != null
+          ? (_creditProfile!['payment_terms_days']?.toString() ?? '15')
+          : '15',
+    );
+    String creditStatus = _creditProfile?['credit_status']?.toString() ?? 'ACTIVE';
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.edit_note_rounded, color: Color(0xFF0284C7)),
+              SizedBox(width: 8),
+              Text('Edit Credit & Billing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Credit Limit (₹)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: limitCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    prefixText: '₹ ',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Payment Terms (Days)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: termsCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    suffixText: 'Days',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Credit Status', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: ['ACTIVE', 'SUSPENDED', 'BLOCKED', 'UNDER_REVIEW'].contains(creditStatus)
+                      ? creditStatus
+                      : 'ACTIVE',
+                  items: const [
+                    DropdownMenuItem(value: 'ACTIVE', child: Text('ACTIVE (Normal)')),
+                    DropdownMenuItem(value: 'UNDER_REVIEW', child: Text('UNDER_REVIEW')),
+                    DropdownMenuItem(value: 'SUSPENDED', child: Text('SUSPENDED (Grace)')),
+                    DropdownMenuItem(value: 'BLOCKED', child: Text('BLOCKED (No Orders)')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => creditStatus = val);
+                  },
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save Changes'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (saved == true) {
+      final double? parsedLimit = double.tryParse(limitCtrl.text.trim());
+      final int? parsedDays = int.tryParse(termsCtrl.text.trim());
+      if (parsedLimit == null) {
+        if (mounted) AppToast.error(context, 'Please enter a valid credit limit amount');
+        return;
+      }
+      final res = await _inventoryService.updateDealerCreditProfile(
+        dealerId: widget.franchiseId,
+        creditLimit: parsedLimit,
+        paymentTermsDays: parsedDays ?? 15,
+        creditStatus: creditStatus,
+      );
+      if (!mounted) return;
+      if (res['success'] == true) {
+        AppToast.success(context, 'Credit profile updated successfully');
+        _loadCreditProfile();
+      } else {
+        AppToast.error(context, res['message']?.toString() ?? 'Failed to update credit profile');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -153,6 +301,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
             onPressed: () {
               _loadDetail();
               _loadKycDocs();
+              _loadCreditProfile();
             },
           ),
         ],
@@ -391,6 +540,10 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                       ),
                       text: 'KYC Documents',
                     ),
+                    const Tab(
+                      icon: Icon(Icons.account_balance_wallet_outlined, size: 18),
+                      text: 'Credit & Billing',
+                    ),
                   ],
                 ),
               ),
@@ -406,6 +559,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                     _buildCustomersTab(servedCustomers, registeredCustomers),
                     _buildOrdersTab(orders, stockCycles),
                     _buildKycDocsTab(),
+                    _buildCreditBillingTab(),
                   ],
                 ),
               ),
@@ -772,6 +926,202 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                 );
               },
             ),
+    );
+  }
+
+  Widget _buildCreditBillingTab() {
+    if (_loadingCredit) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final double creditLimit = double.tryParse(_creditProfile?['credit_limit']?.toString() ?? '0') ?? 0.0;
+    final double outstanding = double.tryParse(_creditProfile?['current_outstanding']?.toString() ?? '0') ?? 0.0;
+    final double availableCredit = double.tryParse(_creditProfile?['available_credit']?.toString() ?? '0') ?? (creditLimit - outstanding);
+    final int termsDays = int.tryParse(_creditProfile?['payment_terms_days']?.toString() ?? '15') ?? 15;
+    final String status = _creditProfile?['credit_status']?.toString() ?? 'ACTIVE';
+
+    final aging = _agingReport?['aging'] as Map<String, dynamic>? ?? {};
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Franchise Credit & Billing Profile',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Live backend ledger and enforceable credit limit',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: _showEditCreditDialog,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: const Text('Edit Credit & Terms', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Credit summary tiles
+            LayoutBuilder(
+              builder: (ctx, constraints) {
+                final isNarrow = constraints.maxWidth < 600;
+                final tiles = [
+                  _creditStatTile('Credit Limit', '₹${creditLimit.toStringAsFixed(0)}', const Color(0xFF0284C7), Icons.credit_score_rounded),
+                  _creditStatTile('Current Outstanding', '₹${outstanding.toStringAsFixed(0)}', const Color(0xFFDC2626), Icons.money_off_rounded),
+                  _creditStatTile('Available Credit', '₹${availableCredit.toStringAsFixed(0)}', availableCredit > 0 ? const Color(0xFF16A34A) : Colors.red, Icons.account_balance_wallet_rounded),
+                  _creditStatTile('Payment Terms', '$termsDays Days', const Color(0xFF6366F1), Icons.calendar_today_rounded),
+                ];
+
+                if (isNarrow) {
+                  return Column(
+                    children: tiles.map((t) => Padding(padding: const EdgeInsets.only(bottom: 12), child: t)).toList(),
+                  );
+                }
+
+                return Row(
+                  children: tiles.map((t) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: t))).toList(),
+                );
+              },
+            ),
+
+            const SizedBox(height: 24),
+            const Divider(color: Color(0xFFF1F5F9)),
+            const SizedBox(height: 16),
+
+            // Credit Status & Risk Level
+            Row(
+              children: [
+                const Text('Credit Status: ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF475569))),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: status == 'ACTIVE'
+                        ? const Color(0xFFDCFCE7)
+                        : (status == 'SUSPENDED' ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2)),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    status,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                      color: status == 'ACTIVE'
+                          ? const Color(0xFF16A34A)
+                          : (status == 'SUSPENDED' ? const Color(0xFFD97706) : Colors.red),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Text(
+                  availableCredit <= 0 ? '⚠ Limit Exceeded — Stock Orders Blocked' : '✓ Credit in Good Standing',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: availableCredit <= 0 ? Colors.red : const Color(0xFF16A34A),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+            const Text(
+              'Aging Ledger Breakdown (Unpaid Balance by Duration)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _agingColumn('Current', '₹${aging['current'] ?? '0.00'}', const Color(0xFF16A34A)),
+                  _agingColumn('1-15 Days', '₹${aging['1_15_days'] ?? '0.00'}', const Color(0xFF0284C7)),
+                  _agingColumn('16-30 Days', '₹${aging['16_30_days'] ?? '0.00'}', const Color(0xFFD97706)),
+                  _agingColumn('31-45 Days', '₹${aging['31_45_days'] ?? '0.00'}', Colors.orange),
+                  _agingColumn('45+ Days', '₹${aging['45_plus_days'] ?? '0.00'}', Colors.red),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _creditStatTile(String label, String value, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: color.withOpacity(0.12),
+            radius: 18,
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _agingColumn(String bucket, String amount, Color color) {
+    return Column(
+      children: [
+        Text(bucket, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        Text(amount, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+      ],
     );
   }
 }

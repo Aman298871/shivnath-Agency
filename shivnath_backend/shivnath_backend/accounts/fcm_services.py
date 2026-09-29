@@ -251,3 +251,38 @@ def notify_payment_received(order, amount, actor_name=''):
             notification_type='payment_collected',
             reference_id=order.id
         )
+
+
+def notify_stock_request_created(stock_req):
+    """
+    Triggered when a Franchise creates a new Stock Request.
+    Notifies Super Admin and Admins with actionable stock alert.
+    """
+    User = get_user_model()
+    admin_users = list(User.objects.filter(is_superuser=True))
+    staff_admins = list(User.objects.filter(profile__role__in=['admin', 'super_admin']).exclude(is_superuser=True))
+    all_admins = list(set(admin_users + staff_admins))
+
+    dealer_name = stock_req.dealer.business_name if stock_req.dealer else 'Franchise'
+    prod_name = stock_req.product.name if stock_req.product else 'Stock'
+    sku = stock_req.product.sku if stock_req.product else ''
+    qty = stock_req.requested_quantity
+
+    title = f"New Stock Request: {dealer_name}"
+    body = f"{dealer_name} requested {qty:,} units of {sku} ({prod_name}). Request #{stock_req.request_number}."
+
+    send_fcm_notification(
+        users=all_admins,
+        title=title,
+        body=body,
+        data={
+            'stock_request_id': stock_req.id,
+            'request_number': stock_req.request_number,
+            'dealer_id': stock_req.dealer_id,
+            'screen': 'admin_stock_requests',
+            'action': 'view_request',
+        },
+        notification_type='stock_alert',
+        reference_id=stock_req.id
+    )
+

@@ -552,11 +552,22 @@ class OrderDetailView(APIView):
 
     def _update(self, request, pk, partial):
         order = get_object_or_404(Order, pk=pk)
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+
+        user = request.user if request.user and request.user.is_authenticated else None
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        is_admin = user and (user.is_superuser or user.is_staff or role in ['admin', 'super_admin'])
+
+        # Security rule: Non-admins cannot unilaterally mark payment_status as paid or confirmed
+        if not is_admin and 'payment_status' in data:
+            requested_payment_status = str(data.get('payment_status', '')).lower()
+            if requested_payment_status in ['paid', 'completed', 'confirmed']:
+                data['payment_status'] = 'pending_verification'
 
         old_status = order.status
         serializer = OrderSerializer(
             order,
-            data=request.data,
+            data=data,
             partial=partial,
         )
 

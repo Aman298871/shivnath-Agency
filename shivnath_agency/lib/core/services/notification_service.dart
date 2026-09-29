@@ -307,4 +307,52 @@ class NotificationService {
       nav.pushNamed(AppRoutes.splash);
     }
   }
+
+  /// Fetch authoritative notifications for Admin & Super Admin dashboard
+  Future<Map<String, dynamic>> getAdminNotifications() async {
+    try {
+      final session = SessionService();
+      final token = await session.getAccessToken();
+      final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/accounts/notifications/');
+      final response = await ApiClient.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final dynamic decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to load notifications'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Mark notification as read
+  Future<Map<String, dynamic>> markAdminNotificationRead(int id) async {
+    try {
+      final session = SessionService();
+      final token = await session.getAccessToken();
+      final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/accounts/notifications/');
+      final response = await ApiClient.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'id': id}),
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true};
+      }
+      return {'success': false};
+    } catch (_) {
+      return {'success': false};
+    }
+  }
 }

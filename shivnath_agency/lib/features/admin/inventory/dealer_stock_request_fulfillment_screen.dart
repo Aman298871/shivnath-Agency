@@ -48,18 +48,31 @@ class _DealerStockRequestFulfillmentScreenState
 
     try {
       final res = await _invService.getStockRequestFulfillment(widget.requestId);
-      if (res['success'] == true && res['fulfillment'] is Map) {
+      Map<String, dynamic>? dataMap;
+      if (res['fulfillment'] is Map) {
+        dataMap = Map<String, dynamic>.from(res['fulfillment'] as Map);
+      } else if (res['data'] is Map) {
+        final inner = res['data'] as Map;
+        if (inner['fulfillment'] is Map) {
+          dataMap = Map<String, dynamic>.from(inner['fulfillment'] as Map);
+        } else {
+          dataMap = Map<String, dynamic>.from(inner);
+        }
+      }
+
+      if (res['success'] == true && dataMap != null && dataMap.isNotEmpty) {
         if (mounted) {
           setState(() {
-            _fulfillmentData =
-                Map<String, dynamic>.from(res['fulfillment'] as Map);
+            _fulfillmentData = dataMap;
             _loading = false;
           });
         }
       } else {
         if (mounted) {
           setState(() {
-            _error = res['message'] ?? 'Failed to load fulfillment data';
+            _error = res['message']?.toString() ??
+                (res['data'] is Map ? res['data']['message']?.toString() : null) ??
+                'Failed to load fulfillment data';
             _loading = false;
           });
         }

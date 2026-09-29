@@ -7,7 +7,9 @@ import '../../../core/services/followup_service.dart';
 import '../../../core/services/lead_service.dart';
 import '../../../core/services/InventoryService.dart';
 import '../../../core/services/OrderService.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/utils/app_toast.dart';
+import '../inventory/dealer_stock_request_fulfillment_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenLeads;
@@ -50,9 +52,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final FollowupService _followupService = FollowupService();
   final InventoryService _inventoryService = InventoryService();
   final OrderService _orderService = OrderService();
+  final NotificationService _notificationService = NotificationService();
 
   List<Map<String, dynamic>> _pendingStockAlerts = [];
   bool _pendingStockDialogShown = false;
+
+  List<Map<String, dynamic>> _pendingStockRequests = [];
+  List<Map<String, dynamic>> _pendingPaymentVerifications = [];
+  final Set<int> _dismissedRequestIds = {};
+  final Set<int> _dismissedNotificationIds = {};
 
   List<Map<String, dynamic>> _stats = [
     {
@@ -251,6 +259,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (_) {
     } finally {
       _isCheckingLiveAlerts = false;
+      _loadActionableAlerts();
     }
   }
 
@@ -595,6 +604,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (_) {}
 
     _loadPendingStockAlerts();
+    _loadActionableAlerts();
   }
 
   Future<void> _loadPendingStockAlerts() async {
@@ -629,6 +639,412 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
       }
     } catch (_) {}
+  }
+
+  Future<void> _loadActionableAlerts() async {
+    try {
+      // 1. Pending Stock Requests from real backend API
+      final reqRes = await _inventoryService.getDealerStockRequests();
+      if (!mounted) return;
+      if (reqRes['success'] == true) {
+        List rawList = [];
+        if (reqRes['data'] is List) {
+          rawList = reqRes['data'] as List;
+        } else if (reqRes['data'] is Map && reqRes['data']['requests'] is List) {
+          rawList = reqRes['data']['requests'] as List;
+        } else if (reqRes['requests'] is List) {
+          rawList = reqRes['requests'] as List;
+        }
+        final pending = rawList.where((r) {
+          if (r is! Map) return false;
+          final status = (r['status'] ?? '').toString().toUpperCase();
+          final id = r['id'] is int ? r['id'] as int : int.tryParse('${r['id']}') ?? 0;
+          return (status == 'PENDING' || status == 'SUBMITTED' || status == 'PENDING_APPROVAL' || status == 'PARTIALLY_FULFILLED') && !_dismissedRequestIds.contains(id);
+        }).map((r) => Map<String, dynamic>.from(r as Map)).toList();
+
+        setState(() {
+          _pendingStockRequests = pending;
+        });
+      }
+
+      // 2. Pending Payment Verifications
+      final notifRes = await _notificationService.getAdminNotifications();
+      if (!mounted) return;
+      if (notifRes['success'] == true && notifRes['data'] is Map) {
+        final List notifs = notifRes['data']['notifications'] ?? [];
+        final paymentVerifs = notifs.where((n) {
+          if (n is! Map) return false;
+          final type = (n['notification_type'] ?? '').toString();
+          final isRead = n['is_read'] == true;
+          final id = n['id'] is int ? n['id'] as int : int.tryParse('${n['id']}') ?? 0;
+          return type == 'payment_verification' && !isRead && !_dismissedNotificationIds.contains(id);
+        }).map((n) => Map<String, dynamic>.from(n as Map)).toList();
+
+        setState(() {
+          _pendingPaymentVerifications = paymentVerifs;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Widget _actionableAlertsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Stock Requests
+        ..._pendingStockRequests.map((req) {
+          final reqId = req['id'] is int ? req['id'] as int : int.tryParse('${req['id']}') ?? 0;
+          final dealerName = req['dealer_name'] ?? req['franchise_name'] ?? 'Franchise Partner';
+          final prodName = req['product_name'] ?? req['product_sku'] ?? 'Products';
+          final reqQty = req['requested_quantity'] ?? req['quantity'] ?? 0;
+          final reqAt = req['created_at'] != null ? req['created_at'].toString().split('T').first : '';
+          final status = (req['status'] ?? 'PENDING REVIEW').toString().replaceAll('_', ' ').toUpperCase();
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFAF5FF), Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFDDD6FE), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.storefront_rounded, color: Colors.white, size: 14),
+                          SizedBox(width: 5),
+                          Text(
+                            'NEW STOCK REQUEST',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        status,
+                        style: const TextStyle(
+                          color: Color(0xFFB45309),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    if (reqAt.isNotEmpty)
+                      Text(
+                        'Requested: $reqAt',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '$dealerName has requested:',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E1B4B),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '• $prodName — $reqQty units',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6D28D9),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7C3AED),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.analytics_outlined, size: 16),
+                      label: const Text(
+                        'VIEW REQUEST & LIVE TRACKER',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DealerStockRequestFulfillmentScreen(
+                              requestId: reqId,
+                              initialRequest: req,
+                            ),
+                          ),
+                        ).then((_) => _loadActionableAlerts());
+                      },
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF64748B),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('DISMISS', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                      onPressed: () {
+                        setState(() {
+                          _dismissedRequestIds.add(reqId);
+                          _pendingStockRequests.removeWhere((r) => r['id'] == reqId);
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+
+        // 2. Payment Verifications
+        ..._pendingPaymentVerifications.map((notif) {
+          final notifId = notif['id'] is int ? notif['id'] as int : int.tryParse('${notif['id']}') ?? 0;
+          final invId = notif['reference_id'] is int ? notif['reference_id'] as int : int.tryParse('${notif['reference_id']}') ?? 0;
+          final title = notif['title']?.toString() ?? 'Payment Verification Required';
+          final msg = notif['message']?.toString() ?? '';
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFF0FDF4), Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFBBF7D0), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF16A34A).withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16A34A),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.verified_user_rounded, color: Colors.white, size: 14),
+                          SizedBox(width: 5),
+                          Text(
+                            'PAYMENT VERIFICATION REQUIRED',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
+                      onPressed: () {
+                        setState(() {
+                          _dismissedNotificationIds.add(notifId);
+                          _pendingPaymentVerifications.removeWhere((n) => n['id'] == notifId);
+                        });
+                        _notificationService.markAdminNotificationRead(notifId);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF14532D),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  msg,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF334155),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF16A34A),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.check_circle_outline, size: 16),
+                      label: const Text(
+                        'APPROVE PAYMENT',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      onPressed: () => _handleApprovePayment(invId, notifId),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.cancel_outlined, size: 16),
+                      label: const Text('REJECT PAYMENT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      onPressed: () => _handleRejectPayment(invId, notifId),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Future<void> _handleApprovePayment(int invoiceId, int notifId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Approve Payment'),
+        content: const Text('Are you sure you want to approve and confirm this payment? This will update the company and franchise financial ledgers.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF16A34A), foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Approve & Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final res = await _inventoryService.verifyInvoicePayment(invoiceId: invoiceId);
+    if (!mounted) return;
+    if (res['success'] == true) {
+      AppToast.success(context, res['message']?.toString() ?? 'Payment confirmed successfully!');
+      _notificationService.markAdminNotificationRead(notifId);
+      setState(() {
+        _dismissedNotificationIds.add(notifId);
+        _pendingPaymentVerifications.removeWhere((n) => n['id'] == notifId);
+      });
+      _loadDashboardData();
+    } else {
+      AppToast.error(context, res['message']?.toString() ?? 'Failed to approve payment');
+    }
+  }
+
+  Future<void> _handleRejectPayment(int invoiceId, int notifId) async {
+    final reasonCtrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject Payment'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Enter reason for rejecting this payment submission:'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'e.g. Reference number not found in bank statement',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, reasonCtrl.text.trim()),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    if (reason == null) return;
+
+    final res = await _inventoryService.rejectInvoicePayment(invoiceId: invoiceId, reason: reason);
+    if (!mounted) return;
+    if (res['success'] == true) {
+      AppToast.success(context, 'Payment rejected. Franchise has been notified.');
+      _notificationService.markAdminNotificationRead(notifId);
+      setState(() {
+        _dismissedNotificationIds.add(notifId);
+        _pendingPaymentVerifications.removeWhere((n) => n['id'] == notifId);
+      });
+      _loadDashboardData();
+    } else {
+      AppToast.error(context, res['message']?.toString() ?? 'Failed to reject payment');
+    }
   }
 
 
@@ -671,6 +1087,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   if (_pendingStockAlerts.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _pendingStockExpiryBanner(),
+                  ],
+
+                  if (_pendingStockRequests.isNotEmpty || _pendingPaymentVerifications.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _actionableAlertsSection(),
                   ],
 
                   const SizedBox(

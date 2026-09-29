@@ -489,7 +489,19 @@ class InventoryService {
     try {
       final uri = Uri.parse('$baseUrl/api/inventory/dealer-stock-requests/$id/fulfillment/');
       final response = await ApiClient.get(uri, headers: await _headers());
-      return _decodeResponse(response);
+      final decoded = _decodeResponse(response);
+      if (decoded['success'] == true) {
+        final raw = decoded['data'];
+        if (raw is Map<String, dynamic>) {
+          return {
+            'success': true,
+            'fulfillment': raw['fulfillment'] ?? raw,
+            'message': raw['message'],
+            'data': raw,
+          };
+        }
+      }
+      return decoded;
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
     }
@@ -504,7 +516,16 @@ class InventoryService {
         headers: await _headers(),
         body: jsonEncode({'auto_receive': autoReceive}),
       );
-      return _decodeResponse(response);
+      final decoded = _decodeResponse(response);
+      if (decoded['success'] == true && decoded['data'] is Map<String, dynamic>) {
+        final data = decoded['data'] as Map<String, dynamic>;
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Request fulfilled and completed successfully.',
+          'data': data,
+        };
+      }
+      return decoded;
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
     }
@@ -519,7 +540,16 @@ class InventoryService {
         headers: await _headers(),
         body: jsonEncode({'auto_receive': autoReceive}),
       );
-      return _decodeResponse(response);
+      final decoded = _decodeResponse(response);
+      if (decoded['success'] == true && decoded['data'] is Map<String, dynamic>) {
+        final data = decoded['data'] as Map<String, dynamic>;
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Completed fulfillment of stock requests.',
+          'data': data,
+        };
+      }
+      return decoded;
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
     }
@@ -733,6 +763,38 @@ class InventoryService {
     try {
       final uri = Uri.parse('$baseUrl/api/billing/dealers/$dealerId/credit-profile/');
       final response = await ApiClient.get(uri, headers: await _headers());
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateDealerCreditProfile({
+    required int dealerId,
+    required double creditLimit,
+    int? paymentTermsDays,
+    String? creditStatus,
+    String? notes,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/billing/dealers/$dealerId/credit-profile/');
+      final body = <String, dynamic>{
+        'credit_limit': creditLimit,
+      };
+      if (paymentTermsDays != null) {
+        body['payment_terms_days'] = paymentTermsDays;
+      }
+      if (creditStatus != null) {
+        body['credit_status'] = creditStatus;
+      }
+      if (notes != null) {
+        body['notes'] = notes;
+      }
+      final response = await ApiClient.put(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(body),
+      );
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};

@@ -401,6 +401,10 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     final dispUnits = (summary['dealer_dispatch_units'] as num?)?.toInt() ?? 0;
     final expenses = (summary['expenses'] as num?)?.toDouble() ?? 0.0;
     final netProfit = (summary['net_profit'] as num?)?.toDouble() ?? 0.0;
+    final collectedAmt = (summary['collected_amount'] as num?)?.toDouble() ?? 0.0;
+    final pendingAmt = (summary['pending_amount'] as num?)?.toDouble() ?? 0.0;
+    final franchiseRev = (summary['franchise_revenue'] as num?)?.toDouble() ?? 0.0;
+    final directRev = (summary['direct_company_revenue'] as num?)?.toDouble() ?? 0.0;
 
     final data = [
       {
@@ -408,6 +412,38 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         'value': _formatCurrency(grossRev),
         'subtitle': 'Gross order & invoice value',
         'icon': Icons.currency_rupee,
+        'color': const Color(0xFF0284C7),
+        'bg': const Color(0xFFE0F2FE),
+      },
+      {
+        'title': 'Collected Payments',
+        'value': _formatCurrency(collectedAmt),
+        'subtitle': 'Total verified receipts',
+        'icon': Icons.payments_outlined,
+        'color': const Color(0xFF16A34A),
+        'bg': const Color(0xFFDCFCE7),
+      },
+      {
+        'title': 'Pending Outstanding',
+        'value': _formatCurrency(pendingAmt),
+        'subtitle': 'Uncollected invoices',
+        'icon': Icons.pending_actions_outlined,
+        'color': const Color(0xFFD97706),
+        'bg': const Color(0xFFFEF3C7),
+      },
+      {
+        'title': 'Franchise Network Rev',
+        'value': _formatCurrency(franchiseRev),
+        'subtitle': 'Dealer orders & wholesale',
+        'icon': Icons.storefront,
+        'color': const Color(0xFF7C3AED),
+        'bg': const Color(0xFFF5F3FF),
+      },
+      {
+        'title': 'Direct Company Rev',
+        'value': _formatCurrency(directRev),
+        'subtitle': 'Direct deliveries & walk-ins',
+        'icon': Icons.business,
         'color': const Color(0xFF0284C7),
         'bg': const Color(0xFFE0F2FE),
       },

@@ -1503,21 +1503,110 @@ class DailyBusinessReportAPIView(views.APIView):
 
         reports_data = DailyBusinessReportSerializer(reports_qs, many=True).data
 
-        # Aggregate totals for summary
-        agg_gross = reports_qs.aggregate(t=Sum('total_gross_revenue_inr'))['t'] or total_order_amount
-        agg_cogs = reports_qs.aggregate(t=Sum('total_cogs_inr'))['t'] or Decimal('0.00')
-        agg_exp = reports_qs.aggregate(t=Sum('total_expenses_inr'))['t'] or Decimal('0.00')
+        # Real-time Dynamic Aggregate Totals
+        from billing.models import PaymentTransaction
+        from inventory.models import CentralPlantStock, DealerStockBatch, Expense
+
+        non_cancelled_orders = orders_qs.exclude(status__in=['Cancelled', 'CANCELLED', 'cancelled'])
+        delivered_orders_count = orders_qs.filter(status__in=['DELIVERED', 'Delivered', 'delivered']).count()
+        cancelled_orders_count = orders_qs.filter(status__in=['Cancelled', 'CANCELLED', 'cancelled']).count()
+        quantity_sold = sum(sum(it.quantity for it in o.items.all()) for o in non_cancelled_orders) or sum(o.items_count for o in non_cancelled_orders)
+
+        direct_rev = non_cancelled_orders.filter(order_source='DIRECT_COMPANY').aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+        franchise_order_rev = non_cancelled_orders.filter(order_source='FRANCHISE').aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+        dealer_invoices = Invoice.objects.filter(
+            invoice_type='DEALER_PURCHASE_INVOICE',
+            issued_at__date__gte=start_date,
+            issued_at__date__lte=end_date
+        )
+        dealer_inv_rev = dealer_invoices.aggregate(t=Sum('grand_total'))['t'] or Decimal('0.00')
+        total_rev_calc = direct_rev + franchise_order_rev + dealer_inv_rev
+
+        # Payments in date range
+        payments_qs = PaymentTransaction.objects.filter(
+            payment_date__date__gte=start_date,
+            payment_date__date__lte=end_date
+        )
+        total_collected = payments_qs.filter(payment_status='SUCCESS').aggregate(s=Sum('amount_paid'))['s'] or Decimal('0.00')
+        cash_collected = payments_qs.filter(payment_status='SUCCESS', payment_method='CASH').aggregate(s=Sum('amount_paid'))['s'] or Decimal('0.00')
+        online_collected = total_collected - cash_collected
+        pending_verif_amt = payments_qs.filter(payment_status='PENDING_VERIFICATION').aggregate(s=Sum('amount_paid'))['s'] or Decimal('0.00')
+        pending_verif_cnt = payments_qs.filter(payment_status='PENDING_VERIFICATION').count()
+        confirmed_cnt = payments_qs.filter(payment_status='SUCCESS').count()
+        rejected_cnt = payments_qs.filter(payment_status='REJECTED').count()
+
+        invoices_qs = Invoice.objects.filter(
+            issued_at__date__gte=start_date,
+            issued_at__date__lte=end_date
+        )
+        total_outstanding = invoices_qs.aggregate(s=Sum('outstanding_balance'))['s'] or Decimal('0.00')
+
+        # Production in date range
+        prod_batches = ProductionBatch.objects.filter(
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        )
+        prod_units = prod_batches.aggregate(u=Sum('quantity_produced_units'))['u'] or 0
+        prod_cost = prod_batches.aggregate(c=Sum('unit_production_cost'))['c'] or Decimal('0.00')
+
+        central_stock = CentralPlantStock.objects.aggregate(s=Sum('finished_goods_stock'))['s'] or 0
+        franchise_stock = DealerStockBatch.objects.filter(is_active=True).aggregate(s=Sum('available_quantity'))['s'] or 0
+
+        dispatches = InventoryTransactionLedger.objects.filter(
+            transaction_type='STOCK_TRANSFER_OUT',
+            timestamp__date__gte=start_date,
+            timestamp__date__lte=end_date
+        )
+        dispatch_units = abs(dispatches.aggregate(q=Sum('quantity'))['q'] or 0)
+
+        expenses_in_range = Expense.objects.filter(
+            paid_date__gte=start_date,
+            paid_date__lte=end_date
+        )
+        total_exp = expenses_in_range.aggregate(a=Sum('amount'))['a'] or Decimal('0.00')
+
+        cogs_calc = OrderItem.objects.filter(order__in=non_cancelled_orders).aggregate(
+            c=Sum(F('snapshot_unit_production_cost') * F('quantity'))
+        )['c'] or Decimal('0.00')
+
+        agg_gross = total_rev_calc if total_rev_calc > 0 else (reports_qs.aggregate(t=Sum('total_gross_revenue_inr'))['t'] or total_order_amount)
+        agg_cogs = cogs_calc if cogs_calc > 0 else (reports_qs.aggregate(t=Sum('total_cogs_inr'))['t'] or Decimal('0.00'))
+        agg_exp = total_exp if total_exp > 0 else (reports_qs.aggregate(t=Sum('total_expenses_inr'))['t'] or Decimal('0.00'))
         agg_net = agg_gross - (agg_cogs + agg_exp)
-        agg_prod = reports_qs.aggregate(t=Sum('total_production_volume_units'))['t'] or 0
-        agg_disp = reports_qs.aggregate(t=Sum('total_dealer_dispatch_units'))['t'] or 0
+        agg_prod = prod_units or reports_qs.aggregate(t=Sum('total_production_volume_units'))['t'] or 0
+        agg_disp = dispatch_units or reports_qs.aggregate(t=Sum('total_dealer_dispatch_units'))['t'] or 0
 
         # Monthly chart data derived from actual orders
         monthly_map = {}
-        for o in Order.objects.filter(created_at__year=today.year).exclude(status__in=['Cancelled', 'CANCELLED']):
+        for o in Order.objects.filter(created_at__year=today.year).exclude(status__in=['Cancelled', 'CANCELLED', 'cancelled']):
             m_key = o.created_at.strftime('%b')
             monthly_map[m_key] = monthly_map.get(m_key, 0.0) + float(o.amount)
 
         monthly_sales_list = [{'month': m, 'amount': int(val)} for m, val in monthly_map.items()]
+
+        # Product-wise Breakdown
+        prod_map = {}
+        for it in OrderItem.objects.filter(order__in=non_cancelled_orders).select_related('product'):
+            p_name = it.product_name or (it.product.name if it.product else 'Product')
+            if p_name not in prod_map:
+                prod_map[p_name] = {'name': p_name, 'quantity': 0, 'revenue': 0.0}
+            prod_map[p_name]['quantity'] += it.quantity
+            prod_map[p_name]['revenue'] += float(it.price * it.quantity)
+        product_wise_list = list(prod_map.values())
+
+        # Franchise-wise Breakdown
+        fran_map = {}
+        for o in non_cancelled_orders:
+            f_name = o.serving_franchise.business_name if o.serving_franchise else (o.franchise_name or 'Direct Company')
+            if f_name not in fran_map:
+                fran_map[f_name] = {'name': f_name, 'orders_count': 0, 'revenue': 0.0}
+            fran_map[f_name]['orders_count'] += 1
+            fran_map[f_name]['revenue'] += float(o.amount)
+        franchise_wise_list = list(fran_map.values())
+
+        from leads.models import LeadFollowup
+        followups_count = LeadFollowup.objects.filter(scheduled_date__gte=start_date, scheduled_date__lte=end_date).count()
 
         return Response({
             'success': True,
@@ -1527,16 +1616,57 @@ class DailyBusinessReportAPIView(views.APIView):
             'summary': {
                 'gross_revenue': float(agg_gross),
                 'total_revenue': float(agg_gross),
+                'collected_amount': float(total_collected),
+                'pending_amount': float(total_outstanding),
+                'direct_company_revenue': float(direct_rev),
+                'franchise_revenue': float(franchise_order_rev + dealer_inv_rev),
                 'cogs': float(agg_cogs),
                 'expenses': float(agg_exp),
                 'net_profit': float(agg_net),
                 'production_volume_units': int(agg_prod),
                 'dealer_dispatch_units': int(agg_disp),
+                'central_stock_units': int(central_stock),
+                'franchise_stock_units': int(franchise_stock),
                 'total_orders': total_orders_count,
+                'delivered_orders': delivered_orders_count,
+                'cancelled_orders': cancelled_orders_count,
+                'quantity_sold': int(quantity_sold),
                 'customer_orders_count': total_orders_count,
                 'franchise_requests_count': stock_requests_qs.count(),
                 'new_leads_count': leads_qs.count(),
                 'converted_leads_count': leads_qs.filter(status__in=['CONVERTED', 'FRANCHISE_CONFIRMED', 'converted', 'franchise_confirmed']).count(),
+                'followups_count': followups_count,
+            },
+            'sales_report': {
+                'total_orders': total_orders_count,
+                'delivered_orders': delivered_orders_count,
+                'cancelled_orders': cancelled_orders_count,
+                'quantity_sold': int(quantity_sold),
+                'revenue': float(agg_gross),
+                'product_wise': product_wise_list,
+                'franchise_wise': franchise_wise_list,
+            },
+            'payment_report': {
+                'total_collected': float(total_collected),
+                'cash_collected': float(cash_collected),
+                'online_collected': float(online_collected),
+                'pending_verification_amount': float(pending_verif_amt),
+                'pending_verification_count': pending_verif_cnt,
+                'confirmed_count': confirmed_cnt,
+                'rejected_count': rejected_cnt,
+                'outstanding': float(total_outstanding),
+            },
+            'inventory_report': {
+                'central_stock': int(central_stock),
+                'franchise_stock': int(franchise_stock),
+                'produced_quantity': int(agg_prod),
+                'dispatched_quantity': int(agg_disp),
+                'sold_quantity': int(quantity_sold),
+            },
+            'production_report': {
+                'batches_count': prod_batches.count(),
+                'quantity_produced': int(agg_prod),
+                'production_cost': float(prod_cost),
             },
             'monthly_sales': monthly_sales_list,
             'customer_activity': customer_orders,

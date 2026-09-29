@@ -1530,7 +1530,7 @@ class AdminNotificationListView(APIView):
 
     def post(self, request):
         from .models import AdminNotification
-        notification_id = request.data.get('id')
+        notification_id = request.data.get('id') or request.data.get('notification_id')
         if notification_id:
             AdminNotification.objects.filter(id=notification_id).update(is_read=True)
         else:

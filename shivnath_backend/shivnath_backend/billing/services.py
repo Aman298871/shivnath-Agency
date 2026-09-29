@@ -86,6 +86,57 @@ def submit_payment_for_verification(invoice_id, amount_paid, payment_method='UPI
         received_by=actor,
         notes=notes or ''
     )
+
+    # Authoritative alert to Admin & Super Admin
+    try:
+        from accounts.models import AdminNotification
+        franchise_name = "Franchise"
+        order_code = ""
+        customer_name = invoice.billed_to_name or "Customer"
+        if invoice.order:
+            order_code = f"#{invoice.order.order_code}"
+            if invoice.order.serving_franchise:
+                franchise_name = invoice.order.serving_franchise.business_name
+            elif invoice.order.franchise_name:
+                franchise_name = invoice.order.franchise_name
+
+        remaining = max(Decimal('0.00'), invoice.outstanding_balance - amount_paid_dec)
+        payment_type = "FULL" if remaining <= Decimal('0.00') else "PARTIAL"
+
+        title = f"Payment Verification Required: {franchise_name}"
+        msg = (
+            f"Payment submitted for verification.\n"
+            f"Franchise: {franchise_name}\n"
+            f"Order: {order_code}\n"
+            f"Customer: {customer_name}\n"
+            f"Total: ₹{invoice.grand_total}\n"
+            f"Payment submitted: ₹{amount_paid_dec}\n"
+            f"Mode: {clean_method}\n"
+            f"Type: {payment_type}\n"
+            f"Remaining: ₹{remaining}\n"
+            f"Ref: {reference_number or 'N/A'}"
+        )
+        AdminNotification.objects.create(
+            title=title,
+            message=msg,
+            notification_type='payment_verification',
+            reference_id=invoice.id,
+        )
+        from accounts.fcm_services import send_fcm_notification
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admins = list(User.objects.filter(is_superuser=True)) + list(User.objects.filter(profile__role__in=['admin', 'super_admin']).exclude(is_superuser=True))
+        send_fcm_notification(
+            users=list(set(admins)),
+            title=f"Payment Verification Required: ₹{amount_paid_dec}",
+            body=f"{franchise_name} submitted ₹{amount_paid_dec} ({clean_method}) for {order_code}. Tap to review.",
+            data={'invoice_id': invoice.id, 'screen': 'admin_billing', 'action': 'verify_payment'},
+            notification_type='payment_verification',
+            reference_id=invoice.id
+        )
+    except Exception:
+        pass
+
     return txn
 
 
@@ -313,36 +364,66 @@ def _process_payment_verification(txn_id, action, admin_user, notes=''):
                     credit_profile.credit_status = 'GOOD_STANDING'
                 credit_profile.save()
 
-                if dealer.user:
+                if dealer:
                     try:
-                        Notification.objects.create(
-                            recipient=dealer.user,
-                            notification_type='PAYMENT_REMINDER',
-                            title='Payment Verified',
-                            message=f"Admin verified your payment of ₹{amount_paid_dec} for Invoice {invoice.invoice_number}. Your ledger is updated.",
-                            entity_type='invoice',
-                            entity_id=invoice.id
+                        from accounts.models import FranchiseNotification
+                        from accounts.fcm_services import send_fcm_notification
+                        FranchiseNotification.objects.create(
+                            franchise=dealer,
+                            title='Payment Approved & Verified',
+                            message=f"Admin verified your payment of ₹{amount_paid_dec:,.2f} for Invoice {invoice.invoice_number}. Your ledger and available credit have been updated.",
+                            notification_type='payment_approved',
+                            reference_id=invoice.id,
                         )
+                        if dealer.user:
+                            send_fcm_notification(
+                                users=[dealer.user],
+                                title='Payment Approved ✅',
+                                body=f"Your payment of ₹{amount_paid_dec:,.2f} for Invoice {invoice.invoice_number} is approved and ledger updated.",
+                                data={'invoice_id': invoice.id, 'screen': 'franchise_billing'},
+                                notification_type='payment_approved',
+                                reference_id=invoice.id,
+                            )
                     except Exception:
                         pass
         return txn
     elif action == 'reject':
-        txn.payment_status = 'FAILED'
-        txn.notes = f"{txn.notes}\nRejected by {admin_user.email}: {notes}".strip()
+        txn.payment_status = 'REJECTED'
+        rejection_notes = notes or 'Payment details could not be verified with bank receipt.'
+        txn.notes = f"{txn.notes}\nRejected by {admin_user.email}: {rejection_notes}".strip()
         txn.save()
 
-        if txn.received_by:
-            try:
-                Notification.objects.create(
-                    recipient=txn.received_by,
-                    notification_type='PAYMENT_REMINDER',
+        # Notify dealer/submitter
+        try:
+            from accounts.models import FranchiseProfile, FranchiseNotification
+            from accounts.fcm_services import send_fcm_notification
+            dealer = None
+            if invoice.order and invoice.order.serving_franchise:
+                dealer = invoice.order.serving_franchise
+            elif hasattr(invoice, 'dealer_stock_request') and invoice.dealer_stock_request:
+                dealer = invoice.dealer_stock_request.dealer
+            elif txn.received_by:
+                dealer = FranchiseProfile.objects.filter(user=txn.received_by).first()
+
+            if dealer:
+                FranchiseNotification.objects.create(
+                    franchise=dealer,
                     title='Payment Rejected',
-                    message=f"Admin rejected your payment of ₹{txn.amount_paid} for Invoice {txn.invoice.invoice_number}. Reason: {notes}",
-                    entity_type='invoice',
-                    entity_id=txn.invoice.id
+                    message=f"Admin rejected payment of ₹{txn.amount_paid:,.2f} for Invoice {txn.invoice.invoice_number}. Reason: {rejection_notes}",
+                    notification_type='payment_rejected',
+                    reference_id=txn.invoice.id,
                 )
-            except Exception:
-                pass
+                if dealer.user:
+                    send_fcm_notification(
+                        users=[dealer.user],
+                        title='Payment Rejected ❌',
+                        body=f"Payment of ₹{txn.amount_paid:,.2f} for Invoice {txn.invoice.invoice_number} was rejected: {rejection_notes}",
+                        data={'invoice_id': txn.invoice.id, 'screen': 'franchise_billing'},
+                        notification_type='payment_rejected',
+                        reference_id=txn.invoice.id,
+                    )
+        except Exception:
+            pass
         return txn
     else:
         raise ValueError(f"Invalid action {action}.")

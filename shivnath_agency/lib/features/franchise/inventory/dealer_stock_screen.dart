@@ -304,13 +304,15 @@ class _DealerStockScreenState extends State<DealerStockScreen>
             size: 24,
           ),
         ),
-        title: Row(
+        title: Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
           children: [
             Text(
               sku,
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             ),
-            const SizedBox(width: 8),
             if (isLowStock)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

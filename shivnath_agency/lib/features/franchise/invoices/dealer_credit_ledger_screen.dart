@@ -418,10 +418,38 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildAgingPill('Current', current, BrandColors.greenDark, context),
-              _buildAgingPill('1-15 Days', d1_15, BrandColors.yellowDark, context),
-              _buildAgingPill('16-30 Days', d16_30, BrandColors.yellowDark, context),
-              _buildAgingPill('> 30 Days', dOver30, BrandColors.redDark, context),
+              _buildAgingPill(
+                'Current',
+                current,
+                BrandColors.greenDark,
+                context,
+                description: 'Not yet overdue — within payment terms',
+                advice: 'These invoices are within your payment window. Pay before the due date to avoid overdue charges.',
+              ),
+              _buildAgingPill(
+                '1-15 Days',
+                d1_15,
+                BrandColors.yellowDark,
+                context,
+                description: 'Overdue by 1-15 days',
+                advice: 'These invoices have recently gone past due. Pay now to avoid further delay charges and maintain a good credit standing.',
+              ),
+              _buildAgingPill(
+                '16-30 Days',
+                d16_30,
+                BrandColors.yellowDark,
+                context,
+                description: 'Overdue by 16-30 days',
+                advice: 'These invoices are significantly overdue. Immediate payment is required to avoid credit hold.',
+              ),
+              _buildAgingPill(
+                '> 30 Days',
+                dOver30,
+                BrandColors.redDark,
+                context,
+                description: 'Overdue by more than 30 days',
+                advice: 'Critical: These invoices are severely overdue and may result in credit suspension. Please contact admin immediately.',
+              ),
             ],
           ),
         ],
@@ -429,32 +457,179 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
     );
   }
 
-  Widget _buildAgingPill(String title, double amount, Color color, BuildContext context) {
+  Widget _buildAgingPill(String title, double amount, Color color, BuildContext context, {String description = '', String advice = ''}) {
     return Expanded(
       child: InkWell(
         onTap: () {
+          // Filter invoices that belong to this aging bucket
+          final bucketInvoices = _getInvoicesForBucket(title);
+
           showDialog(
             context: context,
-            builder: (context) => AlertDialog(
-              title: Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-              content: Text(
-                'This represents the total amount of unpaid invoices that fall under the "$title" category.\n\n'
-                'Current Amount: ₹${amount.toStringAsFixed(2)}\n\n'
-                'Keep this amount at zero to maintain a healthy credit profile!',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
+            builder: (ctx) => Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.schedule_rounded, color: color, size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: color),
+                              ),
+                              Text(
+                                description.isNotEmpty ? description : 'Aging bucket breakdown',
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(ctx)),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: color.withValues(alpha: 0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            '₹${amount.toStringAsFixed(2)}',
+                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: color),
+                          ),
+                          Text(
+                            'Total in "$title" bucket',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (advice.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFBBF7D0)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.tips_and_updates_rounded, size: 15, color: Color(0xFF16A34A)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                advice,
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF166534)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (bucketInvoices.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        'Invoices in this bucket (${bucketInvoices.length})',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 220),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: bucketInvoices.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (_, i) {
+                            final inv = bucketInvoices[i];
+                            final total = double.tryParse(inv['grand_total']?.toString() ?? inv['total_amount']?.toString() ?? '0') ?? 0.0;
+                            final paid = double.tryParse(inv['amount_paid']?.toString() ?? '0') ?? 0.0;
+                            final bal = (total - paid).clamp(0.0, total);
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.receipt_outlined, size: 15, color: color),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          inv['invoice_number']?.toString() ?? 'INV',
+                                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                        ),
+                                        if ((inv['due_date']?.toString() ?? '').isNotEmpty)
+                                          Text(
+                                            'Due: ${inv['due_date']}',
+                                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    '₹${bal.toStringAsFixed(0)} due',
+                                    style: TextStyle(fontWeight: FontWeight.w700, color: color, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ] else if (amount == 0) ...[
+                      const SizedBox(height: 14),
+                      const Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 18),
+                          SizedBox(width: 8),
+                          Text('No outstanding in this bucket!', style: TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          backgroundColor: color.withValues(alpha: 0.08),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text('Close', style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           );
         },
         borderRadius: BorderRadius.circular(10),
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 3),
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
@@ -464,28 +639,50 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
             children: [
               Text(
                 title,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 4),
               Text(
                 '₹${amount.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: color,
-                ),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color),
               ),
+              const SizedBox(height: 2),
+              Icon(Icons.touch_app_rounded, size: 11, color: color.withValues(alpha: 0.5)),
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// Returns invoices that belong to a given aging bucket based on due date
+  List<Map<String, dynamic>> _getInvoicesForBucket(String bucketTitle) {
+    final now = DateTime.now();
+    return _invoices.where((inv) {
+      final status = (inv['status']?.toString() ?? '').toUpperCase();
+      if (status == 'PAID') return false; // Paid invoices don't age
+
+      final dueDateStr = inv['due_date']?.toString() ?? '';
+      if (dueDateStr.isEmpty) return bucketTitle == 'Current';
+
+      final dueDate = DateTime.tryParse(dueDateStr);
+      if (dueDate == null) return false;
+
+      final daysOverdue = now.difference(dueDate).inDays;
+
+      switch (bucketTitle) {
+        case 'Current':
+          return daysOverdue <= 0; // Not yet overdue
+        case '1-15 Days':
+          return daysOverdue > 0 && daysOverdue <= 15;
+        case '16-30 Days':
+          return daysOverdue > 15 && daysOverdue <= 30;
+        default: // > 30 Days
+          return daysOverdue > 30;
+      }
+    }).toList();
   }
 
   Widget _buildInvoicesList() {

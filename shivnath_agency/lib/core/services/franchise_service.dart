@@ -491,4 +491,30 @@ Future<Map<String, dynamic>> deleteFranchise(
       return {'success': false, 'message': 'Network error deleting document'};
     }
   }
+
+  /// Admin: Verify (approve/reject) a franchise KYC document
+  Future<Map<String, dynamic>> verifyFranchiseDocument({
+    required int docId,
+    required String action, // 'VERIFIED' or 'REJECTED'
+    String rejectionReason = '',
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('${AppConstants.apiBaseUrl}/api/accounts/dealers/documents/$docId/verify/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'action': action,
+          'rejection_reason': rejectionReason,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final dynamic decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': decoded, 'message': decoded['message'] ?? 'Document updated.'};
+      }
+      return {'success': false, 'message': decoded['message'] ?? 'Action failed.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
 }

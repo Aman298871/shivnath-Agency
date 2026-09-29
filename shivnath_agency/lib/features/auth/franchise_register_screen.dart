@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../routes/app_routes.dart';
+import 'package:file_picker/file_picker.dart' as import_file_picker;
 
 class FranchiseRegisterScreen extends StatefulWidget {
   const FranchiseRegisterScreen({
@@ -38,8 +39,31 @@ class _FranchiseRegisterScreenState
   bool obscurePassword = true;
   bool obscureConfirm = true;
 
+  String _selectedDocType = 'AADHAAR';
+  String? _selectedFilePath;
+  String? _selectedFileName;
+
+  Future<void> _pickDocument() async {
+    import_file_picker.FilePickerResult? result = await import_file_picker.FilePicker.platform.pickFiles(
+      type: import_file_picker.FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+    );
+
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _selectedFilePath = result.files.single.path;
+        _selectedFileName = result.files.single.name;
+      });
+    }
+  }
+
   Future<void> _register() async {
     if (!(formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    if (_selectedFilePath == null) {
+      _message('Please upload a KYC Document');
       return;
     }
 
@@ -60,6 +84,8 @@ class _FranchiseRegisterScreenState
       gstNumber: gstController.text.trim(),
       panNumber: panController.text.trim(),
       aadhaarNumber: aadhaarController.text.trim(),
+      documentType: _selectedDocType,
+      documentFilePath: _selectedFilePath!,
     );
 
     if (!mounted) return;
@@ -372,6 +398,39 @@ class _FranchiseRegisterScreenState
                       Icons
                           .credit_card_outlined,
                     ),
+                  ),
+                ),
+
+                _space(),
+                
+                const Text('KYC Document', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedDocType,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.description_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'AADHAAR', child: Text('Aadhaar Card')),
+                    DropdownMenuItem(value: 'PAN', child: Text('PAN Card')),
+                    DropdownMenuItem(value: 'GST', child: Text('GST Registration Certificate')),
+                    DropdownMenuItem(value: 'AGREEMENT', child: Text('Distributor / Wholesale Agreement')),
+                    DropdownMenuItem(value: 'TRADE_LICENSE', child: Text('Trade License')),
+                    DropdownMenuItem(value: 'OTHER', child: Text('Other KYC Document')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedDocType = val);
+                  },
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _pickDocument,
+                  icon: const Icon(Icons.upload_file),
+                  label: Text(_selectedFileName ?? 'Upload Document (Image/PDF)'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    alignment: Alignment.centerLeft,
                   ),
                 ),
 

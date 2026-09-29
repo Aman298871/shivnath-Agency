@@ -1,4 +1,5 @@
 from rest_framework import serializers
+import datetime
 
 from .models import (
     InventoryItem,
@@ -210,7 +211,7 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
     available_quantity = serializers.IntegerField(read_only=True)
-    is_expired = serializers.BooleanField(read_only=True)
+    is_expired = serializers.SerializerMethodField()
     linked_order_code = serializers.SerializerMethodField()
     quantity_taken = serializers.IntegerField(read_only=True)
     quantity_pending_collection = serializers.IntegerField(read_only=True)
@@ -254,13 +255,31 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
             return obj.linked_order.order_code
         return None
 
+    def get_is_expired(self, obj):
+        try:
+            return bool(obj.is_expired)
+        except Exception:
+            try:
+                from django.utils import timezone
+                from django.utils.dateparse import parse_date
+                exp = obj.expiry_date
+                if isinstance(exp, str):
+                    exp = parse_date(exp.strip().split('T')[0])
+                elif isinstance(exp, datetime.datetime):
+                    exp = exp.date()
+                if not exp:
+                    return False
+                return timezone.now().date() >= exp
+            except Exception:
+                return False
+
 
 class DealerStockBatchSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
     dealer_name = serializers.CharField(source='dealer.business_name', read_only=True)
     available_quantity = serializers.IntegerField(read_only=True)
-    is_expired = serializers.BooleanField(read_only=True)
+    is_expired = serializers.SerializerMethodField()
 
     class Meta:
         model = DealerStockBatch
@@ -286,10 +305,28 @@ class DealerStockBatchSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+    def get_is_expired(self, obj):
+        try:
+            return bool(obj.is_expired)
+        except Exception:
+            try:
+                from django.utils import timezone
+                from django.utils.dateparse import parse_date
+                exp = obj.expiry_date
+                if isinstance(exp, str):
+                    exp = parse_date(exp.strip().split('T')[0])
+                elif isinstance(exp, datetime.datetime):
+                    exp = exp.date()
+                if not exp:
+                    return False
+                return timezone.now().date() >= exp
+            except Exception:
+                return False
+
 
 class DealerStockRequestAllocationSerializer(serializers.ModelSerializer):
     batch_number = serializers.CharField(source='production_batch.batch_number', read_only=True)
-    expiry_date = serializers.DateField(source='production_batch.expiry_date', read_only=True)
+    expiry_date = serializers.SerializerMethodField()
 
     class Meta:
         model = DealerStockRequestAllocation
@@ -344,6 +381,20 @@ class DealerStockRequestSerializer(serializers.ModelSerializer):
             'created_at',
             'allocations',
         ]
+
+    def get_expiry_date(self, obj):
+        try:
+            exp = obj.production_batch.expiry_date
+            if not exp:
+                return None
+            if isinstance(exp, str):
+                from django.utils.dateparse import parse_date
+                exp = parse_date(exp.strip().split('T')[0])
+            elif isinstance(exp, datetime.datetime):
+                exp = exp.date()
+            return exp.isoformat() if exp else None
+        except Exception:
+            return None
 
 
 class InventoryTransactionLedgerSerializer(serializers.ModelSerializer):

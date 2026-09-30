@@ -15,6 +15,7 @@ import 'followups/admin_followups_screen.dart';
 import 'franchises/admin_franchises_screen.dart';
 import 'inventory/admin_stock_management_screen.dart';
 import 'inventory/central_plant_inventory_screen.dart';
+import 'inventory/dealer_stock_request_fulfillment_screen.dart';
 import 'products/bom_recipe_screen.dart';
 import 'suppliers/admin_suppliers_screen.dart';
 import 'orders/admin_orders_screen.dart';
@@ -317,7 +318,16 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
             label: const Text('Open & Allocate', style: TextStyle(fontWeight: FontWeight.w700)),
             onPressed: () {
               Navigator.pop(dlgCtx);
-              _selectMenu(21); // Go directly to Central Stock Requests tab
+              final reqId = req['id'] is int ? req['id'] as int : int.tryParse(req['id']?.toString() ?? '0') ?? 0;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DealerStockRequestFulfillmentScreen(
+                    requestId: reqId,
+                    initialRequest: req,
+                  ),
+                ),
+              );
             },
           ),
         ],

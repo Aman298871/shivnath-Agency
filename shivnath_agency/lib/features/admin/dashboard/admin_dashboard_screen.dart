@@ -247,8 +247,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 isStockRequest: true,
                 onView: () {
                   Navigator.of(context, rootNavigator: true).pop();
-                  widget.onOpenStockRequests?.call();
-                  widget.onOpenInventory?.call();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DealerStockRequestFulfillmentScreen(
+                        requestId: maxReqId,
+                        initialRequest: newestReq,
+                      ),
+                    ),
+                  ).then((_) {
+                    _loadActionableAlerts();
+                    _loadDashboardData();
+                  });
                 },
               );
             }
@@ -830,10 +840,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       ),
-                      icon: const Icon(Icons.analytics_outlined, size: 16),
+                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
                       label: const Text(
-                        'VIEW REQUEST & LIVE TRACKER',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        'VIEW REQUEST',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
                       ),
                       onPressed: () {
                         Navigator.push(
@@ -844,7 +854,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               initialRequest: req,
                             ),
                           ),
-                        ).then((_) => _loadActionableAlerts());
+                        ).then((_) {
+                          _loadActionableAlerts();
+                          _loadDashboardData();
+                        });
                       },
                     ),
                     OutlinedButton.icon(

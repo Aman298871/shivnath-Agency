@@ -163,8 +163,16 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
         return;
       }
 
+      // ── Unpack response payload (InventoryService wraps decoded JSON in res['data'])
+      Map<String, dynamic> payload = res;
+      if (res['data'] is Map) {
+        payload = Map<String, dynamic>.from(res['data'] as Map);
+      }
+
       // ── 1. Parse summary (always present from live computation) ──────────
-      if (res['summary'] is Map) {
+      if (payload['summary'] is Map) {
+        _summary = Map<String, dynamic>.from(payload['summary'] as Map);
+      } else if (res['summary'] is Map) {
         _summary = Map<String, dynamic>.from(res['summary'] as Map);
       } else {
         _summary = null;
@@ -172,19 +180,25 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
 
       // ── 2. Parse reports list (stored DB rows OR synthetic row) ──────────
       List rawList = [];
-      if (res['data'] is List) {
-        rawList = res['data'] as List;
+      if (payload['reports'] is List) {
+        rawList = payload['reports'] as List;
+      } else if (payload['data'] is List) {
+        rawList = payload['data'] as List;
       } else if (res['reports'] is List) {
         rawList = res['reports'] as List;
-      } else if (res['data'] is Map && res['data']['reports'] is List) {
-        rawList = res['data']['reports'] as List;
+      } else if (res['data'] is List) {
+        rawList = res['data'] as List;
       }
       _reports = rawList
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
 
-      // ── 3. Product-wise breakdown (from top-level key or first report) ──
-      if (res['product_wise'] is List) {
+      // ── 3. Product-wise breakdown (from payload or first report) ──
+      if (payload['product_wise'] is List) {
+        _productWise = (payload['product_wise'] as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      } else if (res['product_wise'] is List) {
         _productWise = (res['product_wise'] as List)
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
@@ -198,15 +212,17 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
       }
 
       // ── 4. Activity logs ──────────────────────────────────────────────────
-      if (res['customer_activity'] is List) {
-        _customerActivity = (res['customer_activity'] as List)
+      final custRaw = payload['customer_activity'] ?? payload['customer_orders'] ?? res['customer_activity'];
+      if (custRaw is List) {
+        _customerActivity = custRaw
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
       } else {
         _customerActivity = [];
       }
-      if (res['franchise_activity'] is List) {
-        _franchiseActivity = (res['franchise_activity'] as List)
+      final franRaw = payload['franchise_activity'] ?? res['franchise_activity'];
+      if (franRaw is List) {
+        _franchiseActivity = franRaw
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
       } else {

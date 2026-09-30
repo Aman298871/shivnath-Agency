@@ -1246,6 +1246,7 @@ class _CentralPlantInventoryScreenState
       case 'chemical':
         return ['kg', 'litres'];
       case 'bottle':
+      case 'jar':
       case 'preform':
       case 'cap':
         return ['pcs'];
@@ -1261,7 +1262,8 @@ class _CentralPlantInventoryScreenState
   String _categoryLabel(String key) {
     const map = {
       'raw_water': 'Raw Water',
-      'bottle': 'Bottle / Finished Bottle',
+      'bottle': 'Bottle / Empty Pet Bottle',
+      'jar': 'Jar / Water Jar (20L)',
       'preform': 'Bottle Preform',
       'cap': 'Cap / Closure',
       'label': 'Label / Sticker',
@@ -3158,6 +3160,56 @@ class _CentralPlantInventoryScreenState
     bool isSaving = false;
     final rootCtx = context; // capture root ctx before dialog opens
 
+    String bottleSize = '500ml';
+    String jarSize = '20L';
+
+    // Helper to sync default name & code based on category and size
+    void applyDefaults(String cat, String bSize, String jSize) {
+      if (cat == 'bottle') {
+        switch (bSize) {
+          case '200ml':
+            nameCtrl.text = '200ml Pet Bottle';
+            codeCtrl.text = 'RM-BOT-200ML';
+            break;
+          case '250ml':
+            nameCtrl.text = '250ml Pet Bottle';
+            codeCtrl.text = 'RM-BOT-250ML';
+            break;
+          case '500ml':
+            nameCtrl.text = '500ml Pet Bottle';
+            codeCtrl.text = 'RM-BOT-500ML';
+            break;
+          case '1L':
+            nameCtrl.text = '1 Litre Pet Bottle';
+            codeCtrl.text = 'RM-BOT-1000ML';
+            break;
+        }
+      } else if (cat == 'jar') {
+        nameCtrl.text = '20 Litre Water Jar';
+        codeCtrl.text = 'RM-JAR-20L';
+      } else if (cat == 'cap') {
+        nameCtrl.text = '28mm Bottle Cap';
+        codeCtrl.text = 'RM-CAP-28MM';
+      } else if (cat == 'preform') {
+        nameCtrl.text = 'Pet Preform';
+        codeCtrl.text = 'RM-PRF-20G';
+      } else if (cat == 'label') {
+        nameCtrl.text = 'Product Brand Label';
+        codeCtrl.text = 'RM-LBL-ROLL';
+      } else if (cat == 'packaging') {
+        nameCtrl.text = 'Corrugated Packaging Box';
+        codeCtrl.text = 'RM-BOX-STD';
+      } else if (cat == 'chemical') {
+        nameCtrl.text = 'Water Treatment Minerals';
+        codeCtrl.text = 'RM-CHM-MIN';
+      } else if (cat == 'raw_water') {
+        nameCtrl.text = 'Raw Water Feed';
+        codeCtrl.text = 'RM-WAT-RAW';
+      }
+    }
+
+    applyDefaults(category, bottleSize, jarSize);
+
     showDialog(
       context: context,
       builder: (dlgCtx) => StatefulBuilder(
@@ -3168,6 +3220,82 @@ class _CentralPlantInventoryScreenState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Category dropdown
+                  DropdownButtonFormField<String>(
+                    value: category,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Material Category *'),
+                    items: const [
+                      DropdownMenuItem(value: 'bottle', child: Text('Bottles (Pet Bottles)', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'jar', child: Text('Jar (Water Jar)', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'preform', child: Text('Bottle Preform', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'cap', child: Text('Cap / Closure', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'label', child: Text('Label / Sticker', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'packaging', child: Text('Box / Carton / Packaging', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'chemical', child: Text('Chemical / Minerals', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'raw_water', child: Text('Raw Water', overflow: TextOverflow.ellipsis)),
+                    ],
+                    onChanged: (val) {
+                      if (val == null) return;
+                      final allowed = _uomForCategory(val);
+                      setDlgState(() {
+                        category = val;
+                        if (!allowed.contains(uom)) uom = allowed.first;
+                        applyDefaults(category, bottleSize, jarSize);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Dedicated Bottle Size dropdown when Category is 'bottle'
+                  if (category == 'bottle') ...[
+                    DropdownButtonFormField<String>(
+                      value: bottleSize,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Bottle Size / Variant *',
+                        prefixIcon: Icon(Icons.water_drop_outlined, size: 20, color: Color(0xFF0284C7)),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: '200ml', child: Text('200 ML Bottle')),
+                        DropdownMenuItem(value: '250ml', child: Text('250 ML Bottle')),
+                        DropdownMenuItem(value: '500ml', child: Text('500 ML Bottle')),
+                        DropdownMenuItem(value: '1L', child: Text('1 Litre Bottle')),
+                      ],
+                      onChanged: (val) {
+                        if (val == null) return;
+                        setDlgState(() {
+                          bottleSize = val;
+                          applyDefaults(category, bottleSize, jarSize);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+
+                  // Dedicated Jar Size dropdown when Category is 'jar'
+                  if (category == 'jar') ...[
+                    DropdownButtonFormField<String>(
+                      value: jarSize,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Jar Size / Variant *',
+                        prefixIcon: Icon(Icons.inventory_2_outlined, size: 20, color: Color(0xFF0284C7)),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: '20L', child: Text('20 Litre Jar (20000 ML)')),
+                      ],
+                      onChanged: (val) {
+                        if (val == null) return;
+                        setDlgState(() {
+                          jarSize = val;
+                          applyDefaults(category, bottleSize, jarSize);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+
                   TextField(
                     controller: nameCtrl,
                     decoration: const InputDecoration(
@@ -3178,34 +3306,11 @@ class _CentralPlantInventoryScreenState
                   TextField(
                     controller: codeCtrl,
                     decoration: const InputDecoration(
-                      labelText: 'Material Code (e.g. RM-PRF-20G) *',
+                      labelText: 'Material Code (e.g. RM-BOT-500ML) *',
                     ),
                   ),
                   const SizedBox(height: 10),
-                  // Category dropdown
-                  DropdownButtonFormField<String>(
-                    value: category,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: const [
-                      DropdownMenuItem(value: 'bottle',    child: Text('Bottle / Finished Bottle', overflow: TextOverflow.ellipsis)),
-                      DropdownMenuItem(value: 'preform',   child: Text('Bottle Preform',           overflow: TextOverflow.ellipsis)),
-                      DropdownMenuItem(value: 'cap',       child: Text('Cap / Closure',            overflow: TextOverflow.ellipsis)),
-                      DropdownMenuItem(value: 'label',     child: Text('Label / Sticker',          overflow: TextOverflow.ellipsis)),
-                      DropdownMenuItem(value: 'packaging', child: Text('Box / Carton / Packaging', overflow: TextOverflow.ellipsis)),
-                      DropdownMenuItem(value: 'chemical',  child: Text('Chemical / Minerals',      overflow: TextOverflow.ellipsis)),
-                      DropdownMenuItem(value: 'raw_water', child: Text('Raw Water',                overflow: TextOverflow.ellipsis)),
-                    ],
-                    onChanged: (val) {
-                      if (val == null) return;
-                      final allowed = _uomForCategory(val);
-                      setDlgState(() {
-                        category = val;
-                        // reset uom to first valid option for this category
-                        if (!allowed.contains(uom)) uom = allowed.first;
-                      });
-                    },
-                  ),
+
                   // Unit of Measure — smart filtered by category
                   Builder(
                     builder: (ctx) {

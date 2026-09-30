@@ -127,11 +127,15 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen> {
         startDate: _startDate,
         endDate: _endDate,
       );
-      if (res['success'] == true && res['data'] is List) {
-        _reports = List<Map<String, dynamic>>.from(res['data']);
-      } else {
-        _reports = [];
+      List rawList = [];
+      if (res['data'] is List) {
+        rawList = res['data'] as List;
+      } else if (res['reports'] is List) {
+        rawList = res['reports'] as List;
+      } else if (res['data'] is Map && res['data']['reports'] is List) {
+        rawList = res['data']['reports'] as List;
       }
+      _reports = rawList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } catch (e) {
       _error = 'Failed to load daily business reports: $e';
     }

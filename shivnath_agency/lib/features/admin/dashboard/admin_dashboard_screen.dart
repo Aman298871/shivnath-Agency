@@ -222,25 +222,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Map<String, dynamic>? newestReq;
           for (final r in reqList) {
             if (r is Map) {
+              final status = (r['status'] ?? '').toString().toUpperCase();
+              final isPending = status == 'REQUESTED' || status == 'PENDING' || status == 'SUBMITTED';
               final id = r['id'] is int ? r['id'] as int : int.tryParse('${r['id']}') ?? 0;
-              if (id > maxReqId) {
+              if (isPending && id > maxReqId && !_dismissedRequestIds.contains(id)) {
                 maxReqId = id;
                 newestReq = Map<String, dynamic>.from(r);
               }
             }
           }
 
-          if (_lastSeenStockReqId == 0) {
-            _lastSeenStockReqId = maxReqId;
-          } else if (maxReqId > _lastSeenStockReqId && newestReq != null) {
+          if (newestReq != null && maxReqId > 0 && maxReqId != _lastSeenStockReqId) {
             _lastSeenStockReqId = maxReqId;
             if (mounted) {
-              final reqProd = newestReq['product_name'] ?? newestReq['product_sku'] ?? 'Products';
+              final reqProd = newestReq['product_name'] ?? newestReq['product_sku'] ?? 'Water Bottles';
               final reqQty = newestReq['requested_quantity'] ?? 0;
+              final party = newestReq['dealer_name'] ?? newestReq['franchise_name'] ?? 'Franchise Partner';
               _showLiveOrderAlertDialog(
                 type: 'Franchise Stock Request',
-                code: newestReq['request_number']?.toString() ?? 'REQ-$maxReqId',
-                partyName: newestReq['dealer_name'] ?? newestReq['franchise_name'] ?? 'Franchise Partner',
+                code: newestReq['request_number']?.toString() ?? 'SR-$maxReqId',
+                partyName: party,
                 details: '$reqProd ($reqQty Units Requested)',
                 amountOrQty: '$reqQty Units',
                 time: newestReq['created_at']?.toString() ?? '',
@@ -664,15 +665,60 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         } else if (reqRes['requests'] is List) {
           rawList = reqRes['requests'] as List;
         }
-        final pending = rawList.where((r) {
+
+        // Include REQUESTED and all active pending statuses
+        final activeRequests = rawList.where((r) {
           if (r is! Map) return false;
           final status = (r['status'] ?? '').toString().toUpperCase();
           final id = r['id'] is int ? r['id'] as int : int.tryParse('${r['id']}') ?? 0;
-          return (status == 'PENDING' || status == 'SUBMITTED' || status == 'PENDING_APPROVAL' || status == 'PARTIALLY_FULFILLED') && !_dismissedRequestIds.contains(id);
+          final isPending = status == 'REQUESTED' ||
+              status == 'PENDING' ||
+              status == 'SUBMITTED' ||
+              status == 'PENDING_APPROVAL' ||
+              status == 'APPROVED' ||
+              status == 'PREPARED' ||
+              status == 'PARTIALLY_FULFILLED';
+          return isPending && !_dismissedRequestIds.contains(id);
         }).map((r) => Map<String, dynamic>.from(r as Map)).toList();
 
+        // Group by request_number or (dealer + created_at) so multi-item requests appear as one card
+        final Map<String, Map<String, dynamic>> grouped = {};
+        for (final req in activeRequests) {
+          final reqNum = req['request_number']?.toString().trim();
+          final dealerName = (req['dealer_name'] ?? req['franchise_name'] ?? 'Franchise Partner').toString();
+          final createdAt = req['created_at']?.toString() ?? '';
+          final timeKey = createdAt.length >= 16 ? createdAt.substring(0, 16) : createdAt;
+          final groupKey = (reqNum != null && reqNum.isNotEmpty) ? reqNum : '${dealerName}_$timeKey';
+
+          final prodName = req['product_name'] ?? req['product_sku'] ?? 'Water Bottle';
+          final qty = req['requested_quantity'] ?? req['quantity'] ?? 0;
+          final reqId = req['id'] is int ? req['id'] as int : int.tryParse('${req['id']}') ?? 0;
+
+          if (!grouped.containsKey(groupKey)) {
+            grouped[groupKey] = {
+              'primary_id': reqId,
+              'all_ids': <int>[reqId],
+              'request_number': reqNum?.isNotEmpty == true ? reqNum : 'SR-$reqId',
+              'dealer_name': dealerName,
+              'status': req['status'] ?? 'REQUESTED',
+              'created_at': createdAt,
+              'items': [
+                {'product_name': prodName, 'quantity': qty, 'sku': req['product_sku'] ?? ''}
+              ],
+              'raw_request': req,
+            };
+          } else {
+            (grouped[groupKey]!['all_ids'] as List<int>).add(reqId);
+            (grouped[groupKey]!['items'] as List).add({
+              'product_name': prodName,
+              'quantity': qty,
+              'sku': req['product_sku'] ?? '',
+            });
+          }
+        }
+
         setState(() {
-          _pendingStockRequests = pending;
+          _pendingStockRequests = grouped.values.toList();
         });
       }
 
@@ -730,30 +776,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Stock Requests
-        ..._pendingStockRequests.map((req) {
-          final reqId = req['id'] is int ? req['id'] as int : int.tryParse('${req['id']}') ?? 0;
-          final dealerName = req['dealer_name'] ?? req['franchise_name'] ?? 'Franchise Partner';
-          final prodName = req['product_name'] ?? req['product_sku'] ?? 'Products';
-          final reqQty = req['requested_quantity'] ?? req['quantity'] ?? 0;
-          final reqAt = req['created_at'] != null ? req['created_at'].toString().split('T').first : '';
-          final status = (req['status'] ?? 'PENDING REVIEW').toString().replaceAll('_', ' ').toUpperCase();
+        // 1. Grouped Stock Requests
+        ..._pendingStockRequests.map((group) {
+          final primaryId = group['primary_id'] is int ? group['primary_id'] as int : int.tryParse('${group['primary_id']}') ?? 0;
+          final allIds = (group['all_ids'] as List?)?.cast<int>() ?? [primaryId];
+          final dealerName = group['dealer_name']?.toString() ?? 'Franchise Partner';
+          final reqNum = group['request_number']?.toString() ?? 'SR-$primaryId';
+          final rawAt = group['created_at']?.toString() ?? '';
+          String formattedDate = '';
+          if (rawAt.isNotEmpty) {
+            try {
+              final parsed = DateTime.parse(rawAt).toLocal();
+              formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(parsed);
+            } catch (_) {
+              formattedDate = rawAt.split('T').first;
+            }
+          }
+          final statusRaw = (group['status'] ?? 'REQUESTED').toString().toUpperCase();
+          final statusDisplay = statusRaw == 'REQUESTED' ? 'Pending Review' : statusRaw.replaceAll('_', ' ');
+          final items = (group['items'] as List?) ?? [];
+          final rawReq = group['raw_request'] as Map<String, dynamic>? ?? {};
 
           return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFFFAF5FF), Colors.white],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFDDD6FE), width: 1.5),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFC4B5FD), width: 1.5),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF7C3AED).withValues(alpha: 0.06),
-                  blurRadius: 10,
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                  blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
               ],
@@ -761,6 +819,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header badge row
                 Row(
                   children: [
                     Container(
@@ -772,14 +831,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.storefront_rounded, color: Colors.white, size: 14),
+                          Icon(Icons.notifications_active_rounded, color: Colors.white, size: 14),
                           SizedBox(width: 5),
                           Text(
-                            'NEW STOCK REQUEST',
+                            'NEW FRANCHISE STOCK REQUEST',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -792,9 +851,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFFEF3C7),
                         borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
                       ),
                       child: Text(
-                        status,
+                        statusDisplay,
                         style: const TextStyle(
                           color: Color(0xFFB45309),
                           fontSize: 11,
@@ -803,75 +863,134 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ),
                     const Spacer(),
-                    if (reqAt.isNotEmpty)
-                      Text(
-                        'Requested: $reqAt',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    if (reqNum.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          reqNum,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+                // Franchise Name
+                const Text(
+                  'Franchise:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
                 Text(
-                  '$dealerName has requested:',
+                  dealerName,
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
                     color: Color(0xFF1E1B4B),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '• $prodName — $reqQty units',
-                  style: const TextStyle(
-                    fontSize: 14,
+                const SizedBox(height: 10),
+                // Requested Stock
+                const Text(
+                  'Requested Stock:',
+                  style: TextStyle(
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6D28D9),
+                    color: Color(0xFF64748B),
                   ),
                 ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
-                  children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF7C3AED),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                      label: const Text(
-                        'VIEW REQUEST',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
-                      ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => DealerStockRequestFulfillmentScreen(
-                              requestId: reqId,
-                              initialRequest: req,
-                            ),
+                const SizedBox(height: 4),
+                ...items.map((it) {
+                  final pName = it['product_name'] ?? 'Water Bottle';
+                  final qty = it['quantity'] ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF7C3AED)),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$pName — $qty units',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF6D28D9),
                           ),
-                        ).then((_) {
-                          _loadActionableAlerts();
-                          _loadDashboardData();
-                        });
-                      },
+                        ),
+                      ],
                     ),
-                    OutlinedButton.icon(
+                  );
+                }),
+                if (formattedDate.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(Icons.schedule_rounded, size: 13, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Requested: $formattedDate',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7C3AED),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 1,
+                        ),
+                        icon: const Icon(Icons.open_in_new_rounded, size: 17),
+                        label: const Text(
+                          'VIEW REQUEST',
+                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DealerStockRequestFulfillmentScreen(
+                                requestId: primaryId,
+                                initialRequest: rawReq,
+                              ),
+                            ),
+                          ).then((_) {
+                            _loadActionableAlerts();
+                            _loadDashboardData();
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF64748B),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
-                      icon: const Icon(Icons.close, size: 16),
-                      label: const Text('DISMISS', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                      child: const Text('DISMISS', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
                       onPressed: () {
                         setState(() {
-                          _dismissedRequestIds.add(reqId);
-                          _pendingStockRequests.removeWhere((r) => r['id'] == reqId);
+                          _dismissedRequestIds.addAll(allIds);
+                          _pendingStockRequests.removeWhere((r) => r['primary_id'] == primaryId);
                         });
                       },
                     ),

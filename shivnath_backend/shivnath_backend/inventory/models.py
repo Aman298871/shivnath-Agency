@@ -15,6 +15,7 @@ class RawMaterial(models.Model):
     CATEGORY_CHOICES = [
         ('raw_water', 'Raw Water'),
         ('bottle', 'Bottle / Finished Bottle'),
+        ('jar', 'Jar / Water Jar'),
         ('preform', 'Bottle Preform'),
         ('cap', 'Cap / Closure'),
         ('label', 'Label / Sticker'),

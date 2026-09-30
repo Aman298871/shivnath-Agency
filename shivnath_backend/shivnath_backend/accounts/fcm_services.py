@@ -291,3 +291,126 @@ def notify_stock_request_created(stock_req):
         reference_id=stock_req.id
     )
 
+
+def _get_all_admins():
+    User = get_user_model()
+    admin_users = list(User.objects.filter(is_superuser=True))
+    staff_admins = list(User.objects.filter(is_staff=True).exclude(is_superuser=True))
+    role_admins = list(User.objects.filter(profile__role__in=['admin', 'super_admin']).exclude(is_superuser=True))
+    return list(set(admin_users + staff_admins + role_admins))
+
+
+def notify_customer_registered(customer_user, rel=None):
+    """
+    Triggered when a new customer registers via App/Web.
+    Notifies Super Admin, Admins, and assigned Franchise.
+    """
+    all_admins = _get_all_admins()
+    cust_name = customer_user.get_full_name() or customer_user.username
+    phone = getattr(getattr(customer_user, 'profile', None), 'phone', '')
+    reg_f_name = rel.registered_franchise.business_name if rel and rel.registered_franchise else 'Direct'
+
+    title = f"New Customer Registered: {cust_name}"
+    body = f"Customer {cust_name} ({phone}) registered in {rel.zone.name if rel and rel.zone else 'Pure Water'}. Assigned to {reg_f_name}."
+
+    # Send to all Admins
+    send_fcm_notification(
+        users=all_admins,
+        title=title,
+        body=body,
+        data={
+            'customer_id': customer_user.id,
+            'screen': 'admin_users',
+            'role': 'customer',
+        },
+        notification_type='customer_registration',
+        reference_id=customer_user.id,
+    )
+
+    # Send to assigned Franchise
+    if rel and rel.registered_franchise and rel.registered_franchise.user:
+        send_fcm_notification(
+            users=[rel.registered_franchise.user],
+            title="New Customer Registered in Your Area",
+            body=f"{cust_name} ({phone}) registered and assigned to your franchise territory.",
+            data={'customer_id': customer_user.id, 'screen': 'franchise_customers'},
+            notification_type='new_customer',
+            reference_id=customer_user.id,
+        )
+
+
+def notify_lead_created(lead, is_update=False):
+    """
+    Triggered when a new Lead or Public Chatbot Inquiry is captured.
+    Notifies Super Admin, Admins, and assigned Franchise.
+    """
+    all_admins = _get_all_admins()
+    src_label = "Public Chatbot" if lead.source == 'PUBLIC_CHATBOT' else lead.source
+    action_label = "Updated" if is_update else "New Inbound"
+
+    title = f"{action_label} Lead ({src_label}): {lead.name}"
+    body = f"{lead.name} ({lead.phone}) inquired from {lead.district or lead.city}. Status: {lead.get_status_display()} ({lead.score.upper()})."
+
+    # Send to Admins
+    send_fcm_notification(
+        users=all_admins,
+        title=title,
+        body=body,
+        data={
+            'lead_id': lead.id,
+            'screen': 'admin_leads',
+            'source': lead.source,
+        },
+        notification_type='lead_alert',
+        reference_id=lead.id,
+    )
+
+    # Send to matched Franchise if assigned
+    if lead.assigned_franchise and lead.assigned_franchise.user:
+        send_fcm_notification(
+            users=[lead.assigned_franchise.user],
+            title=f"New Lead Assigned: {lead.name}",
+            body=f"Inquiry from {lead.name} ({lead.phone}) in your territory ({lead.territory or lead.city}).",
+            data={'lead_id': lead.id, 'screen': 'franchise_leads'},
+            notification_type='lead_alert',
+            reference_id=lead.id,
+        )
+
+
+def notify_stock_request_status_update(stock_req, new_status, actor_name=''):
+    """
+    Triggered when Stock Request is Approved, Dispatched, or Delivered.
+    Notifies the Franchise dealer.
+    """
+    if not stock_req.dealer or not stock_req.dealer.user:
+        return
+
+    status_titles = {
+        'APPROVED': 'Stock Request Approved! ✅',
+        'DISPATCHED': 'Stock Dispatched from Central Plant! 🚚',
+        'RECEIVED': 'Stock Delivery Confirmed! 📦',
+        'REJECTED': 'Stock Request Declined',
+    }
+    title = status_titles.get(new_status.upper(), f"Stock Request #{stock_req.request_number} Update")
+    by_text = f" by {actor_name}" if actor_name else ""
+    body = f"Your request for {stock_req.requested_quantity}x {stock_req.product.sku if stock_req.product else 'Stock'} is now {new_status}{by_text}."
+
+    send_fcm_notification(
+        users=[stock_req.dealer.user],
+        title=title,
+        body=body,
+        data={
+            'stock_request_id': stock_req.id,
+            'request_number': stock_req.request_number,
+            'status': new_status,
+            'screen': 'franchise_stock_requests',
+        },
+        notification_type='stock_alert',
+        reference_id=stock_req.id,
+    )
+
+
+notify_stock_request_status = notify_stock_request_status_update
+
+
+

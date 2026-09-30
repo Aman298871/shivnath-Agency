@@ -1371,14 +1371,20 @@ class AdminUserListView(APIView):
 
         if search:
             from django.db.models import Q
-            users = users.filter(
+            search_q = (
                 Q(username__icontains=search) |
                 Q(email__icontains=search) |
                 Q(first_name__icontains=search) |
                 Q(last_name__icontains=search) |
+                Q(profile__name__icontains=search) |
                 Q(profile__phone__icontains=search) |
+                Q(profile__city__icontains=search) |
+                Q(profile__district__icontains=search) |
                 Q(franchise_profile__business_name__icontains=search)
             )
+            if search.isdigit():
+                search_q |= Q(id=int(search))
+            users = users.filter(search_q)
 
         results = []
         from orders.models import Order
@@ -1467,6 +1473,9 @@ class AdminUserListView(APIView):
                     tot_paid = sum((o.grand_total or o.amount or Decimal('0.00')) for o in cust_orders.filter(payment_status='paid'))
                     tot_out = max(Decimal('0.00'), tot_rev - tot_paid)
 
+                item['total_revenue'] = float(tot_rev)
+                item['total_orders'] = tot_orders
+                item['source'] = 'Customer App / Portal'
                 item['financial_summary'] = {
                     'total_orders': tot_orders,
                     'completed_orders': comp_orders,

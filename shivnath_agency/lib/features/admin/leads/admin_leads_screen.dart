@@ -43,10 +43,17 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
 
       final score = (lead['score'] ?? '').toString();
 
+      final email = (lead['email'] ?? '').toString().toLowerCase();
+      final source = (lead['source'] ?? '').toString().toLowerCase();
+      final notes = (lead['notes'] ?? '').toString().toLowerCase();
+
       final matchesSearch =
           search.isEmpty ||
           name.contains(search) ||
           phone.contains(search) ||
+          email.contains(search) ||
+          source.contains(search) ||
+          notes.contains(search) ||
           city.contains(search);
 
       final matchesStatus = selectedStatus == 'All' || status == selectedStatus;
@@ -726,14 +733,20 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              Text(
-                                '${lead['phone']}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
-                                ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${lead['phone']}${((lead['email'] ?? '').toString().isNotEmpty) ? ' • ${lead['email']}' : ''}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -742,29 +755,86 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 13),
-
-                    Text(
-                      '${lead['city']}, ${lead['district']}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-
-                    const SizedBox(height: 5),
-
-                    Text(
-                      'Budget: ₹${lead['budget']}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-
                     const SizedBox(height: 10),
+
+                    // Source and Territory Row
+                    Row(
+                      children: [
+                        if ((lead['source'] ?? '').toString().isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: (lead['source'] == 'PUBLIC_CHATBOT' || (lead['source'] ?? '').toString().contains('CHATBOT'))
+                                  ? const Color(0xFFEDE9FE)
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: (lead['source'] == 'PUBLIC_CHATBOT' || (lead['source'] ?? '').toString().contains('CHATBOT'))
+                                    ? const Color(0xFF8B5CF6)
+                                    : const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  (lead['source'] == 'PUBLIC_CHATBOT' || (lead['source'] ?? '').toString().contains('CHATBOT'))
+                                      ? Icons.smart_toy_outlined
+                                      : Icons.campaign_outlined,
+                                  size: 11,
+                                  color: (lead['source'] == 'PUBLIC_CHATBOT' || (lead['source'] ?? '').toString().contains('CHATBOT'))
+                                      ? const Color(0xFF6D28D9)
+                                      : const Color(0xFF475569),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  lead['source'] == 'PUBLIC_CHATBOT' ? 'PUBLIC CHATBOT' : '${lead['source']}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: (lead['source'] == 'PUBLIC_CHATBOT' || (lead['source'] ?? '').toString().contains('CHATBOT'))
+                                        ? const Color(0xFF6D28D9)
+                                        : const Color(0xFF475569),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Expanded(
+                          child: Text(
+                            '${lead['city']}, ${lead['district']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    if ((lead['notes'] ?? '').toString().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Inquiry: ${(lead['notes'] ?? '').toString().split('\n').first}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF334155), fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 6),
 
                     Wrap(
                       spacing: 8,
-                      runSpacing: 8,
+                      runSpacing: 6,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         _statusBadge('${lead['status']}'),
@@ -775,6 +845,14 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                             color: Color(0xFF64748B),
                           ),
                         ),
+                        if ((lead['created_at'] ?? '').toString().isNotEmpty)
+                          Text(
+                            'Created: ${lead['created_at'].toString().split('T').first}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
                       ],
                     ),
 
@@ -3037,6 +3115,9 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
 
   Widget _detailGrid(Map<String, dynamic> lead) {
     final details = [
+      ['Source', (lead['source'] == 'PUBLIC_CHATBOT' ? '🤖 PUBLIC CHATBOT' : '${lead['source'] ?? '-'}')],
+      ['Email', '${lead['email'] ?? '-'}'],
+      ['Inquiry Notes / Intent', '${lead['notes'] ?? '-'}'],
       ['City', '${lead['city'] ?? '-'}'],
       ['District', '${lead['district'] ?? '-'}'],
       ['Investment', '₹${lead['budget'] ?? '-'}'],
@@ -3046,6 +3127,7 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
       ['Preferred Location', '${lead['location'] ?? '-'}'],
       ['Executive', '${lead['executive'] ?? '-'}'],
       ['Status', '${lead['status'] ?? '-'}'],
+      ['Created At', '${lead['created_at'] ?? '-'}'],
       ['Next Follow-up', '${lead['followup'] ?? '-'}'],
       ['Site Visit Planned', lead['site_visit_planned'] == true ? 'Yes' : 'No'],
       [

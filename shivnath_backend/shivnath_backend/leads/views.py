@@ -317,6 +317,8 @@ class PublicLeadCaptureView(APIView):
                     notification_type='general',
                     reference_id=existing_lead.id,
                 )
+                from accounts.fcm_services import notify_lead_created
+                notify_lead_created(existing_lead, is_update=True)
             except Exception:
                 pass
 
@@ -397,6 +399,8 @@ class PublicLeadCaptureView(APIView):
                 notification_type='general',
                 reference_id=new_lead.id,
             )
+            from accounts.fcm_services import notify_lead_created
+            notify_lead_created(new_lead, is_update=False)
         except Exception:
             pass
 

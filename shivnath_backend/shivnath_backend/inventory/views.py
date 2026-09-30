@@ -1339,7 +1339,10 @@ class DailyBusinessReportAPIView(views.APIView):
         start_date = None
         end_date = None
 
-        if period == 'today':
+        if period in ['all', 'all_time', 'lifetime']:
+            start_date = date(2020, 1, 1)
+            end_date = today + timedelta(days=365)
+        elif period == 'today':
             start_date = today
             end_date = today
         elif period == 'yesterday':
@@ -1460,11 +1463,11 @@ class DailyBusinessReportAPIView(views.APIView):
             report_date__lte=end_date
         ).order_by('-report_date')
 
-        reports_data = DailyBusinessReportSerializer(reports_qs, many=True).data
+        reports_data = list(DailyBusinessReportSerializer(reports_qs, many=True).data)
 
         # 3. REVENUE RECOGNITION = DELIVERED ONLY (Authoritative Business Rule)
         from billing.models import PaymentTransaction
-        from inventory.models import CentralPlantStock, DealerStockBatch, Expense, DealerStockRequestAllocation
+        from inventory.models import ProductionBatch, DealerStockBatch, Expense, DealerStockRequestAllocation, InventoryTransactionLedger
         from django.db.models import Q
 
         # Operational status counts in date range
@@ -1554,7 +1557,7 @@ class DailyBusinessReportAPIView(views.APIView):
             issued_at__date__gte=start_date,
             issued_at__date__lte=end_date
         )
-        total_outstanding = invoices_qs.aggregate(s=Sum('outstanding_balance'))['s'] or Decimal('0.00')
+        total_outstanding = invoices_qs.aggregate(s=Sum(F('grand_total') - F('amount_paid')))['s'] or Decimal('0.00')
 
         # Production in date range
         prod_batches = ProductionBatch.objects.filter(
@@ -1564,8 +1567,8 @@ class DailyBusinessReportAPIView(views.APIView):
         prod_units = prod_batches.aggregate(u=Sum('quantity_produced_units'))['u'] or 0
         prod_cost = prod_batches.aggregate(c=Sum(F('quantity_produced_units') * F('unit_production_cost')))['c'] or Decimal('0.00')
 
-        central_stock = CentralPlantStock.objects.aggregate(s=Sum('finished_goods_stock'))['s'] or 0
-        franchise_stock = DealerStockBatch.objects.filter(is_active=True).aggregate(s=Sum('available_quantity'))['s'] or 0
+        central_stock = ProductionBatch.objects.filter(status='ACTIVE').aggregate(s=Sum('quantity_remaining_company'))['s'] or 0
+        franchise_stock = DealerStockBatch.objects.filter(is_active=True).aggregate(s=Sum('remaining_quantity'))['s'] or 0
 
         # Monthly chart data derived from delivered orders & dealer invoices
         monthly_map = {}
@@ -1650,6 +1653,67 @@ class DailyBusinessReportAPIView(views.APIView):
             'converted_leads_count': leads_qs.filter(status__in=['CONVERTED', 'FRANCHISE_CONFIRMED', 'converted', 'franchise_confirmed']).count(),
             'followups_count': followups_count,
         }
+
+        # ─────────────────────────────────────────────────────────────────────
+        # SYNTHETIC REPORT INJECTION
+        # If no stored DailyBusinessReport rows exist for this period but the
+        # live-computed summary has meaningful data, build a synthetic row so
+        # the Flutter UI is never blank when real transactions exist.
+        # ─────────────────────────────────────────────────────────────────────
+        if not reports_data and (
+            agg_gross > 0
+            or total_orders_count > 0
+            or stock_requests_qs.count() > 0
+            or leads_qs.count() > 0
+            or prod_units > 0
+        ):
+            label = f"{start_date} to {end_date}" if start_date != end_date else str(start_date)
+            synthetic_entry = {
+                'id': None,
+                'report_date': str(start_date),
+                'report_period_label': label,
+                # Revenue & P&L
+                'gross_revenue': float(agg_gross),
+                'total_revenue': float(agg_gross),
+                'direct_company_revenue': float(direct_rev),
+                'franchise_revenue': float(dealer_rev),
+                'cogs': float(agg_cogs),
+                'gross_profit': float(gross_profit),
+                'total_operating_expenses': float(total_exp),
+                'net_profit_or_loss': float(agg_net),
+                # Collections
+                'total_collected': float(total_collected),
+                'cash_collected': float(cash_collected),
+                'online_collected': float(online_collected),
+                'pending_verification_amount': float(pending_verif_amt),
+                'outstanding_receivables': float(total_outstanding),
+                # Operations
+                'total_units_produced': int(prod_units),
+                'total_units_dispatched': int(dispatch_units),
+                'central_stock_units': int(central_stock),
+                'franchise_stock_units': int(franchise_stock),
+                # Orders
+                'total_orders': total_orders_count,
+                'orders_placed': orders_placed_count,
+                'orders_approved': orders_approved_count,
+                'orders_preparing': orders_preparing_count,
+                'orders_dispatched': orders_dispatched_count,
+                'orders_delivered': orders_delivered_count,
+                'orders_cancelled': orders_cancelled_count,
+                # CRM
+                'franchise_requests_count': stock_requests_qs.count(),
+                'new_leads_count': leads_qs.count(),
+                'converted_leads_count': leads_qs.filter(
+                    status__in=['CONVERTED', 'FRANCHISE_CONFIRMED', 'converted', 'franchise_confirmed']
+                ).count(),
+                # Products
+                'quantity_sold': summary_data['quantity_sold'],
+                'product_wise': product_wise_list,
+                # Meta
+                'is_synthetic': True,
+                'is_finalized': False,
+            }
+            reports_data = [synthetic_entry]
 
         return Response({
             'success': True,

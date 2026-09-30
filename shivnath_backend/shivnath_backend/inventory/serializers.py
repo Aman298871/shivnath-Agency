@@ -504,6 +504,49 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
 
 class DailyBusinessReportSerializer(serializers.ModelSerializer):
+    # ── Flutter-compatible aliases ───────────────────────────────────────────
+    # The model uses verbose field names (total_gross_revenue_inr etc.) but
+    # the Flutter screen and synthetic report entries expect the short names.
+    gross_revenue = serializers.SerializerMethodField()
+    cogs = serializers.SerializerMethodField()
+    total_operating_expenses = serializers.SerializerMethodField()
+    net_profit_or_loss = serializers.SerializerMethodField()
+    total_units_produced = serializers.SerializerMethodField()
+    total_units_dispatched = serializers.SerializerMethodField()
+    direct_company_revenue = serializers.SerializerMethodField()
+    franchise_revenue = serializers.SerializerMethodField()
+    gross_profit = serializers.SerializerMethodField()
+
     class Meta:
         model = DailyBusinessReport
-        fields = '__all__'
+        fields = '__all__'
+
+    def get_gross_revenue(self, obj):
+        return float(obj.total_gross_revenue_inr or 0)
+
+    def get_cogs(self, obj):
+        return float(obj.total_cogs_inr or 0)
+
+    def get_total_operating_expenses(self, obj):
+        return float(obj.total_expenses_inr or 0)
+
+    def get_net_profit_or_loss(self, obj):
+        return float(obj.net_profit_inr or 0)
+
+    def get_total_units_produced(self, obj):
+        return int(obj.total_production_volume_units or 0)
+
+    def get_total_units_dispatched(self, obj):
+        return int(obj.total_dealer_dispatch_units or 0)
+
+    def get_direct_company_revenue(self, obj):
+        return float(obj.total_direct_company_revenue_inr or 0)
+
+    def get_franchise_revenue(self, obj):
+        return float(obj.total_dealer_sales_revenue_inr or 0)
+
+    def get_gross_profit(self, obj):
+        gross = float(obj.total_gross_revenue_inr or 0)
+        cogs = float(obj.total_cogs_inr or 0)
+        return round(gross - cogs, 2)
+

@@ -230,7 +230,8 @@ def send_customer_registration_notifications(customer_user, rel):
     2. Admin
     """
     cust_name = customer_user.get_full_name() or customer_user.username
-    phone = getattr(getattr(customer_user, 'profile', None), 'phone', '')
+    from accounts.models import UserProfile
+    phone = getattr(getattr(customer_user, 'profile', None), 'phone', '') or (UserProfile.objects.filter(user=customer_user).values_list('phone', flat=True).first() or '')
     email = customer_user.email
     district_name = rel.district.name if rel.district else 'N/A'
     zone_name = rel.zone.name if rel.zone else 'N/A'
@@ -272,6 +273,13 @@ def send_customer_registration_notifications(customer_user, rel):
         notification_type='customer_registration',
         reference_id=customer_user.id,
     )
+
+    try:
+        from accounts.fcm_services import notify_customer_registered
+        notify_customer_registered(customer_user, rel)
+    except Exception as e:
+        logger.warning("FCM: Customer registration push notification error: %s", e)
+
 
 
 def send_order_placed_notifications(order, stock_cycle=None):

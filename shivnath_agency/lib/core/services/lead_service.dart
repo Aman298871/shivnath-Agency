@@ -515,6 +515,21 @@ class LeadService {
         item['next_followup'],
       ),
 
+      'email':
+          item['email']?.toString() ?? '',
+
+      'created_at':
+          item['created_at']?.toString() ?? '',
+
+      'updated_at':
+          item['updated_at']?.toString() ?? '',
+
+      'score_category':
+          item['score_category']?.toString() ?? item['score']?.toString() ?? '',
+
+      'lead_score_number':
+          item['lead_score_number'] ?? 0,
+
       'source':
           item['source']?.toString() ?? '',
 

@@ -1275,11 +1275,19 @@ class _DealerStockRequestFulfillmentScreenState
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
             ),
             onPressed: () {
+              final reqSum = _fulfillmentData?['request_summary'] as Map<String, dynamic>?;
+              final pSku = reqSum?['product_sku']?.toString();
+              final pId = reqSum?['product_id'] is int
+                  ? reqSum!['product_id'] as int
+                  : int.tryParse(reqSum?['product_id']?.toString() ?? '');
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const CentralPlantInventoryScreen(
+                  builder: (_) => CentralPlantInventoryScreen(
                     initialTab: 0,
+                    preselectedProductSku: pSku,
+                    preselectedProductId: pId,
+                    openManufactureDialogOnLoad: true,
                   ),
                 ),
               );

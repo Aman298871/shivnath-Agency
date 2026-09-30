@@ -62,9 +62,31 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
     });
 
     try {
-      // 1. Load products
-      await ProductService().getProducts();
-      _products = ProductService.products;
+      // 1. Load active products
+      await ProductService().getProducts(activeOnly: true, status: 'Active');
+      final activeList = ProductService.products.where((p) => p.status.toLowerCase() == 'active').toList();
+      const officialSkus = {'SHV-200', 'SHV-250', 'SHV-500', 'SHV-1L', 'SHV-20L'};
+      final Map<String, ProductModel> uniqueMap = {};
+      for (final p in activeList) {
+        final sku = p.sku.toUpperCase();
+        if (officialSkus.contains(sku) && !uniqueMap.containsKey(sku)) {
+          uniqueMap[sku] = p;
+        }
+      }
+      final List<ProductModel> filteredList = uniqueMap.values.toList();
+      const skuRank = {
+        'SHV-200': 1,
+        'SHV-250': 2,
+        'SHV-500': 3,
+        'SHV-1L': 4,
+        'SHV-20L': 5,
+      };
+      filteredList.sort((a, b) {
+        final rA = skuRank[a.sku.toUpperCase()] ?? 99;
+        final rB = skuRank[b.sku.toUpperCase()] ?? 99;
+        return rA.compareTo(rB);
+      });
+      _products = filteredList.isNotEmpty ? filteredList : activeList;
 
       // 2. Load raw materials
       final rmRes = await _invService.getRawMaterials();
@@ -334,14 +356,27 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                 border: OutlineInputBorder(),
               ),
               items: _products.map((p) {
+                final skuUpper = p.sku.trim().toUpperCase();
+                const canonicalSizes = {
+                  'SHV-200': '200 ML',
+                  'SHV-250': '250 ML',
+                  'SHV-500': '500 ML',
+                  'SHV-1L': '1 Litre',
+                  'SHV-20L': '20 Litre Jar',
+                };
+                final displayTitle = canonicalSizes.containsKey(skuUpper)
+                    ? '${canonicalSizes[skuUpper]} — ${p.sku.trim()}'
+                    : (p.size.isNotEmpty && p.sku.isNotEmpty
+                        ? '${p.size} — ${p.sku}'
+                        : (p.sku.isNotEmpty ? '${p.name} — ${p.sku}' : '${p.name} (${p.size})'));
                 return DropdownMenuItem<ProductModel>(
                   value: p,
                   child: Text(
-                    '${p.name} (${p.category})',
+                    displayTitle,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     style: const TextStyle(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       fontSize: 13,
                     ),
                   ),

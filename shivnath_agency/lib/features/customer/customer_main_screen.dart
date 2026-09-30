@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/services/session_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
 
@@ -27,6 +28,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   void initState() {
     super.initState();
     _loadCurrentUser();
+    NotificationService().registerDeviceTokenWithBackend();
   }
 
   Future<void> _loadCurrentUser() async {

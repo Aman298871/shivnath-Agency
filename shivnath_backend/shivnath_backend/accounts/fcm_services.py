@@ -28,6 +28,9 @@ def _init_firebase():
             os.path.join(base_dir, 'serviceAccountKey.json'),
             os.path.join(base_dir, 'shivnath_backend', 'serviceAccountKey.json'),
             os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'serviceAccountKey.json'),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'serviceAccountKey.json'),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'serviceAccountKey.json'),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'shivnath_backend', 'serviceAccountKey.json'),
         ]
 
         key_path = None
@@ -146,13 +149,14 @@ def notify_order_created(order):
     """
     Triggered when a new Order is placed.
     Notifies:
-    1. Super Admin and Plant Admin
+    1. Super Admin, Staff Admin, and Role Admins
     2. Serving Wholesale Dealer (Franchise)
     """
     User = get_user_model()
     admin_users = list(User.objects.filter(is_superuser=True))
     staff_admins = list(User.objects.filter(is_staff=True).exclude(is_superuser=True))
-    all_admins = list(set(admin_users + staff_admins))
+    role_admins = list(User.objects.filter(profile__role__in=['admin', 'super_admin']).exclude(is_superuser=True))
+    all_admins = list(set(admin_users + staff_admins + role_admins))
 
     client_name = order.client_name or (order.created_by.get_full_name() if order.created_by else 'Client')
     title = f"New Order Placed: #{order.order_code}"
@@ -260,8 +264,9 @@ def notify_stock_request_created(stock_req):
     """
     User = get_user_model()
     admin_users = list(User.objects.filter(is_superuser=True))
-    staff_admins = list(User.objects.filter(profile__role__in=['admin', 'super_admin']).exclude(is_superuser=True))
-    all_admins = list(set(admin_users + staff_admins))
+    staff_admins = list(User.objects.filter(is_staff=True).exclude(is_superuser=True))
+    role_admins = list(User.objects.filter(profile__role__in=['admin', 'super_admin']).exclude(is_superuser=True))
+    all_admins = list(set(admin_users + staff_admins + role_admins))
 
     dealer_name = stock_req.dealer.business_name if stock_req.dealer else 'Franchise'
     prod_name = stock_req.product.name if stock_req.product else 'Stock'

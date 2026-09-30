@@ -170,8 +170,13 @@ class ProductListCreateView(APIView):
                     | Q(category_ref__parent__name__iexact=category)
                 )
 
-        if product_status:
+        active_only = request.query_params.get("active_only", "").strip().lower() in ["true", "1"]
+        if active_only:
+            queryset = queryset.filter(status="Active")
+        elif product_status:
             queryset = queryset.filter(status=product_status)
+
+        queryset = queryset.order_by("volume_ml", "name")
 
         serializer = ProductSerializer(
             queryset,
@@ -304,8 +309,11 @@ class ProductBOMDetailView(APIView):
         }
         threshold = getattr(product, "stock_threshold", None)
         bom_data["minimum_stock_threshold"] = threshold.company_low_stock_threshold if threshold else 500
+        is_bom_configured = bom.items.exists()
+        bom_data["is_configured"] = is_bom_configured
         return Response({
             "success": True,
+            "is_configured": is_bom_configured,
             "bom": bom_data,
             "data": bom_data,
             "raw_materials_available": [

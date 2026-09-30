@@ -64,40 +64,53 @@ class Phase2ServicesAndApisTest(TestCase):
         )
 
         # Products
-        self.category = ProductCategory.objects.create(name='Bottles')
-        self.p_250 = Product.objects.create(
-            name='Shivnath 250ml Water Bottle',
+        self.category, _ = ProductCategory.objects.get_or_create(name='Bottles')
+        self.p_250, _ = Product.objects.get_or_create(
             sku='SHV-250',
-            size='250ml',
-            volume_ml=250,
-            package_type='BOTTLE',
-            units_per_case=24,
-            category='Bottle',
-            category_ref=self.category,
-            price=Decimal('6.00'),
-            dealer_transfer_price=Decimal('3.50'),
-            mrp=Decimal('6.00'),
-            gst=18,
-            stock=1000
+            defaults={
+                'name': 'Shivnath 250ml Water Bottle',
+                'size': '250ml',
+                'volume_ml': 250,
+                'package_type': 'BOTTLE',
+                'units_per_case': 24,
+                'category': 'Bottle',
+                'category_ref': self.category,
+                'price': Decimal('6.00'),
+                'dealer_transfer_price': Decimal('3.50'),
+                'mrp': Decimal('6.00'),
+                'gst': 18,
+                'stock': 1000
+            }
         )
+        self.p_250.stock = 1000
+        self.p_250.save()
 
         # Raw Materials
-        self.rm_preform = RawMaterial.objects.create(
-            name='PET Preform 250ml',
+        self.rm_preform, _ = RawMaterial.objects.get_or_create(
             sku='RM-PRF-250',
-            category='preform',
-            unit_of_measure='pcs',
-            unit_cost=Decimal('1.20'),
-            current_stock=Decimal('10000.00')
+            defaults={
+                'name': 'PET Preform 250ml',
+                'category': 'preform',
+                'unit_of_measure': 'pcs',
+                'unit_cost': Decimal('1.20'),
+                'current_stock': Decimal('10000.00'),
+            }
         )
-        self.rm_cap = RawMaterial.objects.create(
-            name='Plastic Cap 28mm',
+        self.rm_preform.current_stock = Decimal('10000.00')
+        self.rm_preform.save()
+
+        self.rm_cap, _ = RawMaterial.objects.get_or_create(
             sku='RM-CAP-28',
-            category='cap',
-            unit_of_measure='pcs',
-            unit_cost=Decimal('0.30'),
-            current_stock=Decimal('10000.00')
+            defaults={
+                'name': 'Plastic Cap 28mm',
+                'category': 'cap',
+                'unit_of_measure': 'pcs',
+                'unit_cost': Decimal('0.30'),
+                'current_stock': Decimal('10000.00'),
+            }
         )
+        self.rm_cap.current_stock = Decimal('10000.00')
+        self.rm_cap.save()
 
     def test_01_bom_recipe_and_pricing_api(self):
         """Test Super Admin BOM Recipe Editor & Master Pricing APIs."""
@@ -271,8 +284,8 @@ class Phase2ServicesAndApisTest(TestCase):
         invoice_id = resp_dispatch.data['invoice_id']
         invoice = Invoice.objects.get(id=invoice_id)
         self.assertEqual(invoice.invoice_type, 'DEALER_PURCHASE_INVOICE')
-        # 500 units * 3.50 = 1750.00 subtotal + 18% GST (315.00) = 2065.00
-        self.assertEqual(invoice.grand_total, Decimal('2065.00'))
+        # 500 units * 4.00 = 2000.00 subtotal + 18% GST (360.00) = 2360.00
+        self.assertEqual(invoice.grand_total, Decimal('2360.00'))
 
         # Check company batch quantity deducted
         p_batch.refresh_from_db()

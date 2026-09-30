@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../constants/app_constants.dart';
@@ -18,7 +17,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       await Firebase.initializeApp();
     }
   } catch (_) {}
-  debugPrint('FCM [Background]: Message received ID: ${message.messageId}, Title: ${message.notification?.title}');
+  debugPrint(
+    'FCM [Background]: Message received ID: ${message.messageId}, Title: ${message.notification?.title}',
+  );
 }
 
 class NotificationService {
@@ -27,7 +28,8 @@ class NotificationService {
   NotificationService._internal();
 
   FirebaseMessaging get _fcm => FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
 
   String? _currentFcmToken;
   String? get currentFcmToken => _currentFcmToken;
@@ -37,7 +39,8 @@ class NotificationService {
 
   static const String channelId = 'high_importance_channel';
   static const String channelName = 'High Importance Notifications';
-  static const String channelDescription = 'Used for Shivnath Agency business, order, and payment notifications.';
+  static const String channelDescription =
+      'Used for Shivnath Agency business, order, and payment notifications.';
 
   /// Initialize Firebase Cloud Messaging, local notification channels & listeners
   Future<void> initialize({GlobalKey<NavigatorState>? navKey}) async {
@@ -64,7 +67,9 @@ class NotificationService {
       );
 
       final androidPlugin = _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       if (androidPlugin != null) {
         await androidPlugin.createNotificationChannel(channel);
         debugPrint('FCM: AndroidNotificationChannel created successfully.');
@@ -73,9 +78,12 @@ class NotificationService {
       // 3. Initialize Local Notifications Plugin
       const AndroidInitializationSettings initAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
-      const DarwinInitializationSettings initDarwin = DarwinInitializationSettings();
-      const InitializationSettings initSettings =
-          InitializationSettings(android: initAndroid, iOS: initDarwin);
+      const DarwinInitializationSettings initDarwin =
+          DarwinInitializationSettings();
+      const InitializationSettings initSettings = InitializationSettings(
+        android: initAndroid,
+        iOS: initDarwin,
+      );
 
       await _localNotifications.initialize(
         initSettings,
@@ -118,7 +126,9 @@ class NotificationService {
 
       // 6. Listen for incoming messages in foreground
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        debugPrint('FCM [Foreground]: ${message.notification?.title} - ${message.notification?.body}');
+        debugPrint(
+          'FCM [Foreground]: ${message.notification?.title} - ${message.notification?.body}',
+        );
         _showForegroundNotification(message);
       });
 
@@ -126,13 +136,17 @@ class NotificationService {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        debugPrint('FCM [Resume]: Notification tapped with data: ${message.data}');
+        debugPrint(
+          'FCM [Resume]: Notification tapped with data: ${message.data}',
+        );
         handleNotificationNavigation(message.data);
       });
 
       final initialMessage = await _fcm.getInitialMessage();
       if (initialMessage != null) {
-        debugPrint('FCM [Initial]: App opened from terminated state: ${initialMessage.data}');
+        debugPrint(
+          'FCM [Initial]: App opened from terminated state: ${initialMessage.data}',
+        );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           handleNotificationNavigation(initialMessage.data);
         });
@@ -164,8 +178,14 @@ class NotificationService {
 
   /// Show notification banner via FlutterLocalNotifications when in foreground
   Future<void> _showForegroundNotification(RemoteMessage message) async {
-    final title = message.notification?.title ?? message.data['title'] ?? 'Shivnath Agency';
-    final body = message.notification?.body ?? message.data['body'] ?? 'New notification received';
+    final title =
+        message.notification?.title ??
+        message.data['title'] ??
+        'Shivnath Agency';
+    final body =
+        message.notification?.body ??
+        message.data['body'] ??
+        'New notification received';
 
     final notificationDetails = NotificationDetails(
       android: AndroidNotificationDetails(
@@ -198,6 +218,15 @@ class NotificationService {
   /// Register FCM Token with Backend for the logged-in user
   Future<bool> registerDeviceTokenWithBackend() async {
     if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
+      try {
+        _currentFcmToken = await _fcm.getToken();
+        debugPrint('FCM: Fetched token dynamically: $_currentFcmToken');
+      } catch (e) {
+        debugPrint('FCM: Failed to fetch token dynamically: $e');
+      }
+    }
+
+    if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
       debugPrint('FCM: No token available to register.');
       return false;
     }
@@ -205,7 +234,9 @@ class NotificationService {
     final session = SessionService();
     final isLoggedIn = await session.isLoggedIn();
     if (!isLoggedIn) {
-      debugPrint('FCM: User not logged in. Token saved locally for future registration.');
+      debugPrint(
+        'FCM: User not logged in. Token saved locally for future registration.',
+      );
       return false;
     }
 
@@ -213,7 +244,9 @@ class NotificationService {
     if (token == null || token.isEmpty) return false;
 
     try {
-      final deviceType = Platform.isAndroid ? 'android' : (Platform.isIOS ? 'ios' : 'web');
+      final deviceType = Platform.isAndroid
+          ? 'android'
+          : (Platform.isIOS ? 'ios' : 'web');
       final candidates = [
         '${AppConstants.apiBaseUrl}/api/auth/notifications/register-device/',
         '${AppConstants.apiBaseUrl}/api/notifications/register-device/',
@@ -235,7 +268,9 @@ class NotificationService {
         );
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
-          debugPrint('FCM: Device token successfully registered with backend via $endpoint');
+          debugPrint(
+            'FCM: Device token successfully registered with backend via $endpoint',
+          );
           return true;
         } else {
           debugPrint('FCM: Attempt via $endpoint gave ${response.statusCode}');
@@ -271,9 +306,7 @@ class NotificationService {
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
           },
-          body: jsonEncode({
-            'token': _currentFcmToken,
-          }),
+          body: jsonEncode({'token': _currentFcmToken}),
         );
         if (response.statusCode >= 200 && response.statusCode < 300) {
           debugPrint('FCM: Device token unregistered successfully.');
@@ -292,7 +325,9 @@ class NotificationService {
     }
 
     final screen = (data['screen'] ?? '').toString().toLowerCase();
-    final notifType = (data['notification_type'] ?? '').toString().toLowerCase();
+    final notifType = (data['notification_type'] ?? '')
+        .toString()
+        .toLowerCase();
 
     debugPrint('FCM: Navigating for screen: $screen, type: $notifType');
 
@@ -300,7 +335,8 @@ class NotificationService {
       nav.pushNamed(AppRoutes.adminDashboard);
     } else if (screen.contains('franchise') || notifType.contains('stock')) {
       nav.pushNamed(AppRoutes.franchiseDashboard);
-    } else if (screen.contains('customer') || notifType.contains('order_status')) {
+    } else if (screen.contains('customer') ||
+        notifType.contains('order_status')) {
       nav.pushNamed(AppRoutes.customerDashboard);
     } else {
       // Default to root dashboard
@@ -313,17 +349,22 @@ class NotificationService {
     try {
       final session = SessionService();
       final token = await session.getAccessToken();
-      final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/accounts/notifications/');
+      final uri = Uri.parse(
+        '${AppConstants.apiBaseUrl}/api/accounts/notifications/',
+      );
       final response = await ApiClient.get(
         uri,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+          if (token != null && token.isNotEmpty)
+            'Authorization': 'Bearer $token',
         },
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        final dynamic decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+        final dynamic decoded = response.body.isNotEmpty
+            ? jsonDecode(response.body)
+            : {};
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': 'Failed to load notifications'};
@@ -337,13 +378,16 @@ class NotificationService {
     try {
       final session = SessionService();
       final token = await session.getAccessToken();
-      final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/accounts/notifications/');
+      final uri = Uri.parse(
+        '${AppConstants.apiBaseUrl}/api/accounts/notifications/',
+      );
       final response = await ApiClient.post(
         uri,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+          if (token != null && token.isNotEmpty)
+            'Authorization': 'Bearer $token',
         },
         body: jsonEncode({'id': id}),
       );

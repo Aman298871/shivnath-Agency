@@ -12,10 +12,17 @@ import 'dealer_stock_request_fulfillment_screen.dart';
 class CentralPlantInventoryScreen extends StatefulWidget {
   final int initialTab;
   final String? highlightBatchNumber;
+  final String? preselectedProductSku;
+  final int? preselectedProductId;
+  final bool openManufactureDialogOnLoad;
+
   const CentralPlantInventoryScreen({
     super.key,
     this.initialTab = 0,
     this.highlightBatchNumber,
+    this.preselectedProductSku,
+    this.preselectedProductId,
+    this.openManufactureDialogOnLoad = false,
   });
 
   @override
@@ -36,6 +43,79 @@ class _CentralPlantInventoryScreenState
   List<Map<String, dynamic>> _rawMaterials = [];
   List<Map<String, dynamic>> _dealerRequests = [];
   List<ProductModel> _products = [];
+
+  List<ProductModel> get _officialFallbackProducts => [
+    const ProductModel(
+      id: '2',
+      name: 'Shivnath 200ml Event Bottle',
+      sku: 'SHV-200',
+      category: 'Water Bottles',
+      size: '200 ML',
+      price: 5.0,
+      unit: 'Bottle',
+      image: '',
+      stock: 500,
+      description: '200ml packaged pure drinking water',
+      shelfLifeDays: 180,
+      status: 'Active',
+    ),
+    const ProductModel(
+      id: '3',
+      name: 'Shivnath 250ml Mini Bottle',
+      sku: 'SHV-250',
+      category: 'Water Bottles',
+      size: '250 ML',
+      price: 6.0,
+      unit: 'Bottle',
+      image: '',
+      stock: 500,
+      description: '250ml packaged drinking water',
+      shelfLifeDays: 180,
+      status: 'Active',
+    ),
+    const ProductModel(
+      id: '4',
+      name: 'Shivnath 500ml Travel Bottle',
+      sku: 'SHV-500',
+      category: 'Water Bottles',
+      size: '500 ML',
+      price: 10.0,
+      unit: 'Bottle',
+      image: '',
+      stock: 500,
+      description: '500ml pure natural mineral water bottle',
+      shelfLifeDays: 180,
+      status: 'Active',
+    ),
+    const ProductModel(
+      id: '5',
+      name: 'Shivnath 1 Litre Premium Mineral Bottle',
+      sku: 'SHV-1L',
+      category: 'Water Bottles',
+      size: '1 Litre',
+      price: 20.0,
+      unit: 'Bottle',
+      image: '',
+      stock: 500,
+      description: '1 Litre table water bottle with 7-stage RO + UV',
+      shelfLifeDays: 180,
+      status: 'Active',
+    ),
+    const ProductModel(
+      id: '6',
+      name: 'Shivnath 20 Litre Dispenser Jar',
+      sku: 'SHV-20L',
+      category: 'Water Jars',
+      size: '20 Litre Jar',
+      price: 60.0,
+      unit: 'Jar',
+      image: '',
+      stock: 500,
+      description: '20 Litre purified packaged drinking water jar',
+      shelfLifeDays: 45,
+      status: 'Active',
+    ),
+  ];
 
   @override
   void initState() {
@@ -90,9 +170,66 @@ class _CentralPlantInventoryScreenState
         _dealerRequests = List<Map<String, dynamic>>.from(reqRes['data']);
       }
 
-      // 4. Products
-      await ProductService().getProducts();
-      _products = ProductService.products;
+      // 4. Products - fetch active products directly from Product Master
+      final pRes = await ProductService().getProducts(activeOnly: true, status: 'Active');
+      List<ProductModel> fetchedList = [];
+      if (pRes['parsed_products'] is List<ProductModel> && (pRes['parsed_products'] as List).isNotEmpty) {
+        fetchedList = List<ProductModel>.from(pRes['parsed_products']);
+      } else {
+        fetchedList = ProductService.products.where((p) => p.status.toLowerCase() == 'active').toList();
+      }
+
+      const officialSkus = {'SHV-200', 'SHV-250', 'SHV-500', 'SHV-1L', 'SHV-20L'};
+      final Map<String, ProductModel> uniqueMap = {};
+      for (final p in fetchedList) {
+        final sku = p.sku.toUpperCase();
+        if (officialSkus.contains(sku) && !uniqueMap.containsKey(sku)) {
+          uniqueMap[sku] = p;
+        }
+      }
+      for (final fallback in _officialFallbackProducts) {
+        final sku = fallback.sku.toUpperCase();
+        if (!uniqueMap.containsKey(sku)) {
+          uniqueMap[sku] = fallback;
+        }
+      }
+
+      final List<ProductModel> finalList = uniqueMap.values.toList();
+      const skuRank = {
+        'SHV-200': 1,
+        'SHV-250': 2,
+        'SHV-500': 3,
+        'SHV-1L': 4,
+        'SHV-20L': 5,
+      };
+      finalList.sort((a, b) {
+        final rA = skuRank[a.sku.toUpperCase()] ?? 99;
+        final rB = skuRank[b.sku.toUpperCase()] ?? 99;
+        return rA.compareTo(rB);
+      });
+      _products = finalList;
+
+      if (widget.openManufactureDialogOnLoad && _products.isNotEmpty) {
+        ProductModel? preselected;
+        if (widget.preselectedProductSku != null && widget.preselectedProductSku!.isNotEmpty) {
+          preselected = _products.firstWhere(
+            (p) => p.sku.toUpperCase() == widget.preselectedProductSku!.toUpperCase(),
+            orElse: () => _products.first,
+          );
+        } else if (widget.preselectedProductId != null) {
+          preselected = _products.firstWhere(
+            (p) => p.id == widget.preselectedProductId.toString(),
+            orElse: () => _products.first,
+          );
+        } else {
+          preselected = _products.first;
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _openCreateBatchDialog(preselectedProduct: preselected);
+          }
+        });
+      }
     } catch (e) {
       _error = 'Failed to load central plant data: $e';
     }
@@ -1511,9 +1648,16 @@ class _CentralPlantInventoryScreenState
   }) {
     ProductModel? selectedProduct =
         preselectedProduct ?? (_products.isNotEmpty ? _products.first : null);
+
+    String generateBatchNumber(ProductModel? p) {
+      final skuPart = p?.sku.isNotEmpty == true ? p!.sku : 'PROD';
+      final now = DateTime.now();
+      final monthStr = '${now.year}${now.month.toString().padLeft(2, '0')}';
+      return 'PB-$monthStr-$skuPart-${now.millisecondsSinceEpoch.toString().substring(8)}';
+    }
+
     final batchNumCtrl = TextEditingController(
-      text:
-          'BATCH-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      text: generateBatchNumber(selectedProduct),
     );
     final qtyCtrl = TextEditingController(
       text: (prefillQuantity ?? 5000).toString(),
@@ -1529,18 +1673,154 @@ class _CentralPlantInventoryScreenState
     final labelCtrl = TextEditingController(text: prefillLabel ?? '');
     final printCtrl = TextEditingController(text: prefillPrint ?? '');
     final brandingCtrl = TextEditingController(text: prefillBranding ?? '');
+
     bool isSaving = false;
+    bool isLoadingBOM = false;
+    bool isBomConfigured = false;
+    String? bomErrorMessage;
+    Map<String, dynamic>? currentBOM;
+    List<Map<String, dynamic>> bomItems = [];
 
     showDialog(
       context: context,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (context, setDlgState) {
+          // Initialize BOM fetching for selected product if not yet loaded
+          void fetchBOM(ProductModel? p) async {
+            if (p == null) {
+              setDlgState(() {
+                currentBOM = null;
+                bomItems = [];
+                isBomConfigured = false;
+                bomErrorMessage = 'No product selected.';
+                isLoadingBOM = false;
+              });
+              return;
+            }
+
+            final pId = int.tryParse(p.id) ?? 0;
+            if (pId <= 0) {
+              setDlgState(() {
+                currentBOM = null;
+                bomItems = [];
+                isBomConfigured = false;
+                bomErrorMessage = 'Invalid product ID.';
+                isLoadingBOM = false;
+              });
+              return;
+            }
+
+            setDlgState(() {
+              isLoadingBOM = true;
+              bomErrorMessage = null;
+            });
+
+            try {
+              final res = await _invService.getProductBOM(pId);
+              if (res['success'] == true && res['data'] != null) {
+                final decoded = res['data'];
+                final bomMap = (decoded is Map && decoded['bom'] is Map)
+                    ? decoded['bom'] as Map<String, dynamic>
+                    : (decoded is Map && decoded['data'] is Map)
+                        ? decoded['data'] as Map<String, dynamic>
+                        : (decoded is Map ? decoded as Map<String, dynamic> : <String, dynamic>{});
+
+                final rawItems = bomMap['items'] ?? (decoded is Map ? decoded['items'] : null);
+                final List<Map<String, dynamic>> itemsList = [];
+                if (rawItems is List) {
+                  for (var it in rawItems) {
+                    if (it is Map) itemsList.add(Map<String, dynamic>.from(it));
+                  }
+                }
+
+                final bool configured = itemsList.isNotEmpty;
+                setDlgState(() {
+                  currentBOM = bomMap;
+                  bomItems = itemsList;
+                  isBomConfigured = configured;
+                  bomErrorMessage = configured
+                      ? null
+                      : 'BOM is not configured for this product (${p.name} — SKU: ${p.sku}). Please configure the Bill of Materials recipe before manufacturing.';
+                  isLoadingBOM = false;
+                });
+              } else {
+                setDlgState(() {
+                  currentBOM = null;
+                  bomItems = [];
+                  isBomConfigured = false;
+                  bomErrorMessage = res['message'] ??
+                      'BOM is not configured for this product (${p.name} — SKU: ${p.sku}).';
+                  isLoadingBOM = false;
+                });
+              }
+            } catch (e) {
+              setDlgState(() {
+                currentBOM = null;
+                bomItems = [];
+                isBomConfigured = false;
+                bomErrorMessage = 'Failed to load BOM: $e';
+                isLoadingBOM = false;
+              });
+            }
+          }
+
+          // Trigger initial BOM fetch on first build
+          if (currentBOM == null && !isLoadingBOM && bomErrorMessage == null && selectedProduct != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              fetchBOM(selectedProduct);
+            });
+          }
+
           final int days = int.tryParse(shelfDaysCtrl.text.trim()) ?? 180;
           final dynamicExpiry = DateTime.now()
               .add(Duration(days: days))
               .toIso8601String()
               .split('T')
               .first;
+
+          final int enteredQty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
+
+          // Helper to format product display: "500 ML — SHV-500"
+          String formatProductTitle(ProductModel p) {
+            final skuUpper = p.sku.trim().toUpperCase();
+            const canonicalSizes = {
+              'SHV-200': '200 ML',
+              'SHV-250': '250 ML',
+              'SHV-500': '500 ML',
+              'SHV-1L': '1 Litre',
+              'SHV-20L': '20 Litre Jar',
+            };
+            if (canonicalSizes.containsKey(skuUpper)) {
+              return '${canonicalSizes[skuUpper]} — ${p.sku.trim()}';
+            }
+            final size = p.size.trim();
+            final sku = p.sku.trim();
+            if (size.isNotEmpty && sku.isNotEmpty) {
+              return '$size — $sku';
+            } else if (sku.isNotEmpty) {
+              return '${p.name} — $sku';
+            }
+            return '${p.name} (${p.size})';
+          }
+
+          // Calculate shortages
+          int totalShortageCount = 0;
+          if (isBomConfigured && enteredQty > 0) {
+            for (var item in bomItems) {
+              final rmSku = item['raw_material_sku']?.toString() ?? '';
+              final perUnit = double.tryParse(item['quantity_required_per_unit']?.toString() ?? '0') ?? 0.0;
+              final totalReq = perUnit * enteredQty;
+              final matchingRM = _rawMaterials.firstWhere(
+                (r) => (r['id']?.toString() == item['raw_material']?.toString() ||
+                    r['sku']?.toString().toUpperCase() == rmSku.toUpperCase()),
+                orElse: () => <String, dynamic>{},
+              );
+              final currentStock = double.tryParse(matchingRM['current_stock']?.toString() ?? '0') ?? 0.0;
+              if (currentStock < totalReq) {
+                totalShortageCount++;
+              }
+            }
+          }
 
           return AlertDialog(
             title: const Row(
@@ -1551,7 +1831,7 @@ class _CentralPlantInventoryScreenState
                 ),
                 SizedBox(width: 8),
                 Text(
-                  'Produce Factory Batch',
+                  'Manufacture Product Batch',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
                 ),
               ],
@@ -1560,124 +1840,442 @@ class _CentralPlantInventoryScreenState
               width: MediaQuery.of(context).size.width,
               child: SingleChildScrollView(
                 child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<ProductModel>(
-                    value: selectedProduct,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Manufactured Product Variant *',
-                      helperText:
-                          '200 ML, 250 ML, 500 ML, 1 Litre, or 20 Litre Jar',
-                    ),
-                    items: _products
-                        .map(
-                          (p) => DropdownMenuItem(
-                            value: p,
-                            child: Text(
-                              '${p.name} (${p.size})',
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Product Master Selection Dropdown
+                    DropdownButtonFormField<ProductModel>(
+                      value: selectedProduct,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Select Product to Manufacture *',
+                        helperText: 'Source of Truth: Active Product Master SKUs',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      items: _products
+                          .map(
+                            (p) => DropdownMenuItem(
+                              value: p,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    formatProductTitle(p),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    '${p.name} | Stock: ${p.stock} units',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                    selectedItemBuilder: (context) {
-                      return _products.map((p) {
-                        return Text(
-                          '${p.name} (${p.size})',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        );
-                      }).toList();
-                    },
-                    onChanged: (val) {
-                      setDlgState(() {
-                        selectedProduct = val;
+                          )
+                          .toList(),
+                      selectedItemBuilder: (context) {
+                        return _products.map((p) {
+                          return Text(
+                            formatProductTitle(p),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              color: Color(0xFF0284C7),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          );
+                        }).toList();
+                      },
+                      onChanged: (val) {
                         if (val != null) {
-                          shelfDaysCtrl.text = val.shelfLifeDays.toString();
+                          setDlgState(() {
+                            selectedProduct = val;
+                            shelfDaysCtrl.text = val.shelfLifeDays.toString();
+                            batchNumCtrl.text = generateBatchNumber(val);
+                          });
+                          fetchBOM(val);
                         }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: clientNameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Customer / Client Name (Bulk Order)',
-                      hintText: 'e.g. Digital Marketing Wala',
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: orderIdCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Linked Order Code / ID (Optional)',
-                      hintText: 'e.g. ORD-1001 or 1001',
+                    const SizedBox(height: 12),
+
+                    // Prominent Selected Product Information Card
+                    if (selectedProduct != null)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        formatProductTitle(selectedProduct!),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 15,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        selectedProduct!.name,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF475569),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: isLoadingBOM
+                                        ? const Color(0xFFE2E8F0)
+                                        : (isBomConfigured
+                                            ? const Color(0xFFDCFCE7)
+                                            : const Color(0xFFFEE2E2)),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isLoadingBOM
+                                            ? Icons.hourglass_top_rounded
+                                            : (isBomConfigured
+                                                ? Icons.check_circle_rounded
+                                                : Icons.cancel_rounded),
+                                        size: 14,
+                                        color: isLoadingBOM
+                                            ? const Color(0xFF64748B)
+                                            : (isBomConfigured
+                                                ? const Color(0xFF166534)
+                                                : const Color(0xFF991B1B)),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        isLoadingBOM
+                                            ? 'Checking BOM...'
+                                            : (isBomConfigured ? 'BOM: Configured' : 'BOM: Missing'),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: isLoadingBOM
+                                              ? const Color(0xFF475569)
+                                              : (isBomConfigured
+                                                  ? const Color(0xFF166534)
+                                                  : const Color(0xFF991B1B)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Current Finished Stock: ${selectedProduct!.stock} units',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0284C7),
+                                  ),
+                                ),
+                                Text(
+                                  'Shelf-Life: ${selectedProduct!.shelfLifeDays} Days',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+
+                    // BOM Warning / Error Banner
+                    if (isLoadingBOM) ...[
+                      const LinearProgressIndicator(color: Color(0xFF0284C7)),
+                      const SizedBox(height: 12),
+                    ] else if (!isBomConfigured) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFF87171)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: Colors.red, size: 24),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'BOM is not configured for this product.',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                      color: Color(0xFF991B1B),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    bomErrorMessage ??
+                                        'Please configure the Bill of Materials (BOM) in Product Master before manufacturing this SKU.',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Production Quantity & Batch Details
+                    TextField(
+                      controller: qtyCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Quantity to Produce (Units) *',
+                        hintText: 'e.g. 5000',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.calculate_outlined),
+                          onPressed: () => setDlgState(() {}),
+                        ),
+                      ),
+                      onChanged: (_) => setDlgState(() {}),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: batchNumCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Batch Number *',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: qtyCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Quantity to Produce (Bottles/Jars) *',
-                      hintText: 'e.g. 5000',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: shelfDaysCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Configurable Shelf-Life (Days) *',
-                      helperText:
-                          'Dynamic Expiry: $dynamicExpiry (Mfg + $days Days)',
-                      helperStyle: const TextStyle(
-                        color: Color(0xFF0284C7),
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(height: 12),
+
+                    // Live BOM Raw Material Consumption & Shortage Table
+                    if (isBomConfigured && bomItems.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: totalShortageCount > 0 ? const Color(0xFFF59E0B) : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.view_in_ar_rounded,
+                                  size: 16,
+                                  color: totalShortageCount > 0 ? const Color(0xFFD97706) : const Color(0xFF0284C7),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Raw Material Requirement (for $enteredQty units):',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ),
+                                if (totalShortageCount > 0)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      '$totalShortageCount Shortage',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFFB45309),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...bomItems.map((item) {
+                              final rmName = item['raw_material_name']?.toString() ?? 'Raw Material';
+                              final rmSku = item['raw_material_sku']?.toString() ?? '';
+                              final unit = item['raw_material_unit']?.toString() ?? '';
+                              final perUnit = double.tryParse(item['quantity_required_per_unit']?.toString() ?? '0') ?? 0.0;
+                              final totalReq = perUnit * enteredQty;
+
+                              final matchingRM = _rawMaterials.firstWhere(
+                                (r) => (r['id']?.toString() == item['raw_material']?.toString() ||
+                                    r['sku']?.toString().toUpperCase() == rmSku.toUpperCase()),
+                                orElse: () => <String, dynamic>{},
+                              );
+                              final currentStock = double.tryParse(matchingRM['current_stock']?.toString() ?? '0') ?? 0.0;
+                              final bool hasShortage = enteredQty > 0 && currentStock < totalReq;
+                              final shortageQty = hasShortage ? (totalReq - currentStock) : 0.0;
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '$rmName ($rmSku)',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 12,
+                                              color: Color(0xFF0F172A),
+                                            ),
+                                          ),
+                                          Text(
+                                            'Required: ${totalReq.toStringAsFixed(totalReq.truncateToDouble() == totalReq ? 0 : 2)} $unit (${perUnit.toStringAsFixed(3)} / unit)',
+                                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          'Stock: ${currentStock.toStringAsFixed(currentStock.truncateToDouble() == currentStock ? 0 : 1)} $unit',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: hasShortage ? Colors.red : const Color(0xFF166534),
+                                          ),
+                                        ),
+                                        if (hasShortage)
+                                          Text(
+                                            'Short: -${shortageQty.toStringAsFixed(shortageQty.truncateToDouble() == shortageQty ? 0 : 2)}',
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.red,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    TextField(
+                      controller: batchNumCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Batch Number *',
+                        border: OutlineInputBorder(),
                       ),
                     ),
-                    onChanged: (_) => setDlgState(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: labelCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Label / Sticker Requirement',
-                      hintText: 'e.g. Custom 250ml Waterproof Glossy Sticker',
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: shelfDaysCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Configurable Shelf-Life (Days) *',
+                        helperText: 'Dynamic Expiry: $dynamicExpiry (Mfg + $days Days)',
+                        border: const OutlineInputBorder(),
+                        helperStyle: const TextStyle(
+                          color: Color(0xFF0284C7),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onChanged: (_) => setDlgState(() {}),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: printCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Printing / Branding Requirement',
-                      hintText: 'e.g. Front Brand Logo & Back Compliance Info',
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: clientNameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Customer / Client Name (Bulk Order)',
+                        hintText: 'e.g. Digital Marketing Wala',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: brandingCtrl,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Packaging & Special Instructions',
-                      hintText:
-                          'e.g. Shrink-wrap cartons of 24 units, inspect caps',
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: orderIdCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Linked Order Code / ID (Optional)',
+                        hintText: 'e.g. ORD-1001 or 1001',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: labelCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Label / Sticker Requirement',
+                        hintText: 'e.g. Custom 250ml Waterproof Glossy Sticker',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: printCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Printing / Branding Requirement',
+                        hintText: 'e.g. Front Brand Logo & Back Compliance Info',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: brandingCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Packaging & Special Instructions',
+                        hintText: 'e.g. Shrink-wrap cartons of 24 units, inspect caps',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dlgCtx),
@@ -1685,24 +2283,43 @@ class _CentralPlantInventoryScreenState
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0284C7),
+                  backgroundColor: !isBomConfigured ? Colors.grey : const Color(0xFF0284C7),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,
                     vertical: 12,
                   ),
                 ),
-                onPressed: isSaving
+                onPressed: (isSaving || isLoadingBOM)
                     ? null
                     : () async {
-                        if (selectedProduct == null) return;
+                        if (selectedProduct == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a product variant.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (!isBomConfigured) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'BOM is not configured for ${selectedProduct!.name} (${selectedProduct!.sku}). Please configure BOM first.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
                         final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
                         if (qty <= 0) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text(
-                                'Quantity must be greater than zero.',
-                              ),
+                              content: Text('Quantity must be greater than zero.'),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -1711,7 +2328,8 @@ class _CentralPlantInventoryScreenState
 
                         setDlgState(() => isSaving = true);
                         final res = await _invService.createProductionBatch({
-                          'product_id': selectedProduct!.id,
+                          'product_id': int.tryParse(selectedProduct!.id) ?? selectedProduct!.id,
+                          'sku': selectedProduct!.sku,
                           'batch_number': batchNumCtrl.text.trim(),
                           'quantity_produced_units': qty,
                           'shelf_life_days': days,
@@ -1730,9 +2348,9 @@ class _CentralPlantInventoryScreenState
                           if (mounted) {
                             Navigator.pop(dlgCtx);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
-                                  'Production batch created! Finished stock added & raw materials deducted.',
+                                  'Production batch created! Stock added for ${selectedProduct!.name} (${selectedProduct!.sku}) & raw materials consumed.',
                                 ),
                                 backgroundColor: Colors.green,
                               ),
@@ -1762,9 +2380,9 @@ class _CentralPlantInventoryScreenState
                           color: Colors.white,
                         ),
                       )
-                    : const Text(
-                        'Manufacture Batch',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                    : Text(
+                        !isBomConfigured ? 'BOM Not Configured' : 'Manufacture Batch',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
               ),
             ],

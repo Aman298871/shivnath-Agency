@@ -55,13 +55,19 @@ def seed():
 
     # 2. Products - Exactly 5 Official Products
     p0, _ = Product.objects.update_or_create(
-        sku="SKU-BOT-200",
+        sku="SHV-200",
         defaults={
             "name": "Shivnath 200ml Event Bottle",
             "category": "Water Bottles",
             "category_ref": sub_200ml,
             "size": "200 ML",
+            "volume_ml": 200,
+            "package_type": "BOTTLE",
+            "units_per_case": 24,
             "price": Decimal("5.00"),
+            "dealer_transfer_price": Decimal("3.50"),
+            "mrp": Decimal("5.00"),
+            "shelf_life_days": 180,
             "stock": 500,
             "unit": "Bottle",
             "description": "200ml packaged pure drinking water, ideal for events, hospitality, and meetings.",
@@ -69,13 +75,19 @@ def seed():
         }
     )
     p1, _ = Product.objects.update_or_create(
-        sku="SKU-BOT-250",
+        sku="SHV-250",
         defaults={
             "name": "Shivnath 250ml Mini Bottle",
             "category": "Water Bottles",
             "category_ref": sub_250ml,
             "size": "250 ML",
+            "volume_ml": 250,
+            "package_type": "BOTTLE",
+            "units_per_case": 24,
             "price": Decimal("6.00"),
+            "dealer_transfer_price": Decimal("4.00"),
+            "mrp": Decimal("6.00"),
+            "shelf_life_days": 180,
             "stock": 500,
             "unit": "Bottle",
             "description": "250ml packaged drinking water, ideal for events, conferences and meetings.",
@@ -83,13 +95,19 @@ def seed():
         }
     )
     p2, _ = Product.objects.update_or_create(
-        sku="SKU-BOT-500",
+        sku="SHV-500",
         defaults={
             "name": "Shivnath 500ml Travel Bottle",
             "category": "Water Bottles",
             "category_ref": sub_500ml,
             "size": "500 ML",
+            "volume_ml": 500,
+            "package_type": "BOTTLE",
+            "units_per_case": 24,
             "price": Decimal("10.00"),
+            "dealer_transfer_price": Decimal("7.00"),
+            "mrp": Decimal("10.00"),
+            "shelf_life_days": 180,
             "stock": 400,
             "unit": "Bottle",
             "description": "500ml pure natural mineral water bottle.",
@@ -97,13 +115,19 @@ def seed():
         }
     )
     p3, _ = Product.objects.update_or_create(
-        sku="SKU-BOT-1000",
+        sku="SHV-1L",
         defaults={
             "name": "Shivnath 1 Litre Premium Mineral Bottle",
             "category": "Water Bottles",
             "category_ref": sub_1l,
             "size": "1 Litre",
+            "volume_ml": 1000,
+            "package_type": "BOTTLE",
+            "units_per_case": 12,
             "price": Decimal("20.00"),
+            "dealer_transfer_price": Decimal("14.00"),
+            "mrp": Decimal("20.00"),
+            "shelf_life_days": 180,
             "stock": 350,
             "unit": "Bottle",
             "description": "1 Litre table water bottle with 7-stage RO + UV purification.",
@@ -116,7 +140,13 @@ def seed():
             "name": "Shivnath 2 Litre Family Mineral Bottle",
             "category": "Water Bottles",
             "size": "2 Litre",
+            "volume_ml": 2000,
+            "package_type": "BOTTLE",
+            "units_per_case": 9,
             "price": Decimal("30.00"),
+            "dealer_transfer_price": Decimal("22.00"),
+            "mrp": Decimal("30.00"),
+            "shelf_life_days": 180,
             "stock": 0,
             "unit": "Bottle",
             "description": "2 Litre large family packaged drinking water bottle.",
@@ -124,22 +154,25 @@ def seed():
         }
     )
     p5, _ = Product.objects.update_or_create(
-        sku="SKU-JAR-20L",
+        sku="SHV-20L",
         defaults={
             "name": "Shivnath 20 Litre Dispenser Jar",
             "category": "Water Jars",
             "category_ref": sub_20l,
             "size": "20 Litre",
+            "volume_ml": 20000,
+            "package_type": "JAR",
+            "units_per_case": 1,
             "price": Decimal("60.00"),
+            "dealer_transfer_price": Decimal("40.00"),
+            "mrp": Decimal("60.00"),
+            "shelf_life_days": 45,
             "stock": 180,
             "unit": "Jar",
             "description": "20 Litre purified packaged drinking water jar for homes and offices.",
             "status": "Active"
         }
     )
-    # Ensure legacy 2L and accessories remain Inactive
-    Product.objects.filter(sku__in=["SKU-BOT-2000", "SKU-ACC-PUMP", "SKU-ACC-STAND"]).update(status="Inactive")
-
     p6, _ = Product.objects.update_or_create(
         sku="SKU-ALK-1000",
         defaults={
@@ -150,10 +183,10 @@ def seed():
             "stock": 200,
             "unit": "Bottle",
             "description": "Enriched with essential minerals, high TDS and balanced 8.5+ pH for active wellness.",
-            "status": "Active"
+            "status": "Inactive"
         }
     )
-    p7, _ = Product.objects.get_or_create(
+    p7, _ = Product.objects.update_or_create(
         sku="SKU-ACC-STAND",
         defaults={
             "name": "Shivnath Metal Jar Stand with Tap",
@@ -163,10 +196,10 @@ def seed():
             "stock": 100,
             "unit": "Piece",
             "description": "Heavy duty powder-coated stainless steel table stand for 20L jars.",
-            "status": "Active"
+            "status": "Inactive"
         }
     )
-    p8, _ = Product.objects.get_or_create(
+    p8, _ = Product.objects.update_or_create(
         sku="SKU-ACC-PUMP",
         defaults={
             "name": "Automatic USB Rechargeable Water Pump",
@@ -176,9 +209,12 @@ def seed():
             "stock": 120,
             "unit": "Piece",
             "description": "One-touch electric wireless water dispenser pump with long-lasting battery.",
-            "status": "Active"
+            "status": "Inactive"
         }
     )
+
+    # Inactivate any legacy SKUs or non-official products
+    Product.objects.exclude(sku__in=["SHV-200", "SHV-250", "SHV-500", "SHV-1L", "SHV-20L"]).update(status="Inactive")
 
     # 3. Quotations with PDF Generation Metadata
     q1, _ = Quotation.objects.get_or_create(

@@ -729,9 +729,10 @@ class ProductionBatchListCreateAPIView(views.APIView):
                 actor=request.user
             )
             batch.refresh_from_db()
-            return Response(ProductionBatchSerializer(batch).data, status=status.HTTP_201_CREATED)
+            data = ProductionBatchSerializer(batch).data
+            return Response({'success': True, 'message': 'Production batch created successfully.', 'data': data, **data}, status=status.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'success': False, 'message': str(e), 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ProductionBatchCollectionAPIView(views.APIView):

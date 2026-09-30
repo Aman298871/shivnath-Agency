@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/services/OrderService.dart';
 import '../../core/services/InventoryService.dart';
 import '../../core/services/session_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/widgets/ai_chatbot_modal.dart';
 import '../../core/widgets/support_desk_modal.dart';
 import '../../routes/app_routes.dart';
@@ -54,6 +55,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     super.initState();
     _loadUser();
     _startOrderPolling();
+    NotificationService().registerDeviceTokenWithBackend();
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../core/services/session_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/widgets/support_desk_modal.dart';
 import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
@@ -36,6 +37,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
   void initState() {
     super.initState();
     _loadUser();
+    NotificationService().registerDeviceTokenWithBackend();
   }
 
   Future<void> _loadUser() async {

@@ -34,25 +34,26 @@ class ProductService {
     String? category,
     int? categoryId,
     String? status,
+    bool? activeOnly,
   }) async {
     try {
-      final query =
-          <String, String>{};
+      final query = <String, String>{};
 
-      if (search != null &&
-          search.trim().isNotEmpty) {
+      if (search != null && search.trim().isNotEmpty) {
         query['search'] = search.trim();
       }
 
       if (categoryId != null) {
         query['category_id'] = categoryId.toString();
-      } else if (category != null &&
-          category != 'All') {
+      } else if (category != null && category != 'All') {
         query['category'] = category;
       }
 
-      if (status != null &&
-          status.trim().isNotEmpty) {
+      if (activeOnly == true) {
+        query['active_only'] = 'true';
+      }
+
+      if (status != null && status.trim().isNotEmpty) {
         query['status'] = status;
       }
 

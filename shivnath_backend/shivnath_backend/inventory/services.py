@@ -97,7 +97,13 @@ def create_production_batch_atomic(
     creates the ProductionBatch with configurable shelf-life and client bulk specifications,
     and logs PRODUCTION_IN finished goods entry atomically.
     """
-    product = Product.objects.select_for_update().get(id=product_id)
+    if isinstance(product_id, int) or (isinstance(product_id, str) and str(product_id).strip().isdigit()):
+        product = Product.objects.select_for_update().filter(id=int(product_id)).first()
+    else:
+        product = Product.objects.select_for_update().filter(sku__iexact=str(product_id).strip()).first()
+    if not product:
+        raise ValidationError(f"Product '{product_id}' not found in Product Master.")
+
     now_date = timezone.now().date()
     mfg_date = _coerce_date(manufacture_date, default=now_date)
 
@@ -148,12 +154,19 @@ def create_production_batch_atomic(
     if not resolved_client_name and order_instance:
         resolved_client_name = order_instance.client_name or order_instance.franchise_name or ''
 
-    # Verify BOM Recipe
+    # Verify BOM Recipe for this EXACT product
     try:
         recipe_bom = ProductionRecipeBOM.objects.prefetch_related('items__raw_material').get(product=product)
         bom_items = list(recipe_bom.items.all())
     except ProductionRecipeBOM.DoesNotExist:
+        recipe_bom = None
         bom_items = []
+
+    if not recipe_bom or not bom_items:
+        raise ValidationError(
+            f"BOM is not configured for this product ({product.name} — SKU: {product.sku}). "
+            "Please configure the Bill of Materials recipe before manufacturing."
+        )
 
     # 1. Check raw material stock sufficiency with row locks
     qty_decimal = Decimal(quantity_produced_units)
@@ -215,7 +228,11 @@ def create_production_batch_atomic(
             order_instance.status = 'preparing'
         order_instance.save()
 
-    # 4. Log PRODUCTION_IN finished goods
+    # 4. Increase finished stock for this exact product in Product Master
+    product.stock += quantity_produced_units
+    product.save(update_fields=['stock', 'updated_at'])
+
+    # 5. Log PRODUCTION_IN finished goods referencing exact product and batch
     InventoryTransactionLedger.objects.create(
         transaction_type='PRODUCTION_IN',
         material_type='FINISHED_GOODS',
@@ -223,12 +240,12 @@ def create_production_batch_atomic(
         product=product,
         production_batch=batch,
         quantity=Decimal(quantity_produced_units),
-        balance_after=Decimal(batch.quantity_remaining_company),
+        balance_after=Decimal(product.stock),
         unit_cost_or_price=unit_prod_cost,
         reference_type='PRODUCTION_BATCH',
         reference_id=batch_number,
         actor=actor,
-        notes=f"Manufactured {quantity_produced_units} units of {product.name} (Client: {resolved_client_name or 'General'})"
+        notes=f"Manufactured {quantity_produced_units} units of {product.name} (SKU: {product.sku}, Client: {resolved_client_name or 'General'})"
     )
 
     return batch

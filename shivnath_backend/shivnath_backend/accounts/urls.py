@@ -37,6 +37,9 @@ from .views import (
     SupportContactListView,
     DealerKYCDocumentView,
     DealerKYCVerifyView,
+    ProtectedDealerDocumentView,
+    VerifyFranchiseFSSAIView,
+    FranchiseFSSAIDetailView,
     SuperAdminSeedDemoDataView,
     CustomerDetailHistoryView,
     RegisterDeviceTokenView,
@@ -172,6 +175,16 @@ urlpatterns = [
         name='approve-franchise'
     ),
     path(
+        'franchises/<int:pk>/verify-fssai/',
+        VerifyFranchiseFSSAIView.as_view(),
+        name='verify-franchise-fssai'
+    ),
+    path(
+        'franchises/<int:pk>/fssai-details/',
+        FranchiseFSSAIDetailView.as_view(),
+        name='franchise-fssai-details'
+    ),
+    path(
         'franchises/create/',
         AdminCreateFranchiseView.as_view(),
         name='admin-create-franchise',
@@ -264,6 +277,16 @@ urlpatterns = [
         'dealers/documents/<int:pk>/verify/',
         DealerKYCVerifyView.as_view(),
         name='dealer_kyc_verify'
+    ),
+    path(
+        'dealers/documents/<int:pk>/view/',
+        ProtectedDealerDocumentView.as_view(),
+        name='protected_dealer_document_view'
+    ),
+    path(
+        'dealers/documents/<int:pk>/download/',
+        ProtectedDealerDocumentView.as_view(),
+        name='protected_dealer_document_download'
     ),
     path(
         'super-admin/seed-demo-data/',

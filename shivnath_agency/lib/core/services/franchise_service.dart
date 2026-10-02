@@ -155,10 +155,10 @@ Future<Map<String, dynamic>> createFranchise({
     };
   }
 }
-  Future<Map<String, dynamic>>
-      approveFranchise(
-    int franchiseId,
-  ) async {
+  Future<Map<String, dynamic>> approveFranchise(
+    int franchiseId, {
+    String? overrideReason,
+  }) async {
     try {
       final response = await http
           .post(
@@ -166,6 +166,10 @@ Future<Map<String, dynamic>> createFranchise({
               '${AppConstants.apiBaseUrl}/api/auth/franchises/$franchiseId/approve/',
             ),
             headers: await _headers(),
+            body: jsonEncode({
+              if (overrideReason != null && overrideReason.trim().isNotEmpty)
+                'override_reason': overrideReason.trim(),
+            }),
           )
           .timeout(
             const Duration(seconds: 15),
@@ -198,6 +202,65 @@ Future<Map<String, dynamic>> createFranchise({
         'message':
             'Server unavailable. Please start the backend and try again.',
       };
+    }
+  }
+
+  /// Authoritative FSSAI verification by Admin / Super Admin
+  Future<Map<String, dynamic>> verifyFranchiseFSSAI({
+    required int franchiseId,
+    required String action, // 'VERIFIED', 'FAILED', or 'MANUAL_REVIEW_REQUIRED'
+    String source = 'FoSCoS Portal Manual Review (https://foscos.fssai.gov.in/)',
+    String notes = '',
+    String reason = '',
+    String officialBusinessName = '',
+    String officialReference = '',
+    String? officialExpiryDate,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.apiBaseUrl}/api/accounts/franchises/$franchiseId/verify-fssai/'),
+            headers: await _headers(),
+            body: jsonEncode({
+              'action': action,
+              'source': source,
+              'notes': notes,
+              'reason': reason,
+              'official_business_name': officialBusinessName,
+              'official_reference': officialReference,
+              if (officialExpiryDate != null && officialExpiryDate.isNotEmpty)
+                'official_expiry_date': officialExpiryDate,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': decoded, 'message': decoded['message'] ?? 'FSSAI verification updated.'};
+      }
+      return {'success': false, 'message': decoded['message'] ?? 'Failed to update FSSAI verification.'};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please try again.'};
+    }
+  }
+
+  /// Fetch full regulatory FSSAI details & audit trail for a franchise
+  Future<Map<String, dynamic>> getFranchiseFSSAIDetails(int franchiseId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.apiBaseUrl}/api/accounts/franchises/$franchiseId/fssai-details/'),
+            headers: await _headers(),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': decoded['message'] ?? 'Failed to load FSSAI details.'};
+    } catch (_) {
+      return {'success': false, 'message': 'Server unavailable. Please try again.'};
     }
   }
 

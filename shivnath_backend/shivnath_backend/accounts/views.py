@@ -98,6 +98,23 @@ class CustomerRegisterView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+def _build_public_doc_url(request, path):
+    """
+    Ensure document URL always points to canonical Render backend URL
+    instead of localhost / internal IPs / testserver.
+    """
+    render_base = 'https://shivnath-agency.onrender.com'
+    if request:
+        try:
+            uri = request.build_absolute_uri(path)
+            if 'localhost' in uri or '127.0.0.1' in uri or '10.0.2.2' in uri or 'testserver' in uri:
+                return f"{render_base}{path}"
+            return uri
+        except Exception:
+            return f"{render_base}{path}"
+    return f"{render_base}{path}"
+
+
 class PendingFranchiseListView(APIView):
     permission_classes = [IsAdminRole]
 
@@ -109,6 +126,11 @@ class PendingFranchiseListView(APIView):
         data = []
 
         for franchise in franchises:
+            doc = franchise.kyc_documents.filter(document_type='FSSAI_CERTIFICATE').first()
+            doc_url = ''
+            if doc and doc.document_file:
+                doc_url = _build_public_doc_url(request, f'/api/accounts/dealers/documents/{doc.id}/view/')
+
             data.append({
                 'id': franchise.id,
                 'user_id': franchise.user.id,
@@ -127,6 +149,18 @@ class PendingFranchiseListView(APIView):
                     franchise.address,
                 'gst_number':
                     franchise.gst_number,
+                'fssai_number':
+                    franchise.fssai_number,
+                'fssai_business_name':
+                    franchise.fssai_business_name or franchise.business_name,
+                'fssai_verification_status':
+                    franchise.fssai_verification_status,
+                'fssai_expiry_date':
+                    str(franchise.fssai_expiry_date) if franchise.fssai_expiry_date else None,
+                'fssai_certificate_url':
+                    doc_url,
+                'fssai_rejection_reason':
+                    franchise.fssai_rejection_reason,
                 'status':
                     franchise.status,
                 'rejection_reason':
@@ -154,6 +188,11 @@ class FranchiseListView(APIView):
         data = []
 
         for franchise in franchises:
+            doc = franchise.kyc_documents.filter(document_type='FSSAI_CERTIFICATE').first()
+            doc_url = ''
+            if doc and doc.document_file:
+                doc_url = _build_public_doc_url(request, f'/api/accounts/dealers/documents/{doc.id}/view/')
+
             data.append({
                 'id': franchise.id,
 
@@ -189,6 +228,24 @@ class FranchiseListView(APIView):
 
                 'aadhaar':
                     franchise.aadhaar_number,
+
+                'fssai_number':
+                    franchise.fssai_number,
+
+                'fssai_business_name':
+                    franchise.fssai_business_name or franchise.business_name,
+
+                'fssai_verification_status':
+                    franchise.fssai_verification_status,
+
+                'fssai_expiry_date':
+                    str(franchise.fssai_expiry_date) if franchise.fssai_expiry_date else None,
+
+                'fssai_certificate_url':
+                    doc_url,
+
+                'fssai_rejection_reason':
+                    franchise.fssai_rejection_reason,
 
                 'security_deposit':
                     float(
@@ -248,6 +305,63 @@ class ApproveFranchiseView(APIView):
                 status=status.HTTP_200_OK
             )
 
+        # Regulatory FSSAI Verification Enforcement
+        fssai_status = franchise.fssai_verification_status or 'PENDING_VERIFICATION'
+
+        if fssai_status == 'FAILED':
+            return Response(
+                {
+                    'success': False,
+                    'message': f"Cannot approve Franchise: FSSAI verification has FAILED ({franchise.fssai_rejection_reason or 'Invalid or unverified certificate'}). Regulatory compliance requires a valid verified FSSAI license."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if fssai_status == 'EXPIRED':
+            return Response(
+                {
+                    'success': False,
+                    'message': f"Cannot approve Franchise: FSSAI registration is EXPIRED (Validity ended: {franchise.fssai_expiry_date}). An active FSSAI registration is required for commercial operations."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if fssai_status != 'VERIFIED':
+            override_reason = str(request.data.get('override_reason', '')).strip()
+            user_prof = getattr(request.user, 'profile', None)
+            is_super = request.user.is_superuser or (user_prof and user_prof.role == 'super_admin')
+
+            if not is_super:
+                return Response(
+                    {
+                        'success': False,
+                        'message': f"Cannot approve Franchise: FSSAI status is '{fssai_status}'. The FSSAI license must be VERIFIED before approval."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if not override_reason:
+                return Response(
+                    {
+                        'success': False,
+                        'message': f"FSSAI status is '{fssai_status}'. Super Admin approval override requires a mandatory 'override_reason'."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            from .models import AdminAuditLog
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                action='FRANCHISE_APPROVAL_FSSAI_OVERRIDE',
+                resource_type='FranchiseProfile',
+                resource_id=str(franchise.id),
+                changes={
+                    'fssai_number': franchise.fssai_number,
+                    'fssai_status': fssai_status,
+                    'override_reason': override_reason
+                }
+            )
+
         franchise.status = 'approved'
         franchise.rejection_reason = ''
         franchise.approved_at = timezone.now()
@@ -261,6 +375,15 @@ class ApproveFranchiseView(APIView):
             ]
         )
 
+        from .models import AdminAuditLog
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            action='APPROVE_FRANCHISE',
+            resource_type='FranchiseProfile',
+            resource_id=str(franchise.id),
+            changes={'status': 'approved'}
+        )
+
         return Response(
             {
                 'success': True,
@@ -272,6 +395,10 @@ class ApproveFranchiseView(APIView):
                         franchise.business_name,
                     'status':
                         franchise.status,
+                    'fssai_number':
+                        franchise.fssai_number,
+                    'fssai_verification_status':
+                        franchise.fssai_verification_status,
                 }
             },
             status=status.HTTP_200_OK
@@ -2922,6 +3049,11 @@ class AdminFranchiseDetailView(APIView):
                 'orders': orders_data,
             })
 
+        fssai_doc = franchise.kyc_documents.filter(document_type='FSSAI_CERTIFICATE').first()
+        fssai_doc_url = ''
+        if fssai_doc and fssai_doc.document_file:
+            fssai_doc_url = _build_public_doc_url(request, f'/api/accounts/dealers/documents/{fssai_doc.id}/view/')
+
         return Response({
             'success': True,
             'franchise': {
@@ -2937,6 +3069,22 @@ class AdminFranchiseDetailView(APIView):
                 'is_headquarters': franchise.is_headquarters,
                 'security_deposit': str(franchise.security_deposit),
                 'commission': str(franchise.commission),
+                'fssai_number': franchise.fssai_number,
+                'fssai_business_name': franchise.fssai_business_name or franchise.business_name,
+                'fssai_premises_address': franchise.fssai_premises_address or franchise.address,
+                'fssai_state': franchise.fssai_state,
+                'fssai_district': franchise.fssai_district,
+                'fssai_expiry_date': str(franchise.fssai_expiry_date) if franchise.fssai_expiry_date else None,
+                'fssai_verification_status': franchise.fssai_verification_status,
+                'fssai_verification_source': franchise.fssai_verification_source,
+                'fssai_verified_at': franchise.fssai_verified_at.isoformat() if franchise.fssai_verified_at else None,
+                'fssai_verified_by': franchise.fssai_verified_by.username if franchise.fssai_verified_by else None,
+                'fssai_rejection_reason': franchise.fssai_rejection_reason,
+                'fssai_notes': franchise.fssai_notes,
+                'fssai_verification_attempts': franchise.fssai_verification_attempts,
+                'fssai_certificate_url': fssai_doc_url,
+                'fssai_certificate_id': fssai_doc.id if fssai_doc else None,
+                'official_verification_link': 'https://foscos.fssai.gov.in/',
                 'created_at': franchise.created_at.strftime('%Y-%m-%d') if franchise.created_at else '',
             },
             'summary': {
@@ -3986,7 +4134,7 @@ class DealerKYCDocumentView(APIView):
                 'document_type': d.document_type,
                 'document_type_display': d.get_document_type_display(),
                 'document_number': d.document_number,
-                'document_url': request.build_absolute_uri(d.document_file.url) if d.document_file else '',
+                'document_url': _build_public_doc_url(request, f'/api/accounts/dealers/documents/{d.id}/view/') if d.document_file else '',
                 'verification_status': d.verification_status,
                 'rejection_reason': d.rejection_reason,
                 'uploaded_at': d.uploaded_at.isoformat(),
@@ -4028,7 +4176,7 @@ class DealerKYCDocumentView(APIView):
             'message': 'Document uploaded successfully.',
             'document_id': doc.id,
             'verification_status': doc.verification_status,
-            'document_url': request.build_absolute_uri(doc.document_file.url) if doc.document_file else '',
+            'document_url': _build_public_doc_url(request, f'/api/accounts/dealers/documents/{doc.id}/view/') if doc.document_file else '',
         }, status=status.HTTP_201_CREATED)
 
     def delete(self, request, dealer_id=None):
@@ -4078,6 +4226,203 @@ class DealerKYCVerifyView(APIView):
             'message': f'Document marked as {new_status}.',
             'document_id': doc.id,
             'status': doc.verification_status,
+        })
+
+
+class ProtectedDealerDocumentView(APIView):
+    """
+    Securely serves private dealer KYC and FSSAI documents.
+    Enforces authentication and authorization: Admin, Super Admin, or the owning Franchise.
+    Supports Bearer header and '?token=' query parameter for in-app and browser document viewing.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        import mimetypes
+        from django.http import FileResponse, Http404
+
+        user = request.user
+        if not user or not user.is_authenticated:
+            token = request.query_params.get('token')
+            if token:
+                from rest_framework_simplejwt.tokens import AccessToken
+                try:
+                    validated = AccessToken(token)
+                    user_id = validated.get('user_id')
+                    user = User.objects.filter(id=user_id).first()
+                except Exception:
+                    user = None
+
+        if not user or not user.is_authenticated:
+            return Response({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        doc = get_object_or_404(DealerDocument, pk=pk)
+        franchise = doc.dealer
+
+        profile = getattr(user, 'profile', None)
+        is_admin = user.is_superuser or (profile and profile.role in ['admin', 'super_admin'])
+        is_owner = (franchise.user_id == user.id)
+
+        if not (is_admin or is_owner):
+            return Response({'detail': 'You do not have permission to view this document.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not doc.document_file or not doc.document_file.storage.exists(doc.document_file.name):
+            raise Http404("Document file does not exist on storage.")
+
+        content_type, _ = mimetypes.guess_type(doc.document_file.name)
+        if not content_type:
+            content_type = 'application/pdf' if doc.document_file.name.lower().endswith('.pdf') else 'application/octet-stream'
+
+        try:
+            return FileResponse(doc.document_file.open('rb'), content_type=content_type)
+        except Exception as e:
+            return Response({'detail': f'Error opening document file: {str(e)}'}, status=500)
+
+
+class VerifyFranchiseFSSAIView(APIView):
+    """
+    Authoritative Admin/Super Admin FSSAI verification endpoint.
+    Performs verification against FoSCoS portal or official external records,
+    records audit trail, updates status, and synchronizes document state.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        from .fssai_services import record_fssai_verification, compare_fssai_details
+        franchise = get_object_or_404(FranchiseProfile, pk=pk)
+
+        action = request.data.get('action', '').upper()
+        if action not in ['VERIFIED', 'FAILED', 'MANUAL_REVIEW_REQUIRED']:
+            return Response({
+                'success': False,
+                'message': "Invalid action. Must be 'VERIFIED', 'FAILED', or 'MANUAL_REVIEW_REQUIRED'."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        source = request.data.get('source', 'FoSCoS Portal Manual Review (https://foscos.fssai.gov.in/)').strip()
+        notes = request.data.get('notes', '').strip()
+        reason = request.data.get('reason', '').strip()
+        official_business_name = request.data.get('official_business_name', '').strip()
+        official_reference = request.data.get('official_reference', '').strip()
+        official_expiry_date = request.data.get('official_expiry_date')
+
+        if official_expiry_date:
+            try:
+                franchise.fssai_expiry_date = official_expiry_date
+                franchise.save(update_fields=['fssai_expiry_date'])
+            except Exception:
+                pass
+
+        if official_business_name:
+            matches, mismatch_reason = compare_fssai_details(franchise.business_name, official_business_name)
+            if not matches and action == 'VERIFIED':
+                return Response({
+                    'success': False,
+                    'message': f"Cannot mark as VERIFIED: {mismatch_reason}. Mark as MANUAL_REVIEW_REQUIRED or FAILED instead."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        if action == 'FAILED' and not reason:
+            return Response({
+                'success': False,
+                'message': "A rejection/failure reason is required when marking FSSAI as FAILED."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        record_fssai_verification(
+            franchise=franchise,
+            new_status=action,
+            verification_source=source,
+            verified_by=request.user,
+            notes=notes,
+            mismatch_reason=reason,
+            official_reference=official_reference,
+            action_taken=f'Admin {action} via {source}'
+        )
+
+        return Response({
+            'success': True,
+            'message': f"Franchise FSSAI status updated to {action}.",
+            'franchise_id': franchise.id,
+            'fssai_number': franchise.fssai_number,
+            'fssai_verification_status': franchise.fssai_verification_status,
+            'fssai_verified_at': franchise.fssai_verified_at.isoformat() if franchise.fssai_verified_at else None,
+            'fssai_verified_by': request.user.username,
+        })
+
+
+class FranchiseFSSAIDetailView(APIView):
+    """
+    Returns complete FSSAI regulatory verification profile, document info, and audit trail for Admin review.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAdminRole]
+
+    def get(self, request, pk):
+        from .fssai_services import check_duplicate_fssai
+        franchise = get_object_or_404(FranchiseProfile, pk=pk)
+
+        doc = DealerDocument.objects.filter(
+            dealer=franchise,
+            document_type='FSSAI_CERTIFICATE'
+        ).first()
+
+        doc_url = ''
+        if doc and doc.document_file:
+            doc_url = _build_public_doc_url(request, f'/api/accounts/dealers/documents/{doc.id}/view/')
+
+        is_dup, dup = check_duplicate_fssai(franchise.fssai_number, current_franchise_id=franchise.id)
+
+        audit_logs = [
+            {
+                'id': log.id,
+                'previous_status': log.previous_status,
+                'new_status': log.new_status,
+                'verification_source': log.verification_source,
+                'mismatch_reason': log.mismatch_reason,
+                'official_reference': log.official_reference,
+                'notes': log.notes,
+                'verified_by': log.verified_by.get_full_name() or log.verified_by.username if log.verified_by else 'System',
+                'action_taken': log.action_taken,
+                'created_at': log.created_at.isoformat(),
+            }
+            for log in franchise.fssai_audit_logs.all().order_by('-created_at')[:20]
+        ]
+
+        return Response({
+            'success': True,
+            'franchise_id': franchise.id,
+            'business_name': franchise.business_name,
+            'owner_name': franchise.user.get_full_name() or franchise.user.username,
+            'phone': getattr(getattr(franchise.user, 'profile', None), 'phone', ''),
+            'email': franchise.user.email,
+            'city': franchise.city,
+            'address': franchise.address,
+            'fssai_number': franchise.fssai_number,
+            'fssai_business_name': franchise.fssai_business_name or franchise.business_name,
+            'fssai_premises_address': franchise.fssai_premises_address or franchise.address,
+            'fssai_state': franchise.fssai_state,
+            'fssai_district': franchise.fssai_district,
+            'fssai_expiry_date': str(franchise.fssai_expiry_date) if franchise.fssai_expiry_date else None,
+            'fssai_verification_status': franchise.fssai_verification_status,
+            'fssai_verification_source': franchise.fssai_verification_source,
+            'fssai_verified_at': franchise.fssai_verified_at.isoformat() if franchise.fssai_verified_at else None,
+            'fssai_verified_by': franchise.fssai_verified_by.username if franchise.fssai_verified_by else None,
+            'fssai_rejection_reason': franchise.fssai_rejection_reason,
+            'fssai_notes': franchise.fssai_notes,
+            'fssai_verification_attempts': franchise.fssai_verification_attempts,
+            'is_duplicate': is_dup,
+            'duplicate_franchise': f"{dup.business_name} (ID: #{dup.id})" if dup else None,
+            'document': {
+                'id': doc.id if doc else None,
+                'document_type': 'FSSAI_CERTIFICATE',
+                'document_number': doc.document_number if doc else franchise.fssai_number,
+                'document_url': doc_url,
+                'verification_status': doc.verification_status if doc else 'PENDING',
+                'rejection_reason': doc.rejection_reason if doc else '',
+                'uploaded_at': doc.uploaded_at.isoformat() if doc else None,
+            } if doc else None,
+            'official_verification_link': 'https://foscos.fssai.gov.in/',
+            'audit_logs': audit_logs,
         })
 
 

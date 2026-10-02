@@ -245,6 +245,83 @@ class FranchiseProfile(models.Model):
         blank=True
     )
 
+    # FSSAI Regulatory & Verification Fields
+    fssai_number = models.CharField(
+        max_length=14,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text="14-digit FSSAI Food License / Registration number"
+    )
+    fssai_business_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+        help_text="FBO / Business name registered with FSSAI"
+    )
+    fssai_premises_address = models.TextField(
+        blank=True,
+        default='',
+        help_text="Registered premises address as per FSSAI"
+    )
+    fssai_state = models.CharField(
+        max_length=100,
+        blank=True,
+        default='Chhattisgarh'
+    )
+    fssai_district = models.CharField(
+        max_length=100,
+        blank=True,
+        default=''
+    )
+    fssai_expiry_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Validity / Expiry date of the FSSAI license"
+    )
+    fssai_verification_status = models.CharField(
+        max_length=30,
+        choices=[
+            ('PENDING_VERIFICATION', 'Pending Verification'),
+            ('UNDER_VERIFICATION', 'Under Verification'),
+            ('VERIFIED', 'Verified'),
+            ('FAILED', 'Failed'),
+            ('EXPIRED', 'Expired'),
+            ('MANUAL_REVIEW_REQUIRED', 'Manual Review Required'),
+        ],
+        default='PENDING_VERIFICATION',
+        db_index=True,
+        help_text="Authoritative verification state machine"
+    )
+    fssai_verification_source = models.CharField(
+        max_length=120,
+        blank=True,
+        default='',
+        help_text="Official FoSCoS portal, authoritative verification service, etc."
+    )
+    fssai_verified_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+    fssai_verified_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='verified_franchise_fssai'
+    )
+    fssai_rejection_reason = models.TextField(
+        blank=True,
+        default=''
+    )
+    fssai_notes = models.TextField(
+        blank=True,
+        default=''
+    )
+    fssai_verification_attempts = models.PositiveIntegerField(
+        default=0
+    )
+
     security_deposit = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -793,6 +870,7 @@ class SupportContact(models.Model):
 
 class DealerDocument(models.Model):
     DOCUMENT_TYPES = [
+        ('FSSAI_CERTIFICATE', 'FSSAI License / Registration Certificate'),
         ('GST', 'GST Registration Certificate'),
         ('PAN', 'PAN Card'),
         ('AADHAAR', 'Aadhaar Card'),
@@ -841,6 +919,38 @@ class DealerDocument(models.Model):
 
     def __str__(self):
         return f"{self.dealer.business_name} - {self.get_document_type_display()} [{self.verification_status}]"
+
+
+class FSSAIVerificationLog(models.Model):
+    franchise = models.ForeignKey(
+        FranchiseProfile,
+        on_delete=models.CASCADE,
+        related_name='fssai_audit_logs'
+    )
+    fssai_number = models.CharField(max_length=14, db_index=True)
+    previous_status = models.CharField(max_length=30)
+    new_status = models.CharField(max_length=30)
+    verification_source = models.CharField(max_length=120, default='FoSCoS Portal Manual Review')
+    mismatch_reason = models.TextField(blank=True, default='')
+    official_reference = models.TextField(blank=True, default='')
+    notes = models.TextField(blank=True, default='')
+    verified_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='fssai_verification_logs'
+    )
+    action_taken = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'FSSAI Verification Audit Log'
+        verbose_name_plural = 'FSSAI Verification Audit Logs'
+
+    def __str__(self):
+        return f"Franchise #{self.franchise_id} FSSAI {self.fssai_number} -> {self.new_status} at {self.created_at}"
 
 
 class Notification(models.Model):

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/franchise_service.dart';
 import '../../../core/services/InventoryService.dart';
 import '../../../core/utils/app_toast.dart';
+import '../../../core/widgets/document_preview_dialog.dart';
 
 class AdminFranchiseDetailScreen extends StatefulWidget {
   final int franchiseId;
@@ -332,7 +334,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
   }
 
   Widget _buildContent() {
-    final franchise = detailData?['franchise'] as Map? ?? {};
+    final franchise = Map<String, dynamic>.from(detailData?['franchise'] as Map? ?? {});
     final summary = detailData?['summary'] as Map? ?? {};
     final servedCustomers = (detailData?['served_customers'] as List? ?? []);
     final registeredCustomers = (detailData?['registered_customers'] as List? ?? []);
@@ -452,6 +454,16 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                   ],
                 ),
               ),
+
+              const SizedBox(height: 18),
+
+              // Authoritative FSSAI Regulatory Details Card
+              _buildFssaiDetailsCard(franchise),
+
+              if (franchise['status'] == 'pending') ...[
+                const SizedBox(height: 16),
+                _buildApplicationDecisionBar(franchise),
+              ],
 
               const SizedBox(height: 18),
 
@@ -801,26 +813,55 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                   ),
                 ],
                 if (docUrl.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFFDC2626)),
-                        const SizedBox(width: 6),
-                        const Expanded(
-                          child: Text(
-                            'Document file available',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8), fontWeight: FontWeight.w600),
+                  const SizedBox(height: 10),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      DocumentPreviewDialog.show(
+                        context: context,
+                        title: '${doc['document_type_display'] ?? doc['document_type'] ?? 'KYC Document'} - ${widget.franchiseName}',
+                        documentUrl: docUrl,
+                        documentNumber: doc['document_number']?.toString(),
+                        documentType: doc['document_type']?.toString(),
+                        verificationStatus: docStatus,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF93C5FD)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.description_rounded, size: 18, color: Color(0xFF0284C7)),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'VIEW ATTACHED DOCUMENT',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF0369A1), fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                            ),
                           ),
-                        ),
-                        const Icon(Icons.open_in_new_rounded, size: 14, color: Color(0xFF1D4ED8)),
-                      ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0284C7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.visibility_rounded, size: 13, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text(
+                                  'VIEW',
+                                  style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1123,5 +1164,732 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
         Text(amount, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
       ],
     );
+  }
+
+  // =========================================================
+  // AUTHORITATIVE FSSAI REGULATORY COMPLIANCE WIDGETS & ACTIONS
+  // =========================================================
+
+  Widget _buildFssaiDetailsCard(Map<String, dynamic> franchise) {
+    final fssaiNumber = franchise['fssai_number']?.toString() ?? '';
+    final status = (franchise['fssai_verification_status']?.toString() ?? 'PENDING_VERIFICATION').toUpperCase();
+    final certUrl = franchise['fssai_certificate_url']?.toString() ?? '';
+    final rejectionReason = franchise['fssai_rejection_reason']?.toString() ?? '';
+    final fssaiBusiness = franchise['fssai_business_name']?.toString() ?? franchise['business_name']?.toString() ?? '';
+    final verifiedBy = franchise['fssai_verified_by']?.toString();
+    final verifiedAt = franchise['fssai_verified_at']?.toString();
+    final expiryDate = franchise['fssai_expiry_date']?.toString();
+    final officialLink = franchise['official_verification_link']?.toString() ?? 'https://foscos.fssai.gov.in/';
+
+    Color badgeBg;
+    Color badgeFg;
+    IconData badgeIcon;
+
+    switch (status) {
+      case 'VERIFIED':
+        badgeBg = const Color(0xFFDCFCE7);
+        badgeFg = const Color(0xFF16A34A);
+        badgeIcon = Icons.check_circle_rounded;
+        break;
+      case 'PENDING':
+      case 'PENDING_VERIFICATION':
+        badgeBg = const Color(0xFFEFF6FF);
+        badgeFg = const Color(0xFF0284C7);
+        badgeIcon = Icons.pending_actions_rounded;
+        break;
+      case 'MANUAL_REVIEW_REQUIRED':
+        badgeBg = const Color(0xFFFEF3C7);
+        badgeFg = const Color(0xFFD97706);
+        badgeIcon = Icons.warning_amber_rounded;
+        break;
+      case 'FAILED':
+      case 'REJECTED':
+        badgeBg = const Color(0xFFFEE2E2);
+        badgeFg = const Color(0xFFDC2626);
+        badgeIcon = Icons.cancel_rounded;
+        break;
+      case 'EXPIRED':
+        badgeBg = const Color(0xFFFEE2E2);
+        badgeFg = const Color(0xFFDC2626);
+        badgeIcon = Icons.timer_off_rounded;
+        break;
+      default:
+        badgeBg = const Color(0xFFF1F5F9);
+        badgeFg = const Color(0xFF64748B);
+        badgeIcon = Icons.info_outline_rounded;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: status == 'FAILED'
+              ? const Color(0xFFFCA5A5)
+              : (status == 'VERIFIED' ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0)),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Title Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'FSSAI Regulatory Compliance',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'FoSCoS Food Safety License & Certification',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: badgeFg.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(badgeIcon, size: 14, color: badgeFg),
+                    const SizedBox(width: 5),
+                    Text(
+                      status.replaceAll('_', ' '),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: badgeFg,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 16),
+
+          // Details Grid
+          Wrap(
+            spacing: 24,
+            runSpacing: 14,
+            children: [
+              _fssaiInfoItem('FSSAI Number', fssaiNumber.isNotEmpty ? fssaiNumber : 'Not Provided', Icons.assignment_outlined, isMonospace: true),
+              _fssaiInfoItem('FBO / Business Name', fssaiBusiness, Icons.business_outlined),
+              if (expiryDate != null && expiryDate.isNotEmpty)
+                _fssaiInfoItem('Certificate Expiry', expiryDate, Icons.calendar_today_outlined),
+              if (verifiedBy != null && verifiedBy.isNotEmpty)
+                _fssaiInfoItem('Verified By', '$verifiedBy${verifiedAt != null ? ' (${verifiedAt.split('T').first})' : ''}', Icons.person_outline),
+            ],
+          ),
+
+          // Failure / Rejection Reason Banner
+          if (rejectionReason.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFCA5A5)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Verification Issue / Rejection Reason:',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF991B1B)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          rejectionReason,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 18),
+
+          // Action Buttons: [ VIEW DOCUMENT ] & [ VERIFY FSSAI ]
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            children: [
+              if (certUrl.isNotEmpty)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    DocumentPreviewDialog.show(
+                      context: context,
+                      title: 'FSSAI Certificate - ${franchise['business_name'] ?? 'Franchise'}',
+                      documentUrl: certUrl,
+                      documentNumber: fssaiNumber,
+                      documentType: 'FSSAI_CERTIFICATE',
+                      verificationStatus: status,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.visibility_rounded, size: 18),
+                  label: const Text(
+                    'VIEW DOCUMENT',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, letterSpacing: 0.3),
+                  ),
+                ),
+              OutlinedButton.icon(
+                onPressed: () => _showVerifyFssaiDialog(franchise),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0F172A),
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.rule_rounded, size: 18, color: Color(0xFF0284C7)),
+                label: const Text(
+                  'VERIFY FSSAI',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final uri = Uri.parse(officialLink);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF64748B),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                label: const Text('FoSCoS Portal', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fssaiInfoItem(String label, String value, IconData icon, {bool isMonospace = false}) {
+    return SizedBox(
+      width: 220,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF64748B)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1E293B),
+                    fontFamily: isMonospace ? 'monospace' : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApplicationDecisionBar(Map<String, dynamic> franchise) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 24),
+              SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Application Decision',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF92400E)),
+                  ),
+                  Text(
+                    'This franchise application is pending approval. Verify FSSAI before approving.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFDC2626)),
+                  foregroundColor: const Color(0xFFDC2626),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _rejectFranchise(franchise),
+                icon: const Icon(Icons.close_rounded, size: 16),
+                label: const Text('REJECT', style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF16A34A),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _approveFranchise(franchise),
+                icon: const Icon(Icons.check_rounded, size: 18),
+                label: const Text('APPROVE', style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showVerifyFssaiDialog(Map<String, dynamic> franchise) async {
+    String selectedAction = 'VERIFIED';
+    final officialNameCtrl = TextEditingController(text: franchise['fssai_business_name']?.toString() ?? franchise['business_name']?.toString() ?? '');
+    final notesCtrl = TextEditingController();
+    final reasonCtrl = TextEditingController();
+    final officialExpiryCtrl = TextEditingController(text: franchise['fssai_expiry_date']?.toString() ?? '');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.rule_folder_rounded, color: Color(0xFF0284C7)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Verify FSSAI Registration',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'FSSAI Number: ${franchise['fssai_number'] ?? 'N/A'}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E3A8A)),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Franchise Name: ${franchise['business_name'] ?? 'N/A'}',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: () async {
+                              final uri = Uri.parse('https://foscos.fssai.gov.in/');
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                              }
+                            },
+                            child: const Row(
+                              children: [
+                                Icon(Icons.open_in_new_rounded, size: 14, color: Color(0xFF0284C7)),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Lookup on Official FoSCoS Portal (https://foscos.fssai.gov.in)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF0284C7),
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Verification Decision *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'VERIFIED', label: Text('Verified', style: TextStyle(fontSize: 12))),
+                        ButtonSegment(value: 'MANUAL_REVIEW_REQUIRED', label: Text('Review', style: TextStyle(fontSize: 12))),
+                        ButtonSegment(value: 'FAILED', label: Text('Failed', style: TextStyle(fontSize: 12))),
+                      ],
+                      selected: {selectedAction},
+                      onSelectionChanged: (set) {
+                        setDialogState(() {
+                          selectedAction = set.first;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: officialNameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Official Business Name (on FoSCoS portal)',
+                        hintText: 'Exact FBO name returned by FoSCoS',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: officialExpiryCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Official Validity Expiry (YYYY-MM-DD)',
+                        hintText: 'e.g. 2027-12-31',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    if (selectedAction == 'FAILED' || selectedAction == 'MANUAL_REVIEW_REQUIRED') ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: reasonCtrl,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          labelText: selectedAction == 'FAILED' ? 'Rejection Reason *' : 'Review Reason',
+                          hintText: selectedAction == 'FAILED'
+                              ? 'Explain why certificate failed verification...'
+                              : 'Reason for manual review / mismatch notes...',
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: notesCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Internal Audit Notes',
+                        hintText: 'Optional remarks for audit history...',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: selectedAction == 'FAILED'
+                      ? const Color(0xFFDC2626)
+                      : (selectedAction == 'VERIFIED' ? const Color(0xFF16A34A) : const Color(0xFFD97706)),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  if (selectedAction == 'FAILED' && reasonCtrl.text.trim().isEmpty) {
+                    AppToast.error(ctx, 'Rejection reason is required when marking FSSAI as FAILED.');
+                    return;
+                  }
+                  Navigator.pop(ctx, true);
+                },
+                child: Text('Submit $selectedAction'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmed == true) {
+      final res = await _franchiseService.verifyFranchiseFSSAI(
+        franchiseId: widget.franchiseId,
+        action: selectedAction,
+        notes: notesCtrl.text.trim(),
+        reason: reasonCtrl.text.trim(),
+        officialBusinessName: officialNameCtrl.text.trim(),
+        officialExpiryDate: officialExpiryCtrl.text.trim().isNotEmpty ? officialExpiryCtrl.text.trim() : null,
+      );
+
+      if (!mounted) return;
+      if (res['success'] == true) {
+        AppToast.success(context, res['message']?.toString() ?? 'FSSAI status updated successfully');
+        _loadDetail();
+        _loadKycDocs();
+      } else {
+        AppToast.error(context, res['message']?.toString() ?? 'Failed to update FSSAI status');
+      }
+    }
+  }
+
+  Future<void> _approveFranchise(Map<String, dynamic> franchise) async {
+    final fssaiStatus = (franchise['fssai_verification_status']?.toString() ?? 'PENDING_VERIFICATION').toUpperCase();
+
+    if (fssaiStatus == 'FAILED' || fssaiStatus == 'EXPIRED') {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.block_rounded, color: Color(0xFFDC2626)),
+              SizedBox(width: 10),
+              Text('Approval Blocked'),
+            ],
+          ),
+          content: Text(
+            'Cannot approve franchise: Mandatory FSSAI verification is marked as $fssaiStatus.\n\n'
+            'Reason: ${franchise['fssai_rejection_reason'] ?? 'Non-compliant or invalid certificate.'}\n\n'
+            'The franchise partner must rectify regulatory compliance before their account can be approved.',
+            style: const TextStyle(fontSize: 13, height: 1.5),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    String? overrideReason;
+    if (fssaiStatus != 'VERIFIED') {
+      final overrideCtrl = TextEditingController();
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706)),
+              SizedBox(width: 10),
+              Text('FSSAI Not Yet Verified'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'FSSAI Status: $fssaiStatus.\n'
+                'Approving an unverified franchise requires a Super Admin regulatory override reason.',
+                style: const TextStyle(fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: overrideCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Override Justification *',
+                  hintText: 'Enter reason for approving without verified FSSAI...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD97706), foregroundColor: Colors.white),
+              onPressed: () {
+                if (overrideCtrl.text.trim().isEmpty) {
+                  AppToast.error(ctx, 'Override justification is required.');
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Proceed with Override'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) return;
+      overrideReason = overrideCtrl.text.trim();
+    } else {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Color(0xFF16A34A)),
+              SizedBox(width: 10),
+              Text('Approve Franchise'),
+            ],
+          ),
+          content: Text(
+            'Are you sure you want to approve "${franchise['business_name']}" as an active franchise partner?\n'
+            'FSSAI certificate is VERIFIED.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF16A34A), foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Approve'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    final res = await _franchiseService.approveFranchise(widget.franchiseId, overrideReason: overrideReason);
+    if (!mounted) return;
+    if (res['success'] == true) {
+      AppToast.success(context, 'Franchise approved successfully');
+      _loadDetail();
+    } else {
+      AppToast.error(context, res['message']?.toString() ?? 'Unable to approve franchise');
+    }
+  }
+
+  Future<void> _rejectFranchise(Map<String, dynamic> franchise) async {
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: Color(0xFFDC2626)),
+            SizedBox(width: 10),
+            Text('Reject Franchise'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Reject application for "${franchise['business_name']}". Enter the reason for rejection:'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Rejection Reason *',
+                hintText: 'Enter reason...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+            onPressed: () {
+              if (reasonCtrl.text.trim().isEmpty) {
+                AppToast.error(ctx, 'Rejection reason is required.');
+                return;
+              }
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Reject Franchise'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    final res = await _franchiseService.rejectFranchise(franchiseId: widget.franchiseId, reason: reasonCtrl.text.trim());
+    if (!mounted) return;
+    if (res['success'] == true) {
+      AppToast.success(context, 'Franchise rejected successfully');
+      _loadDetail();
+    } else {
+      AppToast.error(context, res['message']?.toString() ?? 'Failed to reject franchise');
+    }
   }
 }

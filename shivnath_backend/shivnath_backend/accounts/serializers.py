@@ -341,15 +341,66 @@ class FranchiseRegisterSerializer(serializers.Serializer):
         allow_blank=True
     )
 
+    # Regulatory FSSAI Requirements
+    fssai_number = serializers.CharField(
+        max_length=14,
+        required=True,
+        help_text="14-digit FSSAI License or Registration number"
+    )
+
+    fssai_business_name = serializers.CharField(
+        max_length=200,
+        required=False,
+        allow_blank=True
+    )
+
+    fssai_premises_address = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
+
+    fssai_state = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True
+    )
+
+    fssai_district = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True
+    )
+
+    fssai_expiry_date = serializers.DateField(
+        required=False,
+        allow_null=True
+    )
+
     document_file = serializers.FileField(required=True)
-    document_type = serializers.ChoiceField(choices=[
-        ('GST', 'GST Registration Certificate'),
-        ('PAN', 'PAN Card'),
-        ('AADHAAR', 'Aadhaar Card'),
-        ('AGREEMENT', 'Distributor / Wholesale Agreement'),
-        ('TRADE_LICENSE', 'Trade License'),
-        ('OTHER', 'Other KYC Document'),
-    ], required=True)
+    document_type = serializers.CharField(default='FSSAI_CERTIFICATE', required=False)
+
+    def validate_fssai_number(self, value):
+        from .fssai_services import validate_fssai_format, check_duplicate_fssai
+        val = str(value).strip()
+        if not validate_fssai_format(val):
+            raise serializers.ValidationError(
+                'Invalid FSSAI number. FSSAI registration/license number must be exactly 14 numeric digits.'
+            )
+        is_dup, existing = check_duplicate_fssai(val)
+        if is_dup and existing:
+            raise serializers.ValidationError(
+                f'FSSAI number {val} is already associated with an existing franchise ("{existing.business_name}").'
+            )
+        return val
+
+    def validate_document_file(self, value):
+        import os
+        if value.size > 10 * 1024 * 1024:
+            raise serializers.ValidationError('Certificate file size cannot exceed 10MB.')
+        ext = os.path.splitext(value.name)[1].lower()
+        if ext not in ['.pdf', '.jpg', '.jpeg', '.png']:
+            raise serializers.ValidationError('Supported certificate formats are PDF, JPG, JPEG, and PNG.')
+        return value
 
     def validate_phone(self, value):
         import re
@@ -440,8 +491,15 @@ class FranchiseRegisterSerializer(serializers.Serializer):
             ''
         ).strip()
 
+        fssai_number = validated_data.pop('fssai_number').strip()
+        fssai_business_name = (validated_data.pop('fssai_business_name', '') or business_name).strip()
+        fssai_premises_address = (validated_data.pop('fssai_premises_address', '') or address).strip()
+        fssai_state = (validated_data.pop('fssai_state', '') or 'Chhattisgarh').strip()
+        fssai_district = (validated_data.pop('fssai_district', '') or city).strip()
+        fssai_expiry_date = validated_data.pop('fssai_expiry_date', None)
+
         document_file = validated_data.pop('document_file')
-        document_type = validated_data.pop('document_type')
+        document_type = validated_data.pop('document_type', 'FSSAI_CERTIFICATE') or 'FSSAI_CERTIFICATE'
 
         user = User.objects.create_user(
             username=email,
@@ -473,6 +531,15 @@ class FranchiseRegisterSerializer(serializers.Serializer):
             pan_number=pan_number,
             aadhaar_number=aadhaar_number,
 
+            # FSSAI Fields
+            fssai_number=fssai_number,
+            fssai_business_name=fssai_business_name,
+            fssai_premises_address=fssai_premises_address,
+            fssai_state=fssai_state,
+            fssai_district=fssai_district,
+            fssai_expiry_date=fssai_expiry_date,
+            fssai_verification_status='PENDING_VERIFICATION',
+
             # Admin fills these later.
             security_deposit=0,
             commission=0,
@@ -481,22 +548,27 @@ class FranchiseRegisterSerializer(serializers.Serializer):
             status='pending',
         )
 
-        # Save the KYC document
+        # Save the authoritative FSSAI KYC document
         from .models import DealerDocument
         DealerDocument.objects.create(
             dealer=franchise_profile,
-            document_type=document_type,
+            document_type='FSSAI_CERTIFICATE',
+            document_number=fssai_number,
             document_file=document_file,
             verification_status='PENDING',
             uploaded_by=user
         )
 
-        # Create Admin Notification
+        # Run Authoritative FSSAI Initial Evaluation
+        from .fssai_services import evaluate_fssai_submission
+        evaluate_fssai_submission(franchise_profile)
+
+        # Create Admin Notification for Franchise Registration
         try:
             from .models import AdminNotification
             AdminNotification.objects.create(
-                title='New Franchise Application',
-                message=f'{owner_name} has applied for a new franchise partner account for "{business_name}" in {city}.',
+                title='New Franchise Application (FSSAI Submitted)',
+                message=f'{owner_name} has applied for a new franchise account for "{business_name}" in {city} with FSSAI #{fssai_number}. Verification Status: {franchise_profile.fssai_verification_status}.',
                 notification_type='franchise_registration',
                 reference_id=user.id,
             )

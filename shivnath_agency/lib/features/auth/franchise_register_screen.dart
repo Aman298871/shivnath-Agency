@@ -27,8 +27,8 @@ class _FranchiseRegisterScreenState
 
   final territoryController = TextEditingController();
   final gstController = TextEditingController();
-  final panController = TextEditingController();
-  final aadhaarController = TextEditingController();
+  final fssaiNumberController = TextEditingController();
+  final fssaiBusinessController = TextEditingController();
 
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
@@ -39,9 +39,9 @@ class _FranchiseRegisterScreenState
   bool obscurePassword = true;
   bool obscureConfirm = true;
 
-  String _selectedDocType = 'AADHAAR';
   String? _selectedFilePath;
   String? _selectedFileName;
+  int? _selectedFileSize;
 
   Future<void> _pickDocument() async {
     import_file_picker.FilePickerResult? result = await import_file_picker.FilePicker.platform.pickFiles(
@@ -50,9 +50,15 @@ class _FranchiseRegisterScreenState
     );
 
     if (result != null && result.files.single.path != null) {
+      final file = result.files.single;
+      if (file.size > 10 * 1024 * 1024) {
+        _message('Certificate file must be under 10MB in size');
+        return;
+      }
       setState(() {
-        _selectedFilePath = result.files.single.path;
-        _selectedFileName = result.files.single.name;
+        _selectedFilePath = file.path;
+        _selectedFileName = file.name;
+        _selectedFileSize = file.size;
       });
     }
   }
@@ -62,8 +68,14 @@ class _FranchiseRegisterScreenState
       return;
     }
 
+    final fssaiNum = fssaiNumberController.text.trim();
+    if (!RegExp(r'^\d{14}$').hasMatch(fssaiNum)) {
+      _message('Please enter a valid 14-digit FSSAI License/Registration Number');
+      return;
+    }
+
     if (_selectedFilePath == null) {
-      _message('Please upload a KYC Document');
+      _message('Please upload your FSSAI Certificate (PDF or Image)');
       return;
     }
 
@@ -82,9 +94,13 @@ class _FranchiseRegisterScreenState
       address: addressController.text.trim(),
       territory: territoryController.text.trim(),
       gstNumber: gstController.text.trim(),
-      panNumber: panController.text.trim(),
-      aadhaarNumber: aadhaarController.text.trim(),
-      documentType: _selectedDocType,
+      fssaiNumber: fssaiNum,
+      fssaiBusinessName: fssaiBusinessController.text.trim().isNotEmpty
+          ? fssaiBusinessController.text.trim()
+          : businessController.text.trim(),
+      fssaiPremisesAddress: addressController.text.trim(),
+      fssaiDistrict: cityController.text.trim(),
+      documentType: 'FSSAI_CERTIFICATE',
       documentFilePath: _selectedFilePath!,
     );
 
@@ -179,8 +195,8 @@ class _FranchiseRegisterScreenState
 
     territoryController.dispose();
     gstController.dispose();
-    panController.dispose();
-    aadhaarController.dispose();
+    fssaiNumberController.dispose();
+    fssaiBusinessController.dispose();
 
     passwordController.dispose();
     confirmPasswordController.dispose();
@@ -367,70 +383,114 @@ class _FranchiseRegisterScreenState
 
                 _space(),
 
-                TextFormField(
-                  controller:
-                      panController,
-                  textCapitalization:
-                      TextCapitalization
-                          .characters,
-                  decoration:
-                      const InputDecoration(
-                    labelText:
-                        'PAN Number (Optional)',
-                    prefixIcon: Icon(
-                      Icons.badge_outlined,
-                    ),
+                // FSSAI Regulatory Section
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.verified_user_rounded, color: Color(0xFF0284C7), size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'FSSAI Details',
+                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF0F172A)),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                            ),
+                            child: const Text(
+                              'PENDING VERIFICATION',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Mandatory FoSCoS food safety compliance. Upload official FSSAI certificate (PDF/JPG/PNG, max 10MB).',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                      const SizedBox(height: 14),
 
-                _space(),
+                      TextFormField(
+                        controller: fssaiNumberController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 14,
+                        decoration: const InputDecoration(
+                          labelText: 'FSSAI License/Registration Number *',
+                          hintText: '14-digit numeric FoSCoS number',
+                          prefixIcon: Icon(Icons.assignment_turned_in_rounded),
+                          counterText: '',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'FSSAI License/Registration Number is required';
+                          }
+                          if (!RegExp(r'^\d{14}$').hasMatch(value.trim())) {
+                            return 'FSSAI Number must be exactly 14 digits';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
 
-                TextFormField(
-                  controller:
-                      aadhaarController,
-                  keyboardType:
-                      TextInputType.number,
-                  decoration:
-                      const InputDecoration(
-                    labelText:
-                        'Aadhaar Number (Optional)',
-                    prefixIcon: Icon(
-                      Icons
-                          .credit_card_outlined,
-                    ),
-                  ),
-                ),
+                      TextFormField(
+                        controller: fssaiBusinessController,
+                        decoration: const InputDecoration(
+                          labelText: 'FSSAI Business Name (Optional)',
+                          hintText: 'As registered on FoSCoS certificate',
+                          prefixIcon: Icon(Icons.business_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
 
-                _space(),
-                
-                const Text('KYC Document', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedDocType,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.description_outlined),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'AADHAAR', child: Text('Aadhaar Card')),
-                    DropdownMenuItem(value: 'PAN', child: Text('PAN Card')),
-                    DropdownMenuItem(value: 'GST', child: Text('GST Registration Certificate')),
-                    DropdownMenuItem(value: 'AGREEMENT', child: Text('Distributor / Wholesale Agreement')),
-                    DropdownMenuItem(value: 'TRADE_LICENSE', child: Text('Trade License')),
-                    DropdownMenuItem(value: 'OTHER', child: Text('Other KYC Document')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedDocType = val);
-                  },
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: _pickDocument,
-                  icon: const Icon(Icons.upload_file),
-                  label: Text(_selectedFileName ?? 'Upload Document (Image/PDF)'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    alignment: Alignment.centerLeft,
+                      const Text(
+                        'FSSAI Certificate *',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF334155)),
+                      ),
+                      const SizedBox(height: 6),
+                      OutlinedButton.icon(
+                        onPressed: _pickDocument,
+                        icon: Icon(
+                          _selectedFilePath != null ? Icons.check_circle_rounded : Icons.upload_file_rounded,
+                          color: _selectedFilePath != null ? const Color(0xFF16A34A) : const Color(0xFF0284C7),
+                        ),
+                        label: Text(
+                          _selectedFileName != null
+                              ? '$_selectedFileName${_selectedFileSize != null ? ' (${(_selectedFileSize! / 1024).toStringAsFixed(1)} KB)' : ''}'
+                              : 'Upload FSSAI Certificate (PDF / Image)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                          alignment: Alignment.centerLeft,
+                          side: BorderSide(
+                            color: _selectedFilePath != null ? const Color(0xFF16A34A) : const Color(0xFFCBD5E1),
+                          ),
+                          backgroundColor: _selectedFilePath != null ? const Color(0xFFF0FDF4) : Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 

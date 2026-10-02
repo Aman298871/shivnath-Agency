@@ -190,42 +190,54 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> registerFranchise({
-  required String ownerName,
-  required String businessName,
-  required String phone,
-  required String email,
-  required String password,
-  required String confirmPassword,
-  required String city,
-  required String address,
-  required String territory,
-  required String panNumber,
-  required String aadhaarNumber,
-  required String documentType,
-  required String documentFilePath,
-  String gstNumber = '',
-}) async {
-  try {
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/api/auth/register/franchise/'),
-    );
+    required String ownerName,
+    required String businessName,
+    required String phone,
+    required String email,
+    required String password,
+    required String confirmPassword,
+    required String city,
+    required String address,
+    required String territory,
+    required String fssaiNumber,
+    required String documentFilePath,
+    String fssaiBusinessName = '',
+    String fssaiPremisesAddress = '',
+    String fssaiState = '',
+    String fssaiDistrict = '',
+    String fssaiExpiryDate = '',
+    String documentType = 'FSSAI_CERTIFICATE',
+    String gstNumber = '',
+    String panNumber = '',
+    String aadhaarNumber = '',
+  }) async {
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/api/auth/register/franchise/'),
+      );
 
-    request.fields.addAll({
-      'owner_name': ownerName,
-      'business_name': businessName,
-      'phone': phone,
-      'email': email,
-      'password': password,
-      'confirm_password': confirmPassword,
-      'city': city,
-      'address': address,
-      'territory': territory,
-      'gst_number': gstNumber,
-      'pan_number': panNumber,
-      'aadhaar_number': aadhaarNumber,
-      'document_type': documentType,
-    });
+      request.fields.addAll({
+        'owner_name': ownerName,
+        'business_name': businessName,
+        'phone': phone,
+        'email': email,
+        'password': password,
+        'confirm_password': confirmPassword,
+        'city': city,
+        'address': address,
+        'territory': territory,
+        'fssai_number': fssaiNumber,
+        'document_type': documentType,
+        if (fssaiBusinessName.isNotEmpty) 'fssai_business_name': fssaiBusinessName,
+        if (fssaiPremisesAddress.isNotEmpty) 'fssai_premises_address': fssaiPremisesAddress,
+        if (fssaiState.isNotEmpty) 'fssai_state': fssaiState,
+        if (fssaiDistrict.isNotEmpty) 'fssai_district': fssaiDistrict,
+        if (fssaiExpiryDate.isNotEmpty) 'fssai_expiry_date': fssaiExpiryDate,
+        if (gstNumber.isNotEmpty) 'gst_number': gstNumber,
+        if (panNumber.isNotEmpty) 'pan_number': panNumber,
+        if (aadhaarNumber.isNotEmpty) 'aadhaar_number': aadhaarNumber,
+      });
 
     request.files.add(
       await http.MultipartFile.fromPath('document_file', documentFilePath),

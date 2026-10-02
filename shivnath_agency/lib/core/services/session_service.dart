@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import 'api_client.dart';
 import '../../models/user_model.dart';
+import 'notification_service.dart';
 
 class SessionService {
   static const String _userKey = 'logged_in_user';
@@ -146,6 +147,10 @@ class SessionService {
   }
 
   Future<void> logout() async {
+    try {
+      await NotificationService().unregisterDeviceTokenWithBackend();
+    } catch (_) {}
+
     final prefs =
         await SharedPreferences.getInstance();
 

@@ -1203,6 +1203,11 @@ class DealerStockRequestReceiveAPIView(views.APIView):
                 receipt_items=receipt_items,
                 actor=request.user
             )
+            try:
+                from accounts.fcm_services import notify_stock_request_status
+                notify_stock_request_status(req_obj, 'RECEIVED', actor_name=request.user.get_full_name() or request.user.username)
+            except Exception:
+                pass
             return Response(DealerStockRequestSerializer(req_obj).data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -1244,6 +1249,11 @@ class DealerStockRequestFulfillSingleAPIView(views.APIView):
         auto_receive = request.data.get('auto_receive', True)
         try:
             fulfilled = fulfill_dealer_stock_request_atomic(stock_req, actor=user, auto_receive=auto_receive)
+            try:
+                from accounts.fcm_services import notify_stock_request_status
+                notify_stock_request_status(fulfilled, fulfilled.status, actor_name=user.get_full_name() or user.username)
+            except Exception:
+                pass
             return Response({
                 'success': True,
                 'message': f"Request {fulfilled.request_number} fulfilled and completed successfully.",

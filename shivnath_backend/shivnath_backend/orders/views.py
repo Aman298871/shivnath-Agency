@@ -599,6 +599,15 @@ class OrderDetailView(APIView):
                             stock=F('stock') - item.quantity
                         )
 
+            # If status changed, notify customer & admin
+            if new_status != old_status:
+                try:
+                    from accounts.fcm_services import notify_order_status_update
+                    actor_name = request.user.get_full_name() or request.user.username
+                    notify_order_status_update(updated_order, new_status, actor_name=actor_name)
+                except Exception:
+                    pass
+
         return Response(
             {
                 'success': True,

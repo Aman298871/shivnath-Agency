@@ -1,3 +1,4 @@
+from accounts.fcm_services import logger
 from django.db import models
 from rest_framework import generics, status, views, permissions
 from rest_framework.response import Response
@@ -390,9 +391,9 @@ class RecordOrderPaymentAPIView(views.APIView):
                     reference_id=invoice.id
                 )
                 if not is_pending:
-                    notify_payment_received(order, amount, collector_name=collector_name)
-            except Exception:
-                pass
+                    notify_payment_received(order, amount, actor_name=collector_name, collector_name=collector_name)
+            except Exception as e:
+                logger.warning("FCM: Payment notification dispatch warning: %s", e)
 
             invoice.refresh_from_db()
             order.refresh_from_db()

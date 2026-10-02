@@ -22,9 +22,22 @@ def _init_firebase():
             _firebase_initialized = True
             return True
 
+        # Check for raw JSON credentials in environment variable
+        raw_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON')
+        if raw_json and raw_json.strip():
+            import json
+            cred_dict = json.loads(raw_json)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            _firebase_initialized = True
+            logger.info("FCM: Firebase Admin SDK initialized successfully from FIREBASE_SERVICE_ACCOUNT_JSON env var.")
+            return True
+
         # Candidate paths for serviceAccountKey.json
         base_dir = getattr(settings, 'BASE_DIR', '')
         candidates = [
+            os.environ.get('FIREBASE_CREDENTIALS_PATH'),
+            os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'),
             os.path.join(base_dir, 'serviceAccountKey.json'),
             os.path.join(base_dir, 'shivnath_backend', 'serviceAccountKey.json'),
             os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'serviceAccountKey.json'),
@@ -35,12 +48,12 @@ def _init_firebase():
 
         key_path = None
         for path in candidates:
-            if os.path.exists(path):
+            if path and os.path.exists(path):
                 key_path = path
                 break
 
         if not key_path:
-            logger.warning("FCM: serviceAccountKey.json not found in candidates: %s", candidates)
+            logger.warning("FCM: serviceAccountKey.json not found in candidates: %s", [c for c in candidates if c])
             return False
 
         cred = credentials.Certificate(key_path)
@@ -110,6 +123,18 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
                     icon='@mipmap/ic_launcher',
                 )
             ),
+            apns=messaging.ApnsConfig(
+                payload=messaging.ApnsPayload(
+                    aps=messaging.Aps(
+                        alert=messaging.ApsAlert(
+                            title=title,
+                            body=body,
+                        ),
+                        sound='default',
+                        badge=1,
+                    )
+                )
+            ),
         )
 
         response = messaging.send_each_for_multicast(message)
@@ -127,7 +152,8 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
                     err = resp.exception
                     bad_token = tokens[idx]
                     logger.warning("FCM: Delivery failed for token %s...: %s", bad_token[:10], err)
-                    if hasattr(err, 'code') and err.code in ['UNREGISTERED', 'INVALID_ARGUMENT']:
+                    err_str = str(getattr(err, 'code', '') or err).upper()
+                    if any(term in err_str for term in ['UNREGISTERED', 'INVALID', 'NOT_FOUND', 'REGISTRATION-TOKEN-NOT-REGISTERED']):
                         DeviceToken.objects.filter(token=bad_token).update(is_active=False)
 
         return {
@@ -226,13 +252,15 @@ def notify_order_status_update(order, new_status, actor_name=''):
     )
 
 
-def notify_payment_received(order, amount, actor_name=''):
+def notify_payment_received(order, amount, actor_name='', collector_name=None, **kwargs):
     """
     Triggered when payment is collected for an order.
     Notifies:
     1. Customer (Receipt of payment)
     2. Admins (Cash / Collection audit)
     """
+    collector = collector_name or actor_name or 'Staff'
+
     if order.created_by:
         send_fcm_notification(
             users=[order.created_by],
@@ -246,7 +274,6 @@ def notify_payment_received(order, amount, actor_name=''):
     User = get_user_model()
     admin_users = list(User.objects.filter(is_superuser=True))
     if admin_users:
-        collector = actor_name or 'Staff'
         send_fcm_notification(
             users=admin_users,
             title=f"Payment Collected: #{order.order_code}",

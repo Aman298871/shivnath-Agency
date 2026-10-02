@@ -295,7 +295,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: availableDistricts.contains(
+                        initialValue: availableDistricts.contains(
                                   districtController.text.trim(),
                                 )
                             ? districtController.text.trim()

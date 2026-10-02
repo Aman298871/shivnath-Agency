@@ -176,7 +176,7 @@ class ContactActionHelper {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF25D366).withOpacity(0.15),
+                      color: const Color(0xFF25D366).withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.chat, color: Color(0xFF25D366)),
@@ -205,7 +205,7 @@ class ContactActionHelper {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.15),
+                      color: Colors.blue.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.sms_outlined, color: Colors.blue),

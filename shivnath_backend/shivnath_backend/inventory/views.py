@@ -1485,7 +1485,6 @@ class DailyBusinessReportAPIView(views.APIView):
         orders_approved_count = orders_qs.filter(status='plant_approval').count()
         orders_preparing_count = orders_qs.filter(status__in=['preparing', 'invoice_generated']).count()
         orders_dispatched_count = orders_qs.filter(status='dispatch').count()
-        orders_delivered_count = orders_qs.filter(status__in=['delivered', 'DELIVERED', 'Delivered']).count()
         orders_cancelled_count = orders_qs.filter(status__in=['cancelled', 'CANCELLED', 'Cancelled']).count()
 
         # Orders delivered in this period (regardless of placement date)
@@ -1495,17 +1494,27 @@ class DailyBusinessReportAPIView(views.APIView):
             Q(delivered_at__date__gte=start_date, delivered_at__date__lte=end_date) |
             Q(delivered_at__isnull=True, updated_at__date__gte=start_date, updated_at__date__lte=end_date)
         ).prefetch_related('items__product')
+        orders_delivered_count = delivered_orders_in_range.count()
 
         # Direct Company delivered revenue & COGS
         direct_delivered = delivered_orders_in_range.filter(order_source='DIRECT_COMPANY')
         direct_rev = direct_delivered.aggregate(t=Sum('grand_total'))['t'] or direct_delivered.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
 
-        cogs_direct = OrderItem.objects.filter(order__in=direct_delivered).aggregate(
+        # Franchise customer delivered orders
+        franchise_delivered = delivered_orders_in_range.filter(order_source='FRANCHISE')
+        franchise_cust_rev = franchise_delivered.aggregate(t=Sum('grand_total'))['t'] or franchise_delivered.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+        # Total Customer Delivered Orders COGS
+        cogs_direct = OrderItem.objects.filter(order__in=delivered_orders_in_range).aggregate(
             c=Sum('snapshot_total_cogs')
         )['c'] or Decimal('0.00')
-        if cogs_direct == 0 and direct_delivered.exists():
-            cogs_direct = OrderItem.objects.filter(order__in=direct_delivered).aggregate(
+        if cogs_direct == 0 and delivered_orders_in_range.exists():
+            cogs_direct = OrderItem.objects.filter(order__in=delivered_orders_in_range).aggregate(
                 c=Sum(F('snapshot_unit_production_cost') * F('quantity'))
+            )['c'] or Decimal('0.00')
+        if cogs_direct == 0 and delivered_orders_in_range.exists():
+            cogs_direct = OrderItem.objects.filter(order__in=delivered_orders_in_range).aggregate(
+                c=Sum(F('quantity') * Decimal('3.50'))
             )['c'] or Decimal('0.00')
 
         # Wholesale Dealer Invoices issued in date range
@@ -1537,7 +1546,8 @@ class DailyBusinessReportAPIView(views.APIView):
             cogs_dealer = Decimal(dispatch_units) * Decimal('6.50')
 
         # Total authoritative financial figures
-        agg_gross = dealer_rev + direct_rev
+        effective_franchise_rev = dealer_rev if dealer_rev > 0 else franchise_cust_rev
+        agg_gross = effective_franchise_rev + direct_rev
         agg_cogs = Decimal(str(cogs_dealer)) + Decimal(str(cogs_direct))
 
         # Operating expenses in date range
@@ -1632,14 +1642,18 @@ class DailyBusinessReportAPIView(views.APIView):
         from leads.models import LeadFollowup
         followups_count = LeadFollowup.objects.filter(scheduled_date__gte=start_date, scheduled_date__lte=end_date).count()
 
+        total_orders_booking_value = orders_qs.exclude(status__in=['Cancelled', 'CANCELLED', 'cancelled']).aggregate(t=Sum('grand_total'))['t'] or orders_qs.exclude(status__in=['Cancelled', 'CANCELLED', 'cancelled']).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
         summary_data = {
+            'total_order_amount': float(total_orders_booking_value),
+            'total_booking_value': float(total_orders_booking_value),
             'gross_revenue': float(agg_gross),
             'total_revenue': float(agg_gross),
             'gross_profit': float(gross_profit),
             'collected_amount': float(total_collected),
             'pending_amount': float(total_outstanding),
             'direct_company_revenue': float(direct_rev),
-            'franchise_revenue': float(dealer_rev),
+            'franchise_revenue': float(effective_franchise_rev),
             'cogs': float(agg_cogs),
             'expenses': float(total_exp),
             'net_profit': float(agg_net),
@@ -1683,10 +1697,12 @@ class DailyBusinessReportAPIView(views.APIView):
                 'report_date': str(start_date),
                 'report_period_label': label,
                 # Revenue & P&L
+                'total_order_amount': float(total_orders_booking_value),
+                'total_booking_value': float(total_orders_booking_value),
                 'gross_revenue': float(agg_gross),
                 'total_revenue': float(agg_gross),
                 'direct_company_revenue': float(direct_rev),
-                'franchise_revenue': float(dealer_rev),
+                'franchise_revenue': float(effective_franchise_rev),
                 'cogs': float(agg_cogs),
                 'gross_profit': float(gross_profit),
                 'total_operating_expenses': float(total_exp),

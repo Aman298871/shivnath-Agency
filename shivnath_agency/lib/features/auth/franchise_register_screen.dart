@@ -406,7 +406,7 @@ class _FranchiseRegisterScreenState
                 const Text('KYC Document', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _selectedDocType,
+                  initialValue: _selectedDocType,
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.description_outlined),
                     border: OutlineInputBorder(),

@@ -627,11 +627,11 @@ class InventoryService {
           'quantity_collected': quantityCollected,
           if (clientName != null && clientName.isNotEmpty) 'client_name': clientName,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
-          if (paymentStatus != null) 'payment_status': paymentStatus,
-          if (paymentMethod != null) 'payment_method': paymentMethod,
+          'payment_status': ?paymentStatus,
+          'payment_method': ?paymentMethod,
           if (referenceNumber != null && referenceNumber.isNotEmpty) 'reference_number': referenceNumber,
-          if (amountDue != null) 'amount_due': amountDue,
-          if (amountPaid != null) 'amount_paid': amountPaid,
+          'amount_due': ?amountDue,
+          'amount_paid': ?amountPaid,
           if (deliveryStatus != null && deliveryStatus.isNotEmpty) 'delivery_status': deliveryStatus,
         }),
       );
@@ -718,7 +718,7 @@ class InventoryService {
         body: jsonEncode({
           'alert_id': alertId,
           'action': action,
-          if (snoozeDays != null) 'snooze_days': snoozeDays,
+          'snooze_days': ?snoozeDays,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
         }),
       );

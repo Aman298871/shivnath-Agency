@@ -250,6 +250,7 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
       'direct_company_revenue', 'franchise_revenue', 'gross_profit',
       'total_units_produced', 'total_units_dispatched',
       'total_collected', 'cash_collected', 'online_collected',
+      'total_order_amount', 'total_booking_value',
     };
     if (additiveKeys.contains(key)) {
       return _reports.fold(
@@ -517,6 +518,9 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
     final outstanding = _sumVal('pending_amount') > 0
         ? _sumVal('pending_amount')
         : _sumVal('outstanding_receivables');
+    final bookingValue = _sumVal('total_order_amount') > 0
+        ? _sumVal('total_order_amount')
+        : _sumVal('total_booking_value');
     final isProfitable = netProfit >= 0;
     final fmt = NumberFormat('#,##,##0', 'en_IN');
     final fmt2 = NumberFormat('#,##,##0.00', 'en_IN');
@@ -532,117 +536,300 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
             isProfitable: isProfitable,
             netProfit: netProfit,
             fmt2: fmt2,
+            onTap: () => _showPLBreakdownModal(
+              context,
+              isProfitable,
+              netProfit,
+              grossRev,
+              cogs,
+              expenses,
+              grossProfit,
+            ),
           ),
           const SizedBox(height: 14),
 
           // ── Revenue Breakdown ─────────────────────────────────────────
-          _sectionTitle('Revenue Breakdown'),
+          _sectionTitle('Revenue Breakdown (Tap for Details)'),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                  child: _metricCard('Gross Revenue', '₹${fmt.format(grossRev)}',
-                      const Color(0xFF3B82F6), Icons.trending_up_rounded)),
+                child: _metricCard(
+                  'Gross Revenue',
+                  '₹${fmt.format(grossRev)}',
+                  const Color(0xFF3B82F6),
+                  Icons.trending_up_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Gross Recognized Revenue',
+                    'Total authoritative revenue from delivered customer orders & wholesale supplies.',
+                    [
+                      {'label': 'Delivered Sales', 'value': '₹${fmt.format(grossRev)}', 'color': '0xFF3B82F6'},
+                      {'label': 'Direct Deliveries', 'value': '₹${fmt.format(directRev)}'},
+                      {'label': 'Franchise Supplies', 'value': '₹${fmt.format(franchiseRev)}'},
+                      {'label': 'Pipeline Booking Value', 'value': '₹${fmt.format(bookingValue)}'},
+                    ],
+                    icon: Icons.trending_up_rounded,
+                    color: const Color(0xFF3B82F6),
+                  ),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                  child: _metricCard('Gross Profit', '₹${fmt.format(grossProfit)}',
-                      const Color(0xFF10B981), Icons.price_check_rounded)),
+                child: _metricCard(
+                  'Gross Profit',
+                  '₹${fmt.format(grossProfit)}',
+                  const Color(0xFF10B981),
+                  Icons.price_check_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Gross Profit Margin',
+                    'Realized margin after deducting material manufacturing cost from sales.',
+                    [
+                      {'label': 'Delivered Revenue', 'value': '₹${fmt.format(grossRev)}'},
+                      {'label': 'COGS Cost', 'value': '− ₹${fmt.format(cogs)}', 'color': '0xFFEF4444'},
+                      {'label': 'Gross Margin', 'value': '₹${fmt.format(grossProfit)}', 'color': '0xFF10B981'},
+                      {'label': 'Gross Margin %', 'value': '${grossRev > 0 ? ((grossProfit / grossRev) * 100).toStringAsFixed(1) : '0'}%'},
+                    ],
+                    icon: Icons.price_check_rounded,
+                    color: const Color(0xFF10B981),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                  child: _metricCard('Direct Sales', '₹${fmt.format(directRev)}',
-                      const Color(0xFF6366F1), Icons.storefront_rounded)),
+                child: _metricCard(
+                  'Direct Sales',
+                  '₹${fmt.format(directRev)}',
+                  const Color(0xFF6366F1),
+                  Icons.storefront_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Direct Company Sales',
+                    'Orders fulfilled directly from Shivnath Agency central bottling plant.',
+                    [
+                      {'label': 'Direct Company Revenue', 'value': '₹${fmt.format(directRev)}', 'color': '0xFF6366F1'},
+                      {'label': 'Plant Facility', 'value': 'Shivnath Central Plant'},
+                    ],
+                    icon: Icons.storefront_rounded,
+                    color: const Color(0xFF6366F1),
+                  ),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                  child: _metricCard('Franchise Sales', '₹${fmt.format(franchiseRev)}',
-                      const Color(0xFFF59E0B), Icons.people_alt_rounded)),
+                child: _metricCard(
+                  'Franchise Sales',
+                  '₹${fmt.format(franchiseRev)}',
+                  const Color(0xFFF59E0B),
+                  Icons.people_alt_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Franchise Network Sales',
+                    'Wholesale supply invoices and dealer fulfilled customer deliveries.',
+                    [
+                      {'label': 'Franchise Network Revenue', 'value': '₹${fmt.format(franchiseRev)}', 'color': '0xFFF59E0B'},
+                      {'label': 'Active Network Partners', 'value': '${_franchiseActivity.length} wholesale partners'},
+                    ],
+                    icon: Icons.people_alt_rounded,
+                    color: const Color(0xFFF59E0B),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
 
           // ── Cost & Expenses ───────────────────────────────────────────
-          _sectionTitle('Cost & Expenses'),
+          _sectionTitle('Cost & Expenses (Tap for Breakdown)'),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                  child: _metricCard('COGS', '₹${fmt.format(cogs)}',
-                      const Color(0xFFEF4444), Icons.factory_rounded)),
+                child: _metricCard(
+                  'COGS',
+                  '₹${fmt.format(cogs)}',
+                  const Color(0xFFEF4444),
+                  Icons.factory_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Cost of Goods Sold (COGS)',
+                    'Exact raw material manufacturing costs (Preforms, caps, RO water, labels, cartons).',
+                    [
+                      {'label': 'Material Manufacturing Cost', 'value': '₹${fmt.format(cogs)}', 'color': '0xFFEF4444'},
+                      {'label': 'BOM Cost per Bottle', 'value': '₹2.80 (500ml) / ₹4.80 (1L)'},
+                    ],
+                    icon: Icons.factory_rounded,
+                    color: const Color(0xFFEF4444),
+                  ),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                  child: _metricCard('Operating Exp.', '₹${fmt.format(expenses)}',
-                      const Color(0xFFDC2626), Icons.receipt_long_rounded)),
+                child: _metricCard(
+                  'Operating Exp.',
+                  '₹${fmt.format(expenses)}',
+                  const Color(0xFFDC2626),
+                  Icons.receipt_long_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Operating Expenses (OpEx)',
+                    'Plant overheads, RO electricity, weekly labour wages, fuel & logistics.',
+                    [
+                      {'label': 'Total Logged OpEx', 'value': '₹${fmt.format(expenses)}', 'color': '0xFFDC2626'},
+                      {'label': 'Coverage', 'value': 'Labour wages, RO power, Fuel, Maintenance'},
+                    ],
+                    icon: Icons.receipt_long_rounded,
+                    color: const Color(0xFFDC2626),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
 
           // ── Collections ──────────────────────────────────────────────
-          _sectionTitle('Collections & Receivables'),
+          _sectionTitle('Collections & Receivables (Tap for Receipts)'),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                  child: _metricCard('Total Collected', '₹${fmt.format(totalCollected)}',
-                      const Color(0xFF059669), Icons.account_balance_wallet_rounded)),
+                child: _metricCard(
+                  'Total Collected',
+                  '₹${fmt.format(totalCollected)}',
+                  const Color(0xFF059669),
+                  Icons.account_balance_wallet_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Verified Payment Collections',
+                    'Total confirmed receipts credited from customer orders & franchise settlements.',
+                    [
+                      {'label': 'Total Realized Collections', 'value': '₹${fmt.format(totalCollected)}', 'color': '0xFF059669'},
+                      {'label': 'Cash Handover', 'value': '₹${fmt.format(cashCollected)}'},
+                      {'label': 'Online UPI / NEFT', 'value': '₹${fmt.format(onlineCollected)}'},
+                    ],
+                    icon: Icons.account_balance_wallet_rounded,
+                    color: const Color(0xFF059669),
+                  ),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                  child: _metricCard('Outstanding', '₹${fmt.format(outstanding)}',
-                      const Color(0xFFF97316), Icons.pending_actions_rounded)),
+                child: _metricCard(
+                  'Outstanding',
+                  '₹${fmt.format(outstanding)}',
+                  const Color(0xFFF97316),
+                  Icons.pending_actions_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Outstanding Credit Receivables',
+                    'Uncollected invoices and dealer credit accounts pending payment.',
+                    [
+                      {'label': 'Total Uncollected Receivables', 'value': '₹${fmt.format(outstanding)}', 'color': '0xFFF97316'},
+                    ],
+                    icon: Icons.pending_actions_rounded,
+                    color: const Color(0xFFF97316),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                  child: _metricCard('Cash Collected', '₹${fmt.format(cashCollected)}',
-                      const Color(0xFF0D9488), Icons.money_rounded)),
+                child: _metricCard(
+                  'Cash Collected',
+                  '₹${fmt.format(cashCollected)}',
+                  const Color(0xFF0D9488),
+                  Icons.money_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Cash In Hand Receipts',
+                    'Verified physical cash received by delivery personnel and central office.',
+                    [
+                      {'label': 'Verified Cash Amount', 'value': '₹${fmt.format(cashCollected)}', 'color': '0xFF0D9488'},
+                    ],
+                    icon: Icons.money_rounded,
+                    color: const Color(0xFF0D9488),
+                  ),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                  child: _metricCard('Online Collected', '₹${fmt.format(onlineCollected)}',
-                      const Color(0xFF7C3AED), Icons.payment_rounded)),
+                child: _metricCard(
+                  'Online Collected',
+                  '₹${fmt.format(onlineCollected)}',
+                  const Color(0xFF7C3AED),
+                  Icons.payment_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Digital Online Payments',
+                    'Direct bank transfers, QR scan UPI, and online gateway receipts.',
+                    [
+                      {'label': 'Digital Collections', 'value': '₹${fmt.format(onlineCollected)}', 'color': '0xFF7C3AED'},
+                    ],
+                    icon: Icons.payment_rounded,
+                    color: const Color(0xFF7C3AED),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
 
           // ── Inventory ────────────────────────────────────────────────
-          _sectionTitle('Inventory & Production'),
+          _sectionTitle('Inventory & Production (Tap to Switch Tab)'),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                  child: _metricCard(
-                      'Units Produced',
-                      '${_intVal('production_volume_units')} units',
-                      const Color(0xFF0369A1),
-                      Icons.precision_manufacturing_rounded)),
+                child: _metricCard(
+                  'Units Produced',
+                  '${_intVal('production_volume_units')} units',
+                  const Color(0xFF0369A1),
+                  Icons.precision_manufacturing_rounded,
+                  onTap: () => _tabController.animateTo(2),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                  child: _metricCard(
-                      'Units Dispatched',
-                      '${_intVal('dealer_dispatch_units')} units',
-                      const Color(0xFF0891B2),
-                      Icons.local_shipping_rounded)),
+                child: _metricCard(
+                  'Units Dispatched',
+                  '${_intVal('dealer_dispatch_units')} units',
+                  const Color(0xFF0891B2),
+                  Icons.local_shipping_rounded,
+                  onTap: () => _tabController.animateTo(3),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                  child: _metricCard(
-                      'Central Stock',
-                      '${_intVal('central_stock_units')} units',
-                      const Color(0xFF475569),
-                      Icons.warehouse_rounded)),
+                child: _metricCard(
+                  'Central Stock',
+                  '${_intVal('central_stock_units')} units',
+                  const Color(0xFF475569),
+                  Icons.warehouse_rounded,
+                  onTap: () => _tabController.animateTo(2),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                  child: _metricCard(
-                      'Franchise Stock',
-                      '${_intVal('franchise_stock_units')} units',
-                      const Color(0xFF64748B),
-                      Icons.inventory_2_rounded)),
+                child: _metricCard(
+                  'Franchise Stock',
+                  '${_intVal('franchise_stock_units')} units',
+                  const Color(0xFF64748B),
+                  Icons.inventory_2_rounded,
+                  onTap: () => _tabController.animateTo(3),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -655,64 +842,83 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
     required bool isProfitable,
     required double netProfit,
     required NumberFormat fmt2,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      decoration: BoxDecoration(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: isProfitable
-              ? [const Color(0xFF059669), const Color(0xFF10B981)]
-              : [const Color(0xFFDC2626), const Color(0xFFEF4444)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: (isProfitable
-                    ? const Color(0xFF059669)
-                    : const Color(0xFFDC2626))
-                .withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isProfitable ? '📈 NET PROFIT' : '📉 NET LOSS',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '₹${fmt2.format(netProfit.abs())}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: isProfitable
+                  ? [const Color(0xFF059669), const Color(0xFF10B981)]
+                  : [const Color(0xFFDC2626), const Color(0xFFEF4444)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: (isProfitable
+                        ? const Color(0xFF059669)
+                        : const Color(0xFFDC2626))
+                    .withValues(alpha: 0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          Icon(
-            isProfitable
-                ? Icons.arrow_upward_rounded
-                : Icons.arrow_downward_rounded,
-            color: Colors.white,
-            size: 36,
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          isProfitable ? '📈 NET PROFIT' : '📉 NET LOSS',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.info_outline, size: 14, color: Colors.white70),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '₹${fmt2.format(netProfit.abs())}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Tap to view authoritative P&L formula calculation',
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                isProfitable
+                    ? Icons.arrow_upward_rounded
+                    : Icons.arrow_downward_rounded,
+                color: Colors.white,
+                size: 36,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -726,8 +932,13 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
     final delivered = _intVal('orders_delivered');
     final cancelled = _intVal('orders_cancelled');
     final dispatched = _intVal('orders_dispatched');
-    final preparing = _intVal('orders_preparing');
+    final preparing = _intVal('orders_preparing') + _intVal('orders_approved');
     final placed = _intVal('orders_placed');
+    final bookingValue = _sumVal('total_order_amount') > 0
+        ? _sumVal('total_order_amount')
+        : _sumVal('total_booking_value');
+    final grossRev = _sumVal('gross_revenue');
+    final fmt = NumberFormat('#,##,##0', 'en_IN');
 
     return RefreshIndicator(
       onRefresh: _loadReports,
@@ -735,14 +946,66 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _sectionTitle('Order Pipeline Summary'),
+          // Order Summary Highlights
+          Row(
+            children: [
+              Expanded(
+                child: _metricCard(
+                  'Total Booked',
+                  '$total Orders',
+                  const Color(0xFF6366F1),
+                  Icons.shopping_bag_outlined,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Orders Booking Pipeline',
+                    'Total volume of client orders booked during this period.',
+                    [
+                      {'label': 'Total Orders Count', 'value': '$total Orders', 'color': '0xFF6366F1'},
+                      {'label': 'Total Booking Value', 'value': '₹${fmt.format(bookingValue)}'},
+                      {'label': 'Delivered Count', 'value': '$delivered Delivered'},
+                      {'label': 'In Pipeline', 'value': '${total - delivered - cancelled} In Progress'},
+                    ],
+                    icon: Icons.shopping_bag_outlined,
+                    color: const Color(0xFF6366F1),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _metricCard(
+                  'Delivered Value',
+                  '₹${fmt.format(grossRev)}',
+                  const Color(0xFF059669),
+                  Icons.task_alt_rounded,
+                  onTap: () => _showDetailModal(
+                    context,
+                    'Delivered Order Sales',
+                    'Revenue recognized upon customer delivery confirmation.',
+                    [
+                      {'label': 'Delivered Sales', 'value': '₹${fmt.format(grossRev)}', 'color': '0xFF059669'},
+                      {'label': 'Delivered Units Confirmed', 'value': '$delivered Orders'},
+                    ],
+                    icon: Icons.task_alt_rounded,
+                    color: const Color(0xFF059669),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _sectionTitle('Order Pipeline Stages (Tap for Details)'),
           const SizedBox(height: 10),
           // Pipeline funnel
-          _pipelineRow('Orders Placed', placed, total, const Color(0xFF6366F1)),
-          _pipelineRow('Approved / Preparing', preparing, total, const Color(0xFF0891B2)),
-          _pipelineRow('Dispatched', dispatched, total, const Color(0xFFF59E0B)),
-          _pipelineRow('Delivered ✓', delivered, total, const Color(0xFF059669)),
-          _pipelineRow('Cancelled ✗', cancelled, total, const Color(0xFFEF4444)),
+          _pipelineRow('New Placed Orders', placed, total, const Color(0xFF6366F1),
+              subtitle: 'Awaiting admin / plant approval'),
+          _pipelineRow('Approved & Preparing', preparing, total, const Color(0xFF0891B2),
+              subtitle: 'Bottling & packaging in progress'),
+          _pipelineRow('Out for Delivery', dispatched, total, const Color(0xFFF59E0B),
+              subtitle: 'En route via logistics vehicles'),
+          _pipelineRow('Delivered Successfully ✓', delivered, total, const Color(0xFF059669),
+              subtitle: 'Verified & revenue recognized'),
+          _pipelineRow('Cancelled ✗', cancelled, total, const Color(0xFFEF4444),
+              subtitle: 'Duplicate or cancelled booking'),
           const SizedBox(height: 16),
           _sectionTitle('Recent Customer Orders'),
           const SizedBox(height: 8),
@@ -756,48 +1019,80 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
     );
   }
 
-  Widget _pipelineRow(String label, int count, int total, Color color) {
+  Widget _pipelineRow(String label, int count, int total, Color color, {String? subtitle}) {
     final pct = total > 0 ? count / total : 0.0;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showDetailModal(
+          context,
+          label,
+          subtitle ?? 'Pipeline stage detail',
+          [
+            {'label': 'Orders in this status', 'value': '$count Orders', 'color': '0x${color.toARGB32().toRadixString(16)}'},
+            {'label': 'Percentage of Pipeline', 'value': '${(pct * 100).toStringAsFixed(1)}%'},
+            {'label': 'Total Pipeline Orders', 'value': '$total Orders'},
+          ],
+          icon: Icons.timeline_rounded,
+          color: color,
+        ),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: BrandColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: BrandColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: BrandColors.textPrimary)),
-              Text('$count',
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: color)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: BrandColors.textPrimary)),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 2),
+                          Text(subtitle,
+                              style: const TextStyle(
+                                  fontSize: 10, color: BrandColors.textSecondary)),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Text('$count ($total > 0 ? ${(pct * 100).toStringAsFixed(0)}% : 0%)',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: color)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: pct.clamp(0.0, 1.0),
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  color: color,
+                  minHeight: 6,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: pct.clamp(0.0, 1.0),
-              backgroundColor: color.withValues(alpha: 0.1),
-              valueColor: AlwaysStoppedAnimation(color),
-              minHeight: 6,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
+
 
   Widget _buildOrderRow(Map<String, dynamic> o) {
     final statusColor = _orderStatusColor(o['status']?.toString() ?? '');
@@ -1163,51 +1458,323 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
       );
 
   Widget _metricCard(
-      String label, String value, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+      String label, String value, Color color, IconData icon, {VoidCallback? onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: BrandColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 18, color: color),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: BrandColors.border),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                      fontSize: 11, color: BrandColors.textSecondary),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: color),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Icon(icon, size: 18, color: color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                          fontSize: 11, color: BrandColors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: color),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (onTap != null)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16,
+                  color: Colors.grey.shade400,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDetailModal(
+    BuildContext context,
+    String title,
+    String subtitle,
+    List<Map<String, String>> items, {
+    IconData? icon,
+    Color? color,
+  }) {
+    final themeColor = color ?? BrandColors.redDark;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                if (icon != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: themeColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: themeColor, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: BrandColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: BrandColors.border),
+            const SizedBox(height: 12),
+            ...items.map((it) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        it['label'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF475569),
+                        ),
+                      ),
+                      Text(
+                        it['value'] ?? '',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: it['color'] != null
+                              ? Color(int.parse(it['color']!))
+                              : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  void _showPLBreakdownModal(
+    BuildContext context,
+    bool isProfitable,
+    double netProfit,
+    double grossRev,
+    double cogs,
+    double expenses,
+    double grossProfit,
+  ) {
+    final fmt = NumberFormat('#,##,##0.00', 'en_IN');
+    final marginPct = grossRev > 0 ? ((netProfit / grossRev) * 100).toStringAsFixed(1) : '0';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(22),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(
+                  isProfitable ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                  color: isProfitable ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                  size: 26,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  isProfitable ? 'Net Profit Statement' : 'Net Loss Statement',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Authoritative ERP Formula: Revenue (Delivered) − Snapshot COGS − Operating Expenses',
+              style: TextStyle(fontSize: 12, color: BrandColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: BrandColors.border),
+              ),
+              child: Column(
+                children: [
+                  _formulaRow('Gross Revenue (Delivered)', '₹${fmt.format(grossRev)}', const Color(0xFF0284C7)),
+                  const SizedBox(height: 8),
+                  _formulaRow('− Snapshot COGS', '₹${fmt.format(cogs)}', const Color(0xFFEF4444)),
+                  const Divider(height: 16),
+                  _formulaRow('= Gross Profit Margin', '₹${fmt.format(grossProfit)}', const Color(0xFF10B981)),
+                  const SizedBox(height: 8),
+                  _formulaRow('− Operating Expenses', '₹${fmt.format(expenses)}', const Color(0xFFDC2626)),
+                  const Divider(height: 16),
+                  _formulaRow(
+                    isProfitable ? '═ Net Profit' : '═ Net Loss',
+                    '₹${fmt.format(netProfit.abs())}',
+                    isProfitable ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                    isBold: true,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Operating Margin: $marginPct% on realized turnover.',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _formulaRow(String label, String value, Color color, {bool isBold = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isBold ? 14 : 12,
+            fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+            color: const Color(0xFF334155),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isBold ? 16 : 13,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 

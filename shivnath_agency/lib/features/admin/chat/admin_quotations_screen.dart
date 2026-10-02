@@ -267,8 +267,9 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                             ),
                           ],
                           onChanged: (val) {
-                            if (val != null)
+                            if (val != null) {
                               setDlgState(() => quotationType = val);
+                            }
                           },
                         ),
                       ),
@@ -309,8 +310,9 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                             ),
                           ],
                           onChanged: (val) {
-                            if (val != null)
+                            if (val != null) {
                               setDlgState(() => targetAudience = val);
+                            }
                           },
                         ),
                       ),

@@ -226,7 +226,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                 const Text('Credit Status', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: ['ACTIVE', 'SUSPENDED', 'BLOCKED', 'UNDER_REVIEW'].contains(creditStatus)
+                  initialValue: ['ACTIVE', 'SUSPENDED', 'BLOCKED', 'UNDER_REVIEW'].contains(creditStatus)
                       ? creditStatus
                       : 'ACTIVE',
                   items: const [
@@ -651,7 +651,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
       child: ListView.separated(
         padding: const EdgeInsets.all(14),
         itemCount: _kycDocs.length,
-        separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
         itemBuilder: (ctx, i) {
           final doc = _kycDocs[i];
           final docStatus = doc['verification_status']?.toString() ?? 'PENDING';
@@ -846,7 +846,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
       child: ListView.separated(
         padding: const EdgeInsets.all(12),
         itemCount: servedList.length,
-        separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
         itemBuilder: (ctx, index) {
           final c = servedList[index] as Map? ?? {};
           final isRegisteredToThis = registeredList.any((r) => r['id'] == c['id']);
@@ -906,7 +906,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
           : ListView.separated(
               padding: const EdgeInsets.all(12),
               itemCount: orders.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
               itemBuilder: (ctx, index) {
                 final o = orders[index] as Map? ?? {};
                 return ListTile(
@@ -1088,14 +1088,14 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: color.withOpacity(0.12),
+            backgroundColor: color.withValues(alpha: 0.12),
             radius: 18,
             child: Icon(icon, color: color, size: 20),
           ),

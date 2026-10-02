@@ -2142,7 +2142,7 @@ class _AdminRecordPaymentDialogState extends State<_AdminRecordPaymentDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _paymentMethod,
+                initialValue: _paymentMethod,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Payment Method',

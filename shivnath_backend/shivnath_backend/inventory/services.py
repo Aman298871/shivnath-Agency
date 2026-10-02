@@ -1810,19 +1810,27 @@ def sync_daily_business_report(target_date=None):
     if direct_rev == 0 and direct_orders.exists():
         direct_rev = direct_orders.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
 
-    # Direct Company delivered COGS (frozen snapshots)
-    cogs_direct = OrderItem.objects.filter(order__in=direct_orders).aggregate(
+    # Franchise fulfilled customer orders delivered
+    franchise_delivered = delivered_orders.filter(order_source='FRANCHISE')
+    franchise_cust_rev = franchise_delivered.aggregate(t=Sum('grand_total'))['t'] or franchise_delivered.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    # Customer delivered COGS (frozen snapshots)
+    cogs_cust = OrderItem.objects.filter(order__in=delivered_orders).aggregate(
         c=Sum('snapshot_total_cogs')
     )['c'] or Decimal('0.00')
 
-    if cogs_direct == 0 and direct_orders.exists():
-        cogs_direct = OrderItem.objects.filter(order__in=direct_orders).aggregate(
+    if cogs_cust == 0 and delivered_orders.exists():
+        cogs_cust = OrderItem.objects.filter(order__in=delivered_orders).aggregate(
             c=Sum(F('snapshot_unit_production_cost') * F('quantity'))
         )['c'] or Decimal('0.00')
+    if cogs_cust == 0 and delivered_orders.exists():
+        tot_qty = sum(it.quantity for o in delivered_orders for it in o.items.all())
+        cogs_cust = Decimal(tot_qty) * Decimal('2.80')
 
-    # Total Gross Company Revenue = Dealer Wholesale Invoices + Direct Company Delivered Orders
-    gross_rev = dealer_rev + direct_rev
-    total_cogs = Decimal(str(cogs_dealer)) + Decimal(str(cogs_direct))
+    # Total Gross Company Revenue = Dealer Wholesale Invoices + Direct Company Delivered Orders + Franchise Delivered Retail
+    effective_dealer_sales = dealer_rev if dealer_rev > 0 else franchise_cust_rev
+    gross_rev = effective_dealer_sales + direct_rev
+    total_cogs = Decimal(str(cogs_dealer)) + Decimal(str(cogs_cust))
 
     # 5. Operating Expenses for target_date
     expenses_today = Expense.objects.filter(paid_date=target_date)

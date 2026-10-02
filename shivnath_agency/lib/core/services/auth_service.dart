@@ -183,7 +183,7 @@ class AuthService {
         'city': city,
         'district': district,
         'zone_id': zoneId,
-        if (franchiseId != null) 'franchise_id': franchiseId,
+        'franchise_id': ?franchiseId,
         if (address.isNotEmpty) 'address': address,
       },
     );
@@ -540,7 +540,7 @@ class AuthService {
       final payload = <String, dynamic>{
         'action': action.trim().toLowerCase(),
         if (reason.trim().isNotEmpty) 'reason': reason.trim(),
-        if (customerId != null) 'customer_id': customerId,
+        'customer_id': ?customerId,
       };
 
       final response = await ApiClient.post(

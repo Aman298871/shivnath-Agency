@@ -384,6 +384,13 @@ class ApproveFranchiseView(APIView):
             changes={'status': 'approved'}
         )
 
+        try:
+            from accounts.fcm_services import notify_franchise_approval_status
+            actor = request.user.get_full_name() or request.user.username
+            notify_franchise_approval_status(franchise, 'approved', actor_name=actor)
+        except Exception:
+            pass
+
         return Response(
             {
                 'success': True,
@@ -444,6 +451,13 @@ class RejectFranchiseView(APIView):
                 'updated_at',
             ]
         )
+
+        try:
+            from accounts.fcm_services import notify_franchise_approval_status
+            actor = request.user.get_full_name() or request.user.username
+            notify_franchise_approval_status(franchise, 'rejected', reason=reason, actor_name=actor)
+        except Exception:
+            pass
 
         return Response(
             {
@@ -1211,6 +1225,11 @@ class FranchiseRegisterView(APIView):
                     business_name = user.franchise_profile.business_name
                     city = user.franchise_profile.city
                     territory = user.franchise_profile.territory
+                    try:
+                        from accounts.fcm_services import notify_franchise_registered
+                        notify_franchise_registered(user.franchise_profile)
+                    except Exception:
+                        pass
 
                 return Response(
                     {

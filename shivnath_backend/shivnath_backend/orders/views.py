@@ -371,6 +371,13 @@ class OrderListCreateView(APIView):
                     rel.service_status = 'active'
                     rel.save(update_fields=['service_status'])
 
+            # Authoritative GST Invoice generation
+            try:
+                from billing.services import generate_invoice_for_order
+                generate_invoice_for_order(order)
+            except Exception:
+                pass
+
             # Targeted Notifications to Actual Serving Franchise and Admin
             try:
                 send_order_placed_notifications(order, stock_cycle)
@@ -689,6 +696,13 @@ class OrderStatusUpdateView(APIView):
             else:
                 order.status = new_status
                 order.save(update_fields=['status', 'updated_at'])
+
+            if new_status in ['invoice_generated', 'plant_approval']:
+                try:
+                    from billing.services import generate_invoice_for_order
+                    generate_invoice_for_order(order)
+                except Exception:
+                    pass
 
             # Log status change
             if old_status != new_status:

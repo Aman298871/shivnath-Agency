@@ -1400,6 +1400,12 @@ class DailyBusinessReportAPIView(views.APIView):
         except Exception:
             pass
 
+        # Parse advanced P&L filters
+        filter_product = (request.query_params.get('product_sku') or request.query_params.get('product') or request.query_params.get('sku') or '').strip()
+        filter_order = (request.query_params.get('order_id') or request.query_params.get('order') or '').strip()
+        filter_franchise = (request.query_params.get('franchise_id') or request.query_params.get('franchise') or '').strip()
+        filter_customer = (request.query_params.get('customer_id') or request.query_params.get('customer') or '').strip()
+
         # 2. Query data across the requested date range
         orders_qs = Order.objects.filter(
             created_at__date__gte=start_date,
@@ -1415,6 +1421,40 @@ class DailyBusinessReportAPIView(views.APIView):
             created_at__date__gte=start_date,
             created_at__date__lte=end_date
         ).order_by('-created_at')
+
+        if filter_product:
+            orders_qs = orders_qs.filter(
+                Q(items__product__sku__iexact=filter_product) |
+                Q(items__product_name__icontains=filter_product) |
+                Q(items__product__name__icontains=filter_product)
+            ).distinct()
+            stock_requests_qs = stock_requests_qs.filter(
+                Q(product__sku__iexact=filter_product) |
+                Q(product__name__icontains=filter_product)
+            ).distinct()
+
+        if filter_order:
+            clean_oid = filter_order.replace('ORD-', '').replace('#', '').strip()
+            orders_qs = orders_qs.filter(Q(id=clean_oid) if clean_oid.isdigit() else Q(id__icontains=clean_oid))
+
+        if filter_franchise:
+            if filter_franchise.isdigit():
+                orders_qs = orders_qs.filter(serving_franchise_id=int(filter_franchise))
+                stock_requests_qs = stock_requests_qs.filter(dealer_id=int(filter_franchise))
+            else:
+                orders_qs = orders_qs.filter(
+                    Q(serving_franchise__business_name__icontains=filter_franchise) |
+                    Q(franchise_name__icontains=filter_franchise)
+                )
+                stock_requests_qs = stock_requests_qs.filter(dealer__business_name__icontains=filter_franchise)
+
+        if filter_customer:
+            orders_qs = orders_qs.filter(
+                Q(created_by__username__icontains=filter_customer) |
+                Q(created_by__first_name__icontains=filter_customer) |
+                Q(client_name__icontains=filter_customer) |
+                Q(created_by__profile__phone__icontains=filter_customer)
+            )
 
         total_orders_count = orders_qs.count()
         total_order_amount = orders_qs.exclude(status__in=['Cancelled', 'CANCELLED', 'cancelled']).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
@@ -1494,26 +1534,71 @@ class DailyBusinessReportAPIView(views.APIView):
             Q(delivered_at__date__gte=start_date, delivered_at__date__lte=end_date) |
             Q(delivered_at__isnull=True, updated_at__date__gte=start_date, updated_at__date__lte=end_date)
         ).prefetch_related('items__product')
+
+        if filter_product:
+            delivered_orders_in_range = delivered_orders_in_range.filter(
+                Q(items__product__sku__iexact=filter_product) |
+                Q(items__product_name__icontains=filter_product) |
+                Q(items__product__name__icontains=filter_product)
+            ).distinct()
+
+        if filter_order:
+            clean_oid = filter_order.replace('ORD-', '').replace('#', '').strip()
+            delivered_orders_in_range = delivered_orders_in_range.filter(Q(id=clean_oid) if clean_oid.isdigit() else Q(id__icontains=clean_oid))
+
+        if filter_franchise:
+            if filter_franchise.isdigit():
+                delivered_orders_in_range = delivered_orders_in_range.filter(serving_franchise_id=int(filter_franchise))
+            else:
+                delivered_orders_in_range = delivered_orders_in_range.filter(
+                    Q(serving_franchise__business_name__icontains=filter_franchise) |
+                    Q(franchise_name__icontains=filter_franchise)
+                )
+
+        if filter_customer:
+            delivered_orders_in_range = delivered_orders_in_range.filter(
+                Q(created_by__username__icontains=filter_customer) |
+                Q(created_by__first_name__icontains=filter_customer) |
+                Q(client_name__icontains=filter_customer) |
+                Q(created_by__profile__phone__icontains=filter_customer)
+            )
+
         orders_delivered_count = delivered_orders_in_range.count()
 
         # Direct Company delivered revenue & COGS
         direct_delivered = delivered_orders_in_range.filter(order_source='DIRECT_COMPANY')
-        direct_rev = direct_delivered.aggregate(t=Sum('grand_total'))['t'] or direct_delivered.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+        if filter_product:
+            direct_items = OrderItem.objects.filter(order__in=direct_delivered).filter(
+                Q(product__sku__iexact=filter_product) | Q(product_name__icontains=filter_product) | Q(product__name__icontains=filter_product)
+            )
+            direct_rev = direct_items.aggregate(t=Sum('total_price'))['t'] or Decimal('0.00')
+        else:
+            direct_rev = direct_delivered.aggregate(t=Sum('grand_total'))['t'] or direct_delivered.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
 
         # Franchise customer delivered orders
         franchise_delivered = delivered_orders_in_range.filter(order_source='FRANCHISE')
-        franchise_cust_rev = franchise_delivered.aggregate(t=Sum('grand_total'))['t'] or franchise_delivered.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+        if filter_product:
+            fran_items = OrderItem.objects.filter(order__in=franchise_delivered).filter(
+                Q(product__sku__iexact=filter_product) | Q(product_name__icontains=filter_product) | Q(product__name__icontains=filter_product)
+            )
+            franchise_cust_rev = fran_items.aggregate(t=Sum('total_price'))['t'] or Decimal('0.00')
+        else:
+            franchise_cust_rev = franchise_delivered.aggregate(t=Sum('grand_total'))['t'] or franchise_delivered.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
 
         # Total Customer Delivered Orders COGS
-        cogs_direct = OrderItem.objects.filter(order__in=delivered_orders_in_range).aggregate(
-            c=Sum('snapshot_total_cogs')
-        )['c'] or Decimal('0.00')
-        if cogs_direct == 0 and delivered_orders_in_range.exists():
-            cogs_direct = OrderItem.objects.filter(order__in=delivered_orders_in_range).aggregate(
+        all_del_items = OrderItem.objects.filter(order__in=delivered_orders_in_range)
+        if filter_product:
+            all_del_items = all_del_items.filter(
+                Q(product__sku__iexact=filter_product) | Q(product_name__icontains=filter_product) | Q(product__name__icontains=filter_product)
+            )
+
+        cogs_direct = all_del_items.aggregate(c=Sum('snapshot_total_cogs'))['c'] or Decimal('0.00')
+        if cogs_direct == 0 and all_del_items.exists():
+            cogs_direct = all_del_items.aggregate(
                 c=Sum(F('snapshot_unit_production_cost') * F('quantity'))
             )['c'] or Decimal('0.00')
-        if cogs_direct == 0 and delivered_orders_in_range.exists():
-            cogs_direct = OrderItem.objects.filter(order__in=delivered_orders_in_range).aggregate(
+        if cogs_direct == 0 and all_del_items.exists():
+            cogs_direct = all_del_items.aggregate(
                 c=Sum(F('quantity') * Decimal('3.50'))
             )['c'] or Decimal('0.00')
 
@@ -1523,6 +1608,20 @@ class DailyBusinessReportAPIView(views.APIView):
             issued_at__date__gte=start_date,
             issued_at__date__lte=end_date
         ).exclude(status__in=['CANCELLED', 'Cancelled'])
+
+        if filter_product:
+            dealer_invoices = dealer_invoices.filter(
+                Q(stock_request__product__sku__iexact=filter_product) |
+                Q(stock_request__product__name__icontains=filter_product)
+            )
+        if filter_order or filter_customer:
+            dealer_invoices = dealer_invoices.none()
+        elif filter_franchise:
+            if filter_franchise.isdigit():
+                dealer_invoices = dealer_invoices.filter(stock_request__dealer_id=int(filter_franchise))
+            else:
+                dealer_invoices = dealer_invoices.filter(billed_to_name__icontains=filter_franchise)
+
         dealer_rev = dealer_invoices.aggregate(t=Sum('grand_total'))['t'] or Decimal('0.00')
 
         # Dealer wholesale dispatch COGS in date range
@@ -1530,6 +1629,20 @@ class DailyBusinessReportAPIView(views.APIView):
             created_at__date__gte=start_date,
             created_at__date__lte=end_date
         ).select_related('production_batch')
+
+        if filter_product:
+            dealer_allocations = dealer_allocations.filter(
+                Q(request__product__sku__iexact=filter_product) |
+                Q(request__product__name__icontains=filter_product)
+            )
+        if filter_order or filter_customer:
+            dealer_allocations = dealer_allocations.none()
+        elif filter_franchise:
+            if filter_franchise.isdigit():
+                dealer_allocations = dealer_allocations.filter(request__dealer_id=int(filter_franchise))
+            else:
+                dealer_allocations = dealer_allocations.filter(request__dealer__business_name__icontains=filter_franchise)
+
         cogs_dealer = sum(
             (Decimal(str(a.dispatched_quantity or a.allocated_quantity)) * a.production_batch.unit_production_cost)
             for a in dealer_allocations if a.production_batch
@@ -1541,7 +1654,11 @@ class DailyBusinessReportAPIView(views.APIView):
             timestamp__date__gte=start_date,
             timestamp__date__lte=end_date
         )
-        dispatch_units = abs(dispatches.aggregate(q=Sum('quantity'))['q'] or 0)
+        if filter_product or filter_order or filter_customer or filter_franchise:
+            # When filtering by specific product/order, do not use generic dispatches fallback
+            dispatch_units = 0
+        else:
+            dispatch_units = abs(dispatches.aggregate(q=Sum('quantity'))['q'] or 0)
         if not cogs_dealer and dispatch_units > 0:
             cogs_dealer = Decimal(dispatch_units) * Decimal('6.50')
 
@@ -1603,7 +1720,12 @@ class DailyBusinessReportAPIView(views.APIView):
 
         # 4. Product-wise Profitability Breakdown (Authoritative from Delivered Sales)
         prod_map = {}
-        for it in OrderItem.objects.filter(order__in=delivered_orders_in_range).select_related('product'):
+        deliv_items_qs = OrderItem.objects.filter(order__in=delivered_orders_in_range).select_related('product')
+        if filter_product:
+            deliv_items_qs = deliv_items_qs.filter(
+                Q(product__sku__iexact=filter_product) | Q(product_name__icontains=filter_product) | Q(product__name__icontains=filter_product)
+            )
+        for it in deliv_items_qs:
             p_name = it.product_name or (it.product.name if it.product else 'Product')
             p_sku = it.product.sku if it.product else p_name
             if p_sku not in prod_map:
@@ -1676,6 +1798,15 @@ class DailyBusinessReportAPIView(views.APIView):
             'new_leads_count': leads_qs.count(),
             'converted_leads_count': leads_qs.filter(status__in=['CONVERTED', 'FRANCHISE_CONFIRMED', 'converted', 'franchise_confirmed']).count(),
             'followups_count': followups_count,
+            'applied_filters': {
+                'period': period,
+                'start_date': str(start_date),
+                'end_date': str(end_date),
+                'product': filter_product,
+                'order': filter_order,
+                'franchise': filter_franchise,
+                'customer': filter_customer,
+            },
         }
 
         # ─────────────────────────────────────────────────────────────────────

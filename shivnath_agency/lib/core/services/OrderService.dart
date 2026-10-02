@@ -326,6 +326,18 @@ class OrderService {
 
       'status_history': item['status_history'] is List ? item['status_history'] : [],
 
+      'invoice_id': item['invoice_id'],
+      'invoice_number': item['invoice_number']?.toString() ?? '',
+      'invoice_status': item['invoice_status']?.toString() ?? 'UNPAID',
+      'invoice_subtotal': double.tryParse(item['invoice_subtotal']?.toString() ?? item['amount']?.toString() ?? '0') ?? 0.0,
+      'invoice_tax': double.tryParse(item['invoice_tax']?.toString() ?? '0') ?? 0.0,
+      'invoice_grand_total': double.tryParse(item['invoice_grand_total']?.toString() ?? item['grand_total']?.toString() ?? item['amount']?.toString() ?? '0') ?? 0.0,
+      'delivery_charges': double.tryParse(item['delivery_charges']?.toString() ?? '0') ?? 0.0,
+      'discount_amount': double.tryParse(item['discount_amount']?.toString() ?? '0') ?? 0.0,
+      'payment_mode': item['payment_mode']?.toString() ?? 'Pending',
+      'order_notes': item['order_notes']?.toString() ?? '',
+      'fulfilling_entity': item['fulfilling_entity'] is Map ? Map<String, dynamic>.from(item['fulfilling_entity'] as Map) : null,
+
       'raw': item,
     };
   }

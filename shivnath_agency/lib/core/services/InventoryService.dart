@@ -659,6 +659,10 @@ class InventoryService {
     String? startDate,
     String? endDate,
     String? period,
+    String? productSku,
+    dynamic orderId,
+    dynamic franchiseId,
+    dynamic customerId,
   }) async {
     try {
       final queryParams = <String, String>{};
@@ -670,6 +674,18 @@ class InventoryService {
       }
       if (endDate != null && endDate.isNotEmpty) {
         queryParams['end_date'] = endDate;
+      }
+      if (productSku != null && productSku.isNotEmpty) {
+        queryParams['product_sku'] = productSku;
+      }
+      if (orderId != null && orderId.toString().isNotEmpty) {
+        queryParams['order_id'] = orderId.toString();
+      }
+      if (franchiseId != null && franchiseId.toString().isNotEmpty) {
+        queryParams['franchise_id'] = franchiseId.toString();
+      }
+      if (customerId != null && customerId.toString().isNotEmpty) {
+        queryParams['customer_id'] = customerId.toString();
       }
       final uri = Uri.parse('$baseUrl/api/inventory/daily-reports/').replace(
         queryParameters: queryParams.isNotEmpty ? queryParams : null,

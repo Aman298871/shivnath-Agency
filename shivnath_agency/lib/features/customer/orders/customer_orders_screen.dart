@@ -14,7 +14,7 @@ class CustomerOrdersScreen extends StatefulWidget {
 
 class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   final OrderService _orderService = OrderService();
-  List<Map<String, String>> _orders = [];
+  List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -37,16 +37,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
       final rawOrders = res['data']['orders'];
       if (rawOrders is List) {
         final mapped = rawOrders.whereType<Map>().map((item) {
-          final mappedItem = _orderService.mapOrder(Map<String, dynamic>.from(item));
-          final rawId = mappedItem['orderId']?.toString();
-          final fallbackId = mappedItem['id'] != null ? 'ORD-${1000 + (int.tryParse(mappedItem['id'].toString()) ?? 0)}' : '';
-          final orderCode = (rawId != null && rawId.isNotEmpty) ? rawId : fallbackId;
-          return {
-            'id': orderCode,
-            'date': mappedItem['date']?.toString() ?? '',
-            'amount': '₹${mappedItem['amount']}',
-            'status': mappedItem['status']?.toString() ?? 'Pending',
-          };
+          return _orderService.mapOrder(Map<String, dynamic>.from(item));
         }).toList();
 
         setState(() {
@@ -66,7 +57,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     });
   }
 
-  List<Map<String, String>> get orders => _orders;
+  List<Map<String, dynamic>> get orders => _orders;
 
   @override
   Widget build(BuildContext context) {
@@ -176,77 +167,68 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
 
                 const SizedBox(height: 24),
 
-                const Row(
-                  children: [
-                    Expanded(
-                      child: _OrderStat(
-                        title:
-                            'Total Orders',
-                        value: '24',
-                        icon:
-                            Icons.receipt_long_outlined,
-                      ),
-                    ),
-                    SizedBox(width: 14),
-                    Expanded(
-                      child: _OrderStat(
-                        title: 'Processing',
-                        value: '1',
-                        icon:
-                            Icons.schedule_outlined,
-                      ),
-                    ),
-                    SizedBox(width: 14),
-                    Expanded(
-                      child: _OrderStat(
-                        title: 'Dispatched',
-                        value: '1',
-                        icon:
-                            Icons.local_shipping_outlined,
-                      ),
-                    ),
-                    SizedBox(width: 14),
-                    Expanded(
-                      child: _OrderStat(
-                        title: 'Delivered',
-                        value: '22',
-                        icon:
-                            Icons.check_circle_outline,
-                      ),
-                    ),
-                  ],
+                Builder(
+                  builder: (context) {
+                    final total = _orders.length;
+                    final processing = _orders.where((o) {
+                      final s = (o['status'] ?? '').toString().toLowerCase();
+                      return s.contains('prepar') || s.contains('approv') || s.contains('placement');
+                    }).length;
+                    final dispatched = _orders.where((o) => (o['status'] ?? '').toString().toLowerCase().contains('dispatch')).length;
+                    final delivered = _orders.where((o) => (o['status'] ?? '').toString().toLowerCase().contains('deliver')).length;
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: _OrderStat(
+                            title: 'Total Orders',
+                            value: '$total',
+                            icon: Icons.receipt_long_outlined,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: _OrderStat(
+                            title: 'Processing',
+                            value: '$processing',
+                            icon: Icons.schedule_outlined,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: _OrderStat(
+                            title: 'Dispatched',
+                            value: '$dispatched',
+                            icon: Icons.local_shipping_outlined,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: _OrderStat(
+                            title: 'Delivered',
+                            value: '$delivered',
+                            icon: Icons.check_circle_outline,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 22),
 
                 Container(
-                  padding:
-                      const EdgeInsets.all(18),
-                  decoration:
-                      BoxDecoration(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius:
-                        BorderRadius.circular(
-                      16,
-                    ),
-                    border: Border.all(
-                      color:
-                          const Color(
-                        0xFFE2E8F0,
-                      ),
-                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Column(
-                    children:
-                        orders.map((order) {
+                    children: orders.map((order) {
                       return _DesktopOrderRow(
                         order: order,
-                        onTap: () {
-                          _openOrder(
-                            context,
-                            order,
-                          );
-                        },
+                        onTap: () => _openOrder(context, order),
                       );
                     }).toList(),
                   ),
@@ -259,33 +241,33 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     );
   }
 
-  Widget _orderList(
-    BuildContext context,
-  ) {
+  Widget _orderList(BuildContext context) {
     return ListView.separated(
-      padding:
-          const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(18),
       itemCount: orders.length,
-      separatorBuilder: (_, _) =>
-          const SizedBox(height: 12),
-      itemBuilder:
-          (context, index) {
-        final order =
-            orders[index];
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final order = orders[index];
+        final orderCode = order['orderId']?.toString() ?? 'ORD-${order['id']}';
+        final displayCode = orderCode.startsWith('#') ? orderCode : '#$orderCode';
+        final amount = '₹${order['amount']}';
+        final status = order['status']?.toString() ?? 'Pending';
+        final date = order['date']?.toString() ?? '';
+        final franchise = order['franchise']?.toString() ?? '';
 
         return Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
           child: ListTile(
-            contentPadding:
-                const EdgeInsets.all(15),
-            leading:
-                const CircleAvatar(
-              backgroundColor:
-                  Color(0xFFE0F2FE),
+            contentPadding: const EdgeInsets.all(15),
+            leading: const CircleAvatar(
+              backgroundColor: Color(0xFFE0F2FE),
               child: Icon(
-                Icons
-                    .inventory_2_outlined,
-                color:
-                    Color(0xFF0284C7),
+                Icons.inventory_2_outlined,
+                color: Color(0xFF0284C7),
               ),
             ),
             title: Row(
@@ -293,46 +275,49 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    (order['id']?.startsWith('#') ?? false)
-                        ? order['id']!
-                        : '#${order['id']}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                    ),
+                    displayCode,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  order['amount']!,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                  ),
+                  amount,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF0F172A)),
                 ),
               ],
             ),
             subtitle: Padding(
-              padding: const EdgeInsets.only(top: 6.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      '${order['date']}',
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          date,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      AppStatusBadge.order(status),
+                    ],
+                  ),
+                  if (franchise.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Fulfilled by: $franchise',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  AppStatusBadge.order(order['status']),
+                  ],
                 ],
               ),
             ),
-            onTap: () {
-              _openOrder(
-                context,
-                order,
-              );
-            },
+            onTap: () => _openOrder(context, order),
           ),
         );
       },
@@ -341,16 +326,17 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
 
   void _openOrder(
     BuildContext context,
-    Map<String, String> order,
+    Map<String, dynamic> order,
   ) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            OrderDetailScreen(
-          orderId: order['id']!,
-          amount: order['amount']!,
-          status: order['status']!,
+        builder: (_) => OrderDetailScreen(
+          orderId: order['orderId']?.toString() ?? 'ORD-${order['id']}',
+          amount: '₹${order['amount']}',
+          status: order['status']?.toString(),
+          initialOrder: order,
+          dbId: order['id'] is int ? order['id'] as int : int.tryParse(order['id']?.toString() ?? ''),
         ),
       ),
     );
@@ -441,10 +427,8 @@ class _OrderStat
   }
 }
 
-class _DesktopOrderRow
-    extends StatelessWidget {
-  final Map<String, String>
-      order;
+class _DesktopOrderRow extends StatelessWidget {
+  final Map<String, dynamic> order;
   final VoidCallback onTap;
 
   const _DesktopOrderRow({
@@ -454,80 +438,56 @@ class _DesktopOrderRow
 
   @override
   Widget build(BuildContext context) {
+    final orderCode = order['orderId']?.toString() ?? 'ORD-${order['id']}';
+    final displayCode = orderCode.startsWith('#') ? orderCode : '#$orderCode';
+    final amount = '₹${order['amount']}';
+    final status = order['status']?.toString() ?? 'Pending';
+    final date = order['date']?.toString() ?? '';
+
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-          vertical: 16,
-        ),
-        decoration:
-            const BoxDecoration(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: const BoxDecoration(
           border: Border(
-            bottom: BorderSide(
-              color:
-                  Color(0xFFF1F5F9),
-            ),
+            bottom: BorderSide(color: Color(0xFFF1F5F9)),
           ),
         ),
         child: Row(
           children: [
             const CircleAvatar(
-              backgroundColor:
-                  Color(0xFFE0F2FE),
+              backgroundColor: Color(0xFFE0F2FE),
               child: Icon(
-                Icons
-                    .inventory_2_outlined,
-                color:
-                    Color(0xFF0284C7),
+                Icons.inventory_2_outlined,
+                color: Color(0xFF0284C7),
               ),
             ),
-
-            const SizedBox(
-              width: 14,
-            ),
-
+            const SizedBox(width: 14),
             Expanded(
               flex: 2,
               child: Text(
-                '#${order['id']}',
-                style:
-                    const TextStyle(
-                  fontWeight:
-                      FontWeight.w700,
-                ),
+                displayCode,
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-
             Expanded(
               child: Text(
-                order['date']!,
-                style:
-                    const TextStyle(
-                  color:
-                      Color(0xFF64748B),
-                ),
+                date,
+                style: const TextStyle(color: Color(0xFF64748B)),
               ),
             ),
-
             Expanded(
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: AppStatusBadge.order(order['status']),
+                child: AppStatusBadge.order(status),
               ),
             ),
-
             SizedBox(
               width: 100,
               child: Text(
-                order['amount']!,
-                textAlign:
-                    TextAlign.right,
-                style:
-                    const TextStyle(
-                  fontWeight:
-                      FontWeight.w800,
-                ),
+                amount,
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
 

@@ -7,8 +7,9 @@ import '../../../core/services/lead_service.dart';
 import '../../../core/services/InventoryService.dart';
 import '../../../core/services/OrderService.dart';
 import '../../../core/services/notification_service.dart';
-import '../../../core/utils/app_toast.dart';
 import '../inventory/dealer_stock_request_fulfillment_screen.dart';
+import '../../customer/orders/order_detail_screen.dart';
+import '../../../core/widgets/app_components.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenLeads;
@@ -60,6 +61,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<Map<String, dynamic>> _pendingPaymentVerifications = [];
   final Set<int> _dismissedRequestIds = {};
   final Set<int> _dismissedNotificationIds = {};
+
+  List<Map<String, dynamic>> _recentOrders = [];
+  int _newOrdersCount = 0;
+  int _pendingApprovalCount = 0;
+  int _preparingCount = 0;
+  int _dispatchedCount = 0;
+  int _deliveredCount = 0;
 
   List<Map<String, dynamic>> _stats = [
     {
@@ -487,17 +495,56 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final fuResult = await _followupService.getFollowups();
 
       int ordersCount = 0;
+      List<Map<String, dynamic>> parsedOrders = [];
+      int newCount = 0;
+      int pendingCount = 0;
+      int prepCount = 0;
+      int dispCount = 0;
+      int delivCount = 0;
       try {
         final orderRes = await _orderService.getOrders();
         if (orderRes['success'] == true) {
           final dynamic ordData = orderRes['data'];
+          List rawOrders = [];
           if (ordData is List) {
-            ordersCount = ordData.length;
+            rawOrders = ordData;
           } else if (ordData is Map && ordData['orders'] is List) {
-            ordersCount = (ordData['orders'] as List).length;
+            rawOrders = ordData['orders'] as List;
+          } else if (orderRes['orders'] is List) {
+            rawOrders = orderRes['orders'] as List;
+          }
+          ordersCount = rawOrders.length;
+          for (final ord in rawOrders) {
+            if (ord is Map) {
+              final mapped = _orderService.mapOrder(Map<String, dynamic>.from(ord));
+              parsedOrders.add(mapped);
+              final status = (mapped['status_raw'] ?? mapped['status'] ?? '').toString().toLowerCase();
+              if (status.contains('place') || status.contains('new') || status.contains('created')) {
+                newCount++;
+              } else if (status.contains('pending') || status.contains('approval')) {
+                pendingCount++;
+              } else if (status.contains('prep') || status.contains('process')) {
+                prepCount++;
+              } else if (status.contains('dispatch') || status.contains('transit')) {
+                dispCount++;
+              } else if (status.contains('deliv')) {
+                delivCount++;
+              }
+            }
           }
         }
       } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _recentOrders = parsedOrders.take(6).toList();
+          _newOrdersCount = newCount;
+          _pendingApprovalCount = pendingCount;
+          _preparingCount = prepCount;
+          _dispatchedCount = dispCount;
+          _deliveredCount = delivCount;
+        });
+      }
 
       int franchiseReqCount = 0;
       try {
@@ -1307,6 +1354,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     height: 22,
                   ),
 
+                  _actionableCustomerOrdersCard(desktop),
+
+                  const SizedBox(
+                    height: 22,
+                  ),
+
                   if (desktop)
                     Row(
                       crossAxisAlignment:
@@ -1450,6 +1503,163 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           onTap: getTapAction(index),
         );
       },
+    );
+  }
+
+  Widget _actionableCustomerOrdersCard(bool desktop) {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _cardHeader(
+            title: 'Customer Orders & Action Center',
+            subtitle: 'Real-time orders placed by customers across all territories',
+            button: 'View All Orders (${_stats[1]['value']})',
+            onTap: widget.onOpenOrders,
+          ),
+          const SizedBox(height: 16),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _orderStageChip('New Placed', _newOrdersCount, const Color(0xFF2563EB), const Color(0xFFEFF6FF)),
+                const SizedBox(width: 8),
+                _orderStageChip('Pending Approval', _pendingApprovalCount, const Color(0xFFD97706), const Color(0xFFFFFBEB)),
+                const SizedBox(width: 8),
+                _orderStageChip('Preparing', _preparingCount, const Color(0xFF7C3AED), const Color(0xFFF5F3FF)),
+                const SizedBox(width: 8),
+                _orderStageChip('Dispatched', _dispatchedCount, const Color(0xFF0284C7), const Color(0xFFE0F2FE)),
+                const SizedBox(width: 8),
+                _orderStageChip('Delivered', _deliveredCount, const Color(0xFF16A34A), const Color(0xFFF0FDF4)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          if (_recentOrders.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              alignment: Alignment.center,
+              child: Column(
+                children: [
+                  Icon(Icons.shopping_bag_outlined, size: 36, color: Colors.grey.shade400),
+                  const SizedBox(height: 8),
+                  const Text('No recent customer orders found', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _recentOrders.length,
+              separatorBuilder: (_, __) => const Divider(height: 16),
+              itemBuilder: (ctx, idx) {
+                final ord = _recentOrders[idx];
+                final code = ord['order_code']?.toString() ?? 'ORD-${ord['id']}';
+                final client = ord['client_name']?.toString() ?? ord['customer_name']?.toString() ?? 'Customer';
+                final amt = ord['amount']?.toString() ?? ord['grand_total']?.toString() ?? '0';
+                final status = ord['status']?.toString() ?? 'Processing';
+                final fulfilling = ord['fulfilling_entity'] is Map ? ord['fulfilling_entity']['name'] ?? 'Company Direct' : 'Company Direct';
+                final date = ord['created_at']?.toString() ?? ord['order_date']?.toString() ?? '';
+
+                return InkWell(
+                  onTap: () {
+                    final rawId = ord['id'] is int ? ord['id'] as int : int.tryParse('${ord['id']}') ?? 0;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => OrderDetailScreen(
+                          orderId: rawId,
+                          initialOrder: ord,
+                          dbId: ord['db_id'] is int ? ord['db_id'] : rawId,
+                        ),
+                      ),
+                    ).then((_) => _loadDashboardData());
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.receipt_long_rounded, color: Color(0xFF2563EB), size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A))),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text('By: $fulfilling', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text('$client • $date', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('₹$amt', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF1E293B))),
+                            const SizedBox(height: 2),
+                            Text(status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2563EB))),
+                          ],
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF94A3B8)),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _orderStageChip(String label, int count, Color fg, Color bg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: fg.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: fg,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '$count',
+              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w700)),
+        ],
+      ),
     );
   }
 

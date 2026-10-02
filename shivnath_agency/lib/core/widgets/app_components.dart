@@ -244,6 +244,28 @@ class AppStatusBadge extends StatelessWidget {
     );
   }
 
+  /// Factory for payment status badge
+  factory AppStatusBadge.payment(String? status) {
+    final s = (status ?? 'PENDING').toUpperCase();
+    Color color;
+    Color bg;
+    if (s.contains('PAID') && !s.contains('UNPAID')) {
+      color = BrandColors.green;
+      bg = BrandColors.greenSoft;
+    } else if (s.contains('PARTIAL')) {
+      color = BrandColors.yellow;
+      bg = BrandColors.yellowSoft;
+    } else {
+      color = BrandColors.red;
+      bg = BrandColors.redSoft;
+    }
+    return AppStatusBadge(
+      label: s.replaceAll('_', ' '),
+      color: color,
+      backgroundColor: bg,
+    );
+  }
+
   /// Factory for inventory status badge
   factory AppStatusBadge.inventory(String? status, {int? stockCount, int? minThreshold}) {
     final color = BrandColors.getInventoryColor(status, stockCount: stockCount, minThreshold: minThreshold);

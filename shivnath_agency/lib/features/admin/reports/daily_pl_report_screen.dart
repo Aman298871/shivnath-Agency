@@ -41,6 +41,10 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
   String _customRangeLabel = '';
   String? _period;
 
+  String? _selectedProductSku;
+  int? _selectedOrderId;
+  String? _selectedOrderCode;
+
   late TabController _tabController;
 
   @override
@@ -155,6 +159,8 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
         startDate: _startDate,
         endDate: _endDate,
         period: _period,
+        productSku: _selectedProductSku,
+        orderId: _selectedOrderId,
       );
 
       if (res['success'] == false || res.containsKey('detail')) {
@@ -369,27 +375,122 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
   Widget _buildFilterBar() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _chip('ALL', _DateFilter.all),
-            const SizedBox(width: 8),
-            _chip('TODAY', _DateFilter.today),
-            const SizedBox(width: 8),
-            _chip('YESTERDAY', _DateFilter.yesterday),
-            const SizedBox(width: 8),
-            _chip('THIS WEEK', _DateFilter.thisWeek),
-            const SizedBox(width: 8),
-            _chip('THIS MONTH', _DateFilter.thisMonth),
-            const SizedBox(width: 8),
-            _chip(
-              _customRangeLabel.isNotEmpty ? _customRangeLabel : 'CUSTOM',
-              _DateFilter.custom,
-              icon: Icons.date_range_rounded,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Date Filters
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _chip('ALL', _DateFilter.all),
+                const SizedBox(width: 8),
+                _chip('TODAY', _DateFilter.today),
+                const SizedBox(width: 8),
+                _chip('YESTERDAY', _DateFilter.yesterday),
+                const SizedBox(width: 8),
+                _chip('THIS WEEK', _DateFilter.thisWeek),
+                const SizedBox(width: 8),
+                _chip('THIS MONTH', _DateFilter.thisMonth),
+                const SizedBox(width: 8),
+                _chip(
+                  _customRangeLabel.isNotEmpty ? _customRangeLabel : 'CUSTOM',
+                  _DateFilter.custom,
+                  icon: Icons.date_range_rounded,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // 2. Product Sizing Filter
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                const Text('SKU: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: BrandColors.textSecondary)),
+                _productFilterChip('All Products', null),
+                const SizedBox(width: 6),
+                _productFilterChip('SHV-200', 'SHV-200'),
+                const SizedBox(width: 6),
+                _productFilterChip('SHV-250', 'SHV-250'),
+                const SizedBox(width: 6),
+                _productFilterChip('SHV-500', 'SHV-500'),
+                const SizedBox(width: 6),
+                _productFilterChip('SHV-1L', 'SHV-1L'),
+                const SizedBox(width: 6),
+                _productFilterChip('SHV-20L', 'SHV-20L'),
+              ],
+            ),
+          ),
+
+          // 3. Active Order Filter Banner (if selected)
+          if (_selectedOrderId != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.filter_alt_rounded, size: 14, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Filtering by Order: ${_selectedOrderCode ?? "#$_selectedOrderId"}',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1E40AF)),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedOrderId = null;
+                        _selectedOrderCode = null;
+                      });
+                      _loadReports();
+                    },
+                    child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF1E40AF)),
+                  ),
+                ],
+              ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _productFilterChip(String label, String? sku) {
+    final selected = _selectedProductSku == sku;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedProductSku = sku;
+        });
+        _loadReports();
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? const Color(0xFF0F172A) : BrandColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            color: selected ? Colors.white : BrandColors.textSecondary,
+          ),
         ),
       ),
     );
@@ -1096,68 +1197,102 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
 
   Widget _buildOrderRow(Map<String, dynamic> o) {
     final statusColor = _orderStatusColor(o['status']?.toString() ?? '');
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    final orderId = int.tryParse('${o['id']}');
+    final isSelected = _selectedOrderId != null && _selectedOrderId == orderId;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          if (isSelected) {
+            setState(() {
+              _selectedOrderId = null;
+              _selectedOrderCode = null;
+            });
+          } else {
+            setState(() {
+              _selectedOrderId = orderId;
+              _selectedOrderCode = o['order_code']?.toString();
+            });
+          }
+          _loadReports();
+        },
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: BrandColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  o['order_code']?.toString() ?? '—',
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: BrandColors.textPrimary),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  o['customer']?.toString() ?? 'Customer',
-                  style: const TextStyle(
-                      fontSize: 11, color: BrandColors.textSecondary),
-                ),
-              ],
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFEFF6FF) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? const Color(0xFF2563EB) : BrandColors.border,
+              width: isSelected ? 1.5 : 1.0,
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          child: Row(
             children: [
-              Text(
-                '₹${double.tryParse(o['amount']?.toString() ?? '0')?.toStringAsFixed(0) ?? '0'}',
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: BrandColors.textPrimary),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          o['order_code']?.toString() ?? '—',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: isSelected ? const Color(0xFF1E40AF) : BrandColors.textPrimary),
+                        ),
+                        if (isSelected) ...[
+                          const SizedBox(width: 6),
+                          const Text('(Filtered)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      o['customer']?.toString() ?? 'Customer',
+                      style: const TextStyle(
+                          fontSize: 11, color: BrandColors.textSecondary),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 3),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  o['status_display']?.toString() ??
-                      o['status']?.toString() ??
-                      '',
-                  style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: statusColor),
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '₹${double.tryParse(o['amount']?.toString() ?? '0')?.toStringAsFixed(0) ?? '0'}',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: BrandColors.textPrimary),
+                  ),
+                  const SizedBox(height: 3),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      o['status_display']?.toString() ??
+                          o['status']?.toString() ??
+                          '',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: statusColor),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

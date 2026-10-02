@@ -188,6 +188,25 @@ def notify_order_created(order):
     title = f"New Order Placed: #{order.order_code}"
     body = f"Order #{order.order_code} for ₹{order.amount or order.grand_total} placed by {client_name}."
 
+    # In-App Notification records (idempotent)
+    try:
+        from accounts.models import AdminNotification, FranchiseNotification
+        AdminNotification.objects.get_or_create(
+            title=f"New Order #{order.order_code} Placed",
+            notification_type='order_placed',
+            reference_id=order.id,
+            defaults={'message': body}
+        )
+        if order.serving_franchise:
+            FranchiseNotification.objects.get_or_create(
+                franchise=order.serving_franchise,
+                notification_type='order_placed',
+                reference_id=order.id,
+                defaults={'title': f"New Order #{order.order_code}", 'message': body}
+            )
+    except Exception as e:
+        logger.warning("FCM: DB notification create warning in notify_order_created: %s", e)
+
     # Send to Admins
     send_fcm_notification(
         users=all_admins,
@@ -242,6 +261,19 @@ def notify_order_status_update(order, new_status, actor_name=''):
     title = status_titles.get(st_clean, f"Order #{order.order_code} Update")
     body = status_bodies.get(st_clean, f"Status of #{order.order_code} updated to {new_status}.")
 
+    # In-App Customer Notification inbox
+    try:
+        from accounts.models import CustomerNotification
+        CustomerNotification.objects.create(
+            customer=order.created_by,
+            title=title,
+            message=body,
+            notification_type='order_update',
+            reference_id=order.id
+        )
+    except Exception as e:
+        logger.warning("FCM: CustomerNotification create warning: %s", e)
+
     send_fcm_notification(
         users=[order.created_by],
         title=title,
@@ -262,6 +294,18 @@ def notify_payment_received(order, amount, actor_name='', collector_name=None, *
     collector = collector_name or actor_name or 'Staff'
 
     if order.created_by:
+        try:
+            from accounts.models import CustomerNotification
+            CustomerNotification.objects.create(
+                customer=order.created_by,
+                title="Payment Received! 💳",
+                message=f"Payment of ₹{amount} for order #{order.order_code} received successfully.",
+                notification_type='order_update',
+                reference_id=order.id
+            )
+        except Exception as e:
+            logger.warning("FCM: CustomerNotification create warning: %s", e)
+
         send_fcm_notification(
             users=[order.created_by],
             title="Payment Received! 💳",
@@ -274,6 +318,17 @@ def notify_payment_received(order, amount, actor_name='', collector_name=None, *
     User = get_user_model()
     admin_users = list(User.objects.filter(is_superuser=True))
     if admin_users:
+        try:
+            from accounts.models import AdminNotification
+            AdminNotification.objects.create(
+                title=f"Payment Collected: #{order.order_code}",
+                message=f"₹{amount} collected for #{order.order_code} by {collector}.",
+                notification_type='payment_verification',
+                reference_id=order.id
+            )
+        except Exception as e:
+            logger.warning("FCM: AdminNotification create warning: %s", e)
+
         send_fcm_notification(
             users=admin_users,
             title=f"Payment Collected: #{order.order_code}",
@@ -302,6 +357,17 @@ def notify_stock_request_created(stock_req):
 
     title = f"New Stock Request: {dealer_name}"
     body = f"{dealer_name} requested {qty:,} units of {sku} ({prod_name}). Request #{stock_req.request_number}."
+
+    try:
+        from accounts.models import AdminNotification
+        AdminNotification.objects.get_or_create(
+            title=title,
+            notification_type='stock_alert',
+            reference_id=stock_req.id,
+            defaults={'message': body}
+        )
+    except Exception as e:
+        logger.warning("FCM: AdminNotification create warning: %s", e)
 
     send_fcm_notification(
         users=all_admins,
@@ -340,6 +406,28 @@ def notify_customer_registered(customer_user, rel=None):
     title = f"New Customer Registered: {cust_name}"
     body = f"Customer {cust_name} ({phone}) registered in {rel.zone.name if rel and rel.zone else 'Pure Water'}. Assigned to {reg_f_name}."
 
+    try:
+        from accounts.models import AdminNotification
+        AdminNotification.objects.get_or_create(
+            title=title,
+            notification_type='customer_registration',
+            reference_id=customer_user.id,
+            defaults={'message': body}
+        )
+        if rel and rel.registered_franchise:
+            from accounts.models import FranchiseNotification
+            FranchiseNotification.objects.get_or_create(
+                franchise=rel.registered_franchise,
+                notification_type='new_customer',
+                reference_id=customer_user.id,
+                defaults={
+                    'title': "New Customer Registered in Your Area",
+                    'message': f"{cust_name} ({phone}) registered and assigned to your franchise territory."
+                }
+            )
+    except Exception as e:
+        logger.warning("FCM: DB notification create warning in notify_customer_registered: %s", e)
+
     # Send to all Admins
     send_fcm_notification(
         users=all_admins,
@@ -366,6 +454,87 @@ def notify_customer_registered(customer_user, rel=None):
         )
 
 
+def notify_franchise_registered(franchise):
+    """
+    Triggered when a new Franchise submits an application.
+    Notifies Super Admin and Admins.
+    """
+    all_admins = _get_all_admins()
+    b_name = franchise.business_name
+    city = franchise.city
+    title = f"New Franchise Registration: {b_name}"
+    body = f"A new Franchise application has been submitted by {b_name} ({city})."
+
+    try:
+        from accounts.models import AdminNotification
+        AdminNotification.objects.get_or_create(
+            title=title,
+            notification_type='franchise_registration',
+            reference_id=franchise.id,
+            defaults={'message': body}
+        )
+    except Exception as e:
+        logger.warning("FCM: AdminNotification create warning: %s", e)
+
+    send_fcm_notification(
+        users=all_admins,
+        title=title,
+        body=body,
+        data={
+            'franchise_id': franchise.id,
+            'screen': 'admin_franchises',
+        },
+        notification_type='franchise_registration',
+        reference_id=franchise.id,
+    )
+
+
+def notify_franchise_approval_status(franchise, new_status, reason='', actor_name=''):
+    """
+    Triggered when Admin/Super Admin updates Franchise application status (approved, rejected, suspended).
+    Notifies the Franchise applicant.
+    """
+    if not franchise or not franchise.user:
+        return
+
+    st_clean = (new_status or '').lower()
+    if st_clean == 'approved':
+        title = "Franchise Application Approved! 🎉"
+        body = f"Congratulations! Your franchise application for {franchise.business_name} has been approved."
+    elif st_clean == 'rejected':
+        title = "Franchise Application Update"
+        reason_text = f" Reason: {reason}" if reason else ""
+        body = f"Your franchise application for {franchise.business_name} requires attention.{reason_text}"
+    else:
+        title = f"Franchise Application: {new_status.title()}"
+        body = f"Your franchise status has been updated to {new_status}."
+
+    try:
+        from accounts.models import FranchiseNotification
+        FranchiseNotification.objects.create(
+            franchise=franchise,
+            title=title,
+            message=body,
+            notification_type='service_status',
+            reference_id=franchise.id,
+        )
+    except Exception as e:
+        logger.warning("FCM: FranchiseNotification create warning: %s", e)
+
+    send_fcm_notification(
+        users=[franchise.user],
+        title=title,
+        body=body,
+        data={
+            'franchise_id': franchise.id,
+            'status': new_status,
+            'screen': 'franchise_profile',
+        },
+        notification_type='service_status',
+        reference_id=franchise.id,
+    )
+
+
 def notify_lead_created(lead, is_update=False):
     """
     Triggered when a new Lead or Public Chatbot Inquiry is captured.
@@ -377,6 +546,25 @@ def notify_lead_created(lead, is_update=False):
 
     title = f"{action_label} Lead ({src_label}): {lead.name}"
     body = f"{lead.name} ({lead.phone}) inquired from {lead.district or lead.city}. Status: {lead.get_status_display()} ({lead.score.upper()})."
+
+    try:
+        from accounts.models import AdminNotification
+        AdminNotification.objects.get_or_create(
+            title=title,
+            notification_type='general',
+            reference_id=lead.id,
+            defaults={'message': body}
+        )
+        if lead.assigned_franchise:
+            from accounts.models import FranchiseNotification
+            FranchiseNotification.objects.get_or_create(
+                franchise=lead.assigned_franchise,
+                notification_type='general',
+                reference_id=lead.id,
+                defaults={'title': f"New Lead Assigned: {lead.name}", 'message': f"Inquiry from {lead.name} ({lead.phone}) in your territory ({lead.territory or lead.city})."}
+            )
+    except Exception as e:
+        logger.warning("FCM: DB notification create warning in notify_lead_created: %s", e)
 
     # Send to Admins
     send_fcm_notification(
@@ -421,6 +609,18 @@ def notify_stock_request_status_update(stock_req, new_status, actor_name=''):
     title = status_titles.get(new_status.upper(), f"Stock Request #{stock_req.request_number} Update")
     by_text = f" by {actor_name}" if actor_name else ""
     body = f"Your request for {stock_req.requested_quantity}x {stock_req.product.sku if stock_req.product else 'Stock'} is now {new_status}{by_text}."
+
+    try:
+        from accounts.models import FranchiseNotification
+        FranchiseNotification.objects.create(
+            franchise=stock_req.dealer,
+            title=title,
+            message=body,
+            notification_type='stock_alert',
+            reference_id=stock_req.id,
+        )
+    except Exception as e:
+        logger.warning("FCM: FranchiseNotification create warning: %s", e)
 
     send_fcm_notification(
         users=[stock_req.dealer.user],

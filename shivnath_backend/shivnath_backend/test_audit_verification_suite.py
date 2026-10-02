@@ -117,7 +117,14 @@ class AuditVerificationSuite(TestCase):
         self.dealer_user = User.objects.get(id=self.dealer_user.id)
         self.customer_user = User.objects.get(id=self.customer_user.id)
 
-        # Products & Category
+        # Products & Category (Clean pre-seeded migration data if present)
+        CompanyBillingProfile.objects.all().delete()
+        ProductionRecipeBOMItem.objects.all().delete()
+        ProductionRecipeBOM.objects.all().delete()
+        Product.objects.all().delete()
+        ProductCategory.objects.all().delete()
+        RawMaterial.objects.all().delete()
+
         self.category = ProductCategory.objects.create(name='Bottled Water')
         self.p_250 = Product.objects.create(
             name='Shivnath 250ml Water Bottle',

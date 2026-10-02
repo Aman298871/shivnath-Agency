@@ -6,6 +6,8 @@ from .models import Order, OrderItem, OrderStatusHistory
 class OrderItemSerializer(serializers.ModelSerializer):
     sku = serializers.CharField(source='product.sku', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
+    product_image = serializers.SerializerMethodField()
+    gst_percent = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
@@ -15,11 +17,29 @@ class OrderItemSerializer(serializers.ModelSerializer):
             'sku',
             'product_sku',
             'product_name',
+            'product_image',
             'size',
             'quantity',
             'unit_price',
             'total_price',
+            'gst_percent',
         ]
+
+    def get_product_image(self, obj):
+        if obj.product and obj.product.image:
+            try:
+                url = obj.product.image.url
+                if not url.startswith('http'):
+                    return f"https://shivnath-agency.onrender.com{url}"
+                return url
+            except Exception:
+                return ''
+        return ''
+
+    def get_gst_percent(self, obj):
+        if obj.product and hasattr(obj.product, 'gst'):
+            return float(obj.product.gst)
+        return 18.0
 
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):
@@ -207,6 +227,18 @@ class OrderSerializer(serializers.ModelSerializer):
     payment_terms_days = serializers.SerializerMethodField()
     credit_status = serializers.SerializerMethodField()
 
+    invoice_id = serializers.SerializerMethodField()
+    invoice_number = serializers.SerializerMethodField()
+    invoice_status = serializers.SerializerMethodField()
+    invoice_subtotal = serializers.SerializerMethodField()
+    invoice_tax = serializers.SerializerMethodField()
+    invoice_grand_total = serializers.SerializerMethodField()
+    delivery_charges = serializers.SerializerMethodField()
+    discount_amount = serializers.SerializerMethodField()
+    payment_mode = serializers.SerializerMethodField()
+    order_notes = serializers.SerializerMethodField()
+    fulfilling_entity = serializers.SerializerMethodField()
+
     class Meta:
         model = Order
 
@@ -256,6 +288,18 @@ class OrderSerializer(serializers.ModelSerializer):
             'payment_terms_days',
             'credit_status',
 
+            'invoice_id',
+            'invoice_number',
+            'invoice_status',
+            'invoice_subtotal',
+            'invoice_tax',
+            'invoice_grand_total',
+            'delivery_charges',
+            'discount_amount',
+            'payment_mode',
+            'order_notes',
+            'fulfilling_entity',
+
             'status',
             'status_display',
 
@@ -284,6 +328,17 @@ class OrderSerializer(serializers.ModelSerializer):
             'amount_paid',
             'outstanding_balance',
             'outstanding_amount',
+            'invoice_id',
+            'invoice_number',
+            'invoice_status',
+            'invoice_subtotal',
+            'invoice_tax',
+            'invoice_grand_total',
+            'delivery_charges',
+            'discount_amount',
+            'payment_mode',
+            'order_notes',
+            'fulfilling_entity',
             'status_display',
             'payment_display',
             'created_by',
@@ -299,6 +354,93 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    def _get_invoice(self, obj):
+        try:
+            return getattr(obj, 'invoice', None)
+        except Exception:
+            return None
+
+    def get_invoice_id(self, obj):
+        inv = self._get_invoice(obj)
+        return inv.id if inv else None
+
+    def get_invoice_number(self, obj):
+        inv = self._get_invoice(obj)
+        return inv.invoice_number if inv else ''
+
+    def get_invoice_status(self, obj):
+        inv = self._get_invoice(obj)
+        return inv.status if inv else 'UNPAID'
+
+    def get_invoice_subtotal(self, obj):
+        inv = self._get_invoice(obj)
+        if inv:
+            return float(inv.subtotal)
+        return float(obj.amount or 0.0)
+
+    def get_invoice_tax(self, obj):
+        inv = self._get_invoice(obj)
+        if inv:
+            return float(inv.cgst_amount + inv.sgst_amount + inv.igst_amount)
+        return float(obj.tax_amount or 0.0)
+
+    def get_invoice_grand_total(self, obj):
+        inv = self._get_invoice(obj)
+        if inv:
+            return float(inv.grand_total)
+        return float(obj.grand_total or obj.amount or 0.0)
+
+    def get_delivery_charges(self, obj):
+        return 0.0
+
+    def get_discount_amount(self, obj):
+        return 0.0
+
+    def get_payment_mode(self, obj):
+        inv = self._get_invoice(obj)
+        if inv and inv.payments.exists():
+            last_p = inv.payments.last()
+            return last_p.get_payment_method_display() or last_p.payment_method
+        return 'Online / Cash on Delivery'
+
+    def get_order_notes(self, obj):
+        notes = []
+        if obj.label_requirement:
+            notes.append(f"Label: {obj.label_requirement}")
+        if obj.printing_requirement:
+            notes.append(f"Printing: {obj.printing_requirement}")
+        if obj.branding_requirement:
+            notes.append(f"Branding: {obj.branding_requirement}")
+        return " | ".join(notes)
+
+    def get_fulfilling_entity(self, obj):
+        if obj.serving_franchise:
+            fp = obj.serving_franchise
+            user = fp.user
+            phone = ''
+            if user:
+                prof = getattr(user, 'profile', None)
+                if prof and prof.phone:
+                    phone = prof.phone
+            return {
+                'type': 'FRANCHISE',
+                'name': fp.business_name,
+                'phone': phone,
+                'address': fp.registered_address or fp.city,
+                'city': fp.city,
+                'territory': fp.territory or (fp.zone.name if fp.zone else ''),
+                'contact_info': f"{fp.business_name} ({phone})" if phone else fp.business_name,
+            }
+        return {
+            'type': 'CENTRAL_COMPANY',
+            'name': 'Shivnath Agency Central Plant',
+            'phone': '+91 98765 43210',
+            'address': 'Shivnath Agency Industrial Area, Raipur, Chhattisgarh',
+            'city': 'Raipur',
+            'territory': 'Central Company Dispatch',
+            'contact_info': 'Shivnath Agency Central Plant (Raipur)',
+        }
 
     def get_customer_name(self, obj):
         if obj.created_by:

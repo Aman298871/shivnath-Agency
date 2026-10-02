@@ -328,8 +328,29 @@ class NotificationService {
     final notifType = (data['notification_type'] ?? '')
         .toString()
         .toLowerCase();
+    final rawOrderId = data['order_id'] ?? data['orderId'] ?? data['reference_id'] ?? data['id'];
 
-    debugPrint('FCM: Navigating for screen: $screen, type: $notifType');
+    debugPrint('FCM: Navigating for screen: $screen, type: $notifType, order: $rawOrderId');
+
+    // 1. Direct deep-link to Order Details if payload is an order event with ID
+    if (rawOrderId != null &&
+        (notifType.contains('order') ||
+         screen.contains('order') ||
+         notifType.contains('order_placed') ||
+         notifType.contains('order_update') ||
+         notifType.contains('order_status') ||
+         notifType.contains('new_customer_order'))) {
+      final orderCode = data['order_code']?.toString() ?? 'ORD-$rawOrderId';
+      final dbId = int.tryParse(rawOrderId.toString());
+      nav.pushNamed(
+        AppRoutes.orderDetail,
+        arguments: {
+          'orderId': orderCode,
+          'dbId': dbId,
+        },
+      );
+      return;
+    }
 
     if (screen.contains('admin') || notifType.contains('order_placed')) {
       nav.pushNamed(AppRoutes.adminDashboard);

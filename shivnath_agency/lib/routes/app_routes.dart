@@ -11,6 +11,7 @@ import '../features/auth/franchise_register_screen.dart';
 
 import '../features/customer/customer_main_screen.dart';
 import '../features/franchise/franchise_main_screen.dart';
+import '../features/customer/orders/order_detail_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -34,6 +35,9 @@ class AppRoutes {
 
   static const String adminDashboard =
       '/admin/dashboard';
+
+  static const String orderDetail =
+      '/orders/detail';
 
   static Route<dynamic> generateRoute(
     RouteSettings settings,
@@ -108,6 +112,31 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) =>
               const AdminMainScreen(),
+          settings: settings,
+        );
+
+      // Order Detail
+      case orderDetail:
+        final args = settings.arguments;
+        String oId = '';
+        Map<String, dynamic>? initialOrd;
+        int? dId;
+        if (args is Map) {
+          oId = args['orderId']?.toString() ?? args['id']?.toString() ?? '';
+          initialOrd = args['initialOrder'] is Map ? Map<String, dynamic>.from(args['initialOrder'] as Map) : null;
+          dId = args['dbId'] is int ? args['dbId'] as int : int.tryParse(args['id']?.toString() ?? '');
+        } else if (args is String) {
+          oId = args;
+        } else if (args is int) {
+          oId = 'ORD-$args';
+          dId = args;
+        }
+        return MaterialPageRoute(
+          builder: (_) => OrderDetailScreen(
+            orderId: oId,
+            initialOrder: initialOrd,
+            dbId: dId,
+          ),
           settings: settings,
         );
 

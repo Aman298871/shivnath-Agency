@@ -10,6 +10,7 @@ import '../../../core/services/notification_service.dart';
 import '../inventory/dealer_stock_request_fulfillment_screen.dart';
 import '../../customer/orders/order_detail_screen.dart';
 import '../../../core/widgets/app_components.dart';
+import '../../../core/utils/app_toast.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenLeads;
@@ -1569,7 +1570,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => OrderDetailScreen(
-                          orderId: rawId,
+                          orderId: code,
                           initialOrder: ord,
                           dbId: ord['db_id'] is int ? ord['db_id'] : rawId,
                         ),

@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 import '../../../core/services/InventoryService.dart';
 import '../../../core/widgets/app_toast.dart';
 
+import 'daily_pl_report_screen.dart';
+
 class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
 
@@ -261,6 +263,33 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       ),
     );
 
+    final plButton = SizedBox(
+      height: 44,
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Color(0xFF0284C7)),
+          foregroundColor: const Color(0xFF0284C7),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+        ),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const DailyPlReportScreen(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.analytics_outlined, size: 18),
+        label: const Text(
+          'Business P&L',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        ),
+      ),
+    );
+
     if (!desktop) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,11 +308,13 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 14),
+          periodSelector,
+          const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: periodSelector),
+              Expanded(child: plButton),
               const SizedBox(width: 8),
-              exportButton,
+              Expanded(child: exportButton),
             ],
           ),
         ],
@@ -312,8 +343,10 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             ],
           ),
         ),
+        plButton,
+        const SizedBox(width: 8),
         periodSelector,
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         exportButton,
       ],
     );

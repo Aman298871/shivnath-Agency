@@ -20,9 +20,9 @@ import 'products/bom_recipe_screen.dart';
 import 'suppliers/admin_suppliers_screen.dart';
 import 'orders/admin_orders_screen.dart';
 import 'billing/admin_billing_screen.dart';
-import 'reports/daily_pl_report_screen.dart';
-import 'chat/admin_chat_conversations_screen.dart';
+import 'package:shivnath_agency/features/admin/reports/admin_reports_screen.dart';
 import 'chat/admin_chatbot_management_screen.dart';
+import 'chat/admin_chat_conversations_screen.dart';
 import 'chat/admin_quotations_screen.dart';
 import 'users/admin_users_screen.dart';
 import 'users/admin_management_tab.dart';
@@ -513,7 +513,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         return const AdminBillingScreen();
 
       case 9:
-        return const DailyPlReportScreen();
+        return const AdminReportsScreen();
 
       case 10:
         return const AdminChatbotManagementScreen();

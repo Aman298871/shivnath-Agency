@@ -228,11 +228,7 @@ class CustomerCartScreen extends StatelessWidget {
             const CheckoutScreen(),
       ),
     );
-  }
-}
-
-class _DesktopCartItem
-    extends StatelessWidget {
+  }class _DesktopCartItem extends StatelessWidget {
   final CartItem item;
   final CartProvider cart;
 
@@ -243,98 +239,126 @@ class _DesktopCartItem
 
   @override
   Widget build(BuildContext context) {
+    final hasImg = item.image.isNotEmpty;
+
     return Container(
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color:
-              const Color(0xFFE2E8F0),
+          color: const Color(0xFFE2E8F0),
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 90,
-            height: 90,
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
-              color:
-                  const Color(0xFFE0F2FE),
-              borderRadius:
-                  BorderRadius.circular(14),
+              color: const Color(0xFFE0F2FE),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(
-              Icons.local_drink_rounded,
-              size: 45,
-              color:
-                  Color(0xFF0284C7),
-            ),
+            clipBehavior: Clip.antiAlias,
+            child: hasImg
+                ? Image.network(
+                    item.image,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.local_drink_rounded,
+                      size: 40,
+                      color: Color(0xFF0284C7),
+                    ),
+                  )
+                : const Icon(
+                    Icons.local_drink_rounded,
+                    size: 40,
+                    color: Color(0xFF0284C7),
+                  ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (item.sku.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      item.sku,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ),
                 Text(
-                  item.product.name,
+                  item.name,
                   style: const TextStyle(
                     fontSize: 14,
-                    fontWeight:
-                        FontWeight.w700,
+                    fontWeight: FontWeight.w700,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
 
                 Text(
-                  '₹${item.product.price.toStringAsFixed(0)} / ${item.product.unit}',
+                  '₹${item.price.toStringAsFixed(0)} ${item.size.isNotEmpty ? '/ ${item.size}' : ''}',
                   style: const TextStyle(
-                    color:
-                        Color(0xFF0284C7),
-                    fontWeight:
-                        FontWeight.w700,
+                    color: Color(0xFF0284C7),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                if (item.stock <= 5 && item.stock > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Only ${item.stock} left in stock',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.amber.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 10),
 
                 Row(
                   children: [
                     _QtyButton(
-                      icon:
-                          Icons.remove,
+                      icon: Icons.remove,
                       onTap: () {
-                        cart.decreaseQuantity(
-                          item.product.id,
-                        );
+                        cart.decreaseQuantity(item.id);
                       },
                     ),
                     Padding(
-                      padding:
-                          const EdgeInsets.symmetric(
-                        horizontal: 14,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
                         '${item.quantity}',
-                        style:
-                            const TextStyle(
-                          fontWeight:
-                              FontWeight.bold,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
                         ),
                       ),
                     ),
                     _QtyButton(
                       icon: Icons.add,
                       onTap: () {
-                        final error = cart.increaseQuantity(
-                          item.product.id,
-                        );
+                        final error = cart.increaseQuantity(item.id);
                         if (error != null) {
                           ScaffoldMessenger.of(context)
                             ..hideCurrentSnackBar()
@@ -354,27 +378,27 @@ class _DesktopCartItem
           ),
 
           Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
                 onPressed: () {
-                  cart.removeProduct(
-                    item.product.id,
-                  );
+                  cart.removeProduct(item.id);
                 },
                 icon: const Icon(
                   Icons.delete_outline,
                   color: Colors.red,
+                  size: 20,
                 ),
+                tooltip: 'Remove item',
               ),
-
+              const SizedBox(height: 12),
               Text(
                 '₹${item.total.toStringAsFixed(0)}',
                 style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight:
-                      FontWeight.w800,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
                 ),
               ),
             ],

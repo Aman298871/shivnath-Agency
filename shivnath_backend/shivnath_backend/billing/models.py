@@ -163,6 +163,7 @@ class PaymentTransaction(models.Model):
     PAYMENT_METHOD_CHOICES = [
         ('CASH', 'Cash'),
         ('UPI', 'UPI'),
+        ('RAZORPAY', 'Razorpay Online Payment'),
         ('NEFT_RTGS', 'NEFT / RTGS / Bank Transfer'),
         ('CHEQUE', 'Cheque'),
         ('CREDIT_ADJUSTMENT', 'Credit / Ledger Adjustment'),
@@ -188,7 +189,7 @@ class PaymentTransaction(models.Model):
     payment_method = models.CharField(
         max_length=30,
         choices=PAYMENT_METHOD_CHOICES,
-        default='UPI'
+        default='RAZORPAY'
     )
     amount_paid = models.DecimalField(
         max_digits=12,
@@ -199,6 +200,24 @@ class PaymentTransaction(models.Model):
         blank=True,
         default='',
         help_text="UTR / Cheque No / Payment Gateway Reference ID"
+    )
+    razorpay_order_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        help_text="Razorpay Order ID"
+    )
+    razorpay_payment_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        help_text="Razorpay Payment ID"
+    )
+    razorpay_signature = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Razorpay Signature"
     )
     payment_status = models.CharField(
         max_length=30,

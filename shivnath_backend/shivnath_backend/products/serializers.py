@@ -216,6 +216,37 @@ class ProductSerializer(serializers.ModelSerializer):
             return float(bom.total_production_cost_per_unit)
         return 0.0
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        try:
+            from inventory.models import ProductionBatch, DealerStockBatch
+            from django.db.models import Sum
+            from datetime import date
+            today = date.today()
+
+            cp_stock = ProductionBatch.objects.filter(
+                product=instance,
+                status='ACTIVE',
+                expiry_date__gt=today
+            ).aggregate(s=Sum('quantity_remaining_company'))['s'] or 0
+
+            dealer_stock = DealerStockBatch.objects.filter(
+                product=instance,
+                is_active=True,
+                expiry_date__gt=today
+            ).aggregate(s=Sum('remaining_quantity'))['s'] or 0
+
+            total_batch_stock = int(cp_stock) + int(dealer_stock)
+            effective_stock = max(instance.stock, total_batch_stock)
+            if effective_stock != instance.stock and total_batch_stock > 0:
+                Product.objects.filter(pk=instance.pk).update(stock=effective_stock)
+            ret['stock'] = effective_stock
+            ret['central_stock'] = int(cp_stock)
+            ret['dealer_stock'] = int(dealer_stock)
+        except Exception:
+            pass
+        return ret
+
     def validate_name(self, value):
         value = value.strip()
         if not value:

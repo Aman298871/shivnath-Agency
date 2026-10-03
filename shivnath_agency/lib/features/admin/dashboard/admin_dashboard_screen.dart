@@ -196,17 +196,53 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           } else if (maxOrderId > _lastSeenOrderId && newestOrder != null) {
             _lastSeenOrderId = maxOrderId;
             if (mounted) {
+              final isDirect = newestOrder['order_source'] == 'DIRECT_COMPANY';
+              final orderCode = newestOrder['order_code']?.toString() ?? 'ORD-$maxOrderId';
+              final custName = newestOrder['client_name']?.toString() ?? newestOrder['customer_name']?.toString() ?? newestOrder['franchise_name']?.toString() ?? 'Customer';
+              final summary = newestOrder['items_summary']?.toString() ?? '${newestOrder['items_count'] ?? 1} Items';
+              final amt = '₹${newestOrder['amount'] ?? newestOrder['grand_total'] ?? 0}';
+              final dateStr = newestOrder['created_at']?.toString() ?? '';
+              final payStatus = newestOrder['payment_status']?.toString() ?? newestOrder['payment']?.toString() ?? 'PENDING';
+              final address = newestOrder['delivery_address']?.toString() ?? newestOrder['city']?.toString() ?? '';
+              final source = isDirect ? 'Direct Company' : (newestOrder['franchise_name']?.toString() ?? 'Franchise');
+              final orderStatus = newestOrder['status']?.toString() ?? 'PENDING';
+
               _showLiveOrderAlertDialog(
-                type: 'Customer Order Placed',
-                code: newestOrder['order_code']?.toString() ?? 'ORD-$maxOrderId',
-                partyName: newestOrder['client_name']?.toString() ?? newestOrder['customer_name']?.toString() ?? newestOrder['franchise_name']?.toString() ?? 'Customer',
-                details: newestOrder['items_summary']?.toString() ?? '${newestOrder['items_count'] ?? 1} Items',
-                amountOrQty: '₹${newestOrder['amount'] ?? newestOrder['grand_total'] ?? 0}',
-                time: newestOrder['created_at']?.toString() ?? '',
+                type: isDirect ? 'Direct Customer Order' : 'Customer Order Placed',
+                code: orderCode,
+                partyName: custName,
+                details: summary,
+                amountOrQty: amt,
+                time: dateStr,
+                paymentStatus: payStatus,
+                deliveryAddress: address,
+                fulfillmentSource: source,
+                orderStatus: orderStatus,
                 onView: () {
                   Navigator.of(context, rootNavigator: true).pop();
-                  widget.onOpenOrdersWithCode?.call(newestOrder?['order_code']?.toString());
-                  widget.onOpenOrders?.call();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => OrderDetailScreen(
+                        orderId: orderCode,
+                        initialOrder: newestOrder,
+                        dbId: maxOrderId,
+                      ),
+                    ),
+                  );
+                },
+                onFulfill: () {
+                  Navigator.of(context, rootNavigator: true).pop();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => OrderDetailScreen(
+                        orderId: orderCode,
+                        initialOrder: newestOrder,
+                        dbId: maxOrderId,
+                      ),
+                    ),
+                  );
                 },
               );
             }
@@ -290,6 +326,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required String amountOrQty,
     required String time,
     required VoidCallback onView,
+    VoidCallback? onFulfill,
+    String? paymentStatus,
+    String? deliveryAddress,
+    String? fulfillmentSource,
+    String? orderStatus,
     bool isStockRequest = false,
   }) {
     showDialog(
@@ -299,7 +340,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: EdgeInsets.zero,
         content: Container(
-          width: 420,
+          width: 440,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             color: Colors.white,
@@ -411,23 +452,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ],
                           ),
                         ),
+                        if (orderStatus != null && orderStatus.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE0F2FE),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              orderStatus.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
-                    const Divider(height: 24),
+                    const Divider(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Item Details', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                            const SizedBox(height: 2),
-                            Text(
-                              details,
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
-                            ),
-                          ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Item Details', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                              const SizedBox(height: 2),
+                              Text(
+                                details,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -445,6 +507,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                       ],
                     ),
+                    if (fulfillmentSource != null && fulfillmentSource.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(Icons.hub_outlined, size: 14, color: Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Fulfillment Source: ',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            fulfillmentSource,
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w800),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (deliveryAddress != null && deliveryAddress.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              deliveryAddress,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     Row(
                       children: [
@@ -456,26 +553,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               side: const BorderSide(color: Color(0xFFCBD5E1)),
                             ),
                             onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Dismiss', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+                            child: const Text('CLOSE', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700, fontSize: 12)),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isStockRequest ? const Color(0xFF7C3AED) : const Color(0xFF0284C7),
-                              foregroundColor: Colors.white,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              side: const BorderSide(color: Color(0xFF0284C7)),
+                              foregroundColor: const Color(0xFF0284C7),
                             ),
-                            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                            label: Text(
-                              isStockRequest ? 'Open Request' : 'View Order',
-                              style: const TextStyle(fontWeight: FontWeight.w800),
-                            ),
+                            icon: const Icon(Icons.receipt_long_rounded, size: 14),
+                            label: const Text('VIEW ORDER', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
                             onPressed: onView,
                           ),
                         ),
+                        if (onFulfill != null) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isStockRequest ? const Color(0xFF7C3AED) : const Color(0xFF0284C7),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.local_shipping_outlined, size: 14),
+                              label: const Text(
+                                'FULFILL',
+                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                              ),
+                              onPressed: onFulfill,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],

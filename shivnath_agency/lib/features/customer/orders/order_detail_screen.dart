@@ -801,7 +801,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final subtotal = _order?['invoice_subtotal'] ?? _order?['amount'] ?? 0.0;
     final tax = _order?['invoice_tax'] ?? 0.0;
     final grandTotal = _order?['invoice_grand_total'] ?? _order?['amount'] ?? 0.0;
-    final paymentMode = _order?['payment_mode']?.toString() ?? 'Online / Cash on Delivery';
+    final rawPm = _order?['payment_mode']?.toString() ?? '';
+    final paymentMode = (rawPm.isNotEmpty && !rawPm.contains('Cash on Delivery'))
+        ? rawPm
+        : 'Online Payment (Razorpay)';
 
     return Card(
       elevation: 0,

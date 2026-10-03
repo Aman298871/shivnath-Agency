@@ -44,6 +44,8 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
   String? _selectedProductSku;
   int? _selectedOrderId;
   String? _selectedOrderCode;
+  int? _selectedFranchiseId;
+  String? _selectedFranchiseName;
 
   late TabController _tabController;
 
@@ -161,6 +163,7 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
         period: _period,
         productSku: _selectedProductSku,
         orderId: _selectedOrderId,
+        franchiseId: _selectedFranchiseId,
       );
 
       if (res['success'] == false || res.containsKey('detail')) {
@@ -454,6 +457,41 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
                       _loadReports();
                     },
                     child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF1E40AF)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // 4. Active Franchise Filter Banner (if selected)
+          if (_selectedFranchiseId != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.store_rounded, size: 14, color: Color(0xFFD97706)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Filtering by Franchise: ${_selectedFranchiseName ?? "#$_selectedFranchiseId"}',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF92400E)),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedFranchiseId = null;
+                        _selectedFranchiseName = null;
+                      });
+                      _loadReports();
+                    },
+                    child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF92400E)),
                   ),
                 ],
               ),
@@ -1338,6 +1376,8 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
                 'No delivered orders in this period. Revenue is recognized only upon delivery.')
           else
             ..._productWise.map((p) {
+              final sku = p['sku']?.toString();
+              final isSelected = _selectedProductSku != null && _selectedProductSku == sku;
               final rev = double.tryParse(p['revenue']?.toString() ?? '0') ?? 0;
               final cogs = double.tryParse(p['cogs']?.toString() ?? '0') ?? 0;
               final gp = double.tryParse(p['gross_profit']?.toString() ?? '0') ?? 0;
@@ -1346,78 +1386,121 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
               final qty = int.tryParse(p['quantity']?.toString() ?? '0') ?? 0;
               final isProfitable = gp >= 0;
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (isSelected) {
+                        _selectedProductSku = null;
+                      } else {
+                        _selectedProductSku = sku;
+                      }
+                    });
+                    _loadReports();
+                  },
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: BrandColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFFF0FDF4) : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFF10B981) : BrandColors.border,
+                        width: isSelected ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                p['name']?.toString() ?? '—',
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                    color: BrandColors.textPrimary),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          p['name']?.toString() ?? '—',
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800,
+                                              color: BrandColors.textPrimary),
+                                        ),
+                                      ),
+                                      if (isSelected) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Text(
+                                            'FILTERED',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  Text(
+                                    'SKU: ${p['sku'] ?? '—'}   |   Qty: $qty units  (Tap to ${isSelected ? 'clear' : 'filter'})',
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        color: BrandColors.textMuted),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                'SKU: ${p['sku'] ?? '—'}   |   Qty: $qty units',
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    color: BrandColors.textMuted),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isProfitable
-                                ? const Color(0xFFD1FAE5)
-                                : const Color(0xFFFEE2E2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '${margin.toStringAsFixed(1)}% margin',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: isProfitable
-                                  ? const Color(0xFF065F46)
-                                  : const Color(0xFF991B1B),
                             ),
-                          ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isProfitable
+                                    ? const Color(0xFFD1FAE5)
+                                    : const Color(0xFFFEE2E2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${margin.toStringAsFixed(1)}% margin',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isProfitable
+                                      ? const Color(0xFF065F46)
+                                      : const Color(0xFF991B1B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            _miniMetric('Revenue', '₹${fmt.format(rev)}',
+                                const Color(0xFF3B82F6)),
+                            _miniMetric('COGS', '₹${fmt.format(cogs)}',
+                                const Color(0xFFEF4444)),
+                            _miniMetric(
+                                'Gross Profit',
+                                '₹${fmt.format(gp)}',
+                                isProfitable
+                                    ? const Color(0xFF059669)
+                                    : const Color(0xFFDC2626)),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _miniMetric('Revenue', '₹${fmt.format(rev)}',
-                            const Color(0xFF3B82F6)),
-                        _miniMetric('COGS', '₹${fmt.format(cogs)}',
-                            const Color(0xFFEF4444)),
-                        _miniMetric(
-                            'Gross Profit',
-                            '₹${fmt.format(gp)}',
-                            isProfitable
-                                ? const Color(0xFF059669)
-                                : const Color(0xFFDC2626)),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
               );
             }),
@@ -1447,14 +1530,22 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // ---------------------------------------------------------
   // TAB 4: FRANCHISE
-  // ══════════════════════════════════════════════════════════════════════════
+  // ---------------------------------------------------------
 
   Widget _buildFranchiseTab() {
-    final fmt = NumberFormat('#,##,##0', 'en_IN');
-    final franchiseReqCount = _intVal('franchise_requests_count');
-    final newLeads = _intVal('new_leads_count');
-    final convertedLeads = _intVal('converted_leads_count');
+
+
+    // Extract unique franchises from activity
+    final Map<int, String> franchiseMap = {};
+    for (final req in _franchiseActivity) {
+      final fId = int.tryParse('');
+      final fName = req['franchise_name']?.toString() ?? 'Franchise';
+      if (fId != null) {
+        franchiseMap[fId] = fName;
+      }
+    }
 
     return RefreshIndicator(
       onRefresh: _loadReports,
@@ -1469,14 +1560,14 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
               Expanded(
                   child: _metricCard(
                       'Stock Requests',
-                      '$franchiseReqCount',
+                      '',
                       const Color(0xFFF59E0B),
                       Icons.inventory_rounded)),
               const SizedBox(width: 10),
               Expanded(
                   child: _metricCard(
                       'New Leads',
-                      '$newLeads',
+                      '',
                       const Color(0xFF6366F1),
                       Icons.person_add_rounded)),
             ],
@@ -1484,10 +1575,29 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
           const SizedBox(height: 10),
           _metricCard(
               'Leads Converted',
-              '$convertedLeads',
+              '',
               const Color(0xFF059669),
               Icons.how_to_reg_rounded),
           const SizedBox(height: 16),
+
+          if (franchiseMap.isNotEmpty) ...[
+            _sectionTitle('Filter by Franchise Network Partner'),
+            const SizedBox(height: 6),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _franchiseFilterChip('All Franchises', null),
+                  ...franchiseMap.entries.map((entry) => Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: _franchiseFilterChip(entry.value, entry.key),
+                      )),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           _sectionTitle('Franchise Stock Requests'),
           const SizedBox(height: 8),
           if (_franchiseActivity.isEmpty)
@@ -1502,72 +1612,112 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
                       0;
               final outstanding =
                   double.tryParse(req['outstanding']?.toString() ?? '0') ?? 0;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
+              final fId = int.tryParse('');
+              final fName = req['franchise_name']?.toString() ?? 'Franchise';
+              final isSelected = _selectedFranchiseId != null && _selectedFranchiseId == fId;
+
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    _showFranchiseRequestDetailsModal(req, fId, fName);
+                  },
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: BrandColors.border),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            req['franchise_name']?.toString() ?? '—',
-                            style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: BrandColors.textPrimary),
-                          ),
-                          Text(
-                            '${req['product_name'] ?? ''}  •  ${req['request_number'] ?? ''}',
-                            style: const TextStyle(
-                                fontSize: 11,
-                                color: BrandColors.textSecondary),
-                          ),
-                          Text(
-                            'Req: $reqQty  Dispatched: $dispQty',
-                            style: const TextStyle(
-                                fontSize: 11,
-                                color: BrandColors.textMuted),
-                          ),
-                        ],
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFFFEF3C7) : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFFD97706) : BrandColors.border,
+                        width: isSelected ? 1.5 : 1.0,
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    child: Row(
                       children: [
-                        if (outstanding > 0)
-                          Text(
-                            '₹${fmt.format(outstanding)} due',
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFFEF4444)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      fName,
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: BrandColors.textPrimary),
+                                    ),
+                                  ),
+                                  if (isSelected) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFD97706),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'FILTERED',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              Text(
+                                '  *  ',
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: BrandColors.textSecondary),
+                              ),
+                              Text(
+                                'Req:   Dispatched:   (Tap for details)',
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: BrandColors.textMuted),
+                              ),
+                            ],
                           ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            req['status']?.toString() ?? '—',
-                            style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: BrandColors.textSecondary),
-                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (outstanding > 0)
+                              Text(
+                                'Rs. due',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFEF4444)),
+                              ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                req['status']?.toString() ?? '-',
+                                style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: BrandColors.textSecondary),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               );
             }),
@@ -1577,7 +1727,179 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
     );
   }
 
-  // ── Shared Widgets ────────────────────────────────────────────────────────
+  Widget _franchiseFilterChip(String label, int? franchiseId) {
+    final isSelected = _selectedFranchiseId == franchiseId;
+    return FilterChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+          color: isSelected ? Colors.white : BrandColors.textPrimary,
+        ),
+      ),
+      selected: isSelected,
+      selectedColor: const Color(0xFFD97706),
+      backgroundColor: Colors.grey.shade100,
+      showCheckmark: false,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isSelected ? const Color(0xFFD97706) : BrandColors.border,
+        ),
+      ),
+      onSelected: (_) {
+        setState(() {
+          if (isSelected) {
+            _selectedFranchiseId = null;
+            _selectedFranchiseName = null;
+          } else {
+            _selectedFranchiseId = franchiseId;
+            _selectedFranchiseName = franchiseId != null ? label : null;
+          }
+        });
+        _loadReports();
+      },
+    );
+  }
+
+  void _showFranchiseRequestDetailsModal(Map<String, dynamic> req, int? fId, String fName) {
+    final fmt = NumberFormat('#,##,##0', 'en_IN');
+    final reqQty = int.tryParse(req['requested_quantity']?.toString() ?? '0') ?? 0;
+    final dispQty = int.tryParse(req['dispatched_quantity']?.toString() ?? '0') ?? 0;
+    final outstanding = double.tryParse(req['outstanding']?.toString() ?? '0') ?? 0;
+    final isSelected = _selectedFranchiseId != null && _selectedFranchiseId == fId;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.store_rounded, color: Color(0xFFD97706), size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        'Stock Request: ',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            _modalRow('Product', req['product_name']?.toString() ?? '-'),
+            _modalRow('Requested Qty', ' units'),
+            _modalRow('Dispatched Qty', ' units'),
+            _modalRow('Status', req['status']?.toString() ?? '-'),
+            _modalRow('Outstanding Due', 'Rs.'),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Close'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        if (isSelected) {
+                          _selectedFranchiseId = null;
+                          _selectedFranchiseName = null;
+                        } else {
+                          _selectedFranchiseId = fId;
+                          _selectedFranchiseName = fName;
+                        }
+                      });
+                      _loadReports();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isSelected ? const Color(0xFFEF4444) : const Color(0xFFD97706),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text(isSelected ? 'Clear Filter' : 'Filter by this Franchise'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _modalRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // Shared Widgets
+  // ---------------------------------------------------------
 
   Widget _sectionTitle(String title) => Padding(
         padding: const EdgeInsets.only(bottom: 2),

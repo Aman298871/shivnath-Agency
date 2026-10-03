@@ -1518,7 +1518,6 @@ class DailyBusinessReportAPIView(views.APIView):
         # 3. REVENUE RECOGNITION = DELIVERED ONLY (Authoritative Business Rule)
         from billing.models import PaymentTransaction
         from inventory.models import ProductionBatch, DealerStockBatch, Expense, DealerStockRequestAllocation, InventoryTransactionLedger
-        from django.db.models import Q
 
         # Operational status counts in date range
         orders_placed_count = orders_qs.filter(status='order_placement').count()
@@ -1632,16 +1631,16 @@ class DailyBusinessReportAPIView(views.APIView):
 
         if filter_product:
             dealer_allocations = dealer_allocations.filter(
-                Q(request__product__sku__iexact=filter_product) |
-                Q(request__product__name__icontains=filter_product)
+                Q(stock_request__product__sku__iexact=filter_product) |
+                Q(stock_request__product__name__icontains=filter_product)
             )
         if filter_order or filter_customer:
             dealer_allocations = dealer_allocations.none()
         elif filter_franchise:
             if filter_franchise.isdigit():
-                dealer_allocations = dealer_allocations.filter(request__dealer_id=int(filter_franchise))
+                dealer_allocations = dealer_allocations.filter(stock_request__dealer_id=int(filter_franchise))
             else:
-                dealer_allocations = dealer_allocations.filter(request__dealer__business_name__icontains=filter_franchise)
+                dealer_allocations = dealer_allocations.filter(stock_request__dealer__business_name__icontains=filter_franchise)
 
         cogs_dealer = sum(
             (Decimal(str(a.dispatched_quantity or a.allocated_quantity)) * a.production_batch.unit_production_cost)

@@ -36,6 +36,18 @@ class CartItem {
     return '';
   }
 
+  String get sku {
+    if (product is ProductModel) return (product as ProductModel).sku;
+    if (product is Map) return product['sku']?.toString() ?? '';
+    return '';
+  }
+
+  String get image {
+    if (product is ProductModel) return (product as ProductModel).image;
+    if (product is Map) return product['image']?.toString() ?? '';
+    return '';
+  }
+
   int get stock {
     if (product is ProductModel) return (product as ProductModel).stock;
     if (product is Map) {

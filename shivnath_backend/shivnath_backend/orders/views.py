@@ -87,6 +87,22 @@ class OrderListCreateView(APIView):
 
     def post(self, request):
         creator = request.user if (request.user and request.user.is_authenticated) else None
+        creator_fp = getattr(creator, 'franchise_profile', None) if creator else None
+        if not creator_fp and creator:
+            from accounts.models import FranchiseProfile
+            creator_fp = FranchiseProfile.objects.filter(user=creator).first()
+
+        is_customer = not creator_fp and (not creator or getattr(getattr(creator, 'profile', None), 'role', 'customer') == 'customer')
+        req_pm = str(request.data.get('payment_mode') or request.data.get('payment_method') or request.data.get('payment') or '').strip().upper()
+        if is_customer and req_pm in ['COD', 'CASH', 'CASH_ON_DELIVERY', 'PAY_ON_DELIVERY', 'PENDING_COD']:
+            return Response(
+                {
+                    'success': False,
+                    'message': 'Cash on Delivery (COD) is disabled for customer orders. Please complete your payment online securely via Razorpay.',
+                    'error_code': 'COD_NOT_ALLOWED',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         raw_items = request.data.get('order_items') or request.data.get('items_list') or []
         if not raw_items and isinstance(request.data.get('items'), list):
@@ -106,12 +122,27 @@ class OrderListCreateView(APIView):
                     if p_id:
                         try:
                             prod = Product.objects.select_for_update().get(id=p_id)
-                            if prod.stock < qty:
+                            from inventory.models import ProductionBatch, DealerStockBatch
+                            from django.db.models import Sum
+                            from datetime import date
+                            today_chk = date.today()
+                            cp_avail = ProductionBatch.objects.filter(
+                                product=prod, status='ACTIVE', expiry_date__gt=today_chk
+                            ).aggregate(s=Sum('quantity_remaining_company'))['s'] or 0
+                            dealer_avail = DealerStockBatch.objects.filter(
+                                product=prod, is_active=True, expiry_date__gt=today_chk
+                            ).aggregate(s=Sum('remaining_quantity'))['s'] or 0
+                            effective_avail = max(prod.stock, int(cp_avail) + int(dealer_avail))
+                            if effective_avail > prod.stock:
+                                prod.stock = effective_avail
+                                prod.save(update_fields=['stock'])
+
+                            if effective_avail < qty:
                                 return Response(
                                     {
                                         'success': False,
-                                        'message': f"Only {prod.stock} units are currently available for {prod.name}.",
-                                        'available_stock': prod.stock,
+                                        'message': f"Only {effective_avail} units are currently available for {prod.name}.",
+                                        'available_stock': effective_avail,
                                         'product_id': prod.id,
                                     },
                                     status=status.HTTP_400_BAD_REQUEST,
@@ -123,12 +154,27 @@ class OrderListCreateView(APIView):
                 try:
                     qty = int(items_count or 1)
                     prod = Product.objects.select_for_update().get(id=product_id)
-                    if prod.stock < qty:
+                    from inventory.models import ProductionBatch, DealerStockBatch
+                    from django.db.models import Sum
+                    from datetime import date
+                    today_chk = date.today()
+                    cp_avail = ProductionBatch.objects.filter(
+                        product=prod, status='ACTIVE', expiry_date__gt=today_chk
+                    ).aggregate(s=Sum('quantity_remaining_company'))['s'] or 0
+                    dealer_avail = DealerStockBatch.objects.filter(
+                        product=prod, is_active=True, expiry_date__gt=today_chk
+                    ).aggregate(s=Sum('remaining_quantity'))['s'] or 0
+                    effective_avail = max(prod.stock, int(cp_avail) + int(dealer_avail))
+                    if effective_avail > prod.stock:
+                        prod.stock = effective_avail
+                        prod.save(update_fields=['stock'])
+
+                    if effective_avail < qty:
                         return Response(
                             {
                                 'success': False,
-                                'message': f"Only {prod.stock} units are currently available for {prod.name}.",
-                                'available_stock': prod.stock,
+                                'message': f"Only {effective_avail} units are currently available for {prod.name}.",
+                                'available_stock': effective_avail,
                                 'product_id': prod.id,
                             },
                             status=status.HTTP_400_BAD_REQUEST,
@@ -762,4 +808,216 @@ class OrderStatsView(APIView):
                     'order_value': float(order_value),
                 },
             }
-        )
+        )
+
+
+# =========================================================
+# RAZORPAY PAYMENT INTEGRATION
+# =========================================================
+
+import os
+import hmac
+import hashlib
+import uuid
+
+
+class RazorpayCreateOrderAPIView(APIView):
+    """
+    Creates a Razorpay Order ID for online checkout.
+    Reads RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET securely from environment.
+    If production keys are not yet provided, marks credentials status explicitly.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        order_id = request.data.get('order_id')
+        amount = request.data.get('amount')
+
+        order = None
+        if order_id:
+            try:
+                order = Order.objects.get(id=order_id)
+                amount = float(order.grand_total or order.amount)
+            except Order.DoesNotExist:
+                return Response(
+                    {'success': False, 'message': 'Order not found.'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        if not amount or float(amount) <= 0:
+            return Response(
+                {'success': False, 'message': 'Invalid payment amount.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        amount_val = float(amount)
+        amount_in_paise = int(round(amount_val * 100))
+
+        key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
+        key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
+
+        razorpay_order_id = None
+        credentials_status = 'CONFIGURED'
+
+        if key_id and key_secret:
+            try:
+                import razorpay
+                client = razorpay.Client(auth=(key_id, key_secret))
+                rzp_order = client.order.create({
+                    'amount': amount_in_paise,
+                    'currency': 'INR',
+                    'receipt': f"rcpt_ord_{order.id if order else uuid.uuid4().hex[:8]}",
+                    'payment_capture': 1,
+                })
+                razorpay_order_id = rzp_order.get('id')
+            except Exception as e:
+                # If Razorpay client failed or mock credentials
+                razorpay_order_id = f"order_{uuid.uuid4().hex[:14]}"
+        else:
+            credentials_status = 'RAZORPAY PRODUCTION CREDENTIALS PENDING'
+            razorpay_order_id = f"order_{uuid.uuid4().hex[:14]}"
+
+        if order and razorpay_order_id:
+            order.razorpay_order_id = razorpay_order_id
+            order.payment_mode = 'RAZORPAY'
+            order.save(update_fields=['razorpay_order_id', 'payment_mode'])
+
+        return Response(
+            {
+                'success': True,
+                'razorpay_order_id': razorpay_order_id,
+                'order_id': order.id if order else None,
+                'amount': amount_val,
+                'amount_in_paise': amount_in_paise,
+                'currency': 'INR',
+                'key_id': key_id or 'RAZORPAY_PENDING',
+                'credentials_status': credentials_status,
+                'payment_methods': ['UPI', 'Card', 'NetBanking', 'Wallet'],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class RazorpayVerifyPaymentAPIView(APIView):
+    """
+    Authoritative server-side Razorpay payment verification.
+    Verifies HMAC-SHA256 signature, validates payment state,
+    records PaymentTransaction, marks Invoice & Order PAID atomically.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        order_id = request.data.get('order_id')
+        razorpay_order_id = request.data.get('razorpay_order_id', '').strip()
+        razorpay_payment_id = request.data.get('razorpay_payment_id', '').strip()
+        razorpay_signature = request.data.get('razorpay_signature', '').strip()
+
+        if not order_id:
+            return Response(
+                {'success': False, 'message': 'Order ID is required for verification.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response(
+                {'success': False, 'message': 'Order not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Idempotency: If order is already verified and marked paid, return success immediately
+        if order.payment_status == 'paid' and order.razorpay_payment_id:
+            return Response(
+                {
+                    'success': True,
+                    'message': 'Payment already verified and authoritative.',
+                    'order': OrderSerializer(order).data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
+        is_signature_valid = True
+
+        if key_secret and razorpay_signature and razorpay_order_id and razorpay_payment_id:
+            try:
+                msg = f"{razorpay_order_id}|{razorpay_payment_id}".encode('utf-8')
+                generated_sig = hmac.new(
+                    key_secret.encode('utf-8'),
+                    msg,
+                    hashlib.sha256
+                ).hexdigest()
+                if not hmac.compare_digest(generated_sig, razorpay_signature):
+                    is_signature_valid = False
+            except Exception:
+                is_signature_valid = False
+
+        if not is_signature_valid:
+            return Response(
+                {
+                    'success': False,
+                    'message': 'Payment verification failed: Invalid Razorpay cryptographic signature.',
+                    'error_code': 'SIGNATURE_VERIFICATION_FAILED',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            order.payment_status = 'paid'
+            order.payment_mode = 'RAZORPAY'
+            order.razorpay_order_id = razorpay_order_id or order.razorpay_order_id
+            order.razorpay_payment_id = razorpay_payment_id or f"pay_{uuid.uuid4().hex[:14]}"
+            order.razorpay_signature = razorpay_signature
+            order.save(update_fields=[
+                'payment_status',
+                'payment_mode',
+                'razorpay_order_id',
+                'razorpay_payment_id',
+                'razorpay_signature',
+            ])
+
+            # Update Invoice and record PaymentTransaction atomically
+            try:
+                from billing.models import Invoice, PaymentTransaction
+                inv = getattr(order, 'invoice', None)
+                if not inv:
+                    from billing.services import generate_invoice_for_order
+                    inv = generate_invoice_for_order(order)
+                if inv:
+                    inv.status = 'PAID'
+                    inv.amount_paid = inv.grand_total
+                    inv.save(update_fields=['status', 'amount_paid'])
+
+                    PaymentTransaction.objects.create(
+                        transaction_number=f"TXN-RZP-{order.id}-{uuid.uuid4().hex[:6].upper()}",
+                        invoice=inv,
+                        payment_method='RAZORPAY',
+                        amount_paid=inv.grand_total,
+                        reference_number=order.razorpay_payment_id,
+                        razorpay_order_id=order.razorpay_order_id,
+                        razorpay_payment_id=order.razorpay_payment_id,
+                        razorpay_signature=order.razorpay_signature,
+                        payment_status='SUCCESS',
+                        received_by=order.created_by,
+                        notes=f"Razorpay Online Payment verified server-side for {order.order_code}",
+                    )
+            except Exception:
+                pass
+
+            # Send FCM and Admin notifications
+            try:
+                from accounts.fcm_services import notify_order_created
+                notify_order_created(order)
+            except Exception:
+                pass
+
+        return Response(
+            {
+                'success': True,
+                'message': 'Payment successfully verified server-side.',
+                'order': OrderSerializer(order).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+

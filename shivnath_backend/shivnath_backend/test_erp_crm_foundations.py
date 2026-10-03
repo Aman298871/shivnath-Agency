@@ -146,28 +146,31 @@ class ERPCRMFoundationsTest(TestCase):
         )
 
         # 4. Master Product (200 ML Bottle)
-        self.product_200ml = Product.objects.create(
+        self.product_200ml, _ = Product.objects.update_or_create(
             sku='SHV-200',
-            name='200 ML Packaged Drinking Water',
-            size='200 ML',
-            volume_ml=200,
-            package_type='BOTTLE',
-            units_per_case=24,
-            category='Bottle',
-            price=Decimal('6.00'),
-            dealer_transfer_price=Decimal('4.50'),
-            mrp=Decimal('6.00'),
-            shelf_life_days=180,
-            gst=18,
-            stock=0,
-            status='Active'
+            defaults={
+                'name': '200 ML Packaged Drinking Water',
+                'size': '200 ML',
+                'volume_ml': 200,
+                'package_type': 'BOTTLE',
+                'units_per_case': 24,
+                'category': 'Bottle',
+                'price': Decimal('6.00'),
+                'dealer_transfer_price': Decimal('4.50'),
+                'mrp': Decimal('6.00'),
+                'shelf_life_days': 180,
+                'gst': 18,
+                'stock': 0,
+                'status': 'Active'
+            }
         )
 
         # 5. Relational BOM Recipe
-        self.bom_200ml = ProductionRecipeBOM.objects.create(
+        self.bom_200ml, _ = ProductionRecipeBOM.objects.get_or_create(
             product=self.product_200ml,
-            last_updated_by=self.super_admin_user
+            defaults={'last_updated_by': self.super_admin_user}
         )
+        self.bom_200ml.items.all().delete()
         ProductionRecipeBOMItem.objects.create(
             bom=self.bom_200ml,
             raw_material=self.rm_preform,

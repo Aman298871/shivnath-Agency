@@ -11,9 +11,9 @@ from rest_framework.test import APIClient
 from django.contrib.auth.models import User
 from django.utils import timezone
 from accounts.models import UserProfile
-from products.models import Product, ProductCategory
+from products.models import Product, ProductCategory, ProductionRecipeBOM, ProductionRecipeBOMItem
 from orders.models import Order, OrderItem
-from inventory.models import ProductionBatch, InventoryTransactionLedger
+from inventory.models import ProductionBatch, InventoryTransactionLedger, RawMaterial
 from inventory.services import create_production_batch_atomic, record_batch_collection_atomic
 
 class CentralManufacturingAndBulkFlowTestCase(TestCase):
@@ -29,27 +29,56 @@ class CentralManufacturingAndBulkFlowTestCase(TestCase):
         profile.save()
 
         # Product Category
-        self.category = ProductCategory.objects.create(
-            name='Packaged Drinking Water Bottles',
+        self.category, _ = ProductCategory.objects.get_or_create(
             slug='bottles',
-            order=1,
-            is_active=True,
+            defaults={
+                'name': 'Packaged Drinking Water Bottles',
+                'order': 1,
+                'is_active': True,
+            }
         )
 
         # 250 ML Bottle Product Master with configurable shelf-life
-        self.product_250ml = Product.objects.create(
-            name='Shivnath 250ml Mini Bottle',
+        self.product_250ml, _ = Product.objects.get_or_create(
             sku='SKU-BOT-250',
-            category='Bottle',
-            category_ref=self.category,
-            size='250 ML',
-            price=Decimal('6.00'),
-            mrp=Decimal('10.00'),
-            dealer_transfer_price=Decimal('4.50'),
-            shelf_life_days=90,  # Configured shelf life for this client/variant
-            unit='Bottle',
-            stock=0,
-            status='Active'
+            defaults={
+                'name': 'Shivnath 250ml Mini Bottle',
+                'category': 'Bottle',
+                'category_ref': self.category,
+                'size': '250 ML',
+                'price': Decimal('6.00'),
+                'mrp': Decimal('10.00'),
+                'dealer_transfer_price': Decimal('4.50'),
+                'shelf_life_days': 90,  # Configured shelf life for this client/variant
+                'unit': 'Bottle',
+                'stock': 0,
+                'status': 'Active'
+            }
+        )
+
+        # Raw materials & BOM for 250ml
+        self.rm_preform, _ = RawMaterial.objects.get_or_create(
+            sku='RM-PRF-250',
+            defaults={
+                'name': '250ml Preform',
+                'category': 'preform',
+                'unit_of_measure': 'pcs',
+                'unit_cost': Decimal('1.20'),
+                'current_stock': Decimal('50000.00'),
+                'reorder_level': Decimal('1000.00')
+            }
+        )
+        self.bom_250ml, _ = ProductionRecipeBOM.objects.get_or_create(
+            product=self.product_250ml,
+            defaults={'last_updated_by': self.admin}
+        )
+        ProductionRecipeBOMItem.objects.get_or_create(
+            bom=self.bom_250ml,
+            raw_material=self.rm_preform,
+            defaults={
+                'quantity_required_per_unit': Decimal('1.0000'),
+                'unit_cost_snapshot': Decimal('1.20')
+            }
         )
 
     def test_complete_manufacturing_to_partial_collection_workflow(self):

@@ -297,6 +297,8 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_charges',
             'discount_amount',
             'payment_mode',
+            'razorpay_order_id',
+            'razorpay_payment_id',
             'order_notes',
             'fulfilling_entity',
 
@@ -382,7 +384,7 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_invoice_tax(self, obj):
         inv = self._get_invoice(obj)
         if inv:
-            return float(inv.cgst_amount + inv.sgst_amount + inv.igst_amount)
+            return float(float(inv.cgst_amount or 0) + float(inv.sgst_amount or 0) + float(inv.igst_amount or 0))
         return float(obj.tax_amount or 0.0)
 
     def get_invoice_grand_total(self, obj):
@@ -402,7 +404,12 @@ class OrderSerializer(serializers.ModelSerializer):
         if inv and inv.payments.exists():
             last_p = inv.payments.last()
             return last_p.get_payment_method_display() or last_p.payment_method
-        return 'Online / Cash on Delivery'
+        if getattr(obj, 'razorpay_payment_id', ''):
+            return f"Razorpay Online ({obj.razorpay_payment_id})"
+        pm = getattr(obj, 'payment_mode', '')
+        if pm and pm.upper() == 'RAZORPAY':
+            return 'Online Payment (Razorpay)'
+        return 'Online Payment (Razorpay)'
 
     def get_order_notes(self, obj):
         notes = []
@@ -427,7 +434,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 'type': 'FRANCHISE',
                 'name': fp.business_name,
                 'phone': phone,
-                'address': fp.registered_address or fp.city,
+                'address': getattr(fp, 'address', '') or fp.city,
                 'city': fp.city,
                 'territory': fp.territory or (fp.zone.name if fp.zone else ''),
                 'contact_info': f"{fp.business_name} ({phone})" if phone else fp.business_name,

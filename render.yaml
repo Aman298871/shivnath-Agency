@@ -15,8 +15,25 @@ services:
         fromDatabase:
           name: shivnath-db
           property: connectionString
+      - key: ALLOWED_HOSTS
+        value: "shivnath-backend.onrender.com,shivnath-agency.onrender.com,localhost,127.0.0.1"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://shivnath-agency.onrender.com,https://shivnath-backend.onrender.com"
+      - key: TIME_ZONE
+        value: "Asia/Kolkata"
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
 
 databases:
   - name: shivnath-db
     databaseName: shivnath_db
     user: shivnath_user
+

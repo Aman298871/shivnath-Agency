@@ -636,4 +636,58 @@ class OrderService {
       };
     }
   }
+
+  // =====================================================
+  // RAZORPAY ONLINE PAYMENT INTEGRATION
+  // =====================================================
+
+  Future<Map<String, dynamic>> createRazorpayOrder({
+    int? orderId,
+    required double amount,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/razorpay/create-order/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          if (orderId != null) 'order_id': orderId,
+          'amount': amount,
+        }),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Unable to initialize online payment gateway. Please try again.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyRazorpayPayment({
+    required int orderId,
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/razorpay/verify-payment/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'order_id': orderId,
+          'razorpay_order_id': razorpayOrderId,
+          'razorpay_payment_id': razorpayPaymentId,
+          'razorpay_signature': razorpaySignature,
+        }),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Unable to verify payment with backend. Please check your order history.',
+      };
+    }
+  }
 }

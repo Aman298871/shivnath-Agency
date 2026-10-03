@@ -33,6 +33,31 @@ def _init_firebase():
             logger.info("FCM: Firebase Admin SDK initialized successfully from FIREBASE_SERVICE_ACCOUNT_JSON env var.")
             return True
 
+        # Check for individual environment variables
+        fb_project_id = os.environ.get('FIREBASE_PROJECT_ID')
+        fb_client_email = os.environ.get('FIREBASE_CLIENT_EMAIL')
+        fb_private_key = os.environ.get('FIREBASE_PRIVATE_KEY')
+        if fb_project_id and fb_client_email and fb_private_key:
+            # Handle newline escaping in private key
+            formatted_key = fb_private_key.replace('\\n', '\n')
+            cred_dict = {
+                "type": "service_account",
+                "project_id": fb_project_id,
+                "private_key_id": os.environ.get('FIREBASE_PRIVATE_KEY_ID', 'shivnath-key'),
+                "private_key": formatted_key,
+                "client_email": fb_client_email,
+                "client_id": os.environ.get('FIREBASE_CLIENT_ID', ''),
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{fb_client_email.replace('@', '%40')}"
+            }
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            _firebase_initialized = True
+            logger.info("FCM: Firebase Admin SDK initialized successfully from individual environment variables.")
+            return True
+
         # Candidate paths for serviceAccountKey.json
         base_dir = getattr(settings, 'BASE_DIR', '')
         candidates = [
@@ -106,6 +131,28 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
     try:
         from firebase_admin import messaging
 
+        apns_config = None
+        APNSConfigClass = getattr(messaging, 'APNSConfig', getattr(messaging, 'ApnsConfig', None))
+        APNSPayloadClass = getattr(messaging, 'APNSPayload', getattr(messaging, 'ApnsPayload', None))
+        ApsClass = getattr(messaging, 'Aps', None)
+        ApsAlertClass = getattr(messaging, 'ApsAlert', None)
+        if APNSConfigClass and APNSPayloadClass and ApsClass and ApsAlertClass:
+            try:
+                apns_config = APNSConfigClass(
+                    payload=APNSPayloadClass(
+                        aps=ApsClass(
+                            alert=ApsAlertClass(
+                                title=title,
+                                body=body,
+                            ),
+                            sound='default',
+                            badge=1,
+                        )
+                    )
+                )
+            except Exception:
+                apns_config = None
+
         message = messaging.MulticastMessage(
             tokens=tokens,
             notification=messaging.Notification(
@@ -123,18 +170,7 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
                     icon='@mipmap/ic_launcher',
                 )
             ),
-            apns=messaging.ApnsConfig(
-                payload=messaging.ApnsPayload(
-                    aps=messaging.Aps(
-                        alert=messaging.ApsAlert(
-                            title=title,
-                            body=body,
-                        ),
-                        sound='default',
-                        badge=1,
-                    )
-                )
-            ),
+            apns=apns_config,
         )
 
         response = messaging.send_each_for_multicast(message)

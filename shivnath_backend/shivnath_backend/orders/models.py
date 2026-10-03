@@ -76,6 +76,35 @@ class Order(models.Model):
         default='pending',
     )
 
+    payment_mode = models.CharField(
+        max_length=50,
+        default='ONLINE',
+        help_text="Payment mode snapshot (e.g. ONLINE, RAZORPAY, CASH, NEFT_RTGS)"
+    )
+
+    razorpay_order_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text="Razorpay Order ID for online checkout"
+    )
+
+    razorpay_payment_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text="Authoritative Razorpay Payment ID"
+    )
+
+    razorpay_signature = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Razorpay HMAC signature"
+    )
+
     created_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

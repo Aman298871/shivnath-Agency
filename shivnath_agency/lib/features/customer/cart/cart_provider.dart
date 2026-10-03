@@ -22,6 +22,8 @@ class CartItem {
     return 'Product';
   }
 
+  String get productName => name;
+
   double get price {
     if (product is ProductModel) return (product as ProductModel).price;
     if (product is Map) {
@@ -29,6 +31,8 @@ class CartItem {
     }
     return 0.0;
   }
+
+  double get unitPrice => price;
 
   String get size {
     if (product is ProductModel) return (product as ProductModel).size;

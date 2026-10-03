@@ -285,48 +285,41 @@ def send_customer_registration_notifications(customer_user, rel):
 def send_order_placed_notifications(order, stock_cycle=None):
     """
     Sends order notifications to:
-    1. Actual Serving/Ordering Franchise
-    2. Admin
+    1. Actual Serving Franchise (Only if Franchise-fulfilled)
+    2. Admin & Super Admin
     """
     cust = order.created_by
-    cust_name = cust.get_full_name() if cust else order.franchise_name
-    cust_phone = getattr(getattr(cust, 'profile', None), 'phone', '') if cust else ''
-    serving_f = order.serving_franchise
-    zone_name = order.zone.name if order.zone else (stock_cycle.zone.name if stock_cycle and stock_cycle.zone else 'N/A')
-    p_name = stock_cycle.product_name if stock_cycle else 'Water Stock'
-    v_size = stock_cycle.variant_size if stock_cycle else ''
-    qty = stock_cycle.quantity if stock_cycle else order.items_count
-    duration = order.duration_choice
-    reg_f_name = order.registered_franchise.business_name if order.registered_franchise else 'N/A'
-    serving_f_name = serving_f.business_name if serving_f else 'N/A'
+    cust_name = cust.get_full_name() if cust else (order.client_name or 'Customer')
+    is_direct = getattr(order, 'order_source', '') == 'DIRECT_COMPANY' or not order.serving_franchise
+    serving_f = None if is_direct else order.serving_franchise
+    amount = order.amount or order.grand_total or 0.0
+    items_count = order.items_count or (order.items.count() if hasattr(order, 'items') else 1)
 
-    body = (
-        f"New order received from {cust_name}.\n"
-        f"Order: #{order.order_code}\n"
-        f"Product: {p_name} ({v_size})\n"
-        f"Quantity: {qty}\n"
-        f"Stock Duration: {duration}\n"
-        f"Zone: {zone_name}\n"
-        f"Serving Franchise: {serving_f_name}\n"
-        f"Registered Franchise: {reg_f_name}"
-    )
+    if is_direct:
+        admin_title = f"New Customer Order: #{order.order_code}"
+        admin_body = f"Order #{order.order_code} from {cust_name} • ₹{amount} • {items_count} items (Direct Company Order)"
+    else:
+        admin_title = f"New Customer Order: #{order.order_code}"
+        admin_body = f"Order #{order.order_code} from {cust_name} • ₹{amount} • {items_count} items (Fulfilled by {serving_f.business_name})"
 
-    # 1. Serving Franchise Notification
-    if serving_f:
-        FranchiseNotification.objects.create(
+    # 1. Serving Franchise Notification (ONLY if Franchise order)
+    if serving_f and not is_direct:
+        FranchiseNotification.objects.get_or_create(
             franchise=serving_f,
-            title=f"New Order #{order.order_code}",
-            message=body,
             notification_type='order_placed',
             reference_id=order.id,
+            defaults={
+                'title': f"New Order Assigned: #{order.order_code}",
+                'message': f"Client {cust_name} placed order #{order.order_code} (₹{amount}, {items_count} items) assigned to your territory."
+            }
         )
 
     # 2. Admin Notification
-    AdminNotification.objects.create(
-        title=f"New Order #{order.order_code} Placed",
-        message=body,
+    AdminNotification.objects.get_or_create(
+        title=admin_title,
         notification_type='order_placed',
         reference_id=order.id,
+        defaults={'message': admin_body}
     )
 
 

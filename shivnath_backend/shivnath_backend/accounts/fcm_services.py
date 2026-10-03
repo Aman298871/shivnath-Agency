@@ -122,7 +122,10 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
     clean_data = {}
     if data and isinstance(data, dict):
         for k, v in data.items():
-            clean_data[str(k)] = str(v)
+            if v is not None:
+                clean_data[str(k)] = str(v)
+    clean_data['title'] = str(title)
+    clean_data['body'] = str(body)
     clean_data['notification_type'] = str(notification_type)
     if reference_id:
         clean_data['reference_id'] = str(reference_id)
@@ -209,10 +212,10 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
 
 def notify_order_created(order):
     """
-    Triggered when a new Order is placed.
-    Notifies:
-    1. Super Admin, Staff Admin, and Role Admins
-    2. Serving Wholesale Dealer (Franchise)
+    Triggered when a new Customer Order is placed.
+    Authoritative routing:
+    - If DIRECT COMPANY: Notifies Super Admin, Staff Admin, and Customer. NO Franchise notification.
+    - If FRANCHISE: Notifies Super Admin, Staff Admin, Serving Franchise, and Customer.
     """
     User = get_user_model()
     admin_users = list(User.objects.filter(is_superuser=True))
@@ -220,47 +223,115 @@ def notify_order_created(order):
     role_admins = list(User.objects.filter(profile__role__in=['admin', 'super_admin']).exclude(is_superuser=True))
     all_admins = list(set(admin_users + staff_admins + role_admins))
 
-    client_name = order.client_name or (order.created_by.get_full_name() if order.created_by else 'Client')
-    title = f"New Order Placed: #{order.order_code}"
-    body = f"Order #{order.order_code} for ₹{order.amount or order.grand_total} placed by {client_name}."
+    client_name = order.client_name or (order.created_by.get_full_name() if order.created_by else 'Customer')
+    amount = order.amount or order.grand_total or 0.0
+    items_count = order.items_count or (order.items.count() if hasattr(order, 'items') else 1)
+    is_direct = getattr(order, 'order_source', '') == 'DIRECT_COMPANY' or not order.serving_franchise
 
-    # In-App Notification records (idempotent)
+    title = "New Customer Order"
+    if is_direct:
+        admin_body = f"Order #{order.order_code} from {client_name} • ₹{amount} • {items_count} items (Direct Company Order)"
+        cust_body = f"Your order #{order.order_code} for ₹{amount} has been placed with Shivnath Agency Central Plant."
+    else:
+        f_name = order.serving_franchise.business_name
+        admin_body = f"Order #{order.order_code} from {client_name} • ₹{amount} • {items_count} items (Fulfilled by {f_name})"
+        cust_body = f"Your order #{order.order_code} for ₹{amount} has been assigned to {f_name} for delivery."
+
+    # 1. In-App Notification records (idempotent)
     try:
-        from accounts.models import AdminNotification, FranchiseNotification
+        from accounts.models import AdminNotification, FranchiseNotification, CustomerNotification
         AdminNotification.objects.get_or_create(
-            title=f"New Order #{order.order_code} Placed",
+            title=f"New Customer Order: #{order.order_code}",
             notification_type='order_placed',
             reference_id=order.id,
-            defaults={'message': body}
+            defaults={'message': admin_body}
         )
-        if order.serving_franchise:
+        if not is_direct and order.serving_franchise:
             FranchiseNotification.objects.get_or_create(
                 franchise=order.serving_franchise,
                 notification_type='order_placed',
                 reference_id=order.id,
-                defaults={'title': f"New Order #{order.order_code}", 'message': body}
+                defaults={
+                    'title': f"New Order Assigned: #{order.order_code}",
+                    'message': f"Client {client_name} placed order #{order.order_code} (₹{amount}, {items_count} items) assigned to your franchise."
+                }
+            )
+        if order.created_by:
+            CustomerNotification.objects.get_or_create(
+                customer=order.created_by,
+                notification_type='order_status',
+                reference_id=order.id,
+                defaults={
+                    'title': "Order Confirmed! 🎉",
+                    'message': cust_body
+                }
             )
     except Exception as e:
         logger.warning("FCM: DB notification create warning in notify_order_created: %s", e)
 
-    # Send to Admins
+    # 2. Send FCM to Admins
+    admin_payload = {
+        'event_type': 'customer_order',
+        'entity_type': 'order',
+        'entity_id': order.id,
+        'order_id': order.id,
+        'order_code': order.order_code,
+        'customer_id': order.created_by_id if order.created_by else None,
+        'customer_name': client_name,
+        'amount': str(amount),
+        'items_count': str(items_count),
+        'fulfillment_source': 'COMPANY' if is_direct else 'FRANCHISE',
+        'screen': 'admin_orders',
+    }
+    if not is_direct and order.serving_franchise:
+        admin_payload['franchise_id'] = order.serving_franchise.id
+        admin_payload['franchise_name'] = order.serving_franchise.business_name
+
     send_fcm_notification(
         users=all_admins,
         title=title,
-        body=body,
-        data={'order_id': order.id, 'order_code': order.order_code, 'screen': 'admin_orders'},
+        body=admin_body,
+        data=admin_payload,
         notification_type='order_placed',
         reference_id=order.id
     )
 
-    # Send to Serving Franchise
-    if order.serving_franchise and order.serving_franchise.user:
+    # 3. Send FCM to Serving Franchise (ONLY IF FRANCHISE ORDER)
+    if not is_direct and order.serving_franchise and order.serving_franchise.user:
         send_fcm_notification(
             users=[order.serving_franchise.user],
-            title=f"Order Assigned: #{order.order_code}",
-            body=f"Client {client_name} placed order #{order.order_code} assigned to your territory.",
-            data={'order_id': order.id, 'order_code': order.order_code, 'screen': 'franchise_orders'},
+            title=f"New Order Assigned: #{order.order_code}",
+            body=f"Client {client_name} placed order #{order.order_code} (₹{amount}, {items_count} items) in your territory.",
+            data={
+                'event_type': 'customer_order',
+                'entity_type': 'order',
+                'entity_id': order.id,
+                'order_id': order.id,
+                'order_code': order.order_code,
+                'franchise_id': order.serving_franchise.id,
+                'customer_name': client_name,
+                'amount': str(amount),
+                'screen': 'franchise_orders',
+            },
             notification_type='order_placed',
+            reference_id=order.id
+        )
+
+    # 4. Send FCM confirmation to Customer
+    if order.created_by:
+        send_fcm_notification(
+            users=[order.created_by],
+            title="Order Confirmed! 🎉",
+            body=cust_body,
+            data={
+                'event_type': 'order_confirmed',
+                'entity_type': 'order',
+                'entity_id': order.id,
+                'order_id': order.id,
+                'order_code': order.order_code,
+                'screen': 'customer_orders',
+            },
+            notification_type='order_status',
             reference_id=order.id
         )
 
@@ -322,12 +393,13 @@ def notify_order_status_update(order, new_status, actor_name=''):
 
 def notify_payment_received(order, amount, actor_name='', collector_name=None, **kwargs):
     """
-    Triggered when payment is collected for an order.
+    Triggered when payment is submitted/collected for an order.
     Notifies:
     1. Customer (Receipt of payment)
-    2. Admins (Cash / Collection audit)
+    2. Admins (Cash / Collection audit and verification)
     """
     collector = collector_name or actor_name or 'Staff'
+    client_name = order.client_name or (order.created_by.get_full_name() if order.created_by else 'Customer')
 
     if order.created_by:
         try:
@@ -346,19 +418,28 @@ def notify_payment_received(order, amount, actor_name='', collector_name=None, *
             users=[order.created_by],
             title="Payment Received! 💳",
             body=f"Payment of ₹{amount} for order #{order.order_code} received successfully.",
-            data={'order_id': order.id, 'order_code': order.order_code, 'screen': 'customer_orders'},
+            data={
+                'event_type': 'payment_received',
+                'entity_type': 'order',
+                'entity_id': order.id,
+                'order_id': order.id,
+                'order_code': order.order_code,
+                'amount': str(amount),
+                'screen': 'customer_orders',
+            },
             notification_type='payment_received',
             reference_id=order.id
         )
 
-    User = get_user_model()
-    admin_users = list(User.objects.filter(is_superuser=True))
-    if admin_users:
+    all_admins = _get_all_admins()
+    if all_admins:
+        admin_title = "Payment Verification Required"
+        admin_body = f"{client_name} submitted ₹{amount} for verification (Order #{order.order_code} by {collector})"
         try:
             from accounts.models import AdminNotification
             AdminNotification.objects.create(
-                title=f"Payment Collected: #{order.order_code}",
-                message=f"₹{amount} collected for #{order.order_code} by {collector}.",
+                title=f"Payment Submitted: #{order.order_code}",
+                message=admin_body,
                 notification_type='payment_verification',
                 reference_id=order.id
             )
@@ -366,10 +447,19 @@ def notify_payment_received(order, amount, actor_name='', collector_name=None, *
             logger.warning("FCM: AdminNotification create warning: %s", e)
 
         send_fcm_notification(
-            users=admin_users,
-            title=f"Payment Collected: #{order.order_code}",
-            body=f"₹{amount} collected for #{order.order_code} by {collector}.",
-            data={'order_id': order.id, 'order_code': order.order_code, 'screen': 'admin_billing'},
+            users=all_admins,
+            title=admin_title,
+            body=admin_body,
+            data={
+                'event_type': 'payment_verification',
+                'entity_type': 'order',
+                'entity_id': order.id,
+                'order_id': order.id,
+                'order_code': order.order_code,
+                'amount': str(amount),
+                'collector': collector,
+                'screen': 'admin_billing',
+            },
             notification_type='payment_collected',
             reference_id=order.id
         )
@@ -380,27 +470,23 @@ def notify_stock_request_created(stock_req):
     Triggered when a Franchise creates a new Stock Request.
     Notifies Super Admin and Admins with actionable stock alert.
     """
-    User = get_user_model()
-    admin_users = list(User.objects.filter(is_superuser=True))
-    staff_admins = list(User.objects.filter(is_staff=True).exclude(is_superuser=True))
-    role_admins = list(User.objects.filter(profile__role__in=['admin', 'super_admin']).exclude(is_superuser=True))
-    all_admins = list(set(admin_users + staff_admins + role_admins))
+    all_admins = _get_all_admins()
 
     dealer_name = stock_req.dealer.business_name if stock_req.dealer else 'Franchise'
     prod_name = stock_req.product.name if stock_req.product else 'Stock'
     sku = stock_req.product.sku if stock_req.product else ''
     qty = stock_req.requested_quantity
 
-    title = f"New Stock Request: {dealer_name}"
-    body = f"{dealer_name} requested {qty:,} units of {sku} ({prod_name}). Request #{stock_req.request_number}."
+    title = "New Franchise Stock Request"
+    body = f"{dealer_name} requested {qty:,} units of {sku} ({prod_name})"
 
     try:
         from accounts.models import AdminNotification
         AdminNotification.objects.get_or_create(
-            title=title,
+            title=f"New Stock Request: {dealer_name}",
             notification_type='stock_alert',
             reference_id=stock_req.id,
-            defaults={'message': body}
+            defaults={'message': f"{dealer_name} requested {qty:,} units of {sku} ({prod_name}). Request #{stock_req.request_number}."}
         )
     except Exception as e:
         logger.warning("FCM: AdminNotification create warning: %s", e)
@@ -410,9 +496,15 @@ def notify_stock_request_created(stock_req):
         title=title,
         body=body,
         data={
+            'event_type': 'stock_request',
+            'entity_type': 'stock_request',
+            'entity_id': stock_req.id,
             'stock_request_id': stock_req.id,
             'request_number': stock_req.request_number,
             'dealer_id': stock_req.dealer_id,
+            'dealer_name': dealer_name,
+            'sku': sku,
+            'quantity': str(qty),
             'screen': 'admin_stock_requests',
             'action': 'view_request',
         },
@@ -437,15 +529,16 @@ def notify_customer_registered(customer_user, rel=None):
     all_admins = _get_all_admins()
     cust_name = customer_user.get_full_name() or customer_user.username
     phone = getattr(getattr(customer_user, 'profile', None), 'phone', '')
-    reg_f_name = rel.registered_franchise.business_name if rel and rel.registered_franchise else 'Direct'
+    zone_name = rel.zone.name if rel and rel.zone else 'Pure Water Territory'
+    reg_f_name = rel.registered_franchise.business_name if rel and rel.registered_franchise else 'Direct Company'
 
-    title = f"New Customer Registered: {cust_name}"
-    body = f"Customer {cust_name} ({phone}) registered in {rel.zone.name if rel and rel.zone else 'Pure Water'}. Assigned to {reg_f_name}."
+    title = "New Customer Registered"
+    body = f"{cust_name} ({phone}) • {zone_name} • Assigned to {reg_f_name}"
 
     try:
         from accounts.models import AdminNotification
         AdminNotification.objects.get_or_create(
-            title=title,
+            title=f"New Customer Registered: {cust_name}",
             notification_type='customer_registration',
             reference_id=customer_user.id,
             defaults={'message': body}
@@ -470,7 +563,12 @@ def notify_customer_registered(customer_user, rel=None):
         title=title,
         body=body,
         data={
+            'event_type': 'customer_registration',
+            'entity_type': 'customer',
+            'entity_id': customer_user.id,
             'customer_id': customer_user.id,
+            'customer_name': cust_name,
+            'phone': phone,
             'screen': 'admin_users',
             'role': 'customer',
         },
@@ -484,7 +582,13 @@ def notify_customer_registered(customer_user, rel=None):
             users=[rel.registered_franchise.user],
             title="New Customer Registered in Your Area",
             body=f"{cust_name} ({phone}) registered and assigned to your franchise territory.",
-            data={'customer_id': customer_user.id, 'screen': 'franchise_customers'},
+            data={
+                'event_type': 'customer_registration',
+                'entity_type': 'customer',
+                'entity_id': customer_user.id,
+                'customer_id': customer_user.id,
+                'screen': 'franchise_customers',
+            },
             notification_type='new_customer',
             reference_id=customer_user.id,
         )
@@ -498,13 +602,13 @@ def notify_franchise_registered(franchise):
     all_admins = _get_all_admins()
     b_name = franchise.business_name
     city = franchise.city
-    title = f"New Franchise Registration: {b_name}"
-    body = f"A new Franchise application has been submitted by {b_name} ({city})."
+    title = "New Franchise Application"
+    body = f"{b_name} ({city}) submitted a new franchise application."
 
     try:
         from accounts.models import AdminNotification
         AdminNotification.objects.get_or_create(
-            title=title,
+            title=f"New Franchise Registration: {b_name}",
             notification_type='franchise_registration',
             reference_id=franchise.id,
             defaults={'message': body}
@@ -517,7 +621,11 @@ def notify_franchise_registered(franchise):
         title=title,
         body=body,
         data={
+            'event_type': 'franchise_registration',
+            'entity_type': 'franchise',
+            'entity_id': franchise.id,
             'franchise_id': franchise.id,
+            'franchise_name': b_name,
             'screen': 'admin_franchises',
         },
         notification_type='franchise_registration',
@@ -540,10 +648,10 @@ def notify_franchise_approval_status(franchise, new_status, reason='', actor_nam
     elif st_clean == 'rejected':
         title = "Franchise Application Update"
         reason_text = f" Reason: {reason}" if reason else ""
-        body = f"Your franchise application for {franchise.business_name} requires attention.{reason_text}"
+        body = f"{franchise.business_name} application requires your attention.{reason_text}"
     else:
-        title = f"Franchise Application: {new_status.title()}"
-        body = f"Your franchise status has been updated to {new_status}."
+        title = "Franchise Application Update"
+        body = f"{franchise.business_name} application status updated to {new_status}."
 
     try:
         from accounts.models import FranchiseNotification
@@ -562,6 +670,9 @@ def notify_franchise_approval_status(franchise, new_status, reason='', actor_nam
         title=title,
         body=body,
         data={
+            'event_type': 'franchise_status',
+            'entity_type': 'franchise',
+            'entity_id': franchise.id,
             'franchise_id': franchise.id,
             'status': new_status,
             'screen': 'franchise_profile',
@@ -577,19 +688,19 @@ def notify_lead_created(lead, is_update=False):
     Notifies Super Admin, Admins, and assigned Franchise.
     """
     all_admins = _get_all_admins()
-    src_label = "Public Chatbot" if lead.source == 'PUBLIC_CHATBOT' else lead.source
-    action_label = "Updated" if is_update else "New Inbound"
+    src_label = "Public Chatbot" if lead.source == 'PUBLIC_CHATBOT' else (lead.source or 'Direct')
+    location = lead.district or lead.city or 'Chhattisgarh'
 
-    title = f"{action_label} Lead ({src_label}): {lead.name}"
-    body = f"{lead.name} ({lead.phone}) inquired from {lead.district or lead.city}. Status: {lead.get_status_display()} ({lead.score.upper()})."
+    title = "New Lead Received"
+    body = f"{lead.name} • {location} • {src_label}"
 
     try:
         from accounts.models import AdminNotification
         AdminNotification.objects.get_or_create(
-            title=title,
+            title=f"New Lead: {lead.name}",
             notification_type='general',
             reference_id=lead.id,
-            defaults={'message': body}
+            defaults={'message': f"{lead.name} ({lead.phone}) inquired from {location}. Status: {lead.get_status_display()}."}
         )
         if lead.assigned_franchise:
             from accounts.models import FranchiseNotification
@@ -597,7 +708,7 @@ def notify_lead_created(lead, is_update=False):
                 franchise=lead.assigned_franchise,
                 notification_type='general',
                 reference_id=lead.id,
-                defaults={'title': f"New Lead Assigned: {lead.name}", 'message': f"Inquiry from {lead.name} ({lead.phone}) in your territory ({lead.territory or lead.city})."}
+                defaults={'title': f"New Lead Assigned: {lead.name}", 'message': f"Inquiry from {lead.name} ({lead.phone}) in your territory ({location})."}
             )
     except Exception as e:
         logger.warning("FCM: DB notification create warning in notify_lead_created: %s", e)
@@ -608,7 +719,12 @@ def notify_lead_created(lead, is_update=False):
         title=title,
         body=body,
         data={
+            'event_type': 'new_lead',
+            'entity_type': 'lead',
+            'entity_id': lead.id,
             'lead_id': lead.id,
+            'name': lead.name,
+            'phone': lead.phone,
             'screen': 'admin_leads',
             'source': lead.source,
         },
@@ -620,9 +736,15 @@ def notify_lead_created(lead, is_update=False):
     if lead.assigned_franchise and lead.assigned_franchise.user:
         send_fcm_notification(
             users=[lead.assigned_franchise.user],
-            title=f"New Lead Assigned: {lead.name}",
-            body=f"Inquiry from {lead.name} ({lead.phone}) in your territory ({lead.territory or lead.city}).",
-            data={'lead_id': lead.id, 'screen': 'franchise_leads'},
+            title="New Lead Assigned",
+            body=f"{lead.name} • {location} • Assigned to your territory",
+            data={
+                'event_type': 'new_lead',
+                'entity_type': 'lead',
+                'entity_id': lead.id,
+                'lead_id': lead.id,
+                'screen': 'franchise_leads',
+            },
             notification_type='lead_alert',
             reference_id=lead.id,
         )
@@ -636,15 +758,23 @@ def notify_stock_request_status_update(stock_req, new_status, actor_name=''):
     if not stock_req.dealer or not stock_req.dealer.user:
         return
 
-    status_titles = {
-        'APPROVED': 'Stock Request Approved! ✅',
-        'DISPATCHED': 'Stock Dispatched from Central Plant! 🚚',
-        'RECEIVED': 'Stock Delivery Confirmed! 📦',
-        'REJECTED': 'Stock Request Declined',
-    }
-    title = status_titles.get(new_status.upper(), f"Stock Request #{stock_req.request_number} Update")
-    by_text = f" by {actor_name}" if actor_name else ""
-    body = f"Your request for {stock_req.requested_quantity}x {stock_req.product.sku if stock_req.product else 'Stock'} is now {new_status}{by_text}."
+    dealer_name = stock_req.dealer.business_name
+    sku = stock_req.product.sku if stock_req.product else 'Stock'
+    qty = stock_req.dispatched_quantity or stock_req.requested_quantity
+
+    st_upper = (new_status or '').upper()
+    if st_upper == 'DISPATCHED':
+        title = "Stock Dispatched"
+        body = f"{qty:,} units dispatched to {dealer_name}"
+    elif st_upper == 'APPROVED':
+        title = "Stock Request Approved"
+        body = f"Request #{stock_req.request_number} for {qty:,} units of {sku} approved."
+    elif st_upper == 'RECEIVED':
+        title = "Stock Delivery Confirmed"
+        body = f"{dealer_name} confirmed receipt of {qty:,} units."
+    else:
+        title = f"Stock Request {new_status.title()}"
+        body = f"Your request for {qty:,} units of {sku} is now {new_status}."
 
     try:
         from accounts.models import FranchiseNotification
@@ -663,8 +793,12 @@ def notify_stock_request_status_update(stock_req, new_status, actor_name=''):
         title=title,
         body=body,
         data={
+            'event_type': 'stock_dispatch' if st_upper == 'DISPATCHED' else 'stock_status',
+            'entity_type': 'stock_request',
+            'entity_id': stock_req.id,
             'stock_request_id': stock_req.id,
             'request_number': stock_req.request_number,
+            'dealer_name': dealer_name,
             'status': new_status,
             'screen': 'franchise_stock_requests',
         },
@@ -674,6 +808,7 @@ def notify_stock_request_status_update(stock_req, new_status, actor_name=''):
 
 
 notify_stock_request_status = notify_stock_request_status_update
+
 
 
 

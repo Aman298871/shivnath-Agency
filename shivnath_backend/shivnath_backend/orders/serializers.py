@@ -422,7 +422,8 @@ class OrderSerializer(serializers.ModelSerializer):
         return " | ".join(notes)
 
     def get_fulfilling_entity(self, obj):
-        if obj.serving_franchise:
+        is_direct = getattr(obj, 'order_source', '') == 'DIRECT_COMPANY' or not obj.serving_franchise
+        if not is_direct and obj.serving_franchise:
             fp = obj.serving_franchise
             user = fp.user
             phone = ''
@@ -436,16 +437,16 @@ class OrderSerializer(serializers.ModelSerializer):
                 'phone': phone,
                 'address': getattr(fp, 'address', '') or fp.city,
                 'city': fp.city,
-                'territory': fp.territory or (fp.zone.name if fp.zone else ''),
+                'territory': getattr(fp, 'territory', '') or (fp.zone.name if hasattr(fp, 'zone') and fp.zone else ''),
                 'contact_info': f"{fp.business_name} ({phone})" if phone else fp.business_name,
             }
         return {
             'type': 'CENTRAL_COMPANY',
-            'name': 'Shivnath Agency Central Plant',
+            'name': 'Shivnath Agency (Direct Company)',
             'phone': '+91 98765 43210',
             'address': 'Shivnath Agency Industrial Area, Raipur, Chhattisgarh',
             'city': 'Raipur',
-            'territory': 'Central Company Dispatch',
+            'territory': 'Central Plant Dispatch',
             'contact_info': 'Shivnath Agency Central Plant (Raipur)',
         }
 
@@ -469,9 +470,12 @@ class OrderSerializer(serializers.ModelSerializer):
         return ''
 
     def get_serving_franchise_name(self, obj):
+        is_direct = getattr(obj, 'order_source', '') == 'DIRECT_COMPANY' or not obj.serving_franchise
+        if is_direct:
+            return ''
         if obj.serving_franchise:
             return obj.serving_franchise.business_name
-        return obj.franchise_name or ''
+        return ''
 
     def get_registered_franchise_name(self, obj):
         if obj.registered_franchise:

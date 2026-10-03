@@ -280,19 +280,17 @@ class OrderListCreateView(APIView):
                     order_source = 'DIRECT_COMPANY'
                     serving_franchise = None
 
-            # Set authoritative franchise_name display
-            resolved_franchise_name = 'Shivnath Agency (Direct)'
-            if serving_franchise:
+            # Authoritative fulfillment source & franchise name resolution
+            if order_source == 'DIRECT_COMPANY' or not serving_franchise:
+                order_source = 'DIRECT_COMPANY'
+                serving_franchise = None
+                resolved_franchise_name = 'Shivnath Agency (Direct)'
+            elif serving_franchise:
                 resolved_franchise_name = serving_franchise.business_name
-            elif registered_franchise:
-                resolved_franchise_name = registered_franchise.business_name
-            elif order_source != 'DIRECT_COMPANY' and order_data.get('franchise'):
-                fn = str(order_data.get('franchise', '')).strip()
-                cust_n = (creator.get_full_name() if creator else '').strip()
-                cust_u = (creator.username if creator else '').strip()
-                if fn and fn.lower() != cust_n.lower() and fn.lower() != cust_u.lower():
-                    resolved_franchise_name = fn
+            else:
+                resolved_franchise_name = 'Shivnath Agency (Direct)'
 
+            order_data['order_source'] = order_source
             order_data['franchise_name'] = resolved_franchise_name
 
             if not order_data.get('city'):

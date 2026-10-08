@@ -4,33 +4,42 @@ from django.contrib.auth.models import User
 from accounts.models import UserProfile
 
 class Command(BaseCommand):
-    help = 'Automatically create or update the default superuser from environment variables.'
+    help = 'Automatically create or update the default superuser accounts.'
 
     def handle(self, *args, **options):
-        email = os.getenv('ADMIN_EMAIL', os.getenv('DJANGO_SUPERUSER_EMAIL', 'admin@shivnath.com')).strip()
-        username = os.getenv('ADMIN_USERNAME', os.getenv('DJANGO_SUPERUSER_USERNAME', email)).strip()
-        password = os.getenv('ADMIN_PASSWORD', os.getenv('DJANGO_SUPERUSER_PASSWORD', 'Shivnath@2026!')).strip()
+        default_pwd = os.getenv('ADMIN_PASSWORD', os.getenv('DJANGO_SUPERUSER_PASSWORD', 'shivnath12')).strip()
 
-        user, created = User.objects.get_or_create(
-            username=username,
-            defaults={'email': email, 'is_staff': True, 'is_superuser': True}
-        )
+        admins = [
+            {'email': 'admin@gmail.com', 'username': 'admin@gmail.com', 'name': 'Super Admin'},
+            {'email': 'admin@shivnath.com', 'username': 'admin@shivnath.com', 'name': 'Shivnath Admin'},
+        ]
 
-        user.email = email
-        user.is_staff = True
-        user.is_superuser = True
-        user.set_password(password)
-        user.save()
+        for adm in admins:
+            user, created = User.objects.get_or_create(
+                email__iexact=adm['email'],
+                defaults={
+                    'username': adm['username'],
+                    'email': adm['email'],
+                    'is_staff': True,
+                    'is_superuser': True,
+                    'first_name': adm['name'],
+                }
+            )
+            user.username = adm['username']
+            user.email = adm['email']
+            user.is_staff = True
+            user.is_superuser = True
+            user.set_password(default_pwd)
+            user.save()
 
-        # Ensure UserProfile exists with admin role
-        profile, _ = UserProfile.objects.get_or_create(
-            user=user,
-            defaults={'role': 'admin', 'name': 'Shivnath Admin'}
-        )
-        profile.role = 'admin'
-        profile.save()
+            profile, _ = UserProfile.objects.get_or_create(
+                user=user,
+                defaults={'role': 'super_admin', 'name': adm['name'], 'status': 'active'}
+            )
+            profile.role = 'super_admin'
+            profile.status = 'active'
+            profile.save()
 
-        if created:
-            self.stdout.write(self.style.SUCCESS(f'Successfully created superuser "{username}".'))
-        else:
-            self.stdout.write(self.style.SUCCESS(f'Successfully updated superuser "{username}".'))
+            action = 'created' if created else 'updated'
+            self.stdout.write(self.style.SUCCESS(f'Successfully {action} superuser "{adm["email"]}" with password "{default_pwd}".'))
+

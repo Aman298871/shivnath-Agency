@@ -29,6 +29,8 @@ from .serializers import (
     FranchiseRegisterSerializer,
     LoginSerializer,
     CurrentUserSerializer,
+    ForgotPasswordSerializer,
+    ResetPasswordSerializer,
 )
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -1300,6 +1302,51 @@ class LoginView(APIView):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(
+            data=request.data
+        )
+        if serializer.is_valid():
+            return Response(
+                serializer.validated_data,
+                status=status.HTTP_200_OK
+            )
+        return Response(
+            {
+                'success': False,
+                'errors': serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = ResetPasswordSerializer(
+            data=request.data
+        )
+        if serializer.is_valid():
+            return Response(
+                serializer.validated_data,
+                status=status.HTTP_200_OK
+            )
+        return Response(
+            {
+                'success': False,
+                'errors': serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
 
 
 class CurrentUserView(APIView):

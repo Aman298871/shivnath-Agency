@@ -409,8 +409,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: isLoading
                         ? null
                         : () {
-                            _showMessage(
-                              'Please contact WaterNow administrator to reset your password.',
+                            Navigator.pushNamed(
+                              context,
+                              AppRoutes.forgotPassword,
+                              arguments: {
+                                'email': emailController.text.trim(),
+                                'role': role,
+                              },
                             );
                           },
                     child: Text(

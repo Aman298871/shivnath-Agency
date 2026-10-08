@@ -5,6 +5,8 @@ from .views import (
     FranchiseRegisterView,
     LoginView,
     CurrentUserView,
+    ForgotPasswordView,
+    ResetPasswordView,
     PendingFranchiseListView,
     FranchiseListView,
     ApproveFranchiseView,
@@ -149,6 +151,16 @@ urlpatterns = [
         'login/',
         LoginView.as_view(),
         name='login'
+    ),
+    path(
+        'forgot-password/',
+        ForgotPasswordView.as_view(),
+        name='forgot_password'
+    ),
+    path(
+        'reset-password/',
+        ResetPasswordView.as_view(),
+        name='reset_password'
     ),
 
     path(

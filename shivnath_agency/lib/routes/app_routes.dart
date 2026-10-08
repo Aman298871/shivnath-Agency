@@ -8,6 +8,7 @@ import '../features/auth/role_selection_screen.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/auth/customer_register_screen.dart';
 import '../features/auth/franchise_register_screen.dart';
+import '../features/auth/forgot_password_screen.dart';
 
 import '../features/customer/customer_main_screen.dart';
 import '../features/franchise/franchise_main_screen.dart';
@@ -19,12 +20,15 @@ class AppRoutes {
   static const String roleSelection = '/role-selection';
   static const String login = '/login';
 
-  // Registration
+  // Registration & Password Reset
   static const String customerRegister =
       '/customer-register';
 
   static const String franchiseRegister =
       '/franchise-register';
+
+  static const String forgotPassword =
+      '/forgot-password';
 
   // Dashboards
   static const String customerDashboard =
@@ -88,6 +92,25 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) =>
               const FranchiseRegisterScreen(),
+          settings: settings,
+        );
+
+      // Forgot Password
+      case forgotPassword:
+        final args = settings.arguments;
+        String? email;
+        String? r;
+        if (args is Map) {
+          email = args['email']?.toString();
+          r = args['role']?.toString();
+        } else if (args is String) {
+          email = args;
+        }
+        return MaterialPageRoute(
+          builder: (_) => ForgotPasswordScreen(
+            initialEmail: email,
+            initialRole: r,
+          ),
           settings: settings,
         );
 

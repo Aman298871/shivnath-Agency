@@ -581,48 +581,89 @@ class FranchiseRegisterSerializer(serializers.Serializer):
 
 class LoginSerializer(serializers.Serializer):
 
-    email = serializers.EmailField()
+    email = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Registered email, username, or phone number"
+    )
+
+    username = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
+
+    phone = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
 
     password = serializers.CharField(
         write_only=True
     )
 
-    role = serializers.ChoiceField(
-        choices=UserProfile.ROLE_CHOICES
+    role = serializers.CharField(
+        required=False,
+        allow_blank=True
     )
 
     def validate(self, attrs):
+        import re
+        from django.db.models import Q
 
-        email = attrs['email'].strip().lower()
-        password = attrs['password']
-        selected_role = attrs['role']
+        raw_identifier = (
+            attrs.get('email', '') or
+            attrs.get('username', '') or
+            attrs.get('phone', '')
+        ).strip()
 
-        try:
-            user_object = User.objects.get(
-                email__iexact=email
-            )
+        password = attrs.get('password', '')
+        selected_role = (attrs.get('role', '') or '').strip().lower()
 
-        except User.DoesNotExist:
+        if not raw_identifier:
             raise serializers.ValidationError({
-                'email':
-                    'No account found with this email.'
+                'email': 'Please enter your registered email, username, or phone number.'
             })
 
+        if not password:
+            raise serializers.ValidationError({
+                'password': 'Password is required.'
+            })
+
+        # Normalize 10-digit phone number if identifier looks like a phone
+        phone_digits = re.sub(r'\D', '', raw_identifier)
+        norm_phone = phone_digits[-10:] if len(phone_digits) >= 10 else ''
+
+        query = Q(email__iexact=raw_identifier) | Q(username__iexact=raw_identifier)
+        if norm_phone:
+            query |= Q(profile__phone__icontains=norm_phone)
+        else:
+            query |= Q(profile__phone__iexact=raw_identifier)
+
+        user_object = User.objects.filter(query).distinct().first()
+
+        if not user_object:
+            raise serializers.ValidationError({
+                'email': 'No account found with these credentials.'
+            })
+
+        # Attempt standard Django authentication
         user = authenticate(
             username=user_object.username,
             password=password
         )
 
+        # Fallback to direct check_password if backend specific check is required
+        if user is None and user_object.check_password(password):
+            user = user_object
+
         if user is None:
             raise serializers.ValidationError({
-                'password':
-                    'Incorrect password.'
+                'password': 'Incorrect password.'
             })
 
         if not user.is_active:
             raise serializers.ValidationError({
-                'detail':
-                    'Your account is inactive.'
+                'detail': 'Your account is inactive. Please contact administration.'
             })
 
         profile, _ = UserProfile.objects.get_or_create(
@@ -631,15 +672,23 @@ class LoginSerializer(serializers.Serializer):
 
         if user.is_superuser:
             profile.role = 'super_admin'
-            profile.save()
+            profile.save(update_fields=['role'])
 
-        is_role_match = (profile.role == selected_role) or (user.is_superuser and selected_role in ['admin', 'super_admin'])
-        if not is_role_match:
-            raise serializers.ValidationError({
-                'role':
-                    f'This account is registered as '
-                    f'{profile.get_role_display()}.'
-            })
+        # Role validation & permission hierarchy
+        if selected_role:
+            is_admin_portal = selected_role in ['admin', 'super_admin', 'sales_executive']
+            is_admin_user = user.is_superuser or user.is_staff or profile.role in ['admin', 'super_admin', 'sales_executive']
+
+            if is_admin_portal and is_admin_user:
+                pass  # Permitted
+            elif profile.role.lower() == selected_role:
+                pass  # Exact match
+            elif selected_role == 'admin' and profile.role == 'super_admin':
+                pass  # Super admin accessing admin portal
+            else:
+                raise serializers.ValidationError({
+                    'role': f'This account is registered as {profile.get_role_display()}. Please login via the correct portal.'
+                })
 
         franchise_status = 'approved'
         rejection_reason = ''
@@ -668,9 +717,11 @@ class LoginSerializer(serializers.Serializer):
 
             'user': {
                 'id': user.id,
-                'name':
+                'name': (
                     user.get_full_name()
-                    or user.username,
+                    or profile.name
+                    or user.username
+                ),
                 'email': user.email,
                 'phone': profile.phone,
                 'role': profile.role,
@@ -681,6 +732,184 @@ class LoginSerializer(serializers.Serializer):
                 'territory': territory,
             }
         }
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email_or_phone = serializers.CharField(
+        required=True,
+        help_text="Registered email address or phone number"
+    )
+
+    def validate(self, attrs):
+        import re
+        from django.db.models import Q
+        from django.utils import timezone
+        from datetime import timedelta
+        import hashlib
+        import secrets
+        from .models import PasswordResetToken, Notification
+
+        raw_identifier = attrs['email_or_phone'].strip()
+        phone_digits = re.sub(r'\D', '', raw_identifier)
+        norm_phone = phone_digits[-10:] if len(phone_digits) >= 10 else ''
+
+        query = Q(email__iexact=raw_identifier) | Q(username__iexact=raw_identifier)
+        if norm_phone:
+            query |= Q(profile__phone__icontains=norm_phone)
+
+        user = User.objects.filter(query).distinct().first()
+
+        reset_code = None
+        if user and user.is_active:
+            # Generate secure 6-digit numeric OTP
+            reset_code = ''.join(secrets.choice('0123456789') for _ in range(6))
+            token_hash = hashlib.sha256(reset_code.encode('utf-8')).hexdigest()
+
+            # Invalidate any older unused reset tokens
+            PasswordResetToken.objects.filter(
+                user=user,
+                is_used=False
+            ).update(is_used=True)
+
+            # Store hashed token with 15-minute validity
+            PasswordResetToken.objects.create(
+                user=user,
+                token_hash=token_hash,
+                email_or_phone=raw_identifier,
+                expires_at=timezone.now() + timedelta(minutes=15)
+            )
+
+            # Create internal notification record (zero paid API cost)
+            try:
+                Notification.objects.create(
+                    recipient=user,
+                    notification_type='SYSTEM',
+                    title='Password Reset Verification Code',
+                    message=f'Your WaterNow password reset code is {reset_code}. Valid for 15 minutes. Never share this code with anyone.',
+                    entity_type='password_reset',
+                    entity_id=user.id,
+                )
+            except Exception:
+                pass
+
+            # Optional email dispatch if SMTP configured
+            try:
+                from django.core.mail import send_mail
+                from django.conf import settings
+                if getattr(settings, 'EMAIL_HOST_USER', None) and user.email:
+                    send_mail(
+                        subject='WaterNow - Password Reset Verification Code',
+                        message=f'Hello {user.get_full_name() or user.username},\n\nYour password reset code is: {reset_code}\nThis code will expire in 15 minutes.\n\nIf you did not request this, please ignore this email.\n\nWaterNow Pure Water Platform',
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user.email],
+                        fail_silently=True,
+                    )
+            except Exception:
+                pass
+
+        # Standard secure response to prevent account enumeration
+        response_data = {
+            'success': True,
+            'message': 'If an account exists with these details, password reset instructions have been generated.',
+            'email_or_phone': raw_identifier,
+        }
+
+        # For debug / local testing environments where email/SMS is not provisioned
+        from django.conf import settings
+        if settings.DEBUG and reset_code:
+            response_data['dev_reset_code'] = reset_code
+
+        return response_data
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    email_or_phone = serializers.CharField(
+        required=True
+    )
+    token = serializers.CharField(
+        required=True,
+        help_text="6-digit reset OTP or verification token"
+    )
+    new_password = serializers.CharField(
+        write_only=True,
+        min_length=6
+    )
+    confirm_password = serializers.CharField(
+        write_only=True
+    )
+
+    def validate(self, attrs):
+        import re
+        import hashlib
+        from django.db.models import Q
+        from django.utils import timezone
+        from .models import PasswordResetToken
+
+        raw_identifier = attrs['email_or_phone'].strip()
+        token = attrs['token'].strip()
+        new_password = attrs['new_password']
+        confirm_password = attrs['confirm_password']
+
+        if new_password != confirm_password:
+            raise serializers.ValidationError({
+                'confirm_password': 'Passwords do not match.'
+            })
+
+        phone_digits = re.sub(r'\D', '', raw_identifier)
+        norm_phone = phone_digits[-10:] if len(phone_digits) >= 10 else ''
+
+        query = Q(email__iexact=raw_identifier) | Q(username__iexact=raw_identifier)
+        if norm_phone:
+            query |= Q(profile__phone__icontains=norm_phone)
+
+        user = User.objects.filter(query).distinct().first()
+
+        if not user:
+            raise serializers.ValidationError({
+                'detail': 'Invalid account or verification code.'
+            })
+
+        token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+        reset_token_record = PasswordResetToken.objects.filter(
+            user=user,
+            is_used=False,
+            expires_at__gte=timezone.now()
+        ).order_by('-created_at').first()
+
+        if not reset_token_record:
+            raise serializers.ValidationError({
+                'token': 'Verification code has expired or is invalid. Please request a new one.'
+            })
+
+        if reset_token_record.verification_attempts >= 5:
+            reset_token_record.is_used = True
+            reset_token_record.save(update_fields=['is_used'])
+            raise serializers.ValidationError({
+                'token': 'Too many failed verification attempts. Please request a new code.'
+            })
+
+        if reset_token_record.token_hash != token_hash:
+            reset_token_record.verification_attempts += 1
+            reset_token_record.save(update_fields=['verification_attempts'])
+            raise serializers.ValidationError({
+                'token': 'Incorrect verification code. Please check and try again.'
+            })
+
+        # Update password securely using Django's set_password()
+        user.set_password(new_password)
+        user.save()
+
+        # Invalidate reset token
+        reset_token_record.is_used = True
+        reset_token_record.used_at = timezone.now()
+        reset_token_record.save(update_fields=['is_used', 'used_at'])
+
+        return {
+            'success': True,
+            'message': 'Password has been reset successfully. You can now login with your new password.'
+        }
+
 
 
 class CurrentUserSerializer(

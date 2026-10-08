@@ -96,6 +96,35 @@ class AuthService {
     );
   }
 
+  Future<Map<String, dynamic>> forgotPassword({
+    required String emailOrPhone,
+  }) async {
+    return _post(
+      '/api/auth/forgot-password/',
+      {
+        'email_or_phone': emailOrPhone.trim(),
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String emailOrPhone,
+    required String token,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    return _post(
+      '/api/auth/reset-password/',
+      {
+        'email_or_phone': emailOrPhone.trim(),
+        'token': token.trim(),
+        'new_password': newPassword,
+        'confirm_password': confirmPassword,
+      },
+    );
+  }
+
+
   Future<Map<String, dynamic>> getDistricts() async {
     try {
       final uri = Uri.parse('$baseUrl/api/auth/territory-master/');

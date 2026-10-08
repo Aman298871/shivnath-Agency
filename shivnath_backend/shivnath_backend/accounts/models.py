@@ -1065,5 +1065,36 @@ class SystemBackupLog(models.Model):
         return f"{self.backup_filename} [{self.status}] at {self.started_at.strftime('%Y-%m-%d %H:%M')}"
 
 
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='password_reset_tokens'
+    )
+    token_hash = models.CharField(max_length=64, db_index=True)
+    email_or_phone = models.CharField(max_length=150)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+    is_used = models.BooleanField(default=False, db_index=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    verification_attempts = models.PositiveIntegerField(default=0)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Password Reset Token'
+        verbose_name_plural = 'Password Reset Tokens'
+
+    @property
+    def is_valid(self):
+        from django.utils import timezone
+        return not self.is_used and timezone.now() <= self.expires_at and self.verification_attempts < 5
+
+    def __str__(self):
+        status_str = "USED" if self.is_used else ("VALID" if self.is_valid else "EXPIRED")
+        return f"Reset Token for {self.user.username} ({self.email_or_phone}) [{status_str}]"
+
+
+
 
 

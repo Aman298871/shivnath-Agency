@@ -744,18 +744,25 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
             const SizedBox(height: 12),
 
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: products.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.58,
-              ),
-              itemBuilder: (context, index) {
-                return _ProductCard(product: products[index]);
+            LayoutBuilder(
+              builder: (ctx, constraints) {
+                final isVeryNarrow = constraints.maxWidth < 340;
+                final crossCount = isVeryNarrow ? 1 : 2;
+                final ratio = isVeryNarrow ? 1.25 : (constraints.maxWidth < 370 ? 0.54 : 0.58);
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: products.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossCount,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: ratio,
+                  ),
+                  itemBuilder: (context, index) {
+                    return _ProductCard(product: products[index]);
+                  },
+                );
               },
             ),
           ],

@@ -251,14 +251,25 @@ class _FranchiseProductsScreenState
                                 ),
                               ),
                             )
-                          : GridView.builder(
-                              itemCount: products.length,
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: desktop ? 4 : 2,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: desktop ? .82 : .52,
-                              ),
+                          : LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isSmall = constraints.maxWidth < 340;
+                                final crossAxisCount = desktop
+                                    ? 4
+                                    : (constraints.maxWidth > 700 ? 3 : (isSmall ? 1 : 2));
+                                final childAspectRatio = desktop
+                                    ? .82
+                                    : (isSmall
+                                        ? 1.25
+                                        : (constraints.maxWidth < 380 ? .54 : .58));
+                                return GridView.builder(
+                                  itemCount: products.length,
+                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: crossAxisCount,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: childAspectRatio,
+                                  ),
                               itemBuilder: (context, index) {
                                 final product = products[index];
 
@@ -385,7 +396,9 @@ class _FranchiseProductsScreenState
                                   ),
                                 );
                               },
-                            ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
@@ -594,13 +607,20 @@ class _StockRequestDialogState extends State<_StockRequestDialog> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Total Estimated Cost:',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0369A1)),
+                    const Flexible(
+                      child: Text(
+                        'Total Estimated Cost:',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0369A1)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    Text(
-                      '₹${_totalAmount.toStringAsFixed(0)}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0284C7)),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        '₹${_totalAmount.toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0284C7)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -615,24 +635,31 @@ class _StockRequestDialogState extends State<_StockRequestDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0284C7),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          onPressed: _isSubmitting || _quantity <= 0 ? null : _submit,
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : const Text('Submit Stock Request'),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            TextButton(
+              onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: _isSubmitting || _quantity <= 0 ? null : _submit,
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Submit Stock Request'),
+            ),
+          ],
         ),
       ],
     );

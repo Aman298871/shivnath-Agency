@@ -800,17 +800,19 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
 
             const SizedBox(height: 12),
 
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _statusBadge('${order['status']}'),
-                      _paymentBadge('${order['payment']}'),
-                    ],
-                  ),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _statusBadge('${order['status']}'),
+                    _paymentBadge('${order['payment']}'),
+                  ],
                 ),
                 Wrap(
                   spacing: 8,

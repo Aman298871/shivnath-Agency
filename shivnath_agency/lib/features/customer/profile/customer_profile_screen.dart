@@ -615,19 +615,26 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isHold
-                  ? const Color(0xFF16A34A)
-                  : const Color(0xFFE11D48),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(isHold ? 'Resume Now' : 'Confirm Pause'),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isHold
+                      ? const Color(0xFF16A34A)
+                      : const Color(0xFFE11D48),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(isHold ? 'Resume Now' : 'Confirm Pause'),
+              ),
+            ],
           ),
         ],
       ),

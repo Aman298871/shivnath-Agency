@@ -264,8 +264,14 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
           const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
+              final isVerySmall = constraints.maxWidth < 340;
               final isNarrow = constraints.maxWidth < 600;
-              final crossAxisCount = isNarrow ? 2 : (desktop ? 4 : 3);
+              final crossAxisCount = isVerySmall ? 1 : (isNarrow ? 2 : (desktop ? 4 : 3));
+              final childAspectRatio = isVerySmall
+                  ? 3.8
+                  : (isNarrow
+                      ? (constraints.maxWidth < 380 ? 2.1 : 2.4)
+                      : 2.7);
 
               return GridView.builder(
                 shrinkWrap: true,
@@ -274,7 +280,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                   crossAxisCount: crossAxisCount,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
-                  childAspectRatio: isNarrow ? 2.3 : 2.7,
+                  childAspectRatio: childAspectRatio,
                 ),
                 itemCount: actions.length,
                 itemBuilder: (context, index) {
@@ -457,13 +463,23 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                       },
                     ),
 
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: desktop ? 4 : 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: desktop ? 2.1 : 1.15,
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isVerySmall = constraints.maxWidth < 340;
+                        final crossAxisCount = isVerySmall ? 1 : (desktop ? 4 : 2);
+                        final childAspectRatio = isVerySmall
+                            ? 3.2
+                            : (desktop
+                                ? 2.1
+                                : (constraints.maxWidth < 380 ? 1.35 : 1.2));
+
+                        return GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: crossAxisCount,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: childAspectRatio,
                       children: [
                         _StatCard(
                           title: 'Customers Served',
@@ -518,6 +534,8 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                           onTap: widget.onOpenOrders,
                         ),
                       ],
+                    );
+                      },
                     ),
 
                     const SizedBox(height: 22),

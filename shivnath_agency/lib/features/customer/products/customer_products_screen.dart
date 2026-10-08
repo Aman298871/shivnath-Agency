@@ -270,20 +270,32 @@ class _CustomerProductsScreenState
                           ),
                         ),
                       )
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(18),
-                        itemCount: products.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.62,
-                        ),
-                        itemBuilder: (context, index) {
-                          return _ProductCard(
-                            product: products[index],
-                            desktop: false,
+                    : LayoutBuilder(
+                        builder: (ctx, constraints) {
+                          final crossCount = constraints.maxWidth >= 720
+                              ? 3
+                              : (constraints.maxWidth < 340 ? 1 : 2);
+                          final ratio = constraints.maxWidth >= 720
+                              ? 0.78
+                              : (crossCount == 1
+                                  ? 1.25
+                                  : (constraints.maxWidth < 370 ? 0.58 : 0.62));
+                          return GridView.builder(
+                            padding: const EdgeInsets.all(18),
+                            itemCount: products.length,
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossCount,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: ratio,
+                            ),
+                            itemBuilder: (context, index) {
+                              return _ProductCard(
+                                product: products[index],
+                                desktop: false,
+                              );
+                            },
                           );
                         },
                       ),

@@ -2398,135 +2398,142 @@ class _AdminVerifyPaymentDialogState extends State<_AdminVerifyPaymentDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: _isProcessing ? null : () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFFDC2626),
-            side: const BorderSide(color: Color(0xFFDC2626)),
-          ),
-          onPressed: _isProcessing
-              ? null
-              : () async {
-                  final reasonCtrl = TextEditingController();
-                  final rejectConfirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (rejectCtx) => AlertDialog(
-                      title: const Text('Reject Payment Proof'),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'Please state why this payment proof could not be verified (e.g. UTR not found in bank statement, incorrect amount):',
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            TextButton(
+              onPressed: _isProcessing ? null : () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFDC2626),
+                side: const BorderSide(color: Color(0xFFDC2626)),
+              ),
+              onPressed: _isProcessing
+                  ? null
+                  : () async {
+                      final reasonCtrl = TextEditingController();
+                      final rejectConfirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (rejectCtx) => AlertDialog(
+                          title: const Text('Reject Payment Proof'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Please state why this payment proof could not be verified (e.g. UTR not found in bank statement, incorrect amount):',
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: reasonCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Rejection Reason *',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: reasonCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Rejection Reason *',
-                              border: OutlineInputBorder(),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(rejectCtx, false),
+                              child: const Text('Cancel'),
                             ),
-                          ),
-                        ],
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(rejectCtx, false),
-                          child: const Text('Cancel'),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFDC2626),
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () {
+                                if (reasonCtrl.text.trim().isEmpty) return;
+                                Navigator.pop(rejectCtx, true);
+                              },
+                              child: const Text('Confirm Reject'),
+                            ),
+                          ],
                         ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFDC2626),
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed: () {
-                            if (reasonCtrl.text.trim().isEmpty) return;
-                            Navigator.pop(rejectCtx, true);
-                          },
-                          child: const Text('Confirm Reject'),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (rejectConfirmed == true) {
-                    setState(() => _isProcessing = true);
-                    final parsedId = int.tryParse(invId.toString()) ?? 0;
-                    if (parsedId > 0) {
-                      final res = await InventoryService().rejectInvoicePayment(
-                        invoiceId: parsedId,
-                        reason: reasonCtrl.text.trim(),
                       );
-                      if (mounted) {
-                        Navigator.pop(context, true);
-                        if (res['success'] == true) {
-                          AppToast.success(
-                            context,
-                            'Payment proof rejected. Franchise notified.',
-                            title: 'Payment Rejected',
+
+                      if (rejectConfirmed == true) {
+                        setState(() => _isProcessing = true);
+                        final parsedId = int.tryParse(invId.toString()) ?? 0;
+                        if (parsedId > 0) {
+                          final res = await InventoryService().rejectInvoicePayment(
+                            invoiceId: parsedId,
+                            reason: reasonCtrl.text.trim(),
                           );
-                          widget.onVerified();
-                        } else {
-                          AppToast.error(
-                            context,
-                            res['message']?.toString() ?? 'Failed to reject payment',
-                            title: 'Error',
-                          );
+                          if (mounted) {
+                            Navigator.pop(context, true);
+                            if (res['success'] == true) {
+                              AppToast.success(
+                                context,
+                                'Payment proof rejected. Franchise notified.',
+                                title: 'Payment Rejected',
+                              );
+                              widget.onVerified();
+                            } else {
+                              AppToast.error(
+                                context,
+                                res['message']?.toString() ?? 'Failed to reject payment',
+                                title: 'Error',
+                              );
+                            }
+                          }
                         }
                       }
-                    }
-                  }
-                },
-          icon: const Icon(Icons.close, size: 16),
-          label: const Text('Reject Proof'),
-        ),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF16A34A),
-            foregroundColor: Colors.white,
-          ),
-          onPressed: _isProcessing
-              ? null
-              : () async {
-                  setState(() => _isProcessing = true);
-                  final parsedId = int.tryParse(invId.toString()) ?? 0;
-                  if (parsedId > 0) {
-                    final res = await InventoryService().verifyInvoicePayment(
-                      invoiceId: parsedId,
-                      notes: _notesController.text.trim(),
-                    );
-                    if (mounted) {
-                      Navigator.pop(context, true);
-                      if (res['success'] == true) {
-                        AppToast.success(
-                          context,
-                          'Payment verified & approved! Ledger updated.',
-                          title: 'Approved',
+                    },
+              icon: const Icon(Icons.close, size: 16),
+              label: const Text('Reject Proof'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: _isProcessing
+                  ? null
+                  : () async {
+                      setState(() => _isProcessing = true);
+                      final parsedId = int.tryParse(invId.toString()) ?? 0;
+                      if (parsedId > 0) {
+                        final res = await InventoryService().verifyInvoicePayment(
+                          invoiceId: parsedId,
+                          notes: _notesController.text.trim(),
                         );
-                        widget.onVerified();
-                      } else {
-                        AppToast.error(
-                          context,
-                          res['message']?.toString() ?? 'Failed to verify payment',
-                          title: 'Error',
-                        );
+                        if (mounted) {
+                          Navigator.pop(context, true);
+                          if (res['success'] == true) {
+                            AppToast.success(
+                              context,
+                              'Payment verified & approved! Ledger updated.',
+                              title: 'Approved',
+                            );
+                            widget.onVerified();
+                          } else {
+                            AppToast.error(
+                              context,
+                              res['message']?.toString() ?? 'Failed to verify payment',
+                              title: 'Error',
+                            );
+                          }
+                        }
                       }
-                    }
-                  }
-                },
-          icon: _isProcessing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.check, size: 16),
-          label: const Text('Approve & Confirm'),
+                    },
+              icon: _isProcessing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.check, size: 16),
+              label: const Text('Approve & Confirm'),
+            ),
+          ],
         ),
       ],
     );

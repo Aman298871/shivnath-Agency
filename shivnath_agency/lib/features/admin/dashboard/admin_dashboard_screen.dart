@@ -1601,20 +1601,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1.02,
-      ),
-      itemCount: _stats.length,
-      itemBuilder: (_, index) {
-        return _StatCard(
-          item: _stats[index],
-          onTap: getTapAction(index),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isVerySmall = constraints.maxWidth < 340;
+        final crossAxisCount = isVerySmall ? 1 : 2;
+        final childAspectRatio = isVerySmall
+            ? 3.2
+            : (constraints.maxWidth < 380 ? 1.35 : 1.45);
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: childAspectRatio,
+          ),
+          itemCount: _stats.length,
+          itemBuilder: (_, index) {
+            return _StatCard(
+              item: _stats[index],
+              onTap: getTapAction(index),
+            );
+          },
         );
       },
     );
@@ -2041,8 +2051,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
+              final isVerySmall = constraints.maxWidth < 340;
               final isNarrow = constraints.maxWidth < 600;
-              final crossAxisCount = isNarrow ? 2 : (desktop ? 4 : 4);
+              final crossAxisCount = isVerySmall ? 1 : (isNarrow ? 2 : 4);
+              final childAspectRatio = isVerySmall
+                  ? 3.8
+                  : (isNarrow
+                      ? (constraints.maxWidth < 380 ? 2.1 : 2.4)
+                      : 2.8);
 
               return GridView.builder(
                 shrinkWrap: true,
@@ -2051,7 +2067,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   crossAxisCount: crossAxisCount,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: isNarrow ? 2.4 : 2.8,
+                  childAspectRatio: childAspectRatio,
                 ),
                 itemCount: actions.length,
                 itemBuilder: (context, index) {

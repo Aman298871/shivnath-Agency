@@ -1158,12 +1158,16 @@ class _SummaryRow extends StatelessWidget {
             ),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: bold ? 16 : 14,
-            fontWeight: bold ? FontWeight.w800 : FontWeight.w700,
-            color: color ?? (bold ? const Color(0xFF0284C7) : const Color(0xFF0F172A)),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: bold ? 16 : 14,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w700,
+              color: color ?? (bold ? const Color(0xFF0284C7) : const Color(0xFF0F172A)),
+            ),
           ),
         ),
       ],

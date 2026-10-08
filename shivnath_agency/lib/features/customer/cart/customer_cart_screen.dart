@@ -588,17 +588,23 @@ class _PriceRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: bold ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              color: bold ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+            ),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-            fontSize: bold ? 19 : 14,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+              fontSize: bold ? 19 : 14,
+            ),
           ),
         ),
       ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/services/auth_service.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/session_service.dart';
@@ -19,6 +20,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   final SessionService _sessionService = SessionService();
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -29,13 +31,14 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkSession() async {
     try {
       // Snappy splash dwell time for brand display
-      await Future.delayed(const Duration(milliseconds: 1200));
+      await Future.delayed(const Duration(milliseconds: 1000));
 
       final user = await _sessionService.getUser();
+      final token = await _sessionService.getAccessToken();
 
       if (!mounted) return;
 
-      if (user == null) {
+      if (user == null || token == null || token.isEmpty) {
         final prefs = await SharedPreferences.getInstance();
         final onboardingDone =
             prefs.getBool(OnboardingScreen.keyCompleted) ?? false;
@@ -53,6 +56,22 @@ class _SplashScreenState extends State<SplashScreen> {
           );
         }
         return;
+      }
+
+      // Verify token validity with backend
+      try {
+        final verifyRes = await _authService.getCurrentUser().timeout(const Duration(seconds: 4));
+        if (verifyRes['success'] != true && verifyRes['data'] is Map) {
+          final data = verifyRes['data'] as Map;
+          if (data['code'] == 'user_not_found' || data['detail'] == 'User not found') {
+            await _sessionService.logout();
+            if (!mounted) return;
+            Navigator.pushReplacementNamed(context, AppRoutes.roleSelection);
+            return;
+          }
+        }
+      } catch (_) {
+        // Network timeout/offline - proceed with cached session
       }
 
       try {

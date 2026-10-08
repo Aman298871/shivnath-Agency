@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/InventoryService.dart';
-import '../../../models/product_model.dart';
 import 'central_plant_inventory_screen.dart';
 
 /// Live Dealer Stock Request Fulfillment Tracker Screen

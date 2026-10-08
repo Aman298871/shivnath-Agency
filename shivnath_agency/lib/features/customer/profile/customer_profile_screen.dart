@@ -687,7 +687,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     final franchise =
         _territoryData?['current_serving_franchise_name']?.toString() ??
         _territoryData?['registered_franchise_name']?.toString() ??
-        'Shivnath Agency (Direct Company Fulfillment)';
+        'WaterNow (Direct Fulfillment)';
 
     final cycleStatus = _stockCycleData?['status']?.toString() ?? 'none';
     final daysRemaining = _stockCycleData?['days_remaining'] ?? 0;

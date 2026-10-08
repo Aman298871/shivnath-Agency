@@ -227,7 +227,7 @@ class LeadService {
         headers: await _headers(),
         body: jsonEncode({
           'action': action,
-          if (data != null) ...data,
+          ...?data,
         }),
       );
 

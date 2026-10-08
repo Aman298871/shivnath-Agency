@@ -14,6 +14,7 @@ from .views import (
     AdminCreateFranchiseView,
     AdminUserListView,
     AdminNotificationListView,
+    NotificationUnreadCountView,
     ZoneResolutionView,
     TerritoryMasterView,
     EligibleFranchisesView,
@@ -215,6 +216,21 @@ urlpatterns = [
         'notifications/',
         AdminNotificationListView.as_view(),
         name='admin-notifications'
+    ),
+    path(
+        'notifications/unread-count/',
+        NotificationUnreadCountView.as_view(),
+        name='notifications-unread-count'
+    ),
+    path(
+        'customer/notifications/unread-count/',
+        NotificationUnreadCountView.as_view(),
+        name='customer-notifications-unread-count'
+    ),
+    path(
+        'franchise-notifications/unread-count/',
+        NotificationUnreadCountView.as_view(),
+        name='franchise-notifications-unread-count'
     ),
 
     # Authoritative Super Admin, Dealer Onboarding, Backup, Support & Chatbot

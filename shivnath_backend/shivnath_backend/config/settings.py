@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
@@ -115,7 +116,14 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # POSTGRESQL DATABASE
 # --------------------------------------------------
 
-if os.getenv('DATABASE_URL'):
+if os.getenv('USE_SQLITE') == '1' or 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+elif os.getenv('DATABASE_URL'):
     try:
         import dj_database_url
         DATABASES = {

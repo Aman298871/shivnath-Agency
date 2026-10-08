@@ -44,7 +44,7 @@ class CustomerWalletScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 18),
                 Text(
-                  'Shivnath Agency Wallet',
+                  'WaterNow Wallet',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,

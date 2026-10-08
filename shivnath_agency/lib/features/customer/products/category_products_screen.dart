@@ -423,13 +423,19 @@ class _ProductCard extends StatelessWidget {
                         ? _QuantityControl(product: product)
                         : SizedBox(
                             width: double.infinity,
-                            height: 34,
-                            child: ElevatedButton.icon(
-                              icon: const Icon(
-                                Icons.add_shopping_cart_rounded,
-                                size: 14,
+                            height: 36,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                backgroundColor: product.stock <= 0
+                                    ? Colors.grey.shade400
+                                    : const Color(0xFF0284C7),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
-                              label: const Text('Add to Cart'),
                               onPressed: product.stock <= 0
                                   ? null
                                   : () {
@@ -491,16 +497,29 @@ class _ProductCard extends StatelessWidget {
                                           );
                                       }
                                     },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0284C7),
-                                foregroundColor: Colors.white,
-                                padding: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      product.stock <= 0
+                                          ? Icons.remove_shopping_cart
+                                          : Icons.add_shopping_cart_rounded,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      product.stock <= 0 ? 'Out of Stock' : 'Add to Cart',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                      maxLines: 1,
+                                      softWrap: false,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

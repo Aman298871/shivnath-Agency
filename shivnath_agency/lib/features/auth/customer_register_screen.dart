@@ -42,17 +42,74 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   bool showFallbackList = false;
   String? supportContactPhone;
 
-  final List<String> availableDistricts = [
-    'Raipur',
-    'Durg',
+  List<String> availableDistricts = [
+    'Balod',
+    'Baloda Bazar - Bhatapara',
+    'Balrampur-Ramanujganj',
+    'Bastar',
+    'Bemetara',
+    'Bijapur',
     'Bilaspur',
+    'Dantewada',
+    'Dhamtari',
+    'Durg',
+    'Gariaband',
+    'Gaurela-Pendra-Marwahi',
+    'Janjgir-Champa',
+    'Jashpur',
+    'Kabirdham (Kawardha)',
+    'Kanker',
+    'Khairagarh-Chhuikhadan-Gandai',
+    'Kondagaon',
+    'Korba',
+    'Koriya',
+    'Mahasamund',
+    'Manendragarh-Chirmiri-Bharatpur',
+    'Mohla-Manpur-Ambagarh Chowki',
+    'Mungeli',
+    'Narayanpur',
+    'Raigarh',
+    'Raipur',
     'Rajnandgaon',
+    'Sakti',
+    'Sarangarh-Bilaigarh',
+    'Sukma',
+    'Surajpur',
+    'Surguja',
   ];
 
   @override
   void initState() {
     super.initState();
+    districtController.text = 'Raipur';
+    _loadDistricts();
     _loadTerritories('Raipur');
+  }
+
+  Future<void> _loadDistricts() async {
+    final res = await authService.getDistricts();
+    if (!mounted) return;
+    if (res['success'] == true && res['data'] is Map) {
+      final list = res['data']['districts'];
+      if (list is List && list.isNotEmpty) {
+        final fetched = list
+            .map((e) => (e is Map ? e['name']?.toString() : null))
+            .where((name) => name != null && name.trim().isNotEmpty)
+            .cast<String>()
+            .toSet()
+            .toList()
+          ..sort();
+
+        if (fetched.isNotEmpty) {
+          setState(() {
+            availableDistricts = fetched;
+            if (!availableDistricts.contains(districtController.text.trim())) {
+              districtController.text = availableDistricts.first;
+            }
+          });
+        }
+      }
+    }
   }
 
   Future<void> _loadTerritories(String district) async {
@@ -295,11 +352,11 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: availableDistricts.contains(
+                        value: availableDistricts.contains(
                                   districtController.text.trim(),
                                 )
                             ? districtController.text.trim()
-                            : availableDistricts.first,
+                            : (availableDistricts.isNotEmpty ? availableDistricts.first : null),
                         isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'District *',
@@ -313,7 +370,9 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                         }).toList(),
                         onChanged: (val) {
                           if (val != null) {
-                            districtController.text = val;
+                            setState(() {
+                              districtController.text = val;
+                            });
                             _loadTerritories(val);
                           }
                         },

@@ -1039,8 +1039,9 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                       if (val != null) {
                         setModalState(() {
                           currentStatus = val;
-                          if (val == 'Site Visit Scheduled')
+                          if (val == 'Site Visit Scheduled') {
                             siteVisitPlanned = true;
+                          }
                           if (val == 'Site Visit Completed') {
                             siteVisitPlanned = true;
                             siteVisitCompleted = true;
@@ -1334,8 +1335,9 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                                 const Duration(days: 365),
                               ),
                             );
-                            if (d != null)
+                            if (d != null) {
                               setModalState(() => selectedDate = d);
+                            }
                           },
                         ),
                       ),
@@ -1349,8 +1351,9 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                               context: context,
                               initialTime: selectedTime,
                             );
-                            if (t != null)
+                            if (t != null) {
                               setModalState(() => selectedTime = t);
+                            }
                           },
                         ),
                       ),
@@ -2826,8 +2829,9 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                                 lead['id'] as int,
                                 'convert_to_customer',
                               );
-                              if (dialogContext.mounted)
+                              if (dialogContext.mounted) {
                                 Navigator.pop(dialogContext);
+                              }
                               if (res['success'] == true) {
                                 await _loadLeads();
                                 if (mounted) {
@@ -2891,8 +2895,9 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                                 lead['id'] as int,
                                 'start_franchise_onboarding',
                               );
-                              if (dialogContext.mounted)
+                              if (dialogContext.mounted) {
                                 Navigator.pop(dialogContext);
+                              }
                               if (res['success'] == true) {
                                 await _loadLeads();
                                 if (mounted) {

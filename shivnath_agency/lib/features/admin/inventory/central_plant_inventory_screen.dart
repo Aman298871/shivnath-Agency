@@ -1847,7 +1847,7 @@ class _CentralPlantInventoryScreenState
                   children: [
                     // Product Master Selection Dropdown
                     DropdownButtonFormField<ProductModel>(
-                      value: selectedProduct,
+                      initialValue: selectedProduct,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Select Product to Manufacture *',
@@ -2622,7 +2622,7 @@ class _CentralPlantInventoryScreenState
                     const SizedBox(height: 12),
                     // Delivery & Fulfillment Status Dropdown
                     DropdownButtonFormField<String>(
-                      value: deliveryStatus,
+                      initialValue: deliveryStatus,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Fulfillment & Delivery Status *',
@@ -2700,7 +2700,7 @@ class _CentralPlantInventoryScreenState
                           const SizedBox(height: 10),
                           // Payment Status Dropdown
                           DropdownButtonFormField<String>(
-                            value: paymentStatus,
+                            initialValue: paymentStatus,
                             isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Payment Status',
@@ -2746,7 +2746,7 @@ class _CentralPlantInventoryScreenState
                           const SizedBox(height: 10),
                           // Payment Method Dropdown
                           DropdownButtonFormField<String>(
-                            value: paymentMethod,
+                            initialValue: paymentMethod,
                             isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Payment Method',
@@ -3078,7 +3078,7 @@ class _CentralPlantInventoryScreenState
                   const SizedBox(height: 12),
                 ],
                 DropdownButtonFormField<String>(
-                  value: selectedStatus,
+                  initialValue: selectedStatus,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Order Status *',
@@ -3222,7 +3222,7 @@ class _CentralPlantInventoryScreenState
                 children: [
                   // Category dropdown
                   DropdownButtonFormField<String>(
-                    value: category,
+                    initialValue: category,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Material Category *'),
                     items: const [
@@ -3250,7 +3250,7 @@ class _CentralPlantInventoryScreenState
                   // Dedicated Bottle Size dropdown when Category is 'bottle'
                   if (category == 'bottle') ...[
                     DropdownButtonFormField<String>(
-                      value: bottleSize,
+                      initialValue: bottleSize,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Bottle Size / Variant *',
@@ -3276,7 +3276,7 @@ class _CentralPlantInventoryScreenState
                   // Dedicated Jar Size dropdown when Category is 'jar'
                   if (category == 'jar') ...[
                     DropdownButtonFormField<String>(
-                      value: jarSize,
+                      initialValue: jarSize,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Jar Size / Variant *',
@@ -3316,7 +3316,7 @@ class _CentralPlantInventoryScreenState
                     builder: (ctx) {
                       final allowed = _uomForCategory(category);
                       return DropdownButtonFormField<String>(
-                        value: allowed.contains(uom) ? uom : allowed.first,
+                        initialValue: allowed.contains(uom) ? uom : allowed.first,
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: 'Unit of Measure'),
                         items: allowed.map((k) => DropdownMenuItem(

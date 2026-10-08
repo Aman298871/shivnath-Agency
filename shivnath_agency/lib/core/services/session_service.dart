@@ -151,6 +151,10 @@ class SessionService {
       await NotificationService().unregisterDeviceTokenWithBackend();
     } catch (_) {}
 
+    try {
+      NotificationService().resetRegistrationCache();
+    } catch (_) {}
+
     final prefs =
         await SharedPreferences.getInstance();
 

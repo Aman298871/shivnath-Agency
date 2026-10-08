@@ -367,6 +367,15 @@ class OrderListCreateView(APIView):
                     total_price=float(price) * qty,
                 )
 
+            # Immutable audit log for initial order placement
+            OrderStatusHistory.objects.create(
+                order=order,
+                old_status='',
+                new_status=order.status or 'order_placement',
+                changed_by=creator,
+                notes='Order placed by client.',
+            )
+
             # Perform soft FEFO batch reservation if batches exist
             try:
                 from inventory.services import reserve_order_stock_fefo_atomic
@@ -427,8 +436,8 @@ class OrderListCreateView(APIView):
                 send_order_placed_notifications(order, stock_cycle)
                 from accounts.fcm_services import notify_order_created
                 notify_order_created(order)
-            except Exception:
-                pass
+            except Exception as notif_err:
+                logger.error("FCM: Order creation notification dispatch error: %s", notif_err, exc_info=True)
 
             return Response(
                 {
@@ -609,13 +618,34 @@ class OrderDetailView(APIView):
         role = getattr(getattr(user, 'profile', None), 'role', '')
         is_admin = user and (user.is_superuser or user.is_staff or role in ['admin', 'super_admin'])
 
-        # Security rule: Non-admins cannot unilaterally mark payment_status as paid or confirmed
-        if not is_admin and 'payment_status' in data:
-            requested_payment_status = str(data.get('payment_status', '')).lower()
-            if requested_payment_status in ['paid', 'completed', 'confirmed']:
+        from orders.services import validate_order_status_transition, validate_payment_stage, transition_order_status
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        # Security & Operational Rule: Payment status cannot be marked paid before allowed operational stage (dispatch/delivered)
+        if 'payment_status' in data:
+            req_ps = str(data.get('payment_status', '')).lower()
+            try:
+                validate_payment_stage(order, req_ps)
+            except DjangoValidationError as pe:
+                return Response(
+                    {'success': False, 'message': str(pe.message if hasattr(pe, 'message') else pe), 'error_code': 'PAYMENT_STAGE_LOCKED'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not is_admin and req_ps in ['paid', 'completed', 'confirmed']:
                 data['payment_status'] = 'pending_verification'
 
         old_status = order.status
+        new_status = data.get('status')
+        if new_status and new_status != old_status:
+            try:
+                validate_order_status_transition(old_status, new_status)
+            except DjangoValidationError as te:
+                return Response(
+                    {'success': False, 'message': str(te.message if hasattr(te, 'message') else te), 'error_code': 'INVALID_STATUS_TRANSITION'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         serializer = OrderSerializer(
             order,
             data=data,
@@ -633,31 +663,16 @@ class OrderDetailView(APIView):
 
         with transaction.atomic():
             updated_order = serializer.save()
-            new_status = updated_order.status
+            new_st = updated_order.status
 
-            # If cancelled now and wasn't cancelled before, restore stock
-            if new_status == 'cancelled' and old_status != 'cancelled':
-                for item in updated_order.items.all():
-                    if item.product:
-                        Product.objects.filter(id=item.product.id).update(
-                            stock=F('stock') + item.quantity
-                        )
-            # If was cancelled before and now un-cancelled/re-opened, re-deduct stock
-            elif old_status == 'cancelled' and new_status != 'cancelled':
-                for item in updated_order.items.all():
-                    if item.product:
-                        Product.objects.filter(id=item.product.id).update(
-                            stock=F('stock') - item.quantity
-                        )
-
-            # If status changed, notify customer & admin
-            if new_status != old_status:
-                try:
-                    from accounts.fcm_services import notify_order_status_update
-                    actor_name = request.user.get_full_name() or request.user.username
-                    notify_order_status_update(updated_order, new_status, actor_name=actor_name)
-                except Exception:
-                    pass
+            if new_st != old_status:
+                transition_order_status(
+                    updated_order,
+                    new_st,
+                    actor=user,
+                    notes=data.get('notes', '') or f"Status updated via order update endpoint.",
+                    bypass_validation=True,  # Already validated above
+                )
 
         return Response(
             {
@@ -727,57 +742,35 @@ class OrderStatusUpdateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from orders.services import validate_order_status_transition, transition_order_status
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
         old_status = order.status
-        with transaction.atomic():
-            from inventory.services import dispatch_order_atomic, deliver_order_atomic, cancel_order_atomic
+        try:
+            validate_order_status_transition(old_status, new_status)
+        except DjangoValidationError as te:
+            return Response(
+                {
+                    'success': False,
+                    'message': str(te.message if hasattr(te, 'message') else te),
+                    'error_code': 'INVALID_STATUS_TRANSITION',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            if new_status == 'dispatch':
-                dispatch_order_atomic(order, user)
-            elif new_status == 'delivered':
-                deliver_order_atomic(order, user)
-            elif new_status == 'cancelled':
-                cancel_order_atomic(order, user)
-            else:
-                order.status = new_status
-                order.save(update_fields=['status', 'updated_at'])
-
-            if new_status in ['invoice_generated', 'plant_approval']:
-                try:
-                    from billing.services import generate_invoice_for_order
-                    generate_invoice_for_order(order)
-                except Exception:
-                    pass
-
-            # Log status change
-            if old_status != new_status:
-                OrderStatusHistory.objects.create(
-                    order=order,
-                    old_status=old_status,
-                    new_status=new_status,
-                    changed_by=user,
-                    notes=notes,
-                )
-
-                # Notify customer & admin about status update (franchise updates)
-                try:
-                    from accounts.models import AdminNotification
-                    from accounts.fcm_services import notify_order_status_update
-                    changed_by_name = user.get_full_name() or user.username
-                    AdminNotification.objects.create(
-                        title=f'Order {order.order_code} Status Updated',
-                        message=f'{order.order_code} status changed from {old_status} to {new_status} by {changed_by_name}.',
-                        notification_type='order_update',
-                        reference_id=order.id,
-                    )
-                    notify_order_status_update(order, new_status, actor_name=changed_by_name)
-                except Exception:
-                    pass
+        updated_order = transition_order_status(
+            order,
+            new_status,
+            actor=user,
+            notes=notes,
+            bypass_validation=True,
+        )
 
         return Response(
             {
                 'success': True,
-                'message': f'{order.order_code} status changed successfully.',
-                'order': OrderSerializer(order).data,
+                'message': f'{order.order_code} status changed to {new_status} successfully.',
+                'order': OrderSerializer(updated_order).data,
             }
         )
 
@@ -1007,14 +1000,34 @@ class RazorpayVerifyPaymentAPIView(APIView):
             try:
                 from accounts.fcm_services import notify_order_created
                 notify_order_created(order)
-            except Exception:
-                pass
+            except Exception as notif_err:
+                logger.error("FCM: Razorpay order notification dispatch error: %s", notif_err, exc_info=True)
 
         return Response(
             {
                 'success': True,
                 'message': 'Payment successfully verified server-side.',
                 'order': OrderSerializer(order).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class OrderLifecycleRepairView(APIView):
+    """
+    Admin-authorized endpoint for idempotent, non-destructive repair of historical orders.
+    Reconstructs missing OrderStatusHistory audit records based on real database evidence.
+    """
+    permission_classes = [IsAdminRole]
+
+    def post(self, request):
+        from orders.services import repair_historical_orders_lifecycle
+        result = repair_historical_orders_lifecycle()
+        return Response(
+            {
+                'success': True,
+                'message': f"Historical order lifecycle audit complete. Repaired {result['repaired_orders']} of {result['total_orders']} orders.",
+                'data': result,
             },
             status=status.HTTP_200_OK,
         )

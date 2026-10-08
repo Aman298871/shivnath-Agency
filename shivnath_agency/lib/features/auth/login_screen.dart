@@ -147,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Non-fatal FCM token registration
       try {
-        await NotificationService().registerDeviceTokenWithBackend();
+        await NotificationService().registerDeviceTokenWithBackend(force: true);
       } catch (fcmErr) {
         debugPrint('FCM token registration warning: $fcmErr');
       }
@@ -410,7 +410,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? null
                         : () {
                             _showMessage(
-                              'Please contact Shivnath Agency administrator to reset your password.',
+                              'Please contact WaterNow administrator to reset your password.',
                             );
                           },
                     child: Text(
@@ -563,6 +563,6 @@ class _LoginScreenState extends State<LoginScreen> {
     if (role == AppConstants.adminRole) {
       return 'Admin Control Panel: Reserved for Super Admin, Plant Operations, and authorized personnel.';
     }
-    return 'Use your registered email and password to access your Shivnath Agency account.';
+    return 'Use your registered email and password to access your WaterNow account.';
   }
 }

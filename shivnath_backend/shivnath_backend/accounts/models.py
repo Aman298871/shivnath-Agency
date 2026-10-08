@@ -149,6 +149,11 @@ class AdminNotification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['is_read']),
+            models.Index(fields=['notification_type']),
+        ]
 
     def __str__(self):
         return f'{self.title} - {self.created_at.strftime("%d/%m/%Y %H:%M")}'
@@ -172,6 +177,10 @@ class DeviceToken(models.Model):
 
     class Meta:
         ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['token']),
+        ]
 
     def __str__(self):
         return f"{self.user.username} ({self.device_type}) - {self.token[:12]}..."
@@ -764,6 +773,10 @@ class FranchiseNotification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['franchise', '-created_at']),
+            models.Index(fields=['franchise', 'is_read']),
+        ]
 
     def __str__(self):
         return f"[{self.franchise.business_name}] {self.title} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"
@@ -837,6 +850,10 @@ class CustomerNotification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['customer', '-created_at']),
+            models.Index(fields=['customer', 'is_read']),
+        ]
 
     def __str__(self):
         return f"[{self.customer.email}] {self.title} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"

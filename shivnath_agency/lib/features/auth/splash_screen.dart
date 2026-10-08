@@ -129,7 +129,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         ),
                         SizedBox(height: 24),
                         Text(
-                          'shivnath_agency',
+                          'WaterNow',
                           style: TextStyle(
                             color: BrandColors.textPrimary,
                             fontSize: 28,
@@ -139,7 +139,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         ),
                         SizedBox(height: 6),
                         Text(
-                          'Water Business Management',
+                          'Pure Water Delivery Platform',
                           style: TextStyle(
                             color: BrandColors.textSecondary,
                             fontSize: 14,

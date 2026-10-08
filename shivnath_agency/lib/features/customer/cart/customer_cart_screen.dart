@@ -178,7 +178,7 @@ class _MobileCartItem extends StatelessWidget {
     final hasImg = item.image.isNotEmpty;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -187,8 +187,8 @@ class _MobileCartItem extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: const Color(0xFFE0F2FE),
               borderRadius: BorderRadius.circular(10),
@@ -200,17 +200,17 @@ class _MobileCartItem extends StatelessWidget {
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Icon(
                       Icons.local_drink_rounded,
-                      size: 32,
+                      size: 26,
                       color: Color(0xFF0284C7),
                     ),
                   )
                 : const Icon(
                     Icons.local_drink_rounded,
-                    size: 32,
+                    size: 26,
                     color: Color(0xFF0284C7),
                   ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,20 +219,21 @@ class _MobileCartItem extends StatelessWidget {
                   item.productName,
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
-                  '₹${item.unitPrice.toStringAsFixed(0)} / unit',
+                  '₹${item.unitPrice.toStringAsFixed(0)} × ${item.quantity}',
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   '₹${item.total.toStringAsFixed(0)}',
                   style: const TextStyle(
@@ -244,19 +245,21 @@ class _MobileCartItem extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 6),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _QtyButton(
                 icon: Icons.remove,
                 onTap: () => cart.decreaseQuantity(item.id),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Text(
                   '${item.quantity}',
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                 ),
               ),
@@ -271,10 +274,14 @@ class _MobileCartItem extends StatelessWidget {
                   }
                 },
               ),
-              const SizedBox(width: 6),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                onPressed: () => cart.removeProduct(item.id),
+              const SizedBox(width: 2),
+              InkWell(
+                onTap: () => cart.removeProduct(item.id),
+                borderRadius: BorderRadius.circular(6),
+                child: const Padding(
+                  padding: EdgeInsets.all(4.0),
+                  child: Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                ),
               ),
             ],
           ),

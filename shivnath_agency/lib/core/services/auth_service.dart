@@ -96,6 +96,29 @@ class AuthService {
     );
   }
 
+  Future<Map<String, dynamic>> getDistricts() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/auth/territory-master/');
+      final response = await ApiClient.get(uri, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 10));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'data': decoded};
+      }
+      return {'success': false, 'message': 'Failed to load districts', 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Network error loading districts'};
+    }
+  }
+
   Future<Map<String, dynamic>> getTerritories({required String district}) async {
     try {
       final uri = Uri.parse('$baseUrl/api/auth/territory-master/').replace(

@@ -2,6 +2,9 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime
 import os
 import sys
+import logging
+
+logger = logging.getLogger(__name__)
 import subprocess
 import hashlib
 from pathlib import Path
@@ -1656,41 +1659,161 @@ class AdminUserListView(APIView):
 
 
 class AdminNotificationListView(APIView):
-    permission_classes = [IsAdminRole]
+    """
+    Authoritative, role-isolated notification feed and unread counter.
+    Strictly delivers:
+    - Customer -> ONLY their own CustomerNotification records.
+    - Franchise -> ONLY their own FranchiseNotification records.
+    - Admin / Super Admin -> Operational AdminNotification records.
+    A Customer or Franchise API request CAN NEVER retrieve Admin/Super Admin notifications.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from .models import AdminNotification
-        notifications = AdminNotification.objects.all()[:50]
-        unread_count = AdminNotification.objects.filter(is_read=False).count()
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        if user.is_superuser:
+            role = 'super_admin'
 
-        results = [
-            {
-                'id': n.id,
-                'title': n.title,
-                'message': n.message,
-                'notification_type': n.notification_type,
-                'reference_id': n.reference_id,
-                'is_read': n.is_read,
-                'created_at': n.created_at.strftime('%Y-%m-%d %H:%M'),
-            }
-            for n in notifications
-        ]
+        try:
+            limit = min(int(request.query_params.get('limit', 30)), 100)
+        except (ValueError, TypeError):
+            limit = 30
+
+        unread_only = request.query_params.get('unread_only', 'false').lower() in ['true', '1']
+
+        from .models import CustomerNotification, FranchiseNotification, AdminNotification
+
+        if role == 'customer':
+            qs = CustomerNotification.objects.filter(customer=user)
+            unread_count = qs.filter(is_read=False).count()
+            if unread_only:
+                qs = qs.filter(is_read=False)
+            notifs = qs.order_by('-created_at')[:limit]
+            results = [
+                {
+                    'id': n.id,
+                    'title': n.title,
+                    'message': n.message,
+                    'notification_type': n.notification_type,
+                    'reference_id': n.reference_id,
+                    'is_read': n.is_read,
+                    'created_at': n.created_at.strftime('%Y-%m-%d %H:%M'),
+                }
+                for n in notifs
+            ]
+        elif role == 'franchise':
+            franchise = getattr(user, 'franchise_profile', None)
+            if not franchise:
+                return Response({'success': True, 'role': role, 'unread_count': 0, 'count': 0, 'notifications': []})
+            qs = FranchiseNotification.objects.filter(franchise=franchise)
+            unread_count = qs.filter(is_read=False).count()
+            if unread_only:
+                qs = qs.filter(is_read=False)
+            notifs = qs.order_by('-created_at')[:limit]
+            results = [
+                {
+                    'id': n.id,
+                    'title': n.title,
+                    'message': n.message,
+                    'notification_type': n.notification_type,
+                    'reference_id': n.reference_id,
+                    'is_read': n.is_read,
+                    'created_at': n.created_at.strftime('%Y-%m-%d %H:%M'),
+                }
+                for n in notifs
+            ]
+        elif role in ['admin', 'super_admin'] or user.is_staff or user.is_superuser:
+            qs = AdminNotification.objects.all()
+            unread_count = qs.filter(is_read=False).count()
+            if unread_only:
+                qs = qs.filter(is_read=False)
+            notifs = qs.order_by('-created_at')[:limit]
+            results = [
+                {
+                    'id': n.id,
+                    'title': n.title,
+                    'message': n.message,
+                    'notification_type': n.notification_type,
+                    'reference_id': n.reference_id,
+                    'is_read': n.is_read,
+                    'created_at': n.created_at.strftime('%Y-%m-%d %H:%M'),
+                }
+                for n in notifs
+            ]
+        else:
+            return Response({'success': True, 'role': role, 'unread_count': 0, 'count': 0, 'notifications': []})
 
         return Response({
             'success': True,
+            'role': role,
             'unread_count': unread_count,
             'count': len(results),
             'notifications': results,
         }, status=status.HTTP_200_OK)
 
     def post(self, request):
-        from .models import AdminNotification
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        if user.is_superuser:
+            role = 'super_admin'
+
         notification_id = request.data.get('id') or request.data.get('notification_id')
-        if notification_id:
-            AdminNotification.objects.filter(id=notification_id).update(is_read=True)
-        else:
-            AdminNotification.objects.filter(is_read=False).update(is_read=True)
+        from .models import CustomerNotification, FranchiseNotification, AdminNotification
+
+        if role == 'customer':
+            if notification_id:
+                CustomerNotification.objects.filter(customer=user, id=notification_id).update(is_read=True)
+            else:
+                CustomerNotification.objects.filter(customer=user, is_read=False).update(is_read=True)
+        elif role == 'franchise':
+            franchise = getattr(user, 'franchise_profile', None)
+            if franchise:
+                if notification_id:
+                    FranchiseNotification.objects.filter(franchise=franchise, id=notification_id).update(is_read=True)
+                else:
+                    FranchiseNotification.objects.filter(franchise=franchise, is_read=False).update(is_read=True)
+        elif role in ['admin', 'super_admin'] or user.is_staff or user.is_superuser:
+            if notification_id:
+                AdminNotification.objects.filter(id=notification_id).update(is_read=True)
+            else:
+                AdminNotification.objects.filter(is_read=False).update(is_read=True)
+
         return Response({'success': True, 'message': 'Notifications marked as read.'})
+
+
+class NotificationUnreadCountView(APIView):
+    """
+    Lightweight, high-speed indexed unread badge counter.
+    Runs a single SELECT COUNT(1) query scoped strictly to the authenticated user's role.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        if user.is_superuser:
+            role = 'super_admin'
+
+        from .models import CustomerNotification, FranchiseNotification, AdminNotification
+
+        if role == 'customer':
+            count = CustomerNotification.objects.filter(customer=user, is_read=False).count()
+        elif role == 'franchise':
+            franchise = getattr(user, 'franchise_profile', None)
+            count = FranchiseNotification.objects.filter(franchise=franchise, is_read=False).count() if franchise else 0
+        elif role in ['admin', 'super_admin'] or user.is_staff or user.is_superuser:
+            count = AdminNotification.objects.filter(is_read=False).count()
+        else:
+            count = 0
+
+        return Response({
+            'success': True,
+            'role': role,
+            'unread_count': count
+        }, status=status.HTTP_200_OK)
 
 
 # =====================================================================
@@ -2187,6 +2310,7 @@ class FranchiseCustomerListView(APIView):
 class FranchiseNotificationListView(APIView):
     """
     Franchise notification inbox.
+    Strictly isolated to the authenticated franchise.
     """
     permission_classes = [IsApprovedFranchise]
 
@@ -2195,9 +2319,19 @@ class FranchiseNotificationListView(APIView):
         if not franchise:
             return Response({'success': False, 'message': 'Franchise not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        try:
+            limit = min(int(request.query_params.get('limit', 30)), 100)
+        except (ValueError, TypeError):
+            limit = 30
+
+        unread_only = request.query_params.get('unread_only', 'false').lower() in ['true', '1']
+
         from .models import FranchiseNotification
-        notifs = FranchiseNotification.objects.filter(franchise=franchise)[:50]
-        unread = FranchiseNotification.objects.filter(franchise=franchise, is_read=False).count()
+        qs = FranchiseNotification.objects.filter(franchise=franchise)
+        unread = qs.filter(is_read=False).count()
+        if unread_only:
+            qs = qs.filter(is_read=False)
+        notifs = qs.order_by('-created_at')[:limit]
 
         data = [
             {
@@ -2215,13 +2349,16 @@ class FranchiseNotificationListView(APIView):
         return Response({
             'success': True,
             'unread_count': unread,
+            'count': len(data),
             'notifications': data,
         }, status=status.HTTP_200_OK)
 
     def post(self, request):
         franchise = getattr(request.user, 'franchise_profile', None)
+        if not franchise:
+            return Response({'success': False, 'message': 'Franchise not found.'}, status=status.HTTP_404_NOT_FOUND)
         from .models import FranchiseNotification
-        notif_id = request.data.get('id')
+        notif_id = request.data.get('id') or request.data.get('notification_id')
         if notif_id:
             FranchiseNotification.objects.filter(franchise=franchise, id=notif_id).update(is_read=True)
         else:
@@ -2754,14 +2891,25 @@ class AdminStockManagementListView(APIView):
 class CustomerNotificationListView(APIView):
     """
     Customer in-app notification inbox.
+    Strictly delivers only notifications for authenticated customer.
     """
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        try:
+            limit = min(int(request.query_params.get('limit', 30)), 100)
+        except (ValueError, TypeError):
+            limit = 30
+
+        unread_only = request.query_params.get('unread_only', 'false').lower() in ['true', '1']
+
         from .models import CustomerNotification
-        notifs = CustomerNotification.objects.filter(customer=request.user)[:50]
-        unread = CustomerNotification.objects.filter(customer=request.user, is_read=False).count()
+        qs = CustomerNotification.objects.filter(customer=request.user)
+        unread = qs.filter(is_read=False).count()
+        if unread_only:
+            qs = qs.filter(is_read=False)
+        notifs = qs.order_by('-created_at')[:limit]
 
         data = [
             {
@@ -2779,12 +2927,13 @@ class CustomerNotificationListView(APIView):
         return Response({
             'success': True,
             'unread_count': unread,
+            'count': len(data),
             'notifications': data,
         }, status=status.HTTP_200_OK)
 
     def post(self, request):
         from .models import CustomerNotification
-        notif_id = request.data.get('id')
+        notif_id = request.data.get('id') or request.data.get('notification_id')
         if notif_id:
             CustomerNotification.objects.filter(customer=request.user, id=notif_id).update(is_read=True)
         else:
@@ -4599,6 +4748,15 @@ class RegisterDeviceTokenView(APIView):
             }
         )
 
+        logger.info(
+            "FCM: [TOKEN_REGISTERED] User '%s' (role: %s) registered device token (type: %s, created: %s, token_snippet: %s...)",
+            request.user.username,
+            getattr(getattr(request.user, 'profile', None), 'role', 'N/A'),
+            device_type,
+            created,
+            token[:12]
+        )
+
         return Response({
             'success': True,
             'message': 'Device token registered successfully.',
@@ -4612,9 +4770,17 @@ class UnregisterDeviceTokenView(APIView):
 
     def post(self, request):
         token = request.data.get('token', '').strip()
+        from accounts.models import DeviceToken
         if token:
-            from accounts.models import DeviceToken
-            DeviceToken.objects.filter(token=token, user=request.user).update(is_active=False)
+            count = DeviceToken.objects.filter(token=token).update(is_active=False)
+        else:
+            count = DeviceToken.objects.filter(user=request.user).update(is_active=False)
+
+        logger.info(
+            "FCM: [TOKEN_UNREGISTERED] User '%s' unregistered device token (deactivated count: %d)",
+            request.user.username,
+            count
+        )
 
         return Response({
             'success': True,

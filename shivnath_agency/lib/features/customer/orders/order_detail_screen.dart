@@ -99,7 +99,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (value == null || value.toString().isEmpty) return '';
     try {
       final dt = DateTime.parse(value.toString()).toLocal();
-      return DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+      return DateFormat('dd MMM yyyy • hh:mm a').format(dt);
     } catch (_) {
       return value.toString();
     }

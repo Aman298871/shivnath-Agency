@@ -325,7 +325,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     setState(() => _isSubmitting = true);
 
-    String selectedFranchiseName = 'Shivnath Agency (Direct Company Fulfillment)';
+    String selectedFranchiseName = 'WaterNow (Direct Fulfillment)';
     if (!isDirect && selectedFranchiseId != null) {
       final match = eligibleFranchises.firstWhere(
         (f) => f['id'] == selectedFranchiseId,
@@ -333,14 +333,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       selectedFranchiseName = match['business_name']?.toString() ??
           match['name']?.toString() ??
-          'Shivnath Franchise';
+          'WaterNow Authorized Franchise';
     }
 
     try {
       final orderService = OrderService();
       final res = await orderService.createOrder({
         'franchise': isDirect
-            ? 'Shivnath Agency (Direct Company Fulfillment)'
+            ? 'WaterNow (Direct Fulfillment)'
             : selectedFranchiseName,
         'city': addressController.text.trim(),
         'customer_name': nameController.text.trim(),
@@ -704,7 +704,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
                 const SizedBox(height: 10),
                 _PaymentTile(
-                  title: 'Order Directly from Shivnath Agency',
+                  title: 'Order Directly from WaterNow',
                   subtitle: 'Central company fulfillment & dispatch',
                   icon: Icons.business_outlined,
                   value: 'DIRECT_COMPANY',
@@ -752,7 +752,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
-                              'Shivnath Agency',
+                              'WaterNow',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -764,7 +764,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'No franchise is currently assigned to your territory. Your order will be fulfilled directly by Shivnath Agency central dispatch.',
+                        'No franchise is currently assigned to your territory. Your order will be fulfilled directly by WaterNow central dispatch.',
                         style: TextStyle(
                           fontSize: 12,
                           color: Color(0xFF075985),
@@ -813,7 +813,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
-                              'Shivnath Agency',
+                              'WaterNow',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -825,7 +825,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'No delivery territory selected. Your order will be handled directly by Shivnath Agency (you can complete your territory in Profile anytime).',
+                        'No delivery territory selected. Your order will be handled directly by WaterNow (you can complete your territory in Profile anytime).',
                         style: TextStyle(
                           fontSize: 12,
                           color: Color(0xFF475569),
@@ -914,33 +914,137 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
               const SizedBox(height: 28),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Ordered Items',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    '${cart.itemCount} ${cart.itemCount == 1 ? 'item' : 'items'}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: cart.items.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final item = cart.items[index];
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: item.image.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    item.image,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.local_drink_rounded,
+                                      color: Color(0xFF0284C7),
+                                    ),
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.local_drink_rounded,
+                                  color: Color(0xFF0284C7),
+                                ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.productName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: Color(0xFF0F172A),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '₹${item.unitPrice.toStringAsFixed(0)} × ${item.quantity}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '₹${item.total.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: Color(0xFF0284C7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
               const Text(
                 'Order Summary',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 12),
               Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      _SummaryRow(title: 'Items', value: '${cart.itemCount}'),
-                      const SizedBox(height: 10),
                       _SummaryRow(
-                        title: 'Subtotal',
+                        title: 'Items Subtotal (${cart.itemCount} items)',
                         value: '₹${cart.subtotal.toStringAsFixed(0)}',
                       ),
                       const SizedBox(height: 10),
                       _SummaryRow(
-                        title: 'Delivery',
+                        title: 'Delivery Charges',
                         value: cart.deliveryCharge == 0
                             ? 'FREE'
                             : '₹${cart.deliveryCharge.toStringAsFixed(0)}',
+                        color: cart.deliveryCharge == 0 ? const Color(0xFF16A34A) : null,
                       ),
-                      const Divider(height: 25),
+                      const Divider(height: 24),
                       _SummaryRow(
-                        title: 'Current Order',
+                        title: 'Current Order Total',
                         value: '₹${cart.totalAmount.toStringAsFixed(0)}',
+                        bold: true,
                       ),
                       if (_previousOutstanding > 0) ...[
                         const SizedBox(height: 10),
@@ -948,15 +1052,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           title: 'Previous Outstanding',
                           value: '₹${_previousOutstanding.toStringAsFixed(0)}',
                           bold: true,
+                          color: const Color(0xFFDC2626),
                         ),
                         const Divider(height: 20),
                         _SummaryRow(
-                          title: 'Total Exposure / Due',
+                          title: 'Total Amount Due',
                           value: '₹${(cart.totalAmount + _previousOutstanding).toStringAsFixed(0)}',
                           bold: true,
                         ),
                       ] else ...[
-                        const Divider(height: 25),
+                        const SizedBox(height: 4),
+                        const _SummaryRow(
+                          title: 'GST / Taxes',
+                          value: 'Included',
+                          color: Color(0xFF64748B),
+                        ),
+                        const Divider(height: 24),
                         _SummaryRow(
                           title: 'Payable Amount',
                           value: '₹${cart.totalAmount.toStringAsFixed(0)}',
@@ -1023,11 +1134,13 @@ class _SummaryRow extends StatelessWidget {
   final String title;
   final String value;
   final bool bold;
+  final Color? color;
 
   const _SummaryRow({
     required this.title,
     required this.value,
     this.bold = false,
+    this.color,
   });
 
   @override
@@ -1035,11 +1148,22 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: bold ? 14 : 13,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+              color: color ?? (bold ? const Color(0xFF0F172A) : const Color(0xFF64748B)),
+            ),
+          ),
+        ),
         Text(
           value,
           style: TextStyle(
-            fontSize: bold ? 17 : 14,
-            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+            fontSize: bold ? 16 : 14,
+            fontWeight: bold ? FontWeight.w800 : FontWeight.w700,
+            color: color ?? (bold ? const Color(0xFF0284C7) : const Color(0xFF0F172A)),
           ),
         ),
       ],

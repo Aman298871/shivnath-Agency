@@ -19,9 +19,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<_OnboardingData> _pages = const [
     _OnboardingData(
-      title: 'Welcome to Shivnath Agency',
+      title: 'Welcome to WaterNow',
       subtitle:
-          'Manage your complete water business from one powerful platform.',
+          'Order pure packaged water and manage deliveries from one powerful platform.',
       color: BrandColors.primaryBlue,
       bgColor: BrandColors.blueSoft,
       badgeText: 'Pure Water Platform',
@@ -750,7 +750,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'Shivnath Agency',
+                        'WaterNow',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,

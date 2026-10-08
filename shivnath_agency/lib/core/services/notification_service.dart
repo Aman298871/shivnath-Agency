@@ -181,7 +181,7 @@ class NotificationService {
     final title =
         message.notification?.title ??
         message.data['title'] ??
-        'Shivnath Agency';
+        'WaterNow';
     final body =
         message.notification?.body ??
         message.data['body'] ??
@@ -213,10 +213,94 @@ class NotificationService {
       notificationDetails,
       payload: jsonEncode(message.data),
     );
+
+    // Show actionable foreground dialog/banner if context is ready
+    _showForegroundInAppAlert(title, body, message.data);
   }
 
-  /// Register FCM Token with Backend for the logged-in user
-  Future<bool> registerDeviceTokenWithBackend() async {
+  void _showForegroundInAppAlert(String title, String body, Map<String, dynamic> data) {
+    final ctx = navigatorKey?.currentContext;
+    if (ctx == null) return;
+
+    final rawOrderId = data['order_id'] ?? data['orderId'] ?? data['reference_id'] ?? data['id'];
+    final notifType = (data['notification_type'] ?? data['event_type'] ?? '').toString().toLowerCase();
+    final isOrderEvent = rawOrderId != null && (notifType.contains('order') || data.containsKey('order_code') || data.containsKey('order_id'));
+
+    ScaffoldMessenger.maybeOf(ctx)?.showMaterialBanner(
+      MaterialBanner(
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 6,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        leading: CircleAvatar(
+          backgroundColor: isOrderEvent ? const Color(0xFF0284C7) : const Color(0xFF10B981),
+          radius: 18,
+          child: Icon(
+            isOrderEvent ? Icons.shopping_bag_outlined : Icons.notifications_active_outlined,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white, fontSize: 14),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              body,
+              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+        actions: [
+          if (isOrderEvent)
+            TextButton(
+              onPressed: () {
+                ScaffoldMessenger.maybeOf(ctx)?.hideCurrentMaterialBanner();
+                handleNotificationNavigation(data);
+              },
+              child: const Text(
+                'VIEW ORDER',
+                style: TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.w800),
+              ),
+            ),
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.maybeOf(ctx)?.hideCurrentMaterialBanner();
+            },
+            child: const Text(
+              'DISMISS',
+              style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // Auto-dismiss banner after 6 seconds
+    Future.delayed(const Duration(seconds: 6), () {
+      try {
+        if (ctx.mounted) {
+          ScaffoldMessenger.maybeOf(ctx)?.hideCurrentMaterialBanner();
+        }
+      } catch (_) {}
+    });
+  }
+
+  String? _lastRegisteredUserKey;
+
+  /// Clears token registration cache on logout / user switch
+  void resetRegistrationCache() {
+    _lastRegisteredUserKey = null;
+  }
+
+  /// Register FCM Token with Backend for the logged-in user with strict deduplication
+  Future<bool> registerDeviceTokenWithBackend({bool force = false}) async {
     if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
       try {
         _currentFcmToken = await _fcm.getToken();
@@ -240,8 +324,15 @@ class NotificationService {
       return false;
     }
 
+    final user = await session.getUser();
     final token = await session.getAccessToken();
     if (token == null || token.isEmpty) return false;
+
+    final currentKey = '${user?.id}_$_currentFcmToken';
+    if (!force && _lastRegisteredUserKey == currentKey) {
+      debugPrint('FCM: Token already registered for current session ($currentKey). Skipping duplicate request.');
+      return true;
+    }
 
     try {
       final deviceType = Platform.isAndroid
@@ -268,6 +359,7 @@ class NotificationService {
         );
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
+          _lastRegisteredUserKey = currentKey;
           debugPrint(
             'FCM: Device token successfully registered with backend via $endpoint',
           );
@@ -285,6 +377,8 @@ class NotificationService {
 
   /// Unregister FCM Token when user logs out
   Future<void> unregisterDeviceTokenWithBackend() async {
+    resetRegistrationCache();
+
     if (_currentFcmToken == null || _currentFcmToken!.isEmpty) return;
 
     final session = SessionService();
@@ -365,13 +459,18 @@ class NotificationService {
     }
   }
 
-  /// Fetch authoritative notifications for Admin & Super Admin dashboard
-  Future<Map<String, dynamic>> getAdminNotifications() async {
+  /// Fetch authoritative notifications for current user (strictly role-isolated backend)
+  Future<Map<String, dynamic>> getAdminNotifications({int limit = 30}) async {
+    return getNotifications(limit: limit);
+  }
+
+  /// Unified role-isolated notification fetch
+  Future<Map<String, dynamic>> getNotifications({int limit = 30}) async {
     try {
       final session = SessionService();
       final token = await session.getAccessToken();
       final uri = Uri.parse(
-        '${AppConstants.apiBaseUrl}/api/accounts/notifications/',
+        '${AppConstants.apiBaseUrl}/api/accounts/notifications/?limit=$limit',
       );
       final response = await ApiClient.get(
         uri,
@@ -394,8 +493,35 @@ class NotificationService {
     }
   }
 
+  /// Lightweight indexed unread notification count
+  Future<int> getUnreadNotificationCount() async {
+    try {
+      final session = SessionService();
+      final token = await session.getAccessToken();
+      final uri = Uri.parse(
+        '${AppConstants.apiBaseUrl}/api/accounts/notifications/unread-count/',
+      );
+      final response = await ApiClient.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty)
+            'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is Map && decoded['unread_count'] is num) {
+          return (decoded['unread_count'] as num).toInt();
+        }
+      }
+    } catch (_) {}
+    return 0;
+  }
+
   /// Mark notification as read
-  Future<Map<String, dynamic>> markAdminNotificationRead(int id) async {
+  Future<Map<String, dynamic>> markAdminNotificationRead(int? id) async {
     try {
       final session = SessionService();
       final token = await session.getAccessToken();
@@ -410,7 +536,7 @@ class NotificationService {
           if (token != null && token.isNotEmpty)
             'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({'id': id}),
+        body: jsonEncode(id != null ? {'id': id} : {}),
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'success': true};

@@ -390,8 +390,14 @@ class RecordOrderPaymentAPIView(views.APIView):
                     notification_type=notif_type,
                     reference_id=invoice.id
                 )
-                if not is_pending:
-                    notify_payment_received(order, amount, actor_name=collector_name, collector_name=collector_name)
+                notify_payment_received(
+                    order=order,
+                    amount=amount,
+                    actor_name=collector_name,
+                    collector_name=collector_name,
+                    is_pending=is_pending,
+                    invoice=invoice
+                )
             except Exception as e:
                 logger.warning("FCM: Payment notification dispatch warning: %s", e)
 

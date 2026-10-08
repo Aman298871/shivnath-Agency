@@ -678,12 +678,18 @@ class _ProductCard extends StatelessWidget {
 
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  style:
-                      ElevatedButton.styleFrom(
-                    minimumSize:
-                        const Size(0, 42),
-                    backgroundColor: product.stock <= 0 ? Colors.grey.shade400 : null,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: product.stock <= 0
+                        ? Colors.grey.shade400
+                        : const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onPressed: product.stock <= 0
                       ? null
@@ -750,12 +756,30 @@ class _ProductCard extends StatelessWidget {
                               );
                           }
                         },
-                  icon: Icon(
-                    product.stock <= 0 ? Icons.remove_shopping_cart : Icons.add_shopping_cart_rounded,
-                    size: 17,
-                  ),
-                  label: Text(
-                    product.stock <= 0 ? 'Out of Stock' : 'Add to Cart',
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          product.stock <= 0
+                              ? Icons.remove_shopping_cart
+                              : Icons.add_shopping_cart_rounded,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          product.stock <= 0 ? 'Out of Stock' : 'Add to Cart',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          softWrap: false,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

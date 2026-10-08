@@ -473,16 +473,63 @@ def seed():
         FranchiseProfile, FranchiseTerritoryAssignment
     )
 
-    # Districts
-    d_raipur, _ = ServiceDistrict.objects.get_or_create(name="Raipur", defaults={"state": "Chhattisgarh", "is_active": True})
-    d_durg, _ = ServiceDistrict.objects.get_or_create(name="Durg", defaults={"state": "Chhattisgarh", "is_active": True})
-    d_bilaspur, _ = ServiceDistrict.objects.get_or_create(name="Bilaspur", defaults={"state": "Chhattisgarh", "is_active": True})
+    # All 33 Official Chhattisgarh Districts & Zones
+    cg_districts_data = {
+        "Raipur": [("East Raipur", "RPR-EAST"), ("West Raipur", "RPR-WEST"), ("North Raipur", "RPR-NORTH"), ("South Raipur", "RPR-SOUTH")],
+        "Durg": [("Central Durg", "DURG-CENTRAL"), ("Bhilai Urban", "DURG-BHL-URBAN"), ("Durg Rural", "DURG-RURAL")],
+        "Bilaspur": [("Bilaspur Central", "BIL-CENTRAL"), ("Bilaspur North", "BIL-NORTH"), ("Bilaspur South", "BIL-SOUTH")],
+        "Rajnandgaon": [("Rajnandgaon Central", "RJN-CENTRAL"), ("Rajnandgaon Rural", "RJN-RURAL")],
+        "Korba": [("Korba City", "KRB-CITY"), ("Korba Industrial", "KRB-IND")],
+        "Raigarh": [("Raigarh City", "RGH-CITY"), ("Raigarh Rural", "RGH-RURAL")],
+        "Bastar": [("Jagdalpur City", "BST-JGD-CITY"), ("Bastar Rural", "BST-RURAL")],
+        "Surguja": [("Ambikapur City", "SRG-AMB-CITY"), ("Surguja Rural", "SRG-RURAL")],
+        "Dhamtari": [("Dhamtari City", "DHM-CITY"), ("Dhamtari Rural", "DHM-RURAL")],
+        "Mahasamund": [("Mahasamund Central", "MHS-CENTRAL"), ("Saraipali", "MHS-SRP")],
+        "Balod": [("Balod Central", "BLD-CENTRAL"), ("Dondi Lohara", "BLD-DND")],
+        "Bemetara": [("Bemetara Central", "BMT-CENTRAL"), ("Berla", "BMT-BRL")],
+        "Baloda Bazar - Bhatapara": [("Baloda Bazar Central", "BBB-CENTRAL"), ("Bhatapara Urban", "BBB-BHT")],
+        "Gariaband": [("Gariaband Central", "GRB-CENTRAL"), ("Rajim", "GRB-RJM")],
+        "Janjgir-Champa": [("Janjgir City", "JJC-CITY"), ("Champa Urban", "JJC-CMP")],
+        "Sakti": [("Sakti Central", "SKT-CENTRAL"), ("Jaijaipur", "SKT-JJP")],
+        "Mungeli": [("Mungeli Central", "MNG-CENTRAL"), ("Lormi", "MNG-LRM")],
+        "Gaurela-Pendra-Marwahi": [("Gaurela Central", "GPM-CENTRAL"), ("Pendra", "GPM-PND")],
+        "Kabirdham (Kawardha)": [("Kawardha City", "KBD-KWD-CITY"), ("Pandariya", "KBD-PND")],
+        "Khairagarh-Chhuikhadan-Gandai": [("Khairagarh Central", "KCG-CENTRAL"), ("Chhuikhadan", "KCG-CHK")],
+        "Mohla-Manpur-Ambagarh Chowki": [("Mohla Central", "MMA-CENTRAL"), ("Manpur", "MMA-MNP")],
+        "Kanker": [("Kanker Central", "KNK-CENTRAL"), ("Charama", "KNK-CHM")],
+        "Kondagaon": [("Kondagaon Central", "KND-CENTRAL"), ("Keshkal", "KND-KSH")],
+        "Narayanpur": [("Narayanpur Central", "NRY-CENTRAL"), ("Orchha", "NRY-ORC")],
+        "Dantewada": [("Dantewada Central", "DNT-CENTRAL"), ("Kirandul", "DNT-KRN")],
+        "Bijapur": [("Bijapur Central", "BJP-CENTRAL"), ("Bhopalpatnam", "BJP-BHP")],
+        "Sukma": [("Sukma Central", "SKM-CENTRAL"), ("Konta", "SKM-KNT")],
+        "Koriya": [("Baikunthpur Central", "KRY-BKP"), ("Sonhat", "KRY-SNH")],
+        "Manendragarh-Chirmiri-Bharatpur": [("Manendragarh City", "MCB-MND"), ("Chirmiri Urban", "MCB-CHM")],
+        "Surajpur": [("Surajpur Central", "SRP-CENTRAL"), ("Bhaiyathan", "SRP-BHY")],
+        "Balrampur-Ramanujganj": [("Balrampur Central", "BLR-CENTRAL"), ("Ramanujganj", "BLR-RMN")],
+        "Jashpur": [("Jashpur Nagar", "JSH-NGR"), ("Kunkuri", "JSH-KNK")],
+        "Sarangarh-Bilaigarh": [("Sarangarh Central", "SGB-CENTRAL"), ("Bilaigarh", "SGB-BLG")],
+    }
 
-    # Zones
-    z_east_raipur, _ = ServiceZone.objects.get_or_create(district=d_raipur, name="East Raipur", defaults={"code": "RPR-EAST", "is_active": True})
-    z_west_raipur, _ = ServiceZone.objects.get_or_create(district=d_raipur, name="West Raipur", defaults={"code": "RPR-WEST", "is_active": True})
-    z_central_durg, _ = ServiceZone.objects.get_or_create(district=d_durg, name="Central Durg", defaults={"code": "DURG-CENTRAL", "is_active": True})
-    z_central_bilaspur, _ = ServiceZone.objects.get_or_create(district=d_bilaspur, name="Bilaspur Central", defaults={"code": "BIL-CENTRAL", "is_active": True})
+    created_zones = {}
+    for dist_name, zones_list in cg_districts_data.items():
+        d_obj, _ = ServiceDistrict.objects.get_or_create(name=dist_name, defaults={"state": "Chhattisgarh", "is_active": True})
+        if not d_obj.is_active:
+            d_obj.is_active = True
+            d_obj.save(update_fields=["is_active"])
+        for z_name, z_code in zones_list:
+            z_obj, _ = ServiceZone.objects.get_or_create(district=d_obj, name=z_name, defaults={"code": z_code, "is_active": True})
+            if not z_obj.is_active:
+                z_obj.is_active = True
+                z_obj.save(update_fields=["is_active"])
+            created_zones[(dist_name, z_name)] = z_obj
+
+    d_raipur = ServiceDistrict.objects.get(name="Raipur")
+    d_durg = ServiceDistrict.objects.get(name="Durg")
+    d_bilaspur = ServiceDistrict.objects.get(name="Bilaspur")
+    z_east_raipur = created_zones[("Raipur", "East Raipur")]
+    z_west_raipur = created_zones[("Raipur", "West Raipur")]
+    z_central_durg = created_zones[("Durg", "Central Durg")]
+    z_central_bilaspur = created_zones[("Bilaspur", "Bilaspur Central")]
 
     # Service Areas (PIN mappings) [TEST / DEMO DATA]
     ServiceArea.objects.get_or_create(district=d_raipur, zone=z_east_raipur, pincode="492001", locality_name="Pandri", defaults={"is_active": True})

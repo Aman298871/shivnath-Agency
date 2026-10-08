@@ -1,5 +1,8 @@
 import os
+import logging
 from django.http import HttpResponse, FileResponse, Http404
+
+logger = logging.getLogger(__name__)
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -471,6 +474,13 @@ class ChatView(APIView):
                                 title='Public Chatbot Inquiry',
                                 description=f"Initial message: {message}",
                             )
+
+                            # Dispatch FCM push notification to Admin & Super Admin
+                            try:
+                                from accounts.fcm_services import notify_lead_created
+                                notify_lead_created(lead, is_update=False)
+                            except Exception as fcm_err:
+                                logger.warning("FCM: Chatbot lead creation notification warning: %s", fcm_err)
                         else:
                             updated_lead = False
                             if cust_name and lead.name in ['Guest Customer', 'Public Prospect', 'Prospect', 'Public Customer', '']:
@@ -497,11 +507,18 @@ class ChatView(APIView):
                                 description=f"Public Chatbot interaction: {message}"
                             )
 
+                            if updated_lead:
+                                try:
+                                    from accounts.fcm_services import notify_lead_created
+                                    notify_lead_created(lead, is_update=True)
+                                except Exception as fcm_err:
+                                    logger.warning("FCM: Chatbot lead update notification warning: %s", fcm_err)
+
                         if session and session.lead != lead:
                             session.lead = lead
                             session.save(update_fields=['lead'])
-                    except Exception:
-                        pass
+                    except Exception as lead_err:
+                        logger.warning("CRM: Lead capture warning in chatbot: %s", lead_err)
 
             return Response({
                 'success': True,

@@ -277,7 +277,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Shivnath Agency',
+                                'WaterNow',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
@@ -500,7 +500,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Shivnath Agency',
+                                'WaterNow',
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w800,

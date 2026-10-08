@@ -347,6 +347,12 @@ def _process_payment_verification(txn_id, action, admin_user, notes=''):
                 order.payment_status = 'partial'
             order.save(update_fields=['payment_status', 'updated_at'])
 
+            try:
+                from accounts.fcm_services import notify_payment_received
+                notify_payment_received(order, amount_paid_dec, actor_name=admin_user.get_full_name() or admin_user.username, is_pending=False, invoice=invoice)
+            except Exception as e:
+                logger.warning("FCM: Customer payment approval push error: %s", e)
+
         if invoice.invoice_type == 'DEALER_PURCHASE_INVOICE':
             dealer = None
             if invoice.stock_request and invoice.stock_request.dealer:

@@ -1020,8 +1020,8 @@ class DealerStockRequestListCreateAPIView(views.APIView):
                     from accounts.fcm_services import notify_stock_request_created
                     for cr in created_requests:
                         notify_stock_request_created(cr)
-                except Exception:
-                    pass
+                except Exception as notif_err:
+                    logger.error("FCM: Stock request batch notification error: %s", notif_err, exc_info=True)
 
                 serialized_list = DealerStockRequestSerializer(created_requests, many=True).data
                 return Response({
@@ -1078,8 +1078,8 @@ class DealerStockRequestListCreateAPIView(views.APIView):
                 )
                 from accounts.fcm_services import notify_stock_request_created
                 notify_stock_request_created(stock_req)
-            except Exception:
-                pass
+            except Exception as notif_err:
+                logger.error("FCM: Stock request notification error: %s", notif_err, exc_info=True)
 
             data = DealerStockRequestSerializer(stock_req).data
             return Response({

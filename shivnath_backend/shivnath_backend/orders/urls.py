@@ -8,6 +8,7 @@ from .views import (
     CustomerBulkOrderView,
     RazorpayCreateOrderAPIView,
     RazorpayVerifyPaymentAPIView,
+    OrderLifecycleRepairView,
 )
 
 urlpatterns = [
@@ -15,6 +16,7 @@ urlpatterns = [
     path('bulk/', CustomerBulkOrderView.as_view(), name='bulk-orders'),
     path('razorpay/create-order/', RazorpayCreateOrderAPIView.as_view(), name='razorpay-create-order'),
     path('razorpay/verify-payment/', RazorpayVerifyPaymentAPIView.as_view(), name='razorpay-verify-payment'),
+    path('repair-lifecycle/', OrderLifecycleRepairView.as_view(), name='repair-order-lifecycle'),
     path('<int:pk>/', OrderDetailView.as_view()),
     path('<int:pk>/status/', OrderStatusUpdateView.as_view()),
     path('stats/', OrderStatsView.as_view()),

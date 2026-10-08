@@ -215,4 +215,22 @@ class StockService {
       };
     }
   }
+
+  Future<int> getUnreadNotificationCount() async {
+    try {
+      final response = await ApiClient.get(
+            Uri.parse('$baseUrl/api/accounts/customer/notifications/unread-count/'),
+            headers: await _headers(),
+          )
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is Map && decoded['unread_count'] is num) {
+          return (decoded['unread_count'] as num).toInt();
+        }
+      }
+    } catch (_) {}
+    return 0;
+  }
 }

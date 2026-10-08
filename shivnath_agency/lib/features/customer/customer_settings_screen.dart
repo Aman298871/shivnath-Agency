@@ -323,7 +323,7 @@ class _CustomerSettingsScreenState
               icon: Icons.support_agent_rounded,
               title: 'Help & Support',
               subtitle:
-                  'Contact Shivnath Agency support team',
+                  'Contact WaterNow support team',
               onTap: () {
                 SupportDeskModal.show(context);
               },
@@ -344,7 +344,7 @@ class _CustomerSettingsScreenState
           children: [
             const _InfoRow(
               title: 'Application',
-              value: 'Shivnath Agency',
+              value: 'WaterNow',
             ),
 
             const Divider(height: 1),

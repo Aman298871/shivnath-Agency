@@ -126,7 +126,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Shivnath Agency delivers certified, mineral-rich packaged drinking water following stringent 7-stage purification:',
+              'WaterNow delivers certified, mineral-rich packaged drinking water following stringent 7-stage purification:',
               style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
             ),
             const SizedBox(height: 14),
@@ -465,7 +465,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Shivnath Agency',
+                  'WaterNow',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                 ),
                 Text(
@@ -1672,10 +1672,16 @@ class _ProductCard extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(0, 38),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     backgroundColor: product.stock <= 0
                         ? Colors.grey.shade400
-                        : null,
+                        : const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onPressed: product.stock <= 0
                       ? null
@@ -1742,9 +1748,30 @@ class _ProductCard extends StatelessWidget {
                               );
                           }
                         },
-                  child: Text(
-                    product.stock <= 0 ? 'Out of Stock' : 'Add to Cart',
-                    style: const TextStyle(fontSize: 11),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          product.stock <= 0
+                              ? Icons.remove_shopping_cart_outlined
+                              : Icons.add_shopping_cart_rounded,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          product.stock <= 0 ? 'Out of Stock' : 'Add to Cart',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          softWrap: false,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

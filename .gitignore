@@ -33,4 +33,6 @@ local_settings.py
 .env
 *.zip
 *.sql
+*.sqlite3
+serviceAccountKey*.json
 **/backups/

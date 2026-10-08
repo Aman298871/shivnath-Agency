@@ -543,6 +543,43 @@ def seed():
     ServiceArea.objects.get_or_create(district=d_durg, zone=z_central_durg, pincode="490006", locality_name="Bhilai Sector 1-6", defaults={"is_active": True})
     ServiceArea.objects.get_or_create(district=d_bilaspur, zone=z_central_bilaspur, pincode="495001", locality_name="Vyapar Vihar", defaults={"is_active": True})
 
+    # Super Admin [OFFICIAL PRODUCTION ACCOUNT]
+    u_admin, _ = User.objects.get_or_create(
+        username="admin@shivnath.com",
+        defaults={"email": "admin@shivnath.com", "first_name": "Shivnath", "last_name": "SuperAdmin", "is_superuser": True, "is_staff": True, "is_active": True}
+    )
+    if not u_admin.is_superuser or not u_admin.is_staff:
+        u_admin.is_superuser = True
+        u_admin.is_staff = True
+        u_admin.is_active = True
+        u_admin.save(update_fields=['is_superuser', 'is_staff', 'is_active'])
+    if not u_admin.has_usable_password():
+        u_admin.set_password("admin123456")
+        u_admin.save()
+    p_admin, _ = UserProfile.objects.get_or_create(user=u_admin, defaults={"name": "Shivnath Super Admin", "phone": "9806247194", "role": "super_admin", "status": "active", "city": "Raipur", "district": "Raipur"})
+    if p_admin.role != "super_admin":
+        p_admin.role = "super_admin"
+        p_admin.status = "active"
+        p_admin.save(update_fields=['role', 'status'])
+
+    # Plant Admin [OFFICIAL PRODUCTION ACCOUNT]
+    u_plant, _ = User.objects.get_or_create(
+        username="plant@shivnath.com",
+        defaults={"email": "plant@shivnath.com", "first_name": "Plant", "last_name": "Manager", "is_superuser": False, "is_staff": True, "is_active": True}
+    )
+    if not u_plant.is_staff:
+        u_plant.is_staff = True
+        u_plant.is_active = True
+        u_plant.save(update_fields=['is_staff', 'is_active'])
+    if not u_plant.has_usable_password():
+        u_plant.set_password("plant123456")
+        u_plant.save()
+    p_plant, _ = UserProfile.objects.get_or_create(user=u_plant, defaults={"name": "Central Plant Admin", "phone": "9806247195", "role": "admin", "status": "active", "city": "Raipur", "district": "Raipur"})
+    if p_plant.role != "admin":
+        p_plant.role = "admin"
+        p_plant.status = "active"
+        p_plant.save(update_fields=['role', 'status'])
+
     # Headquarters Franchise [TEST / DEMO SEED DATA]
     u_hq, _ = User.objects.get_or_create(
         username="hq@shivnath.com",
@@ -552,6 +589,10 @@ def seed():
         u_hq.set_password("hq123456")
         u_hq.save()
     p_hq, _ = UserProfile.objects.get_or_create(user=u_hq, defaults={"name": "Shivnath Central HQ", "phone": "9806247194", "role": "franchise", "status": "active", "city": "Raipur", "district": "Raipur"})
+    if p_hq.role != "franchise":
+        p_hq.role = "franchise"
+        p_hq.status = "active"
+        p_hq.save(update_fields=['role', 'status'])
     f_hq, _ = FranchiseProfile.objects.get_or_create(
         user=u_hq,
         defaults={

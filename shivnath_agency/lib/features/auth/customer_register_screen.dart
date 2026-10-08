@@ -78,6 +78,42 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
     'Surguja',
   ];
 
+  static const Map<String, List<String>> _fallbackDistrictTerritories = {
+    'Raipur': ['East Raipur', 'West Raipur', 'North Raipur', 'South Raipur'],
+    'Durg': ['Central Durg', 'Bhilai Urban', 'Durg Rural'],
+    'Bilaspur': ['Bilaspur Central', 'Bilaspur North', 'Bilaspur South'],
+    'Rajnandgaon': ['Rajnandgaon Central', 'Rajnandgaon Rural'],
+    'Korba': ['Korba City', 'Korba Industrial'],
+    'Raigarh': ['Raigarh City', 'Raigarh Rural'],
+    'Bastar': ['Jagdalpur City', 'Bastar Rural'],
+    'Surguja': ['Ambikapur City', 'Surguja Rural'],
+    'Dhamtari': ['Dhamtari City', 'Dhamtari Rural'],
+    'Mahasamund': ['Mahasamund Central', 'Saraipali'],
+    'Balod': ['Balod Central', 'Dondi Lohara'],
+    'Bemetara': ['Bemetara Central', 'Berla'],
+    'Baloda Bazar - Bhatapara': ['Baloda Bazar Central', 'Bhatapara Urban'],
+    'Gariaband': ['Gariaband Central', 'Rajim'],
+    'Janjgir-Champa': ['Janjgir City', 'Champa Urban'],
+    'Sakti': ['Sakti Central', 'Jaijaipur'],
+    'Mungeli': ['Mungeli Central', 'Lormi'],
+    'Gaurela-Pendra-Marwahi': ['Gaurela Central', 'Pendra'],
+    'Kabirdham (Kawardha)': ['Kawardha City', 'Pandariya'],
+    'Khairagarh-Chhuikhadan-Gandai': ['Khairagarh Central', 'Chhuikhadan'],
+    'Mohla-Manpur-Ambagarh Chowki': ['Mohla Central', 'Manpur'],
+    'Kanker': ['Kanker Central', 'Charama'],
+    'Kondagaon': ['Kondagaon Central', 'Keshkal'],
+    'Narayanpur': ['Narayanpur Central', 'Orchha'],
+    'Dantewada': ['Dantewada Central', 'Kirandul'],
+    'Bijapur': ['Bijapur Central', 'Bhopalpatnam'],
+    'Sukma': ['Sukma Central', 'Konta'],
+    'Koriya': ['Baikunthpur Central', 'Sonhat'],
+    'Manendragarh-Chirmiri-Bharatpur': ['Manendragarh City', 'Chirmiri Urban'],
+    'Surajpur': ['Surajpur Central', 'Bhaiyathan'],
+    'Balrampur-Ramanujganj': ['Balrampur Central', 'Ramanujganj'],
+    'Jashpur': ['Jashpur Nagar', 'Kunkuri'],
+    'Sarangarh-Bilaigarh': ['Sarangarh Central', 'Bilaigarh'],
+  };
+
   @override
   void initState() {
     super.initState();
@@ -105,6 +141,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
             availableDistricts = fetched;
             if (!availableDistricts.contains(districtController.text.trim())) {
               districtController.text = availableDistricts.first;
+              _loadTerritories(districtController.text.trim());
             }
           });
         }
@@ -131,7 +168,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
 
     if (res['success'] == true && res['data'] is Map) {
       final list = res['data']['territories'];
-      if (list is List) {
+      if (list is List && list.isNotEmpty) {
         setState(() {
           territories = List<Map<String, dynamic>>.from(list);
           isLoadingTerritories = false;
@@ -140,7 +177,24 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
       }
     }
 
+    // Local fallback for smooth UI experience across all 33 districts
+    final fallbacks = _fallbackDistrictTerritories[district] ??
+        _fallbackDistrictTerritories.entries
+            .firstWhere(
+              (e) =>
+                  district.toLowerCase().contains(e.key.toLowerCase()) ||
+                  e.key.toLowerCase().contains(district.toLowerCase()),
+              orElse: () => MapEntry(district, ['$district Central']),
+            )
+            .value;
+
     setState(() {
+      territories = fallbacks.asMap().entries.map((e) => {
+        'id': e.key + 1,
+        'name': e.value,
+        'code': '${e.value.toUpperCase().replaceAll(' ', '_')}',
+        'district_name': district,
+      }).toList();
       isLoadingTerritories = false;
     });
   }
@@ -352,7 +406,8 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: availableDistricts.contains(
+                        key: ValueKey('district_${districtController.text.trim()}'),
+                        initialValue: availableDistricts.contains(
                                   districtController.text.trim(),
                                 )
                             ? districtController.text.trim()
@@ -472,7 +527,11 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                         )
                       else
                         DropdownButtonFormField<int>(
-                          initialValue: selectedTerritoryId,
+                          key: ValueKey('territory_${districtController.text.trim()}_$selectedTerritoryId'),
+                          initialValue: (selectedTerritoryId != null &&
+                                  territories.any((t) => t['id'] == selectedTerritoryId))
+                              ? selectedTerritoryId
+                              : null,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             hintText: 'Choose territory / service zone',

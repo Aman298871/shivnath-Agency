@@ -390,6 +390,8 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
                 'fallback_message': None,
                 'support_contact': None,
                 'franchises': franchises,
+                'exact_matches': franchises,
+                'available_franchises': [],
                 'count': len(franchises),
             }
 
@@ -465,6 +467,8 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
             'fallback_message': f'No franchise is currently available in your selected territory{zone_label}. You may select an alternate available franchise below.',
             'support_contact': _get_support_info(),
             'franchises': fallback_franchises,
+            'exact_matches': [],
+            'available_franchises': fallback_franchises,
             'count': len(fallback_franchises),
         }
 
@@ -476,6 +480,8 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
         'fallback_message': 'No franchises are currently available in the system. Please contact support.',
         'support_contact': _get_support_info(),
         'franchises': [],
+        'exact_matches': [],
+        'available_franchises': [],
         'count': 0,
     }
 

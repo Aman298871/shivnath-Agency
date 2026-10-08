@@ -796,21 +796,28 @@ class _DealerStockRequestFulfillmentScreenState
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
-                  children: [
-                    Icon(Icons.warehouse_rounded,
-                        size: 18, color: Color(0xFF0284C7)),
-                    SizedBox(width: 8),
-                    Text(
-                      'Central Finished Stock Analysis',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        color: Color(0xFF0F172A),
+                const Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.warehouse_rounded,
+                          size: 18, color: Color(0xFF0284C7)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Central Finished Stock Analysis',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -894,20 +901,26 @@ class _DealerStockRequestFulfillmentScreenState
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.inventory_2_rounded,
-                        size: 18, color: Color(0xFF0284C7)),
-                    const SizedBox(width: 8),
-                    Text(
-                      'BOM Raw Materials ${remainingUnits > 0 ? '(For Remaining $remainingUnits)' : ''}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        color: Color(0xFF0F172A),
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.inventory_2_rounded,
+                          size: 18, color: Color(0xFF0284C7)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'BOM Raw Materials ${remainingUnits > 0 ? '(For Remaining $remainingUnits)' : ''}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 if (!widget.isFranchiseView)
                   TextButton.icon(
@@ -1181,14 +1194,19 @@ class _DealerStockRequestFulfillmentScreenState
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          sProd,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                            color: Color(0xFF0F172A),
+                        Expanded(
+                          child: Text(
+                            sProd,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           '$sDisp / $sReq units ($sStatus) →',
                           style: const TextStyle(

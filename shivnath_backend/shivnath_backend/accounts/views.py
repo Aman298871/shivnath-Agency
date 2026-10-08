@@ -1940,10 +1940,41 @@ class TerritoryMasterView(APIView):
         district_name = request.query_params.get('district', '').strip()
 
         if district_name:
+            # 1. Try exact match
             zones = ServiceZone.objects.filter(
                 district__name__iexact=district_name,
                 is_active=True
             ).order_by('name')
+
+            # 2. Try icontains match
+            if not zones.exists():
+                zones = ServiceZone.objects.filter(
+                    district__name__icontains=district_name,
+                    is_active=True
+                ).order_by('name')
+
+            # 3. Try partial token matching (e.g. "Baloda Bazar" vs "Baloda Bazar - Bhatapara")
+            if not zones.exists():
+                clean_name = district_name.split('-')[0].split('(')[0].strip()
+                if clean_name:
+                    zones = ServiceZone.objects.filter(
+                        district__name__icontains=clean_name,
+                        is_active=True
+                    ).order_by('name')
+
+            # 4. If district exists in DB but has 0 zones, ensure a default central zone
+            if not zones.exists():
+                dist_obj = ServiceDistrict.objects.filter(name__icontains=district_name, is_active=True).first()
+                if not dist_obj:
+                    dist_obj = ServiceDistrict.objects.filter(name__iexact=district_name).first()
+                if dist_obj:
+                    fallback_zone, _ = ServiceZone.objects.get_or_create(
+                        district=dist_obj,
+                        name=f"{dist_obj.name} Central",
+                        defaults={'code': f"{dist_obj.name[:3].upper()}-CENTRAL", 'is_active': True}
+                    )
+                    zones = ServiceZone.objects.filter(id=fallback_zone.id)
+
             territories = [
                 {
                     'id': z.id,
@@ -1981,7 +2012,7 @@ class EligibleFranchisesView(APIView):
         from .models import ServiceZone, ServiceDistrict
         from .services import resolve_serviceable_franchises
 
-        zone_id = request.query_params.get('zone_id')
+        zone_id = request.query_params.get('zone_id') or request.query_params.get('territory_id')
         district_name = request.query_params.get('district', '').strip()
 
         target_zone = None

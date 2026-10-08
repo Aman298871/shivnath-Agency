@@ -2,7 +2,7 @@ services:
   - type: web
     name: shivnath-backend
     runtime: python
-    buildCommand: "pip install -r shivnath_backend/requirements.txt && cd shivnath_backend/shivnath_backend && python manage.py migrate && python manage.py create_admin"
+    buildCommand: "pip install -r shivnath_backend/requirements.txt && cd shivnath_backend/shivnath_backend && python manage.py migrate && python manage.py create_admin && python seed_production_data.py"
     startCommand: "cd shivnath_backend/shivnath_backend && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHON_VERSION

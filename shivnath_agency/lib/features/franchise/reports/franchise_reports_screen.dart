@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -5,6 +8,7 @@ import '../../../core/services/InventoryService.dart';
 import '../../../core/services/OrderService.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/theme/brand_colors.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../models/user_model.dart';
 import '../invoices/dealer_credit_ledger_screen.dart';
 
@@ -229,6 +233,72 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
     }
   }
 
+  Future<void> _exportFranchiseCsv() async {
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln('SHIVNATH FRANCHISE - PERFORMANCE REPORT');
+      buffer.writeln('Franchise,${_currentUser?.name ?? "Dealer"}');
+      buffer.writeln('Period,$_customRangeLabel');
+      buffer.writeln('Exported At,${DateTime.now().toIso8601String()}');
+      buffer.writeln();
+
+      buffer.writeln('--- SUMMARY METRICS ---');
+      buffer.writeln('Metric,Value');
+      buffer.writeln('Total Sales Revenue,Rs. ${_totalSales.toStringAsFixed(2)}');
+      buffer.writeln('Total Orders Received,$_totalOrdersCount');
+      buffer.writeln('Delivered Orders,$_deliveredOrdersCount');
+      buffer.writeln('Total Units Sold,$_totalUnitsSold');
+      buffer.writeln();
+
+      buffer.writeln('--- TERRITORY ORDERS ---');
+      buffer.writeln('Order Code,Customer,Status,Payment,Total Amount,Created At');
+      for (final o in _orders) {
+        final code = o['order_code'] ?? o['id'] ?? '';
+        final cust = o['customer_name'] ?? o['customer'] ?? '';
+        final st = o['status'] ?? '';
+        final pay = o['payment'] ?? o['payment_status'] ?? '';
+        final tot = o['total'] ?? o['total_amount'] ?? 0;
+        final dt = o['created_at'] ?? '';
+        buffer.writeln('"$code","$cust","$st","$pay",$tot,"$dt"');
+      }
+      buffer.writeln();
+
+      buffer.writeln('--- STOCK REPLENISHMENT REQUESTS ---');
+      buffer.writeln('Request #,Product,Requested Qty,Approved Qty,Dispatched Qty,Status,Date');
+      for (final r in _stockRequests) {
+        final num = r['request_number'] ?? r['id'] ?? '';
+        final prod = r['product_name'] ?? r['product'] ?? '';
+        final reqQty = r['requested_quantity'] ?? 0;
+        final appQty = r['approved_quantity'] ?? 0;
+        final dispQty = r['dispatched_quantity'] ?? 0;
+        final st = r['status'] ?? '';
+        final dt = r['created_at'] ?? '';
+        buffer.writeln('"$num","$prod",$reqQty,$appQty,$dispQty,"$st","$dt"');
+      }
+
+      final bytes = Uint8List.fromList(utf8.encode(buffer.toString()));
+      final now = DateTime.now();
+      final fileName = 'franchise_report_${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}';
+
+      await FileSaver.instance.saveFile(
+        name: fileName,
+        bytes: bytes,
+        ext: 'csv',
+        mimeType: MimeType.csv,
+      );
+
+      if (!mounted) return;
+      AppToast.success(
+        context,
+        'Franchise CSV report exported successfully.',
+        title: 'Export Complete',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.error(context, 'Export failed: $e', title: 'Export Error');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFmt = NumberFormat.currency(
@@ -283,17 +353,8 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                   Icons.file_download_outlined,
                   color: Color(0xFF475569),
                 ),
-                tooltip: 'Export Report',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Report generated successfully. Downloading summary...',
-                      ),
-                      backgroundColor: BrandColors.primaryBlue,
-                    ),
-                  );
-                },
+                tooltip: 'Export CSV Report',
+                onPressed: _exportFranchiseCsv,
               ),
               const SizedBox(width: 8),
             ],

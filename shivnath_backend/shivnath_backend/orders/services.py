@@ -132,7 +132,8 @@ def transition_order_status(order, new_status, actor=None, notes='', bypass_vali
             notification_type='order_update',
             reference_id=order.id,
         )
-        notify_order_status_update(order, new_clean, actor_name=actor_name)
+        # Dispatch FCM Push strictly after DB transaction commits
+        transaction.on_commit(lambda: notify_order_status_update(order, new_clean, actor_name=actor_name))
     except Exception as e:
         logger.warning("Notification dispatch warning during status transition: %s", e)
 

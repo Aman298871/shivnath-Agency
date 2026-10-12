@@ -36,3 +36,4 @@ local_settings.py
 *.sqlite3*
 serviceAccountKey*.json
 **/backups/
+**/scratch/

@@ -43,6 +43,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           userList = List<Map<String, dynamic>>.from(data);
         }
       }
+      if (res['success'] != true && mounted && res['message'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'].toString()),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
       setState(() {
         _users = userList;
         _isLoading = false;

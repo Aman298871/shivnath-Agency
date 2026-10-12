@@ -343,4 +343,21 @@ class DealerDocumentAdmin(admin.ModelAdmin):
     search_fields = ('dealer__business_name', 'dealer__user__email')
     readonly_fields = ('uploaded_at',)
 
+
+from .models import AccountDeletionRequest
+
+@admin.register(AccountDeletionRequest)
+class AccountDeletionRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        'identifier',
+        'status',
+        'requested_via',
+        'user',
+        'created_at',
+        'processed_at',
+    )
+    list_filter = ('status', 'requested_via', 'created_at')
+    search_fields = ('identifier', 'reason', 'audit_notes')
+    readonly_fields = ('created_at', 'ip_address')
+
 

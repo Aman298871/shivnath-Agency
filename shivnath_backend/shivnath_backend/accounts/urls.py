@@ -1,4 +1,5 @@
 from django.urls import path
+from .privacy_and_deletion_views import AccountDeletionAPIView
 
 from .views import (
     CustomerRegisterView,
@@ -362,5 +363,10 @@ urlpatterns = [
         'test-push/',
         SendTestPushNotificationView.as_view(),
         name='send_test_push_direct'
+    ),
+    path(
+        'account/delete/',
+        AccountDeletionAPIView.as_view(),
+        name='account_delete_in_app'
     ),
 ]

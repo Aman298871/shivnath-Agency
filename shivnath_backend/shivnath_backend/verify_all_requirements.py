@@ -15,7 +15,7 @@ from products.models import ProductCategory, Product
 from chat.models import ChatbotOption, Quotation, ChatSession, ChatMessage
 from leads.models import Lead, LeadActivity
 from orders.models import Order, OrderItem
-from accounts.models import UserProfile, AdminNotification
+from accounts.models import UserProfile, AdminNotification, ServiceZone, ServiceDistrict
 
 User = get_user_model()
 
@@ -228,13 +228,16 @@ def run_tests():
     # Delete test user if already existing from prior test runs
     User.objects.filter(email="ramesh.sharma@example.com").delete()
 
+    zone_obj = ServiceZone.objects.filter(district__name="Raipur").first()
     reg_data = {
         "name": "Ramesh Kumar Sharma",
         "phone": "9876543210",
         "email": "ramesh.sharma@example.com",
         "password": "Password@123",
         "confirm_password": "Password@123",
-        "city": "Raipur"
+        "city": "Raipur",
+        "district": "Raipur",
+        "zone_id": zone_obj.id if zone_obj else 1,
     }
     req_reg = factory.post('/api/accounts/register/customer/', data=reg_data, content_type='application/json')
     resp_reg = CustomerRegisterView.as_view()(req_reg)

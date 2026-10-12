@@ -348,8 +348,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'delivery_address': addressController.text.trim(),
         'items': totalItems,
         'amount': amount,
-        'status': 'Order Placement',
-        'payment': 'Paid',
+        'status': 'order_placement',
+        'payment': 'paid',
         'payment_mode': 'RAZORPAY',
         'duration_choice': durationChoice,
         'duration_days': durationDays,
@@ -373,8 +373,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           amount: amount,
         );
 
-        final rzpOrderId = rzpOrderRes['data']?['razorpay_order_id']?.toString() ??
+        if (rzpOrderRes['success'] != true) {
+          setState(() => _isSubmitting = false);
+          final errorMsg = rzpOrderRes['message']?.toString() ?? 'Unable to initialize payment.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMsg),
+              backgroundColor: Colors.red.shade700,
+            ),
+          );
+          return;
+        }
+
+        final rzpData = rzpOrderRes['data'] is Map<String, dynamic>
+            ? rzpOrderRes['data'] as Map<String, dynamic>
+            : <String, dynamic>{};
+        final rzpOrderId = rzpData['razorpay_order_id']?.toString() ??
             'order_${DateTime.now().millisecondsSinceEpoch}';
+        final isTestMode = rzpData['is_test_mode'] == true;
 
         // Authoritative server-side payment verification
         final verifyRes = await orderService.verifyRazorpayPayment(
@@ -384,20 +400,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           razorpaySignature: 'sig_${DateTime.now().millisecondsSinceEpoch}',
         );
 
-        final Map<String, dynamic> verifiedOrder = (verifyRes['data'] is Map && verifyRes['data']['order'] is Map)
-            ? Map<String, dynamic>.from(verifyRes['data']['order'] as Map)
-            : (orderObj.isNotEmpty ? orderObj : {'id': orderDbId, 'amount': amount});
+        if (verifyRes['success'] == true) {
+          final Map<String, dynamic> verifiedOrder = (verifyRes['data'] is Map && verifyRes['data']['order'] is Map)
+              ? Map<String, dynamic>.from(verifyRes['data']['order'] as Map)
+              : (orderObj.isNotEmpty ? orderObj : {'id': orderDbId, 'amount': amount});
 
-        cart.clearCart();
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => OrderSuccessScreen(
-              amount: amount,
-              orderData: verifiedOrder,
+          cart.clearCart();
+          if (isTestMode && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('[TEST MODE] Payment simulated in Razorpay Test Mode.'),
+                backgroundColor: Color(0xFF0284C7),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => OrderSuccessScreen(
+                amount: amount,
+                orderData: verifiedOrder,
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          setState(() => _isSubmitting = false);
+          final errorMsg = verifyRes['message']?.toString() ?? 'Payment verification failed.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$errorMsg Your cart has been preserved.'),
+              backgroundColor: Colors.red.shade700,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       } else {
         setState(() => _isSubmitting = false);
         final msg = res['message'] ?? 'Unable to place order. Please try again.';

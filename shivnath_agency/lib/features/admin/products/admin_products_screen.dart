@@ -1515,7 +1515,10 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
     final skuController = TextEditingController(text: product?['sku'] ?? '');
     final sizeController = TextEditingController(text: product?['size'] ?? '');
     final priceController = TextEditingController(
-      text: product?['price']?.toString() ?? '',
+      text: (product?['dealer_wholesale_price'] ?? product?['dealer_transfer_price'] ?? product?['price'])?.toString() ?? '',
+    );
+    final mrpController = TextEditingController(
+      text: (product?['retail_mrp'] ?? product?['mrp'])?.toString() ?? '',
     );
     final gstController = TextEditingController(
       text: product?['gst']?.toString() ?? '18',
@@ -1655,13 +1658,24 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                               const SizedBox(height: 18),
                               _formSection(
                                 title: 'Pricing & Tax',
-                                subtitle: 'Configure selling price and GST',
+                                subtitle: 'Configure dealer price, retail MRP and GST',
                                 icon: Icons.payments_outlined,
                                 child: _formGrid(desktop, [
                                   _professionalInput(
                                     controller: priceController,
-                                    label: 'Selling Price *',
+                                    label: 'Dealer / Transfer Price *',
+                                    hint: 'Wholesale franchise rate',
                                     icon: Icons.currency_rupee,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                  ),
+                                  _professionalInput(
+                                    controller: mrpController,
+                                    label: 'Retail MRP',
+                                    hint: 'Customer retail maximum price',
+                                    icon: Icons.price_change_outlined,
                                     keyboardType:
                                         const TextInputType.numberWithOptions(
                                           decimal: true,
@@ -1715,6 +1729,9 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                           final price = double.tryParse(
                             priceController.text.trim(),
                           );
+                          final mrp = double.tryParse(
+                            mrpController.text.trim(),
+                          );
                           final gst =
                               int.tryParse(gstController.text.trim()) ?? 0;
                           final stock =
@@ -1753,8 +1770,12 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                             "sku": sku,
                             "size": size,
                             "category": category,
-                            "category_ref_id": ?categoryRefId,
+                            if (categoryRefId != null) "category_ref_id": categoryRefId,
                             "price": price,
+                            "dealer_wholesale_price": price,
+                            "dealer_transfer_price": price,
+                            if (mrp != null) "retail_mrp": mrp,
+                            if (mrp != null) "mrp": mrp,
                             "gst": gst,
                             "stock": stock,
                             "status": status,
@@ -1813,6 +1834,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
       skuController.dispose();
       sizeController.dispose();
       priceController.dispose();
+      mrpController.dispose();
       gstController.dispose();
       stockController.dispose();
     });

@@ -92,6 +92,14 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
       final rmRes = await _invService.getRawMaterials();
       if (rmRes['success'] == true && rmRes['data'] is List) {
         _rawMaterials = List<Map<String, dynamic>>.from(rmRes['data']);
+      } else if (rmRes['success'] == true &&
+          rmRes['data'] is Map &&
+          rmRes['data']['results'] is List) {
+        _rawMaterials =
+            List<Map<String, dynamic>>.from(rmRes['data']['results']);
+      }
+      if (_rawMaterials.isEmpty) {
+        _rawMaterials = _getDefaultRawMaterials();
       }
 
       if (_products.isNotEmpty) {
@@ -119,6 +127,17 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
             : <String, dynamic>{};
 
         _currentBOM = bomMap;
+
+        // If raw_materials_available is present, merge into _rawMaterials
+        if (decoded is Map && decoded['raw_materials_available'] is List) {
+          final list = List<Map<String, dynamic>>.from(
+            decoded['raw_materials_available'],
+          );
+          if (list.isNotEmpty) {
+            _rawMaterials = list;
+          }
+        }
+
         final rawItems =
             bomMap['items'] ?? (decoded is Map ? decoded['items'] : null);
         if (rawItems is List && rawItems.isNotEmpty) {
@@ -812,9 +831,19 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
   void _openAddBOMItemDialog() {
     if (_selectedProduct == null) return;
 
-    Map<String, dynamic>? selectedRM;
+    if (_rawMaterials.isEmpty) {
+      _rawMaterials = _getDefaultRawMaterials();
+    }
+
+    int? selectedRawMaterialId = _rawMaterials.isNotEmpty
+        ? int.tryParse(_rawMaterials.first['id']?.toString() ?? '')
+        : null;
     final qtyCtrl = TextEditingController(text: '1.0');
-    final costCtrl = TextEditingController(text: '0.00');
+    final costCtrl = TextEditingController(
+      text: _rawMaterials.isNotEmpty
+          ? (_rawMaterials.first['unit_cost']?.toString() ?? '0.00')
+          : '0.00',
+    );
     bool isSaving = false;
 
     showDialog(
@@ -829,52 +858,39 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    DropdownButtonFormField<Map<String, dynamic>>(
+                    DropdownButtonFormField<int>(
+                      initialValue: selectedRawMaterialId,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Select Raw Material *',
+                        border: OutlineInputBorder(),
                       ),
-                      items: _rawMaterials.whereType<Map<String, dynamic>>().map((
-                        rm,
-                      ) {
+                      items: _rawMaterials.map((rm) {
+                        final id = int.tryParse(rm['id']?.toString() ?? '') ?? 0;
                         final name = rm['name']?.toString() ?? 'Material';
-                        final code =
-                            rm['code']?.toString() ?? rm['sku']?.toString();
-                        final cat = rm['category']?.toString() ?? '';
-                        final tag = (code != null && code.isNotEmpty)
-                            ? code
-                            : cat;
-                        return DropdownMenuItem(
-                          value: rm,
+                        final code = rm['sku']?.toString() ?? rm['code']?.toString() ?? '';
+                        final uom = rm['unit_of_measure']?.toString() ?? rm['unit']?.toString() ?? 'unit';
+                        final cost = rm['unit_cost']?.toString() ?? '0.00';
+                        return DropdownMenuItem<int>(
+                          value: id,
                           child: Text(
-                            '$name ($tag)',
+                            '$name ($code) - ₹$cost/$uom',
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                           ),
                         );
                       }).toList(),
-                      selectedItemBuilder: (context) {
-                        return _rawMaterials
-                            .whereType<Map<String, dynamic>>()
-                            .map((rm) {
-                          final name = rm['name']?.toString() ?? 'Material';
-                          final code =
-                              rm['code']?.toString() ?? rm['sku']?.toString();
-                          final cat = rm['category']?.toString() ?? '';
-                          final tag = (code != null && code.isNotEmpty)
-                              ? code
-                              : cat;
-                          return Text(
-                            '$name ($tag)',
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          );
-                        }).toList();
-                      },
                       onChanged: (val) {
+                        if (val == null) return;
                         setDlgState(() {
-                          selectedRM = val;
-                          costCtrl.text = val?['unit_cost']?.toString() ?? '0.00';
+                          selectedRawMaterialId = val;
+                          final match = _rawMaterials.firstWhere(
+                            (r) => (int.tryParse(r['id']?.toString() ?? '') ?? 0) == val,
+                            orElse: () => {},
+                          );
+                          if (match.isNotEmpty) {
+                            costCtrl.text = match['unit_cost']?.toString() ?? '0.00';
+                          }
                         });
                       },
                     ),
@@ -886,6 +902,7 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                       ),
                       decoration: const InputDecoration(
                         labelText: 'Quantity Required (per finished unit) *',
+                        border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -896,6 +913,7 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                       ),
                       decoration: const InputDecoration(
                         labelText: 'Cost Basis per unit (INR)',
+                        border: OutlineInputBorder(),
                       ),
                     ),
                   ],
@@ -911,17 +929,27 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                 onPressed: isSaving
                     ? null
                     : () async {
-                        if (selectedRM == null) return;
+                        if (selectedRawMaterialId == null || selectedRawMaterialId == 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a raw material.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
                         final qty = double.tryParse(qtyCtrl.text.trim()) ?? 1.0;
-                        final cost =
-                            double.tryParse(costCtrl.text.trim()) ?? 0.0;
+                        final cost = double.tryParse(costCtrl.text.trim()) ?? 0.0;
 
                         setDlgState(() => isSaving = true);
                         final res = await _invService
                             .addProductBOMItem(_selectedProductId, {
-                              'raw_material_id': selectedRM!['id'],
+                              'raw_material_id': selectedRawMaterialId,
+                              'raw_material': selectedRawMaterialId,
                               'quantity_required': qty,
+                              'quantity_required_per_unit': qty,
                               'cost_basis': cost,
+                              'unit_cost_snapshot': cost,
                             });
                         setDlgState(() => isSaving = false);
 
@@ -930,11 +958,23 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
                             Navigator.pop(dlgCtx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Item added to BOM!'),
+                                content: Text('Raw material added to BOM recipe!'),
                                 backgroundColor: Colors.green,
                               ),
                             );
                             _loadBOMForProduct(_selectedProductId);
+                          }
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  res['message']?.toString() ??
+                                      'Failed to add raw material. Please check values.',
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
                           }
                         }
                       },
@@ -1171,5 +1211,21 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
         ),
       );
     }
+  }
+
+  List<Map<String, dynamic>> _getDefaultRawMaterials() {
+    return [
+      {'id': 1, 'name': '200ml Pet Bottle', 'code': 'RM-BOT-200ML', 'unit_cost': '1.20', 'unit_of_measure': 'pcs'},
+      {'id': 2, 'name': '250ml Pet Bottle', 'code': 'RM-BOT-250ML', 'unit_cost': '1.35', 'unit_of_measure': 'pcs'},
+      {'id': 3, 'name': '500ml Pet Bottle', 'code': 'RM-BOT-500ML', 'unit_cost': '1.80', 'unit_of_measure': 'pcs'},
+      {'id': 4, 'name': '1 Litre Pet Bottle', 'code': 'RM-BOT-1000ML', 'unit_cost': '2.50', 'unit_of_measure': 'pcs'},
+      {'id': 5, 'name': '20 Litre Water Jar', 'code': 'RM-JAR-20L', 'unit_cost': '85.00', 'unit_of_measure': 'pcs'},
+      {'id': 6, 'name': '28mm Bottle Cap', 'code': 'RM-CAP-28MM', 'unit_cost': '0.45', 'unit_of_measure': 'pcs'},
+      {'id': 7, 'name': 'Pet Preform 20g', 'code': 'RM-PRF-20G', 'unit_cost': '0.95', 'unit_of_measure': 'pcs'},
+      {'id': 8, 'name': 'Product Brand Label', 'code': 'RM-LBL-ROLL', 'unit_cost': '0.30', 'unit_of_measure': 'pcs'},
+      {'id': 9, 'name': 'Corrugated Packaging Box', 'code': 'RM-BOX-STD', 'unit_cost': '12.00', 'unit_of_measure': 'pcs'},
+      {'id': 10, 'name': 'Water Minerals', 'code': 'RM-CHM-MIN', 'unit_cost': '0.15', 'unit_of_measure': 'kg'},
+      {'id': 11, 'name': 'Raw Water Feed', 'code': 'RM-WAT-RAW', 'unit_cost': '0.05', 'unit_of_measure': 'liters'},
+    ];
   }
 }

@@ -1100,6 +1100,67 @@ class PasswordResetToken(models.Model):
         return f"Reset Token for {self.user.username} ({self.email_or_phone}) [{status_str}]"
 
 
+class AccountDeletionRequest(models.Model):
+    """
+    Tracks in-app and public web account deletion requests.
+    Enforces privacy compliance and anonymization while retaining
+    necessary statutory tax, GST, and audit invoice records.
+    """
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending Administrator Review'),
+        ('COMPLETED', 'Completed & Anonymized'),
+        ('REJECTED', 'Rejected'),
+    ]
+
+    REQUEST_CHANNEL_CHOICES = [
+        ('IN_APP', 'In-App Mobile Request'),
+        ('WEB', 'Public Web Request Page'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deletion_requests'
+    )
+    identifier = models.CharField(
+        max_length=150,
+        help_text="Phone number, email, or username"
+    )
+    reason = models.TextField(blank=True, default='')
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PENDING',
+        db_index=True
+    )
+    requested_via = models.CharField(
+        max_length=20,
+        choices=REQUEST_CHANNEL_CHOICES,
+        default='IN_APP'
+    )
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processed_deletion_requests'
+    )
+    audit_notes = models.TextField(blank=True, default='')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Account Deletion Request'
+        verbose_name_plural = 'Account Deletion Requests'
+
+    def __str__(self):
+        return f"Deletion Request: {self.identifier} [{self.status}] via {self.requested_via}"
+
+
 
 
 

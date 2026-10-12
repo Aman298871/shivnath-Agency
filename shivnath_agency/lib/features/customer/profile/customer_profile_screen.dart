@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/support_desk_modal.dart';
@@ -558,6 +560,36 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 onChanged: (_) {},
               ),
             ),
+            const Divider(),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(
+                Icons.privacy_tip_outlined,
+                color: Color(0xFF0284C7),
+              ),
+              title: const Text('Privacy Policy'),
+              subtitle: const Text('Official data protection and privacy details'),
+              trailing: const Icon(Icons.open_in_new, size: 18, color: Color(0xFF94A3B8)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _openPrivacyPolicy();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(
+                Icons.delete_outline,
+                color: Colors.red,
+              ),
+              title: const Text('Delete Account', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+              subtitle: const Text('Permanently deactivate and anonymize account'),
+              trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.red),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDeleteAccountDialog();
+              },
+            ),
           ],
         ),
         actions: [
@@ -570,6 +602,168 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             child: const Text('Done'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    final uri = Uri.parse('${AppConstants.apiBaseUrl}/privacy-policy/');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open browser. Please visit: $uri')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Privacy Policy URL: $uri')),
+      );
+    }
+  }
+
+  void _showDeleteAccountDialog() {
+    final passCtrl = TextEditingController();
+    final reasonCtrl = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: const [
+              Icon(Icons.warning_amber_rounded, color: Colors.red, size: 26),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Delete Account',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Are you sure you want to delete your WaterNow account? This action will:',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '• Permanently deactivate your login credentials\n'
+                  '• Remove active notification device tokens\n'
+                  '• Anonymize your personal profile and address',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Text(
+                    'Statutory Notice: In accordance with Indian tax laws (CGST Act 2017), past invoice and financial transaction records are lawfully preserved for audit purposes.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Enter your password to confirm ownership:',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: passCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Current Password',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: reasonCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Reason for deletion (optional)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final pass = passCtrl.text.trim();
+                      if (pass.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enter your password to confirm.')),
+                        );
+                        return;
+                      }
+                      setDialogState(() => isSubmitting = true);
+                      final res = await _authService.deleteAccount(
+                        password: pass,
+                        reason: reasonCtrl.text.trim(),
+                      );
+                      if (!mounted) return;
+                      if (res['success'] == true) {
+                        Navigator.pop(ctx);
+                        await _sessionService.logout();
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(res['message']?.toString() ?? 'Account deleted successfully.'),
+                            backgroundColor: Colors.green.shade700,
+                          ),
+                        );
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          AppRoutes.roleSelection,
+                          (_) => false,
+                        );
+                      } else {
+                        setDialogState(() => isSubmitting = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(res['message']?.toString() ?? 'Deletion failed. Check password.'),
+                            backgroundColor: Colors.red.shade700,
+                          ),
+                        );
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Permanently Delete'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1373,6 +1567,18 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           title: 'Help & Admin Support',
           subtitle: 'Admin Helpline: +91 98062 47194 (Call / Chat)',
           onTap: _showHelpSupportDialog,
+        ),
+        _ProfileTile(
+          icon: Icons.privacy_tip_outlined,
+          title: 'Privacy Policy',
+          subtitle: 'Data protection and compliance documentation',
+          onTap: _openPrivacyPolicy,
+        ),
+        _ProfileTile(
+          icon: Icons.delete_forever_outlined,
+          title: 'Delete Account',
+          subtitle: 'Settings → Account → Permanently delete account',
+          onTap: _showDeleteAccountDialog,
         ),
         const SizedBox(height: 20),
         OutlinedButton.icon(

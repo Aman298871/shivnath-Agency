@@ -29,8 +29,8 @@ class NotificationRoleIsolationAndPerformanceTests(TestCase):
 
     def setUp(self):
         # 1. Create District and Zone
-        self.district = ServiceDistrict.objects.create(name='Raipur', state='Chhattisgarh')
-        self.zone = ServiceZone.objects.create(district=self.district, name='Raipur Central', code='RP-CEN')
+        self.district, _ = ServiceDistrict.objects.get_or_create(name='Raipur', defaults={'state': 'Chhattisgarh'})
+        self.zone, _ = ServiceZone.objects.get_or_create(district=self.district, name='Raipur Central', defaults={'code': 'RP-CEN'})
 
         # 2. Create Admin User
         self.admin_user = User.objects.create_user(

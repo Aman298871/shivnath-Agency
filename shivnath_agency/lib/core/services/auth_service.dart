@@ -80,6 +80,54 @@ class AuthService {
     }
   }
 
+  Future<Map<String, dynamic>> deleteAccount({
+    required String password,
+    String? reason,
+  }) async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/accounts/account/delete/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'password': password,
+          'reason': reason ?? 'User requested in-app account deletion',
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': decoded is Map && decoded['message'] != null
+              ? decoded['message'].toString()
+              : 'Account deleted successfully.',
+          'status': decoded is Map ? decoded['status'] : 'COMPLETED',
+        };
+      }
+      return {
+        'success': false,
+        'message': decoded is Map && decoded['message'] != null
+            ? decoded['message'].toString()
+            : 'Account deletion failed. Please check your password.',
+      };
+    } catch (_) {
+      return {
+        'success': false,
+        'message': 'Unable to connect to server. Please check your connection and try again.',
+      };
+    }
+  }
 
   Future<Map<String, dynamic>> login({
     required String email,

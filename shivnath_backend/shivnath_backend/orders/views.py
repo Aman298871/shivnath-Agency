@@ -1,3 +1,10 @@
+import hashlib
+import hmac
+import json
+import logging
+import os
+import uuid
+from decimal import Decimal
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Sum, F
 from django.db import transaction
@@ -11,6 +18,8 @@ from accounts.permissions import IsAdminRole, IsApprovedFranchise, IsAdminOrAppr
 from .models import Order, OrderItem, OrderStatusHistory
 from .serializers import OrderSerializer
 from products.models import Product
+
+logger = logging.getLogger(__name__)
 
 
 # =========================================================
@@ -185,6 +194,10 @@ class OrderListCreateView(APIView):
 
             # Prepare data for OrderSerializer
             order_data = request.data.copy()
+            if 'status' in order_data and isinstance(order_data['status'], str):
+                order_data['status'] = order_data['status'].strip().lower().replace(' ', '_')
+            if 'payment' in order_data and isinstance(order_data['payment'], str):
+                order_data['payment'] = order_data['payment'].strip().lower()
 
             serving_franchise = None
             registered_franchise = None
@@ -816,19 +829,40 @@ class RazorpayCreateOrderAPIView(APIView):
     """
     Creates a Razorpay Order ID for online checkout.
     Reads RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET securely from environment.
-    If production keys are not yet provided, marks credentials status explicitly.
+    Enforces server-side amount validation against authoritative order data,
+    validates currency (INR), and includes environment safeguards preventing
+    accidental test key usage in production live mode.
     """
     permission_classes = [AllowAny]
 
     def post(self, request):
         order_id = request.data.get('order_id')
         amount = request.data.get('amount')
+        currency = request.data.get('currency', 'INR').strip().upper()
+
+        if currency != 'INR':
+            return Response(
+                {'success': False, 'message': 'Only INR currency is supported for Razorpay payments.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         order = None
         if order_id:
             try:
                 order = Order.objects.get(id=order_id)
-                amount = float(order.grand_total or order.amount)
+                authoritative_amount = float(order.grand_total if getattr(order, 'grand_total', None) else order.amount)
+                # Anti-tampering check: if client sent an amount, verify it matches order total
+                if amount is not None:
+                    client_amount_val = float(amount)
+                    if abs(authoritative_amount - client_amount_val) > 0.05:
+                        return Response(
+                            {
+                                'success': False,
+                                'message': f"Amount tampering detected: Client requested ₹{client_amount_val:.2f} but authoritative order total is ₹{authoritative_amount:.2f}."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                amount = authoritative_amount
             except Order.DoesNotExist:
                 return Response(
                     {'success': False, 'message': 'Order not found.'},
@@ -846,9 +880,21 @@ class RazorpayCreateOrderAPIView(APIView):
 
         key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
         key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
+        razorpay_env = os.environ.get('RAZORPAY_ENVIRONMENT', 'TEST').strip().upper()
+
+        # Configuration safeguard: Prevent test keys in LIVE mode
+        if razorpay_env == 'LIVE' and key_id.startswith('rzp_test_'):
+            return Response(
+                {
+                    'success': False,
+                    'message': 'Security Configuration Error: Razorpay Test Key detected while RAZORPAY_ENVIRONMENT is set to LIVE. Please configure authorized live credentials.'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         razorpay_order_id = None
         credentials_status = 'CONFIGURED'
+        is_test_mode = key_id.startswith('rzp_test_') or razorpay_env == 'TEST' or not key_id
 
         if key_id and key_secret:
             try:
@@ -859,13 +905,17 @@ class RazorpayCreateOrderAPIView(APIView):
                     'currency': 'INR',
                     'receipt': f"rcpt_ord_{order.id if order else uuid.uuid4().hex[:8]}",
                     'payment_capture': 1,
+                    'notes': {
+                        'environment': razorpay_env,
+                        'order_code': getattr(order, 'order_code', f"ORD-{order_id}"),
+                    }
                 })
                 razorpay_order_id = rzp_order.get('id')
             except Exception as e:
-                # If Razorpay client failed or mock credentials
+                logger.error("Razorpay API order creation exception: %s", e)
                 razorpay_order_id = f"order_{uuid.uuid4().hex[:14]}"
         else:
-            credentials_status = 'RAZORPAY PRODUCTION CREDENTIALS PENDING'
+            credentials_status = 'RAZORPAY TEST CREDENTIALS PENDING'
             razorpay_order_id = f"order_{uuid.uuid4().hex[:14]}"
 
         if order and razorpay_order_id:
@@ -881,7 +931,9 @@ class RazorpayCreateOrderAPIView(APIView):
                 'amount': amount_val,
                 'amount_in_paise': amount_in_paise,
                 'currency': 'INR',
-                'key_id': key_id or 'RAZORPAY_PENDING',
+                'key_id': key_id or 'rzp_test_pending_config',
+                'environment': razorpay_env,
+                'is_test_mode': is_test_mode,
                 'credentials_status': credentials_status,
                 'payment_methods': ['UPI', 'Card', 'NetBanking', 'Wallet'],
             },
@@ -928,6 +980,7 @@ class RazorpayVerifyPaymentAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
 
+        key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
         key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
         is_signature_valid = True
 
@@ -953,6 +1006,8 @@ class RazorpayVerifyPaymentAPIView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        is_test = key_id.startswith('rzp_test_') or not key_id
 
         with transaction.atomic():
             order.payment_status = 'paid'
@@ -980,6 +1035,7 @@ class RazorpayVerifyPaymentAPIView(APIView):
                     inv.amount_paid = inv.grand_total
                     inv.save(update_fields=['status', 'amount_paid'])
 
+                    test_label = "[TEST MODE] " if is_test else ""
                     PaymentTransaction.objects.create(
                         transaction_number=f"TXN-RZP-{order.id}-{uuid.uuid4().hex[:6].upper()}",
                         invoice=inv,
@@ -991,10 +1047,10 @@ class RazorpayVerifyPaymentAPIView(APIView):
                         razorpay_signature=order.razorpay_signature,
                         payment_status='SUCCESS',
                         received_by=order.created_by,
-                        notes=f"Razorpay Online Payment verified server-side for {order.order_code}",
+                        notes=f"{test_label}Razorpay Online Payment verified server-side for {order.order_code}",
                     )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error("Error creating PaymentTransaction for order %s: %s", order.id, e)
 
             # Send FCM and Admin notifications
             try:
@@ -1007,10 +1063,84 @@ class RazorpayVerifyPaymentAPIView(APIView):
             {
                 'success': True,
                 'message': 'Payment successfully verified server-side.',
+                'is_test_mode': is_test,
                 'order': OrderSerializer(order).data,
             },
             status=status.HTTP_200_OK,
         )
+
+
+class RazorpayWebhookAPIView(APIView):
+    """
+    Webhook handler for authoritative asynchronous Razorpay event notifications.
+    Verifies raw body signature using RAZORPAY_WEBHOOK_SECRET.
+    Idempotently handles payment.captured and payment.failed events.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '').strip()
+        received_signature = request.headers.get('X-Razorpay-Signature', '').strip()
+
+        # If webhook secret is configured, strictly verify cryptographic signature
+        if webhook_secret:
+            if not received_signature:
+                return Response({'error': 'Missing X-Razorpay-Signature header'}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                expected_signature = hmac.new(
+                    webhook_secret.encode('utf-8'),
+                    request.body,
+                    hashlib.sha256
+                ).hexdigest()
+                if not hmac.compare_digest(expected_signature, received_signature):
+                    return Response({'error': 'Invalid webhook signature'}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                logger.error("Webhook signature verification error: %s", e)
+                return Response({'error': 'Signature verification error'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+        except Exception:
+            return Response({'error': 'Invalid JSON body'}, status=status.HTTP_400_BAD_REQUEST)
+
+        event = payload.get('event')
+        logger.info("Razorpay Webhook received event: %s", event)
+
+        if event in ('payment.captured', 'order.paid'):
+            payment_entity = payload.get('payload', {}).get('payment', {}).get('entity', {})
+            rzp_order_id = payment_entity.get('order_id')
+            rzp_payment_id = payment_entity.get('id')
+
+            if rzp_order_id:
+                order = Order.objects.filter(razorpay_order_id=rzp_order_id).first()
+                if order and order.payment_status != 'paid':
+                    with transaction.atomic():
+                        order.payment_status = 'paid'
+                        order.razorpay_payment_id = rzp_payment_id or order.razorpay_payment_id
+                        order.save(update_fields=['payment_status', 'razorpay_payment_id'])
+
+                        from billing.models import Invoice, PaymentTransaction
+                        inv = getattr(order, 'invoice', None)
+                        if inv:
+                            inv.status = 'PAID'
+                            inv.amount_paid = inv.grand_total
+                            inv.save(update_fields=['status', 'amount_paid'])
+
+                            PaymentTransaction.objects.get_or_create(
+                                reference_number=rzp_payment_id,
+                                defaults={
+                                    'transaction_number': f"TXN-WH-{order.id}-{uuid.uuid4().hex[:6].upper()}",
+                                    'invoice': inv,
+                                    'payment_method': 'RAZORPAY',
+                                    'amount_paid': inv.grand_total,
+                                    'razorpay_order_id': rzp_order_id,
+                                    'razorpay_payment_id': rzp_payment_id,
+                                    'payment_status': 'SUCCESS',
+                                    'notes': f"Razorpay Webhook ({event}) verified asynchronously",
+                                }
+                            )
+
+        return Response({'status': 'ok', 'event': event}, status=status.HTTP_200_OK)
 
 
 class OrderLifecycleRepairView(APIView):

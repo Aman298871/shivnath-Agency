@@ -1997,8 +1997,11 @@ class _CentralPlantInventoryScreenState
                               ],
                             ),
                             const Divider(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
                               children: [
                                 Text(
                                   'Current Finished Stock: ${selectedProduct!.stock} units',
@@ -2008,12 +2011,22 @@ class _CentralPlantInventoryScreenState
                                     color: Color(0xFF0284C7),
                                   ),
                                 ),
-                                Text(
-                                  'Shelf-Life: ${selectedProduct!.shelfLifeDays} Days',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF64748B),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE2E8F0),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'Shelf-Life: ${selectedProduct!.shelfLifeDays} Days',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF475569),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -3183,6 +3196,10 @@ class _CentralPlantInventoryScreenState
             nameCtrl.text = '1 Litre Pet Bottle';
             codeCtrl.text = 'RM-BOT-1000ML';
             break;
+          case '20L':
+            nameCtrl.text = '20 Litre Water Jar / Can';
+            codeCtrl.text = 'RM-JAR-20L';
+            break;
         }
       } else if (cat == 'jar') {
         nameCtrl.text = '20 Litre Water Jar';
@@ -3261,6 +3278,7 @@ class _CentralPlantInventoryScreenState
                         DropdownMenuItem(value: '250ml', child: Text('250 ML Bottle')),
                         DropdownMenuItem(value: '500ml', child: Text('500 ML Bottle')),
                         DropdownMenuItem(value: '1L', child: Text('1 Litre Bottle')),
+                        DropdownMenuItem(value: '20L', child: Text('20 Litre Jar (20000 ML)')),
                       ],
                       onChanged: (val) {
                         if (val == null) return;

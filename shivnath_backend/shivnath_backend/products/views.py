@@ -170,11 +170,25 @@ class ProductListCreateView(APIView):
                     | Q(category_ref__parent__name__iexact=category)
                 )
 
+        include_inactive = request.query_params.get("include_inactive", "").strip().lower() in ["true", "1"]
         active_only = request.query_params.get("active_only", "").strip().lower() in ["true", "1"]
-        if active_only:
+
+        user = getattr(request, 'user', None)
+        is_admin_user = bool(
+            user and user.is_authenticated and (
+                user.is_superuser or
+                user.is_staff or
+                getattr(getattr(user, 'profile', None), 'role', '') in ['admin', 'super_admin']
+            )
+        )
+
+        if product_status:
+            if not is_admin_user and product_status.lower() != 'active':
+                queryset = queryset.filter(status="Active")
+            else:
+                queryset = queryset.filter(status=product_status)
+        elif not is_admin_user or (not include_inactive or active_only):
             queryset = queryset.filter(status="Active")
-        elif product_status:
-            queryset = queryset.filter(status=product_status)
 
         queryset = queryset.order_by("volume_ml", "name")
 
@@ -339,9 +353,25 @@ class ProductBOMItemManageView(APIView):
         product = get_object_or_404(Product, pk=pk)
         bom, _ = ProductionRecipeBOM.objects.get_or_create(product=product)
 
-        raw_material_id = request.data.get("raw_material_id")
-        quantity_required = request.data.get("quantity_required_per_unit")
-        unit_cost = request.data.get("unit_cost_snapshot")
+        raw_material_id = request.data.get("raw_material_id") or request.data.get("raw_material")
+        quantity_required = (
+            request.data.get("quantity_required_per_unit")
+            if request.data.get("quantity_required_per_unit") is not None
+            else (
+                request.data.get("quantity_required")
+                if request.data.get("quantity_required") is not None
+                else request.data.get("quantity")
+            )
+        )
+        unit_cost = (
+            request.data.get("unit_cost_snapshot")
+            if request.data.get("unit_cost_snapshot") is not None
+            else (
+                request.data.get("cost_basis")
+                if request.data.get("cost_basis") is not None
+                else request.data.get("unit_cost")
+            )
+        )
         notes = request.data.get("notes", "")
 
         if not raw_material_id or quantity_required is None:
@@ -409,10 +439,27 @@ class ProductPricingUpdateView(APIView):
     def patch(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
 
-        retail_price = request.data.get("price")
-        dealer_transfer_price = request.data.get("dealer_transfer_price")
-        mrp = request.data.get("mrp")
+        retail_price = request.data.get("price") or request.data.get("customer_price")
+        dealer_transfer_price = (
+            request.data.get("dealer_transfer_price")
+            if request.data.get("dealer_transfer_price") is not None
+            else (
+                request.data.get("dealer_wholesale_price")
+                if request.data.get("dealer_wholesale_price") is not None
+                else request.data.get("wholesale_price")
+            )
+        )
+        mrp = (
+            request.data.get("mrp")
+            if request.data.get("mrp") is not None
+            else request.data.get("retail_mrp")
+        )
         gst = request.data.get("gst")
+        units_per_case = (
+            request.data.get("units_per_case")
+            if request.data.get("units_per_case") is not None
+            else request.data.get("minimum_order_quantity_cases")
+        )
 
         update_fields = ["updated_at"]
 
@@ -455,6 +502,15 @@ class ProductPricingUpdateView(APIView):
                 update_fields.append("gst")
             except (ValueError, TypeError):
                 return Response({"success": False, "message": "GST must be between 0 and 100."}, status=400)
+
+        if units_per_case is not None:
+            try:
+                u = int(units_per_case)
+                if u > 0:
+                    product.units_per_case = u
+                    update_fields.append("units_per_case")
+            except (ValueError, TypeError):
+                pass
 
         product.save(update_fields=update_fields)
 

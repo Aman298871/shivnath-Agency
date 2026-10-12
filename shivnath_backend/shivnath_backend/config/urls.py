@@ -35,10 +35,21 @@ def root_health_view(request):
 from django.conf import settings
 from django.conf.urls.static import static
 
+from accounts.privacy_and_deletion_views import (
+    privacy_policy_html_view,
+    public_account_deletion_html_view,
+)
+
 urlpatterns = [
 
     # Root Health Check
     path('', root_health_view, name='root_health'),
+
+    # Public Legal & Google Play Compliance Pages
+    path('privacy-policy/', privacy_policy_html_view, name='privacy_policy_html'),
+    path('legal/privacy-policy/', privacy_policy_html_view, name='legal_privacy_policy_html'),
+    path('account-deletion/', public_account_deletion_html_view, name='public_account_deletion_html'),
+    path('legal/delete-account/', public_account_deletion_html_view, name='legal_delete_account_html'),
 
     # Jazzmin / Django Admin
     path(

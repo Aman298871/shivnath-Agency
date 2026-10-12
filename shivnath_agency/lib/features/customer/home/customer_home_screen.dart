@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/services/product_service.dart';
 import '../../../core/services/session_service.dart';
+import '../../../core/services/stock_service.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
 import '../../../models/product_model.dart';
 import '../../../models/user_model.dart';
@@ -15,6 +16,7 @@ import '../products/customer_products_screen.dart';
 import '../orders/customer_orders_screen.dart';
 import '../profile/customer_profile_screen.dart';
 import '../../../core/widgets/support_desk_modal.dart';
+import '../../../core/widgets/product_thumbnail.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   final VoidCallback? onOpenProducts;
@@ -39,6 +41,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   UserModel? _currentUser;
   bool _isLoading = true;
   String search = '';
+  int _unreadNotificationsCount = 0;
 
   @override
   void initState() {
@@ -54,6 +57,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         _isLoading = false;
       });
     }
+
+    try {
+      final notifRes = await StockService().getCustomerNotifications();
+      if (mounted && notifRes['success'] == true && notifRes['data'] is Map<String, dynamic>) {
+        final list = notifRes['data']['notifications'] as List? ?? [];
+        final unread = list.where((n) => n['is_read'] != true).length;
+        setState(() {
+          _unreadNotificationsCount = unread;
+        });
+      }
+    } catch (_) {}
   }
 
   void _handleOpenProducts() {
@@ -478,15 +492,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => const CustomerNotificationsScreen(),
                 ),
               );
+              if (mounted) _loadInitialData();
             },
-            icon: const Icon(Icons.notifications_none_rounded),
+            icon: Badge(
+              isLabelVisible: _unreadNotificationsCount > 0,
+              label: Text('$_unreadNotificationsCount'),
+              backgroundColor: const Color(0xFFEF4444),
+              child: const Icon(Icons.notifications_none_rounded),
+            ),
           ),
         ],
       ),
@@ -1302,18 +1322,13 @@ class _DesktopQuickProduct extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
+              ProductThumbnail.fromProduct(
+                product: product,
                 height: 90,
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE0F2FE),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.local_drink_rounded,
-                  size: 45,
-                  color: Color(0xFF0284C7),
-                ),
+                fit: BoxFit.contain,
+                borderRadius: BorderRadius.circular(12),
+                padding: const EdgeInsets.all(6),
               ),
 
               const SizedBox(height: 12),
@@ -1636,17 +1651,12 @@ class _ProductCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Container(
+                child: ProductThumbnail.fromProduct(
+                  product: product,
                   width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0F2FE),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.local_drink_rounded,
-                    size: 55,
-                    color: Color(0xFF0284C7),
-                  ),
+                  fit: BoxFit.contain,
+                  borderRadius: BorderRadius.circular(14),
+                  padding: const EdgeInsets.all(8),
                 ),
               ),
 

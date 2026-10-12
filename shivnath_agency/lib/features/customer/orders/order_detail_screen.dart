@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/services/OrderService.dart';
 import '../../../core/theme/brand_colors.dart';
 import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/product_thumbnail.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final String orderId;
@@ -571,30 +572,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
+                      ProductThumbnail.fromMap(
+                        data: item,
                         width: 50,
                         height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFCBD5E1)),
-                        ),
-                        child: imageUrl.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.water_drop_rounded,
-                                    color: Color(0xFF0284C7),
-                                  ),
-                                ),
-                              )
-                            : const Icon(
-                                Icons.water_drop_rounded,
-                                color: Color(0xFF0284C7),
-                              ),
+                        fit: BoxFit.contain,
+                        borderRadius: BorderRadius.circular(8),
+                        padding: const EdgeInsets.all(4),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

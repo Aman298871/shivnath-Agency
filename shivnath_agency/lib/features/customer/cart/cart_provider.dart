@@ -85,6 +85,22 @@ class CartItem {
   }
 
   double get total => price * quantity;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'product_name': name,
+      'price': price,
+      'size': size,
+      'sku': sku,
+      'image': image,
+      'image_url': image,
+      'assetFallbackImage': assetFallbackImage,
+      'stock': stock,
+      'quantity': quantity,
+    };
+  }
 }
 
 class CartProvider extends ChangeNotifier {

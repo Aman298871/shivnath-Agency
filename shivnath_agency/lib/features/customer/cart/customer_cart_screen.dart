@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../checkout/checkout_screen.dart';
+import '../../../core/widgets/product_thumbnail.dart';
 import 'cart_provider.dart';
 
 class CustomerCartScreen extends StatelessWidget {
@@ -175,8 +176,6 @@ class _MobileCartItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasImg = item.image.isNotEmpty;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
@@ -186,27 +185,13 @@ class _MobileCartItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
+          ProductThumbnail.fromMap(
+            data: item.toJson(),
             width: 52,
             height: 52,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE0F2FE),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: hasImg
-                ? Image.network(
-                    item.image,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Image.asset(
-                      item.assetFallbackImage,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                : Image.asset(
-                    item.assetFallbackImage,
-                    fit: BoxFit.cover,
-                  ),
+            fit: BoxFit.contain,
+            borderRadius: BorderRadius.circular(10),
+            padding: const EdgeInsets.all(4),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -300,8 +285,6 @@ class _DesktopCartItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasImg = item.image.isNotEmpty;
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -312,27 +295,13 @@ class _DesktopCartItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
+          ProductThumbnail.fromMap(
+            data: item.toJson(),
             width: 80,
             height: 80,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE0F2FE),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: hasImg
-                ? Image.network(
-                    item.image,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Image.asset(
-                      item.assetFallbackImage,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                : Image.asset(
-                    item.assetFallbackImage,
-                    fit: BoxFit.cover,
-                  ),
+            fit: BoxFit.contain,
+            borderRadius: BorderRadius.circular(14),
+            padding: const EdgeInsets.all(6),
           ),
           const SizedBox(width: 14),
           Expanded(

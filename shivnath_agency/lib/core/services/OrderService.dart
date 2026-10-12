@@ -690,4 +690,52 @@ class OrderService {
       };
     }
   }
+
+  Future<Map<String, dynamic>> cancelRazorpayPayment({
+    required int orderId,
+    String? reason,
+    String? razorpayOrderId,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/razorpay/cancel-payment/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'order_id': orderId,
+          if (reason != null) 'reason': reason,
+          if (razorpayOrderId != null) 'razorpay_order_id': razorpayOrderId,
+        }),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error while recording payment cancellation.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> reconcileRazorpayPayment({
+    required int orderId,
+    String? razorpayOrderId,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/razorpay/reconcile/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'order_id': orderId,
+          if (razorpayOrderId != null) 'razorpay_order_id': razorpayOrderId,
+        }),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error during payment reconciliation.',
+      };
+    }
+  }
 }

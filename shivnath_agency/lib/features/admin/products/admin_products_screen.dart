@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/product_thumbnail.dart';
 import '../../../core/services/product_service.dart';
 
 class AdminProductsScreen extends StatefulWidget {
@@ -1283,18 +1284,13 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
             flex: 3,
             child: Row(
               children: [
-                Container(
+                ProductThumbnail.fromMap(
+                  data: product,
                   width: 38,
                   height: 38,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0F2FE),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: const Icon(
-                    Icons.inventory_2_outlined,
-                    size: 18,
-                    color: Color(0xFF0284C7),
-                  ),
+                  borderRadius: BorderRadius.circular(9),
+                  fit: BoxFit.contain,
+                  padding: const EdgeInsets.all(2),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -1425,17 +1421,13 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
             children: [
               Row(
                 children: [
-                  Container(
+                  ProductThumbnail.fromMap(
+                    data: product,
                     width: 42,
                     height: 42,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE0F2FE),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.inventory_2_outlined,
-                      color: Color(0xFF0284C7),
-                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    fit: BoxFit.contain,
+                    padding: const EdgeInsets.all(3),
                   ),
                   const SizedBox(width: 10),
                   Expanded(

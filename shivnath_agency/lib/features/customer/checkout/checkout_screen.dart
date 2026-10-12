@@ -374,6 +374,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
 
         if (rzpOrderRes['success'] != true) {
+          if (!mounted) return;
           setState(() => _isSubmitting = false);
           final errorMsg = rzpOrderRes['message']?.toString() ?? 'Unable to initialize payment.';
           ScaffoldMessenger.of(context).showSnackBar(
@@ -385,12 +386,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           return;
         }
 
-        final rzpData = rzpOrderRes['data'] is Map<String, dynamic>
-            ? rzpOrderRes['data'] as Map<String, dynamic>
-            : <String, dynamic>{};
+        final dynamic rawRzpData = rzpOrderRes['data'];
+        final Map<String, dynamic> rzpData = rawRzpData is Map<String, dynamic>
+            ? rawRzpData
+            : (rawRzpData is Map ? Map<String, dynamic>.from(rawRzpData) : <String, dynamic>{});
         final rzpOrderId = rzpData['razorpay_order_id']?.toString() ??
             'order_${DateTime.now().millisecondsSinceEpoch}';
         final isTestMode = rzpData['is_test_mode'] == true;
+        final isMockMode = rzpData['is_mock_mode'] == true;
 
         // Authoritative server-side payment verification
         final verifyRes = await orderService.verifyRazorpayPayment(
@@ -400,20 +403,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           razorpaySignature: 'sig_${DateTime.now().millisecondsSinceEpoch}',
         );
 
+        if (!mounted) return;
+
         if (verifyRes['success'] == true) {
           final Map<String, dynamic> verifiedOrder = (verifyRes['data'] is Map && verifyRes['data']['order'] is Map)
               ? Map<String, dynamic>.from(verifyRes['data']['order'] as Map)
               : (orderObj.isNotEmpty ? orderObj : {'id': orderDbId, 'amount': amount});
 
           cart.clearCart();
-          if (isTestMode && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('[TEST MODE] Payment simulated in Razorpay Test Mode.'),
-                backgroundColor: Color(0xFF0284C7),
-                duration: Duration(seconds: 4),
-              ),
-            );
+          if (mounted) {
+            if (isMockMode) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('[DEV MOCK MODE] Order placed in local mock payment mode.'),
+                  backgroundColor: Color(0xFFD97706),
+                  duration: Duration(seconds: 4),
+                ),
+              );
+            } else if (isTestMode) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('[TEST MODE] Payment simulated in Razorpay Test Mode.'),
+                  backgroundColor: Color(0xFF0284C7),
+                  duration: Duration(seconds: 4),
+                ),
+              );
+            }
           }
           Navigator.pushReplacement(
             context,
@@ -425,6 +440,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           );
         } else {
+          // Record cancellation / verification failure on backend
+          await orderService.cancelRazorpayPayment(
+            orderId: orderDbId,
+            reason: verifyRes['message']?.toString() ?? 'Payment verification failed',
+            razorpayOrderId: rzpOrderId,
+          );
+          if (!mounted) return;
           setState(() => _isSubmitting = false);
           final errorMsg = verifyRes['message']?.toString() ?? 'Payment verification failed.';
           ScaffoldMessenger.of(context).showSnackBar(
@@ -449,9 +471,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Server unavailable. Please try again.'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Network interruption during payment. Please check your order history.'),
+          backgroundColor: Colors.orange.shade800,
         ),
       );
     }

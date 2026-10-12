@@ -5,6 +5,7 @@ import '../../../core/services/product_service.dart';
 import '../../../models/product_model.dart';
 import '../cart/cart_provider.dart';
 import '../cart/customer_cart_screen.dart';
+import '../../../core/widgets/product_thumbnail.dart';
 import 'product_detail_screen.dart';
 
 class CustomerProductsScreen extends StatefulWidget {
@@ -580,18 +581,12 @@ class _ProductCard extends StatelessWidget {
                   ),
                   child: Stack(
                     children: [
-                      Center(
-                        child: Icon(
-                          product.category ==
-                                  'Water Jar'
-                              ? Icons
-                                  .water_drop_rounded
-                              : Icons
-                                  .local_drink_rounded,
-                          size:
-                              desktop ? 72 : 55,
-                          color:
-                              const Color(0xFF0284C7),
+                      Positioned.fill(
+                        child: ProductThumbnail.fromProduct(
+                          product: product,
+                          fit: BoxFit.contain,
+                          borderRadius: BorderRadius.circular(14),
+                          padding: const EdgeInsets.all(8),
                         ),
                       ),
 

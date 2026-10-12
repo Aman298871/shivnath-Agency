@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/product_model.dart';
+import '../../../core/widgets/product_thumbnail.dart';
 import '../cart/cart_provider.dart';
 import '../cart/customer_cart_screen.dart';
 
@@ -32,21 +33,12 @@ class ProductDetailScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey.shade200),
               ),
-              child: ClipRRect(
+              child: ProductThumbnail.fromProduct(
+                product: product,
+                fit: BoxFit.contain,
                 borderRadius: BorderRadius.circular(16),
-                child: product.image.isNotEmpty
-                    ? Image.network(
-                        product.image,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => Image.asset(
-                          product.assetFallbackImage,
-                          fit: BoxFit.contain,
-                        ),
-                      )
-                    : Image.asset(
-                        product.assetFallbackImage,
-                        fit: BoxFit.contain,
-                      ),
+                backgroundColor: const Color(0xFFF0F9FF),
+                padding: const EdgeInsets.all(16),
               ),
             ),
             const SizedBox(height: 16),

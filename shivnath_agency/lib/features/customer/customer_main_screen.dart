@@ -23,6 +23,8 @@ class CustomerMainScreen extends StatefulWidget {
 class _CustomerMainScreenState extends State<CustomerMainScreen> {
   int currentIndex = 0;
   UserModel? _currentUser;
+  Key _ordersKey = UniqueKey();
+  Key _profileKey = UniqueKey();
 
   @override
   void initState() {
@@ -50,13 +52,19 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     CustomerHomeScreen(
       onOpenProducts: () => setState(() => currentIndex = 1),
       onOpenCart: () => setState(() => currentIndex = 2),
-      onOpenOrders: () => setState(() => currentIndex = 3),
-      onOpenProfile: () => setState(() => currentIndex = 4),
+      onOpenOrders: () => setState(() {
+        _ordersKey = UniqueKey();
+        currentIndex = 3;
+      }),
+      onOpenProfile: () => setState(() {
+        _profileKey = UniqueKey();
+        currentIndex = 4;
+      }),
     ),
     const CustomerProductsScreen(),
     const CustomerCartScreen(),
-    const CustomerOrdersScreen(),
-    const CustomerProfileScreen(),
+    CustomerOrdersScreen(key: _ordersKey),
+    CustomerProfileScreen(key: _profileKey),
     const CustomerSettingsScreen(),
   ];
 
@@ -125,6 +133,11 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         elevation: 3,
         onDestinationSelected: (index) {
           setState(() {
+            if (index == 3) {
+              _ordersKey = UniqueKey();
+            } else if (index == 4) {
+              _profileKey = UniqueKey();
+            }
             currentIndex = index;
           });
         },
@@ -328,6 +341,11 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                             borderRadius: BorderRadius.circular(12),
                             onTap: () {
                               setState(() {
+                                if (index == 3) {
+                                  _ordersKey = UniqueKey();
+                                } else if (index == 4) {
+                                  _profileKey = UniqueKey();
+                                }
                                 currentIndex = index;
                               });
                             },

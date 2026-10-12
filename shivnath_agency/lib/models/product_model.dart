@@ -1,3 +1,5 @@
+import '../core/constants/app_constants.dart';
+
 class ProductModel {
   final String id;
   final String name;
@@ -96,27 +98,89 @@ class ProductModel {
     };
   }
 
-  String get assetFallbackImage {
+  static String resolveAssetFallback({
+    String sku = '',
+    String name = '',
+    String size = '',
+    String category = '',
+  }) {
     final s = sku.toUpperCase();
     final sz = size.toLowerCase();
     final nm = name.toLowerCase();
 
-    if (s.contains('SHV-200') || sz.contains('200') || nm.contains('200')) {
-      return 'assets/images/products/shv_200.jpg';
-    }
-    if (s.contains('SHV-250') || sz.contains('250') || nm.contains('250')) {
-      return 'assets/images/products/shv_250.jpg';
-    }
-    if (s.contains('SHV-500') || sz.contains('500') || nm.contains('500')) {
-      return 'assets/images/products/shv_500.jpg';
-    }
-    if (s.contains('SHV-1L') || sz.contains('1l') || sz.contains('1 l') || sz.contains('1000') || nm.contains('1 litre') || nm.contains('1l')) {
-      return 'assets/images/products/shv_1l.jpg';
-    }
-    if (s.contains('SHV-20L') || sz.contains('20l') || sz.contains('20 l') || sz.contains('20000') || nm.contains('20 litre') || nm.contains('20l') || nm.contains('jar')) {
+    // 20L / Jar
+    if (s.contains('SHV-20L') ||
+        s.contains('JAR') ||
+        sz.contains('20l') ||
+        sz.contains('20 l') ||
+        sz.contains('20000') ||
+        nm.contains('20 litre') ||
+        nm.contains('20l') ||
+        nm.contains('jar') ||
+        category.toLowerCase().contains('jar')) {
       return 'assets/images/products/shv_20l.jpg';
     }
+
+    // 2L / 1L Bottles
+    if (s.contains('BOT-2000') ||
+        sz.contains('2l') ||
+        sz.contains('2 l') ||
+        nm.contains('2 litre') ||
+        nm.contains('2l') ||
+        s.contains('SHV-1L') ||
+        s.contains('1000') ||
+        sz.contains('1l') ||
+        sz.contains('1 l') ||
+        nm.contains('1 litre') ||
+        nm.contains('1l') ||
+        nm.contains('pure 2l')) {
+      return 'assets/images/products/shv_1l.jpg';
+    }
+
+    // 500ml Bottle
+    if (s.contains('SHV-500') ||
+        s.contains('500') ||
+        sz.contains('500') ||
+        nm.contains('500')) {
+      return 'assets/images/products/shv_500.jpg';
+    }
+
+    // 250ml Bottle
+    if (s.contains('SHV-250') ||
+        s.contains('250') ||
+        sz.contains('250') ||
+        nm.contains('250')) {
+      return 'assets/images/products/shv_250.jpg';
+    }
+
+    // 200ml Bottle
+    if (s.contains('SHV-200') ||
+        s.contains('200') ||
+        sz.contains('200') ||
+        nm.contains('200')) {
+      return 'assets/images/products/shv_200.jpg';
+    }
+
     return 'assets/images/products/shv_500.jpg';
+  }
+
+  String get assetFallbackImage => resolveAssetFallback(
+        sku: sku,
+        name: name,
+        size: size,
+        category: category,
+      );
+
+  String get displayImageUrl {
+    if (image.isEmpty) return '';
+    if (image.startsWith('http://') || image.startsWith('https://')) {
+      return image;
+    }
+    final base = AppConstants.apiBaseUrl.endsWith('/')
+        ? AppConstants.apiBaseUrl.substring(0, AppConstants.apiBaseUrl.length - 1)
+        : AppConstants.apiBaseUrl;
+    final path = image.startsWith('/') ? image : '/$image';
+    return '$base$path';
   }
 
   @override

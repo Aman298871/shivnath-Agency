@@ -1,4 +1,5 @@
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/OrderService.dart';
@@ -17,18 +18,32 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
   String? _errorMessage;
+  Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
     _loadOrders();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) {
+        _loadOrders(silent: true);
+      }
+    });
   }
 
-  Future<void> _loadOrders() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadOrders({bool silent = false}) async {
+    if (!silent || _orders.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     final res = await _orderService.getOrders();
     if (!mounted) return;
@@ -48,13 +63,15 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
       }
     }
 
-    setState(() {
-      _orders = [];
-      _isLoading = false;
-      if (res['success'] != true && res['message'] != null) {
-        _errorMessage = res['message'].toString();
-      }
-    });
+    if (!silent || _orders.isEmpty) {
+      setState(() {
+        _orders = [];
+        _isLoading = false;
+        if (res['success'] != true && res['message'] != null) {
+          _errorMessage = res['message'].toString();
+        }
+      });
+    }
   }
 
   List<Map<String, dynamic>> get orders => _orders;

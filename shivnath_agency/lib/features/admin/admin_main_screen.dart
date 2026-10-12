@@ -100,9 +100,24 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         }
 
         if (!_baselineOrdersLoaded) {
-          // Establish baseline without triggering alert for existing past orders
           _lastMaxOrderId = currentMaxId;
           _baselineOrdersLoaded = true;
+          // Check for active unfulfilled customer orders waiting for admin fulfillment
+          final pendingOrders = items.where((it) {
+            final st = (it['status'] ?? '').toString().toLowerCase();
+            return st == 'order_placement' ||
+                st == 'pending' ||
+                st == 'created' ||
+                st == 'plant_approval';
+          }).toList();
+          if (pendingOrders.isNotEmpty) {
+            final firstPending = Map<String, dynamic>.from(pendingOrders.first as Map);
+            _showNewOrderAlert(
+              firstPending,
+              isPendingOnLogin: true,
+              pendingCount: pendingOrders.length,
+            );
+          }
         } else if (currentMaxId > _lastMaxOrderId && latestNewOrder != null) {
           _lastMaxOrderId = currentMaxId;
           _showNewOrderAlert(latestNewOrder);
@@ -111,7 +126,11 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     } catch (_) {}
   }
 
-  void _showNewOrderAlert(Map<String, dynamic> order) {
+  void _showNewOrderAlert(
+    Map<String, dynamic> order, {
+    bool isPendingOnLogin = false,
+    int pendingCount = 1,
+  }) {
     if (!mounted) return;
     final orderNum = order['order_id'] ?? order['id'] ?? 'New';
     final cust = order['customer_name'] ?? 'Customer';
@@ -137,9 +156,13 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'NEW ORDER RECEIVED!',
-                    style: TextStyle(
+                  Text(
+                    isPendingOnLogin
+                        ? (pendingCount > 1
+                            ? '$pendingCount PENDING ORDERS TO FULFILL'
+                            : 'NEW ORDER AWAITING FULFILLMENT!')
+                        : 'NEW ORDER RECEIVED!',
+                    style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 13,
                       color: Colors.white,

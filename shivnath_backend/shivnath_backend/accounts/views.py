@@ -2600,15 +2600,13 @@ def _get_support_contact(role_key):
             'message_template': contact.message_template,
         }
     except SupportContact.DoesNotExist:
-        fallback_phone = getattr(settings, 'SUPPORT_FALLBACK_PHONE', None)
-        if fallback_phone:
-            return {
-                'name': 'Shivnath Support Desk',
-                'phone': fallback_phone,
-                'email': getattr(settings, 'SUPPORT_FALLBACK_EMAIL', 'support@shivnath.com'),
-                'message_template': '',
-            }
-        return None
+        fallback_phone = getattr(settings, 'SUPPORT_FALLBACK_PHONE', '+91 98062 47194')
+        return {
+            'name': 'Shivnath Support Desk',
+            'phone': fallback_phone,
+            'email': getattr(settings, 'SUPPORT_FALLBACK_EMAIL', 'support@shivnath.com'),
+            'message_template': 'Namaste Shivnath Support Desk,\nI need assistance with my drinking water supply.',
+        }
 
 
 class SupportContactView(APIView):

@@ -5,6 +5,7 @@ import '../../../core/services/product_service.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../models/product_model.dart';
 import '../../customer/products/product_detail_screen.dart';
+import '../../../core/widgets/product_thumbnail.dart';
 
 class FranchiseProductsScreen extends StatefulWidget {
   const FranchiseProductsScreen({super.key});
@@ -295,25 +296,12 @@ class _FranchiseProductsScreenState
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Expanded(
-                                            child: Container(
+                                            child: ProductThumbnail.fromProduct(
+                                              product: product,
                                               width: double.infinity,
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFE0F2FE),
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Stack(
-                                                children: [
-                                                  Center(
-                                                    child: Icon(
-                                                      product.category == 'Water Jar'
-                                                          ? Icons.water_drop_rounded
-                                                          : Icons.local_drink_rounded,
-                                                      size: desktop ? 60 : 48,
-                                                      color: const Color(0xFF0284C7),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                              fit: BoxFit.contain,
+                                              borderRadius: BorderRadius.circular(12),
+                                              padding: const EdgeInsets.all(6),
                                             ),
                                           ),
                                           const SizedBox(height: 8),

@@ -69,19 +69,30 @@ class SupportDeskService {
   }
 
   /// Fetches contextual support contact from backend DB.
-  static Future<SupportContactInfo?> fetchSupportContact({
+  static Future<SupportContactInfo> fetchSupportContact({
     String? role,
     String? inquiryType,
   }) async {
-    final res = await _authService.getSupportContact(
-      role: role,
-      inquiryType: inquiryType,
-    );
+    try {
+      final res = await _authService.getSupportContact(
+        role: role,
+        inquiryType: inquiryType,
+      );
 
-    if (res['success'] == true && res['data'] is Map<String, dynamic>) {
-      return SupportContactInfo.fromJson(res['data'] as Map<String, dynamic>);
-    }
-    return null;
+      if (res['success'] == true && res['data'] is Map<String, dynamic>) {
+        return SupportContactInfo.fromJson(res['data'] as Map<String, dynamic>);
+      }
+    } catch (_) {}
+
+    return SupportContactInfo(
+      name: 'Shivnath Agency Support Desk',
+      phone: '+91 98062 47194',
+      email: 'support@shivnath.com',
+      role: role ?? 'customer',
+      roleDisplay: 'Central Customer Helpline',
+      messageTemplate: 'Namaste Shivnath Support,\nI require assistance with my drinking water supply.',
+      target: 'central',
+    );
   }
 
   /// Fetches all configured support contacts (Admin only)

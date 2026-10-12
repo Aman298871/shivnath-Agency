@@ -5,6 +5,7 @@ import '../../../core/services/product_service.dart';
 import '../../../models/product_model.dart';
 import '../cart/cart_provider.dart';
 import '../cart/customer_cart_screen.dart';
+import '../../../core/widgets/product_thumbnail.dart';
 import 'product_detail_screen.dart';
 
 /// Screen showing all products belonging to a specific category.
@@ -364,17 +365,13 @@ class _ProductCard extends StatelessWidget {
             // IMAGE
             Expanded(
               flex: 5,
-              child: ClipRRect(
+              child: ProductThumbnail.fromProduct(
+                product: product,
+                fit: BoxFit.contain,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(14),
                 ),
-                child: product.image.isNotEmpty
-                    ? Image.network(
-                        product.image,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => _placeholder(),
-                      )
-                    : _placeholder(),
+                padding: const EdgeInsets.all(8),
               ),
             ),
 

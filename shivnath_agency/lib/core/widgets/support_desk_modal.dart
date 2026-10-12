@@ -89,17 +89,22 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
         setState(() {
           _contact = contact;
           _isLoading = false;
-          if (contact == null && _adminAllContacts.isEmpty) {
-            _errorMessage =
-                'Unable to load support contact details. Please check connection.';
-          }
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
+          _contact = SupportContactInfo(
+            name: 'Shivnath Agency Support Desk',
+            phone: '+91 98062 47194',
+            email: 'support@shivnath.com',
+            role: 'customer',
+            roleDisplay: 'Central Customer Helpline',
+            messageTemplate:
+                'Namaste Shivnath Support,\nI require assistance with my drinking water supply.',
+            target: 'central',
+          );
           _isLoading = false;
-          _errorMessage = 'An error occurred while loading support details.';
         });
       }
     }

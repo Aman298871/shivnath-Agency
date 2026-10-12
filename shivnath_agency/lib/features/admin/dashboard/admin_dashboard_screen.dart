@@ -60,6 +60,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   List<Map<String, dynamic>> _pendingStockRequests = [];
   List<Map<String, dynamic>> _pendingPaymentVerifications = [];
+  List<Map<String, dynamic>> _pendingCustomerOrders = [];
   final Set<int> _dismissedRequestIds = {};
   final Set<int> _dismissedNotificationIds = {};
 
@@ -927,8 +928,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
       }
 
+      // 3. Pending Customer Orders Awaiting Fulfillment
+      final List<Map<String, dynamic>> orderAlertList = [];
+      final Set<int> seenOrderIds = {};
+
+      final ordersRes = await _orderService.getOrders(status: 'order_placement');
+      if (!mounted) return;
+      if (ordersRes['success'] == true && ordersRes['data'] != null) {
+        final List rawOrders = ordersRes['data']['orders'] ?? (ordersRes['data'] is List ? ordersRes['data'] : []);
+        for (var o in rawOrders) {
+          if (o is Map) {
+            final oMap = Map<String, dynamic>.from(o);
+            final oId = oMap['id'] is int ? oMap['id'] as int : int.tryParse('${oMap['id']}') ?? 0;
+            if (oId > 0 && !_dismissedRequestIds.contains(oId)) {
+              seenOrderIds.add(oId);
+              orderAlertList.add(oMap);
+            }
+          }
+        }
+      }
+
+      if (notifRes['success'] == true && notifRes['data'] is Map) {
+        final List notifs = notifRes['data']['notifications'] ?? [];
+        for (var n in notifs) {
+          if (n is Map) {
+            final type = (n['notification_type'] ?? '').toString();
+            final isRead = n['is_read'] == true;
+            final notifId = n['id'] is int ? n['id'] as int : int.tryParse('${n['id']}') ?? 0;
+            final refId = n['reference_id'] is int ? n['reference_id'] as int : int.tryParse('${n['reference_id']}') ?? 0;
+            if ((type == 'order_placed' || type == 'bulk_order') &&
+                !isRead &&
+                !_dismissedNotificationIds.contains(notifId) &&
+                !seenOrderIds.contains(refId)) {
+              final nMap = Map<String, dynamic>.from(n);
+              nMap['id'] = refId > 0 ? refId : notifId;
+              nMap['notif_id'] = notifId;
+              nMap['customer_name'] = nMap['title'] ?? 'Customer';
+              orderAlertList.add(nMap);
+            }
+          }
+        }
+      }
+
       setState(() {
         _pendingPaymentVerifications = paymentList;
+        _pendingCustomerOrders = orderAlertList;
       });
     } catch (_) {}
   }
@@ -937,6 +981,151 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 0. Pending Customer Orders Awaiting Fulfillment
+        ..._pendingCustomerOrders.map((ord) {
+          final ordId = ord['id'] is int ? ord['id'] as int : int.tryParse('${ord['id']}') ?? 0;
+          final notifId = ord['notif_id'] is int ? ord['notif_id'] as int : ordId;
+          final ordCode = ord['order_id']?.toString() ?? ord['orderId']?.toString() ?? ord['order_code']?.toString() ?? '#ORD-$ordId';
+          final custName = ord['customer_name']?.toString() ?? ord['client_name']?.toString() ?? 'Customer';
+          final amt = ord['total_amount']?.toString() ?? ord['amount']?.toString() ?? '0';
+          final itemsCount = ord['items_count']?.toString() ?? ord['items']?.toString() ?? '1';
+          final message = ord['message']?.toString() ?? 'New order placed by customer awaiting approval and dispatch.';
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFEFF6FF), Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF93C5FD), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shopping_bag_rounded, color: Colors.white, size: 14),
+                          SizedBox(width: 5),
+                          Text(
+                            'NEW CUSTOMER ORDER RECEIVED',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
+                      tooltip: 'Dismiss alert',
+                      onPressed: () {
+                        setState(() {
+                          _dismissedRequestIds.add(ordId);
+                          _dismissedNotificationIds.add(notifId);
+                          _pendingCustomerOrders.removeWhere((o) => o['id'] == ordId);
+                        });
+                        _notificationService.markAdminNotificationRead(notifId);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$ordCode • $custName',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0369A1),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Amount: ₹$amt  •  Items: $itemsCount  •  Status: Order Placement',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF334155),
+                  ),
+                ),
+                if (message.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    message,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.local_shipping_outlined, size: 16),
+                      label: const Text(
+                        'UPDATE STATUS / FULFILL',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      onPressed: () => _handleQuickFulfillOrder(ord),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0284C7),
+                        side: const BorderSide(color: Color(0xFF0284C7)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                      label: const Text('VIEW IN ORDERS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      onPressed: () {
+                        if (widget.onOpenOrdersWithCode != null) {
+                          widget.onOpenOrdersWithCode!(ordCode);
+                        } else {
+                          widget.onOpenOrders?.call();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+
         // 1. Grouped Stock Requests
         ..._pendingStockRequests.map((group) {
           final primaryId = group['primary_id'] is int ? group['primary_id'] as int : int.tryParse('${group['primary_id']}') ?? 0;
@@ -1292,6 +1481,118 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }),
       ],
     );
+  }
+
+  Future<void> _handleQuickFulfillOrder(Map<String, dynamic> ord) async {
+    final ordId = ord['id'] is int ? ord['id'] as int : int.tryParse('${ord['id']}') ?? 0;
+    final notifId = ord['notif_id'] is int ? ord['notif_id'] as int : ordId;
+    final ordCode = ord['order_id']?.toString() ?? ord['orderId']?.toString() ?? ord['order_code']?.toString() ?? '#ORD-$ordId';
+
+    String selectedStatus = 'dispatch';
+    final targetStatuses = [
+      {'label': 'Dispatch for Delivery', 'value': 'dispatch'},
+      {'label': 'Mark Delivered', 'value': 'delivered'},
+      {'label': 'Plant Approval', 'value': 'plant_approval'},
+      {'label': 'Preparing / Packaging', 'value': 'preparing'},
+      {'label': 'Invoice Generated', 'value': 'invoice_generated'},
+      {'label': 'Cancel Order', 'value': 'cancelled'},
+    ];
+
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.local_shipping_outlined, color: Color(0xFF0284C7), size: 22),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Fulfill Order $ordCode',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select new fulfillment status for this customer order. The customer will immediately receive an in-app status update and notification.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedStatus,
+                    decoration: InputDecoration(
+                      labelText: 'Fulfillment Status',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    items: targetStatuses.map((s) {
+                      return DropdownMenuItem<String>(
+                        value: s['value'],
+                        child: Text(s['label']!),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedStatus = val);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () => Navigator.pop(dialogCtx, true),
+                  child: const Text('Confirm & Update'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (updated != true) return;
+
+    final res = await _orderService.updateOrderStatus(ordId, selectedStatus);
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      setState(() {
+        _dismissedRequestIds.add(ordId);
+        _dismissedNotificationIds.add(notifId);
+        _pendingCustomerOrders.removeWhere((o) => o['id'] == ordId);
+      });
+      _notificationService.markAdminNotificationRead(notifId);
+      await _loadDashboardData();
+      if (!mounted) return;
+      AppToast.success(context, 'Order $ordCode status updated to $selectedStatus successfully!');
+    } else {
+      AppToast.error(context, res['message'] ?? 'Failed to update order status.');
+    }
   }
 
   Future<void> _handleApprovePayment(Map<String, dynamic> notif) async {

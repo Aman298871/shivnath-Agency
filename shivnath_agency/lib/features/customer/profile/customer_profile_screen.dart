@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/session_service.dart';
+import '../../../core/services/stock_service.dart';
 import '../../../core/widgets/support_desk_modal.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
@@ -22,6 +23,7 @@ class CustomerProfileScreen extends StatefulWidget {
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   final SessionService _sessionService = SessionService();
   final AuthService _authService = AuthService();
+  final StockService _stockService = StockService();
   UserModel? _currentUser;
   bool _isLoading = true;
   String _savedAddress =
@@ -30,6 +32,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   Map<String, dynamic>? _territoryData;
   Map<String, dynamic>? _stockCycleData;
   bool _isUpdatingStatus = false;
+  int _unreadNotificationsCount = 0;
 
   @override
   void initState() {
@@ -78,6 +81,18 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     } catch (_) {
       // Network unavailable – silently ignore; cached data is already shown.
     }
+
+    try {
+      final notifRes = await _stockService.getCustomerNotifications();
+      if (!mounted) return;
+      if (notifRes['success'] == true && notifRes['data'] is Map<String, dynamic>) {
+        final list = notifRes['data']['notifications'] as List? ?? [];
+        final unread = list.where((n) => n['is_read'] != true).length;
+        setState(() {
+          _unreadNotificationsCount = unread;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadUserData() async {
@@ -1408,15 +1423,36 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           _ProfileTile(
                             icon: Icons.notifications_none,
                             title: 'Notifications',
-                            subtitle: 'View order and delivery updates',
-                            onTap: () {
-                              Navigator.push(
+                            subtitle: _unreadNotificationsCount > 0
+                                ? '$_unreadNotificationsCount new update${_unreadNotificationsCount > 1 ? "s" : ""} on your orders'
+                                : 'View order and delivery updates',
+                            trailing: _unreadNotificationsCount > 0
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEF4444),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      '$_unreadNotificationsCount NEW',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                            onTap: () async {
+                              await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) =>
                                       const CustomerNotificationsScreen(),
                                 ),
                               );
+                              if (mounted) _refreshFromNetwork();
                             },
                           ),
                           _ProfileTile(
@@ -1508,6 +1544,75 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         ),
         const SizedBox(height: 14),
         _buildServiceTerritoryCard(),
+        if (_unreadNotificationsCount > 0) ...[
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const CustomerNotificationsScreen(),
+                ),
+              );
+              if (mounted) _refreshFromNetwork();
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.notifications_active_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$_unreadNotificationsCount New Order & Delivery Update${_unreadNotificationsCount > 1 ? "s" : ""}!',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Tap to view your latest fulfillment details.',
+                          style: TextStyle(
+                            color: Color(0xFFE0F2FE),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 14),
         _ProfileTile(
           icon: Icons.person_outline,
@@ -1546,14 +1651,35 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         _ProfileTile(
           icon: Icons.notifications_none,
           title: 'Notifications',
-          subtitle: 'View order and delivery updates',
-          onTap: () {
-            Navigator.push(
+          subtitle: _unreadNotificationsCount > 0
+              ? '$_unreadNotificationsCount new update${_unreadNotificationsCount > 1 ? "s" : ""} on your orders'
+              : 'View order and delivery updates',
+          trailing: _unreadNotificationsCount > 0
+              ? Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$_unreadNotificationsCount NEW',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                )
+              : null,
+          onTap: () async {
+            await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => const CustomerNotificationsScreen(),
               ),
             );
+            if (mounted) _refreshFromNetwork();
           },
         ),
         _ProfileTile(
@@ -1606,12 +1732,14 @@ class _ProfileTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final VoidCallback onTap;
+  final Widget? trailing;
 
   const _ProfileTile({
     required this.icon,
     required this.title,
     this.subtitle,
     required this.onTap,
+    this.trailing,
   });
 
   @override
@@ -1646,11 +1774,12 @@ class _ProfileTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
               ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          size: 20,
-          color: Color(0xFF94A3B8),
-        ),
+        trailing: trailing ??
+            const Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: Color(0xFF94A3B8),
+            ),
         onTap: onTap,
       ),
     );

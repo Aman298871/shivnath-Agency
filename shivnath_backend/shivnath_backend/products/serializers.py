@@ -245,6 +245,14 @@ class ProductSerializer(serializers.ModelSerializer):
             ret['dealer_stock'] = int(dealer_stock)
         except Exception:
             pass
+
+        # Guarantee full URL for product image
+        if ret.get('image') and not str(ret['image']).startswith(('http://', 'https://')):
+            from django.conf import settings
+            base_url = getattr(settings, 'BACKEND_URL', 'https://shivnath-agency.onrender.com').rstrip('/')
+            img_path = ret['image'] if str(ret['image']).startswith('/') else f"/{ret['image']}"
+            ret['image'] = f"{base_url}{img_path}"
+
         return ret
 
     def validate_name(self, value):

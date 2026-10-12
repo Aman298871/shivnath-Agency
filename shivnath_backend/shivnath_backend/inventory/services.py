@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import F
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -883,8 +884,12 @@ def cancel_order_atomic(order, actor=None):
     Cancels an order:
     - If pre-dispatch: releases soft reservations without writing SALE ledger entry.
     - If post-delivery: restocks inventory and writes RETURN ledger entry.
+    - Atomically restores product catalog stock counters.
     """
-    if order.status in ['order_placement', 'plant_approval', 'invoice_generated', 'preparing']:
+    has_dispatched = order.items.filter(batch_reservations__consumed_quantity__gt=0).exists() or order.status in ['dispatch', 'delivered']
+
+    if not has_dispatched:
+        # Pre-dispatch cancellation: release unconsumed reservations
         for item in order.items.all():
             for res in item.batch_reservations.select_for_update().filter(consumed_quantity=0, released_quantity=0):
                 qty = res.reserved_quantity
@@ -898,7 +903,7 @@ def cancel_order_atomic(order, actor=None):
                     dbatch.save()
                 res.released_quantity = qty
                 res.save()
-    elif order.status in ['dispatch', 'delivered']:
+    else:
         # Post-dispatch cancellation / return
         for item in order.items.all():
             for res in item.batch_reservations.select_for_update().filter(consumed_quantity__gt=0):
@@ -941,8 +946,13 @@ def cancel_order_atomic(order, actor=None):
                         notes=f"Return from cancelled order ORD-{order.id}"
                     )
 
+    # Atomically restore Product.stock for all order items
+    for item in order.items.all():
+        if item.product_id:
+            Product.objects.filter(id=item.product_id).update(stock=F('stock') + item.quantity)
+
     order.status = 'cancelled'
-    order.save()
+    order.save(update_fields=['status'])
     return order
 
 

@@ -639,6 +639,19 @@ class LoginSerializer(serializers.Serializer):
         else:
             query |= Q(profile__phone__iexact=raw_identifier)
 
+        # Allow logging in with Customer Code (e.g. CUST-1003) or Franchise Code (FRAN-1008) or numeric ID
+        code_match = re.match(r'^(?:CUST|FRAN)[-_ ]?(\d+)$', raw_identifier, re.IGNORECASE)
+        if code_match:
+            code_num = int(code_match.group(1))
+            user_id = code_num - 1000 if code_num >= 1000 else code_num
+            query |= Q(id=user_id) | Q(id=code_num)
+        elif raw_identifier.isdigit():
+            num = int(raw_identifier)
+            if num >= 1000:
+                query |= Q(id=num - 1000) | Q(id=num)
+            else:
+                query |= Q(id=num)
+
         user_object = User.objects.filter(query).distinct().first()
 
         if not user_object:
@@ -970,23 +983,6 @@ class CurrentUserSerializer(
     territory = serializers.SerializerMethodField()
     approved_at = serializers.SerializerMethodField()
 
-    class Meta:
-        model = User
-
-        fields = [
-            'id',
-            'name',
-            'email',
-            'phone',
-            'role',
-            'status',
-            'rejection_reason',
-            'business_name',
-            'city',
-            'territory',
-            'approved_at',
-        ]
-
     def get_name(self, obj):
         return (
             obj.get_full_name()
@@ -1023,6 +1019,7 @@ class CurrentUserSerializer(
     service_status = serializers.SerializerMethodField()
     active_stock_cycle = serializers.SerializerMethodField()
     territory_info = serializers.SerializerMethodField()
+    must_change_password = serializers.SerializerMethodField()
 
     class Meta:
         model = User

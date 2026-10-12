@@ -206,7 +206,7 @@ class PublicLeadCaptureView(APIView):
             else:
                 matched_franchise = FranchiseProfile.objects.filter(
                     status='approved',
-                    user__user_profile__district__icontains=district
+                    user__profile__district__icontains=district
                 ).first()
 
         # Build clean, structured note and inquiry details
@@ -247,7 +247,7 @@ class PublicLeadCaptureView(APIView):
             if conv_lines:
                 note_details += "\n\n=== CHATBOT CONVERSATION TRANSCRIPT ===\n" + "\n".join(conv_lines)
 
-        pref_loc = f"{territory}, {city}".strip(', ') if territory else (city or location)
+        pref_loc = location or (f"{territory}, {city}".strip(', ') if territory else city)
 
         if existing_customer_profile and not existing_lead:
             # Existing registered customer opened the chatbot

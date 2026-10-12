@@ -434,7 +434,7 @@ def notify_order_status_update(order, new_status, actor_name=''):
     title = status_titles.get(st_clean, f"Order #{order.order_code} Update")
     body = status_bodies.get(st_clean, f"Status of #{order.order_code} updated to {new_status}.")
 
-    # In-App Customer Notification inbox
+    # 1. In-App Customer Notification inbox + FCM Push
     if order.created_by:
         try:
             from accounts.models import CustomerNotification
@@ -453,24 +453,68 @@ def notify_order_status_update(order, new_status, actor_name=''):
             users=[order.created_by],
             title=title,
             body=body,
-            data={'order_id': order.id, 'order_code': order.order_code, 'status': new_status, 'screen': 'customer_orders'},
+            data={
+                'order_id': order.id,
+                'order_code': order.order_code,
+                'status': new_status,
+                'screen': 'customer_orders',
+                'click_action': 'FLUTTER_NOTIFICATION_CLICK'
+            },
             notification_type='order_status',
             reference_id=order.id
         )
 
-    # If status change is critical (e.g. Dispatched / Delivered / Cancelled), also notify serving franchise if applicable
+    # 2. Serving Franchise Notification (In-App + FCM Push)
     if order.serving_franchise and order.serving_franchise.user:
+        f_title = f"Order #{order.order_code}: {title}"
+        f_body = f"Customer {order.client_name or 'Customer'} order #{order.order_code} status transitioned to {new_status}."
         try:
             from accounts.models import FranchiseNotification
-            FranchiseNotification.objects.create(
+            fn = FranchiseNotification.objects.create(
                 franchise=order.serving_franchise,
-                title=f"Order #{order.order_code}: {title}",
-                message=f"Order #{order.order_code} status updated to {new_status}.",
+                title=f_title,
+                message=f_body,
                 notification_type='order_update',
                 reference_id=order.id
             )
-        except Exception:
-            pass
+            logger.info("FCM: [NOTIFICATION_CREATED] FranchiseNotification #%d created for Franchise %s", fn.id, order.serving_franchise.business_name)
+        except Exception as e:
+            logger.warning("FCM: FranchiseNotification create warning: %s", e)
+
+        send_fcm_notification(
+            users=[order.serving_franchise.user],
+            title=f_title,
+            body=f_body,
+            data={
+                'order_id': order.id,
+                'order_code': order.order_code,
+                'status': new_status,
+                'screen': 'franchise_orders',
+                'click_action': 'FLUTTER_NOTIFICATION_CLICK'
+            },
+            notification_type='order_update',
+            reference_id=order.id
+        )
+
+    # 3. Admin & Super Admin Push Notification
+    all_admins = _get_all_admins()
+    if all_admins:
+        admin_title = f"Order #{order.order_code} Status Updated"
+        admin_body = f"Order #{order.order_code} for {order.client_name or 'Customer'} transitioned to {new_status} (by {actor_name or 'System'})."
+        send_fcm_notification(
+            users=all_admins,
+            title=admin_title,
+            body=admin_body,
+            data={
+                'order_id': order.id,
+                'order_code': order.order_code,
+                'status': new_status,
+                'screen': 'admin_orders',
+                'click_action': 'FLUTTER_NOTIFICATION_CLICK'
+            },
+            notification_type='order_update',
+            reference_id=order.id
+        )
 
 
 def notify_payment_received(order, amount, actor_name='', collector_name=None, is_pending=False, invoice=None, **kwargs):

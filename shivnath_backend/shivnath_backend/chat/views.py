@@ -11,6 +11,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Max, Q
+from django.utils import timezone
 
 from .services import AIService
 from .models import ChatSession, ChatMessage, ChatbotOption, Quotation

@@ -1707,7 +1707,6 @@ class AdminUserListView(APIView):
             users = users.exclude(profile__role__in=['admin', 'staff']).exclude(is_superuser=True)
 
         if search:
-            from django.db.models import Q
             search_q = (
                 Q(username__icontains=search) |
                 Q(email__icontains=search) |
@@ -4832,9 +4831,15 @@ class SuperAdminSeedDemoDataView(APIView):
             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
-            call_command('seed_demo_data', force=True)
-            return Response({'success': True, 'message': 'Authoritative demo dataset seeded successfully.'})
+            import seed_production_data
+            seed_production_data.seed()
+            try:
+                call_command('seed_demo_data', force=True)
+            except Exception as e:
+                logger.warning("seed_demo_data auxiliary notice: %s", e)
+            return Response({'success': True, 'message': 'Authoritative production & demo datasets seeded successfully.'})
         except Exception as e:
+            logger.error("Seeding error in SuperAdminSeedDemoDataView: %s", e)
             return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

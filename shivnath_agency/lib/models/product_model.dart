@@ -96,6 +96,29 @@ class ProductModel {
     };
   }
 
+  String get assetFallbackImage {
+    final s = sku.toUpperCase();
+    final sz = size.toLowerCase();
+    final nm = name.toLowerCase();
+
+    if (s.contains('SHV-200') || sz.contains('200') || nm.contains('200')) {
+      return 'assets/images/products/shv_200.jpg';
+    }
+    if (s.contains('SHV-250') || sz.contains('250') || nm.contains('250')) {
+      return 'assets/images/products/shv_250.jpg';
+    }
+    if (s.contains('SHV-500') || sz.contains('500') || nm.contains('500')) {
+      return 'assets/images/products/shv_500.jpg';
+    }
+    if (s.contains('SHV-1L') || sz.contains('1l') || sz.contains('1 l') || sz.contains('1000') || nm.contains('1 litre') || nm.contains('1l')) {
+      return 'assets/images/products/shv_1l.jpg';
+    }
+    if (s.contains('SHV-20L') || sz.contains('20l') || sz.contains('20 l') || sz.contains('20000') || nm.contains('20 litre') || nm.contains('20l') || nm.contains('jar')) {
+      return 'assets/images/products/shv_20l.jpg';
+    }
+    return 'assets/images/products/shv_500.jpg';
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

@@ -20,6 +20,43 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint(
     'FCM [Background]: Message received ID: ${message.messageId}, Title: ${message.notification?.title}',
   );
+
+  // If payload does not contain system notification block, display via local notifications
+  if (message.notification == null && message.data.isNotEmpty) {
+    try {
+      final title = message.data['title']?.toString() ?? 'WaterNow';
+      final body = message.data['body']?.toString() ?? 'New notification received';
+      final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      const AndroidInitializationSettings initAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const InitializationSettings initSettings =
+          InitializationSettings(android: initAndroid);
+      await flutterLocalNotificationsPlugin.initialize(initSettings);
+
+      final androidDetails = AndroidNotificationDetails(
+        NotificationService.channelId,
+        NotificationService.channelName,
+        channelDescription: NotificationService.channelDescription,
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        icon: '@mipmap/ic_launcher',
+        styleInformation: BigTextStyleInformation(body, contentTitle: title),
+        channelShowBadge: true,
+      );
+      final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      await flutterLocalNotificationsPlugin.show(
+        id,
+        title,
+        body,
+        NotificationDetails(android: androidDetails),
+        payload: jsonEncode(message.data),
+      );
+    } catch (e) {
+      debugPrint('FCM [Background]: Local notification error: $e');
+    }
+  }
 }
 
 class NotificationService {
@@ -197,6 +234,9 @@ class NotificationService {
         playSound: true,
         enableVibration: true,
         icon: '@mipmap/ic_launcher',
+        styleInformation: BigTextStyleInformation(body, contentTitle: title),
+        channelShowBadge: true,
+        visibility: NotificationVisibility.public,
       ),
       iOS: const DarwinNotificationDetails(
         presentAlert: true,

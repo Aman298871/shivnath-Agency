@@ -70,6 +70,7 @@ def seed():
             "shelf_life_days": 180,
             "stock": 500,
             "unit": "Bottle",
+            "image": "products/shv_200.jpg",
             "description": "200ml packaged pure drinking water, ideal for events, hospitality, and meetings.",
             "status": "Active"
         }
@@ -90,6 +91,7 @@ def seed():
             "shelf_life_days": 180,
             "stock": 500,
             "unit": "Bottle",
+            "image": "products/shv_250.jpg",
             "description": "250ml packaged drinking water, ideal for events, conferences and meetings.",
             "status": "Active"
         }
@@ -110,6 +112,7 @@ def seed():
             "shelf_life_days": 180,
             "stock": 400,
             "unit": "Bottle",
+            "image": "products/shv_500.jpg",
             "description": "500ml pure natural mineral water bottle.",
             "status": "Active"
         }
@@ -130,6 +133,7 @@ def seed():
             "shelf_life_days": 180,
             "stock": 350,
             "unit": "Bottle",
+            "image": "products/shv_1l.jpg",
             "description": "1 Litre table water bottle with 7-stage RO + UV purification.",
             "status": "Active"
         }
@@ -169,6 +173,7 @@ def seed():
             "shelf_life_days": 45,
             "stock": 180,
             "unit": "Jar",
+            "image": "products/shv_20l.jpg",
             "description": "20 Litre purified packaged drinking water jar for homes and offices.",
             "status": "Active"
         }
@@ -701,7 +706,210 @@ def seed():
         defaults={"is_primary": True, "is_active": True}
     )
 
-    print("Seeding completed successfully with rich production products, customers, notifications, quotation PDFs, and territory master test data.")
+    # 7. Customer Franchise Relationships, Orders, Inventory & Stock Requests
+    import datetime
+    from django.utils import timezone
+    from accounts.models import CustomerFranchiseRelationship
+    from orders.models import Order, OrderItem
+    from inventory.models import DealerStockBatch, DealerStockRequest
+
+    today = timezone.now().date()
+    now = timezone.now()
+
+    u_ramesh = User.objects.get(username="ramesh_agarwal")
+    u_priya = User.objects.get(username="priya_sharma")
+    u_vikram = User.objects.get(username="vikram_patel")
+    u_sunita = User.objects.get(username="sunita_dewangan")
+
+    CustomerFranchiseRelationship.objects.update_or_create(
+        customer=u_ramesh,
+        defaults={
+            "registered_franchise": f_east,
+            "current_serving_franchise": f_east,
+            "district": d_raipur,
+            "zone": z_east_raipur,
+            "service_status": "active",
+        }
+    )
+    CustomerFranchiseRelationship.objects.update_or_create(
+        customer=u_sunita,
+        defaults={
+            "registered_franchise": f_east,
+            "current_serving_franchise": f_east,
+            "district": d_raipur,
+            "zone": z_east_raipur,
+            "service_status": "active",
+        }
+    )
+    CustomerFranchiseRelationship.objects.update_or_create(
+        customer=u_vikram,
+        defaults={
+            "registered_franchise": f_durg,
+            "current_serving_franchise": f_durg,
+            "district": d_durg,
+            "zone": z_central_durg,
+            "service_status": "active",
+        }
+    )
+
+    DealerStockBatch.objects.update_or_create(
+        batch_number="DSB-EAST-20L-01",
+        defaults={
+            "dealer": f_east,
+            "product": p5,
+            "manufacture_date": today - datetime.timedelta(days=2),
+            "expiry_date": today + datetime.timedelta(days=43),
+            "received_quantity": 200,
+            "remaining_quantity": 160,
+            "reserved_quantity": 20,
+            "damaged_quantity": 0,
+            "unit_transfer_price": Decimal("40.00"),
+            "is_active": True,
+        }
+    )
+    DealerStockBatch.objects.update_or_create(
+        batch_number="DSB-EAST-1L-01",
+        defaults={
+            "dealer": f_east,
+            "product": p3,
+            "manufacture_date": today - datetime.timedelta(days=5),
+            "expiry_date": today + datetime.timedelta(days=175),
+            "received_quantity": 240,
+            "remaining_quantity": 200,
+            "reserved_quantity": 0,
+            "damaged_quantity": 0,
+            "unit_transfer_price": Decimal("14.00"),
+            "is_active": True,
+        }
+    )
+
+    o1, _ = Order.objects.update_or_create(
+        id=101,
+        defaults={
+            "created_by": u_ramesh,
+            "franchise_name": f_east.business_name,
+            "serving_franchise": f_east,
+            "city": "Raipur",
+            "territory": "East Raipur",
+            "amount": Decimal("1200.00"),
+            "tax_amount": Decimal("216.00"),
+            "grand_total": Decimal("1416.00"),
+            "status": "delivered",
+            "payment_status": "paid",
+            "payment_mode": "ONLINE",
+            "order_source": "FRANCHISE",
+            "items_count": 20,
+            "delivered_at": now - datetime.timedelta(hours=2),
+        }
+    )
+    OrderItem.objects.update_or_create(
+        order=o1, product=p5,
+        defaults={
+            "product_name": p5.name,
+            "quantity": 20,
+            "unit_price": p5.price,
+            "total_price": Decimal("1200.00"),
+        }
+    )
+
+    o2, _ = Order.objects.update_or_create(
+        id=102,
+        defaults={
+            "created_by": u_ramesh,
+            "franchise_name": f_east.business_name,
+            "serving_franchise": f_east,
+            "city": "Raipur",
+            "territory": "East Raipur",
+            "amount": Decimal("480.00"),
+            "tax_amount": Decimal("86.40"),
+            "grand_total": Decimal("566.40"),
+            "status": "order_placement",
+            "payment_status": "pending",
+            "payment_mode": "ONLINE",
+            "order_source": "FRANCHISE",
+            "items_count": 24,
+        }
+    )
+    OrderItem.objects.update_or_create(
+        order=o2, product=p3,
+        defaults={
+            "product_name": p3.name,
+            "quantity": 24,
+            "unit_price": p3.price,
+            "total_price": Decimal("480.00"),
+        }
+    )
+
+    o3, _ = Order.objects.update_or_create(
+        id=103,
+        defaults={
+            "created_by": u_priya,
+            "franchise_name": "Shivnath Agency Central Plant",
+            "serving_franchise": None,
+            "city": "Bilaspur",
+            "territory": "Bilaspur Central",
+            "amount": Decimal("2400.00"),
+            "tax_amount": Decimal("432.00"),
+            "grand_total": Decimal("2832.00"),
+            "status": "preparing",
+            "payment_status": "paid",
+            "payment_mode": "ONLINE",
+            "order_source": "DIRECT_COMPANY",
+            "items_count": 240,
+        }
+    )
+    OrderItem.objects.update_or_create(
+        order=o3, product=p2,
+        defaults={
+            "product_name": p2.name,
+            "quantity": 240,
+            "unit_price": p2.price,
+            "total_price": Decimal("2400.00"),
+        }
+    )
+
+    o4, _ = Order.objects.update_or_create(
+        id=104,
+        defaults={
+            "created_by": u_sunita,
+            "franchise_name": f_east.business_name,
+            "serving_franchise": f_east,
+            "city": "Raipur",
+            "territory": "East Raipur",
+            "amount": Decimal("300.00"),
+            "tax_amount": Decimal("54.00"),
+            "grand_total": Decimal("354.00"),
+            "status": "dispatch",
+            "payment_status": "pending",
+            "payment_mode": "ONLINE",
+            "order_source": "FRANCHISE",
+            "items_count": 5,
+        }
+    )
+    OrderItem.objects.update_or_create(
+        order=o4, product=p5,
+        defaults={
+            "product_name": p5.name,
+            "quantity": 5,
+            "unit_price": p5.price,
+            "total_price": Decimal("300.00"),
+        }
+    )
+
+    DealerStockRequest.objects.update_or_create(
+        request_number="SR-EAST-2026-001",
+        defaults={
+            "dealer": f_east,
+            "product": p5,
+            "requested_quantity": 50,
+            "approved_quantity": 50,
+            "status": "APPROVED",
+            "dealer_notes": "Replenishment request for 20L jars in East Raipur zone.",
+            "admin_notes": "Approved for dispatch from Central Plant.",
+        }
+    )
+
+    print("Seeding completed successfully with rich production products, customers, franchises, orders, inventory, and territories.")
 
 if __name__ == '__main__':
     seed()

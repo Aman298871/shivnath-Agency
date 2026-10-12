@@ -955,22 +955,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             color: const Color(0xFFE0F2FE),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: item.image.isNotEmpty
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: item.image.isNotEmpty
+                                ? Image.network(
                                     item.image,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.local_drink_rounded,
-                                      color: Color(0xFF0284C7),
+                                    errorBuilder: (_, _, _) => Image.asset(
+                                      item.assetFallbackImage,
+                                      fit: BoxFit.cover,
                                     ),
+                                  )
+                                : Image.asset(
+                                    item.assetFallbackImage,
+                                    fit: BoxFit.cover,
                                   ),
-                                )
-                              : const Icon(
-                                  Icons.local_drink_rounded,
-                                  color: Color(0xFF0284C7),
-                                ),
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(

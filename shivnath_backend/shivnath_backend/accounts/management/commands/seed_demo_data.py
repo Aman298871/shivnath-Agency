@@ -1026,7 +1026,8 @@ class Command(BaseCommand):
 
             # Seed explicit OrderStatusHistory transitions
             if status_val == "delivered":
-                dealer = serving_franchise or (dealers[0] if dealers else None)
+                admin_user = User.objects.filter(is_superuser=True).first()
+                dealer = dealer_inst or (dealers[0] if dealers else None)
                 dealer_user = dealer.user if dealer and hasattr(dealer, 'user') and dealer.user else None
                 dealer_name = dealer.business_name if dealer else "Shivnath Central Plant"
                 cust_disp = cust_user.get_full_name() or cust_user.username

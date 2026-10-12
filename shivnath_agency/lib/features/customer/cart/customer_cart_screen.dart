@@ -198,16 +198,14 @@ class _MobileCartItem extends StatelessWidget {
                 ? Image.network(
                     item.image,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.local_drink_rounded,
-                      size: 26,
-                      color: Color(0xFF0284C7),
+                    errorBuilder: (_, _, _) => Image.asset(
+                      item.assetFallbackImage,
+                      fit: BoxFit.cover,
                     ),
                   )
-                : const Icon(
-                    Icons.local_drink_rounded,
-                    size: 26,
-                    color: Color(0xFF0284C7),
+                : Image.asset(
+                    item.assetFallbackImage,
+                    fit: BoxFit.cover,
                   ),
           ),
           const SizedBox(width: 10),
@@ -326,16 +324,14 @@ class _DesktopCartItem extends StatelessWidget {
                 ? Image.network(
                     item.image,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.local_drink_rounded,
-                      size: 40,
-                      color: Color(0xFF0284C7),
+                    errorBuilder: (_, _, _) => Image.asset(
+                      item.assetFallbackImage,
+                      fit: BoxFit.cover,
                     ),
                   )
-                : const Icon(
-                    Icons.local_drink_rounded,
-                    size: 40,
-                    color: Color(0xFF0284C7),
+                : Image.asset(
+                    item.assetFallbackImage,
+                    fit: BoxFit.cover,
                   ),
           ),
           const SizedBox(width: 14),

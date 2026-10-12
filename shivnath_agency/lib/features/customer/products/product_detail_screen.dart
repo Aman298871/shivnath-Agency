@@ -25,18 +25,28 @@ class ProductDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 220,
+              height: 240,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
               ),
-              child: Center(
-                child: Text(
-                  product.name,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: product.image.isNotEmpty
+                    ? Image.network(
+                        product.image,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => Image.asset(
+                          product.assetFallbackImage,
+                          fit: BoxFit.contain,
+                        ),
+                      )
+                    : Image.asset(
+                        product.assetFallbackImage,
+                        fit: BoxFit.contain,
+                      ),
               ),
             ),
             const SizedBox(height: 16),

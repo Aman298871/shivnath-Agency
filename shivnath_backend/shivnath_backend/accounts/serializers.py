@@ -730,6 +730,7 @@ class LoginSerializer(serializers.Serializer):
                 'business_name': business_name,
                 'city': city,
                 'territory': territory,
+                'must_change_password': getattr(profile, 'must_change_password', False),
             }
         }
 
@@ -911,6 +912,40 @@ class ResetPasswordSerializer(serializers.Serializer):
         }
 
 
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(
+        write_only=True,
+        required=True
+    )
+    new_password = serializers.CharField(
+        write_only=True,
+        required=True,
+        min_length=6
+    )
+    confirm_password = serializers.CharField(
+        write_only=True,
+        required=True
+    )
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({
+                'confirm_password': 'New password and confirm password do not match.'
+            })
+        if attrs['new_password'] == attrs['current_password']:
+            raise serializers.ValidationError({
+                'new_password': 'New password cannot be identical to the temporary password.'
+            })
+        return attrs
+
+
+class AdminResetUserPasswordSerializer(serializers.Serializer):
+    verification_reason = serializers.CharField(
+        required=True,
+        min_length=5,
+        help_text="Mandatory identity verification reason (e.g. Verified customer identity via phone/official documentation)"
+    )
+
 
 class CurrentUserSerializer(
     serializers.ModelSerializer
@@ -1015,7 +1050,11 @@ class CurrentUserSerializer(
             'current_serving_franchise',
             'service_status',
             'active_stock_cycle',
+            'must_change_password',
         ]
+
+    def get_must_change_password(self, obj):
+        return getattr(getattr(obj, 'profile', None), 'must_change_password', False)
 
     def get_name(self, obj):
         return (

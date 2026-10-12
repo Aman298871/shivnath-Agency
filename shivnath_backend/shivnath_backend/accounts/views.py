@@ -31,6 +31,8 @@ from .serializers import (
     CurrentUserSerializer,
     ForgotPasswordSerializer,
     ResetPasswordSerializer,
+    ChangePasswordSerializer,
+    AdminResetUserPasswordSerializer,
 )
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -1346,6 +1348,145 @@ class ResetPasswordView(APIView):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        current_pwd = serializer.validated_data['current_password']
+        new_pwd = serializer.validated_data['new_password']
+
+        if not request.user.check_password(current_pwd):
+            return Response({
+                'success': False,
+                'errors': {'current_password': ['Current password is incorrect.']}
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Secure password update using Django's set_password()
+        request.user.set_password(new_pwd)
+        request.user.save()
+
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        profile.must_change_password = False
+        profile.save(update_fields=['must_change_password'])
+
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(request.user)
+
+        # Audit event without exposing any password
+        from .models import AdminAuditLog
+        try:
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                action='USER_CHANGED_PASSWORD',
+                resource_type='User',
+                resource_id=str(request.user.id),
+                ip_address=request.META.get('REMOTE_ADDR'),
+                changes={'status': 'CREDENTIALS_UPDATED_SUCCESSFULLY'}
+            )
+        except Exception:
+            pass
+
+        return Response({
+            'success': True,
+            'message': 'Password changed successfully.',
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': {
+                'id': request.user.id,
+                'name': request.user.get_full_name() or request.user.username,
+                'email': request.user.email,
+                'role': profile.role,
+                'must_change_password': False,
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class AdminResetUserPasswordView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminRole]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request, user_id):
+        serializer = AdminResetUserPasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        target_user = get_object_or_404(User, id=user_id)
+
+        # Super Admin protection
+        if target_user.is_superuser and not request.user.is_superuser:
+            return Response({
+                'success': False,
+                'message': 'Security policy violation: Only Super Administrators can reset credentials for another Super Administrator.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Self-reset protection
+        if target_user.id == request.user.id:
+            return Response({
+                'success': False,
+                'message': 'Administrators cannot reset their own password via assisted reset. Please use the Change Password menu.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        verification_reason = serializer.validated_data['verification_reason'].strip()
+
+        # Generate a cryptographically random, secure temporary password
+        import secrets
+        import string
+        chars = string.ascii_letters + string.digits
+        temp_password = 'WN#' + ''.join(secrets.choice(chars) for _ in range(10))
+
+        # Store password exclusively using Django's set_password()
+        target_user.set_password(temp_password)
+        target_user.save()
+
+        # Require user to change temporary password immediately upon login
+        profile, _ = UserProfile.objects.get_or_create(user=target_user)
+        profile.must_change_password = True
+        profile.save(update_fields=['must_change_password'])
+
+        # Record audit event containing actor, target, timestamp, action — NEVER the password
+        from .models import AdminAuditLog
+        try:
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                action='ADMIN_RESET_USER_PASSWORD',
+                resource_type='User',
+                resource_id=str(target_user.id),
+                ip_address=request.META.get('REMOTE_ADDR'),
+                changes={
+                    'target_username': target_user.username,
+                    'target_email': target_user.email,
+                    'target_role': profile.role,
+                    'verification_reason': verification_reason,
+                    'status': 'TEMPORARY_CREDENTIAL_ISSUED',
+                }
+            )
+        except Exception:
+            pass
+
+        # Return temporary password only once to the authorized admin
+        return Response({
+            'success': True,
+            'message': f'Temporary password generated for {target_user.get_full_name() or target_user.username}. Share this password securely with the user. They will be required to choose a new password upon login.',
+            'temporary_password': temp_password,
+            'user_id': target_user.id,
+            'user_email': target_user.email,
+            'user_name': target_user.get_full_name() or target_user.username,
+            'must_change_password': True,
+        }, status=status.HTTP_200_OK)
+
 
 
 
@@ -3304,6 +3445,7 @@ class AdminFranchiseDetailView(APIView):
             'success': True,
             'franchise': {
                 'id': franchise.id,
+                'user_id': franchise.user_id,
                 'business_name': franchise.business_name,
                 'owner_name': franchise.user.get_full_name() or franchise.user.username,
                 'email': franchise.user.email,

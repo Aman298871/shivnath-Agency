@@ -104,6 +104,11 @@ class UserProfile(models.Model):
         help_text="List of granular permissions for operational admins"
     )
 
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text="Requires user to change their temporary password immediately upon login."
+    )
+
     data_scope_type = models.CharField(
         max_length=30,
         choices=DATA_SCOPE_CHOICES,

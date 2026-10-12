@@ -7,6 +7,8 @@ from .views import (
     CurrentUserView,
     ForgotPasswordView,
     ResetPasswordView,
+    ChangePasswordView,
+    AdminResetUserPasswordView,
     PendingFranchiseListView,
     FranchiseListView,
     ApproveFranchiseView,
@@ -161,6 +163,16 @@ urlpatterns = [
         'reset-password/',
         ResetPasswordView.as_view(),
         name='reset_password'
+    ),
+    path(
+        'change-password/',
+        ChangePasswordView.as_view(),
+        name='change_password'
+    ),
+    path(
+        'users/<int:user_id>/reset-password/',
+        AdminResetUserPasswordView.as_view(),
+        name='admin_reset_user_password'
     ),
 
     path(

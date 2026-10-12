@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/services/auth_service.dart';
 import '../../core/theme/brand_colors.dart';
 import '../../core/theme/role_theme.dart';
 import '../../core/widgets/shivnath_logo.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
+class ForgotPasswordScreen extends StatelessWidget {
   final String? initialEmail;
   final String? initialRole;
 
@@ -17,116 +15,48 @@ class ForgotPasswordScreen extends StatefulWidget {
     this.initialRole,
   });
 
-  @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
-}
-
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final _emailPhoneController = TextEditingController();
-  final _codeController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  final _authService = AuthService();
-
-  final _requestFormKey = GlobalKey<FormState>();
-  final _resetFormKey = GlobalKey<FormState>();
-
-  int _step = 1; // 1 = Request Code, 2 = Enter Code & Reset Password
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
-  String _targetIdentifier = '';
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.initialEmail != null && widget.initialEmail!.isNotEmpty) {
-      _emailPhoneController.text = widget.initialEmail!;
-    }
-  }
-
-  @override
-  void dispose() {
-    _emailPhoneController.dispose();
-    _codeController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    super.dispose();
-  }
-
   RoleThemeConfig get roleConfig {
-    final role = widget.initialRole ?? '';
+    final role = initialRole ?? '';
     return RoleTheme.fromKey(role);
   }
 
-  void _showMessage(String message, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: isError ? BrandColors.red : BrandColors.greenDark,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-  }
-
-  Future<void> _handleRequestResetCode() async {
-    if (!(_requestFormKey.currentState?.validate() ?? false)) return;
-
-    setState(() => _isLoading = true);
-
-    final identifier = _emailPhoneController.text.trim();
-    _targetIdentifier = identifier;
-
-    final result = await _authService.forgotPassword(emailOrPhone: identifier);
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    if (result['success'] == true) {
-      final devCode = result['data']?['dev_reset_code'];
-      if (devCode != null && devCode.toString().isNotEmpty) {
-        _codeController.text = devCode.toString();
-        _showMessage('Verification code generated. Please enter your new password.');
-      } else {
-        _showMessage('Verification instructions have been generated.');
-      }
-
-      setState(() {
-        _step = 2;
-      });
+  Future<void> _makePhoneCall(BuildContext context, String phone) async {
+    final uri = Uri.parse('tel:$phone');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
     } else {
-      _showMessage(result['message']?.toString() ?? 'Failed to request password reset.', isError: true);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cannot initiate call to $phone')),
+        );
+      }
     }
   }
 
-  Future<void> _handleResetPassword() async {
-    if (!(_resetFormKey.currentState?.validate() ?? false)) return;
-
-    setState(() => _isLoading = true);
-
-    final token = _codeController.text.trim();
-    final newPassword = _passwordController.text;
-    final confirmPassword = _confirmPasswordController.text;
-
-    final result = await _authService.resetPassword(
-      emailOrPhone: _targetIdentifier.isNotEmpty ? _targetIdentifier : _emailPhoneController.text.trim(),
-      token: token,
-      newPassword: newPassword,
-      confirmPassword: confirmPassword,
-    );
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    if (result['success'] == true) {
-      _showMessage('Password reset successfully! You can now log in with your new password.');
-      Navigator.pop(context, true);
+  Future<void> _openWhatsApp(BuildContext context, String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    final uri = Uri.parse('https://wa.me/91$cleanPhone?text=Hello%20WaterNow%20Support,%20I%20need%20assistance%20with%20resetting%20my%20account%20password.');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      _showMessage(result['message']?.toString() ?? 'Failed to reset password. Please check your verification code.', isError: true);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open WhatsApp for $phone')),
+        );
+      }
+    }
+  }
+
+  Future<void> _sendEmail(BuildContext context, String email) async {
+    final uri = Uri.parse('mailto:$email?subject=WaterNow%20Password%20Reset%20Request');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open email app for $email')),
+        );
+      }
     }
   }
 
@@ -135,21 +65,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final cfg = roleConfig;
     final primaryThemeColor = cfg.primary;
 
+    const supportPhone = '+91 98765 43210';
+    const supportWhatsApp = '9876543210';
+    const supportEmail = 'support@waternow.in';
+
     return Scaffold(
       backgroundColor: BrandColors.white,
       appBar: AppBar(
         backgroundColor: BrandColors.white,
         elevation: 0,
         leading: IconButton(
-          onPressed: _isLoading
-              ? null
-              : () {
-                  if (_step == 2) {
-                    setState(() => _step = 1);
-                  } else {
-                    Navigator.pop(context);
-                  }
-                },
+          onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back_rounded, color: BrandColors.textPrimary),
         ),
         actions: const [
@@ -162,365 +88,280 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: _step == 1 ? _buildRequestStep(primaryThemeColor) : _buildResetStep(primaryThemeColor),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+
+              // Role Badge Icon
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: primaryThemeColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: primaryThemeColor.withValues(alpha: 0.3),
+                    width: 1.2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.shield_outlined,
+                  size: 32,
+                  color: primaryThemeColor,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Title
+              const Text(
+                'Forgot Password?',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: BrandColors.textPrimary,
+                  letterSpacing: -0.4,
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              Text(
+                'Assisted Account Recovery',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: primaryThemeColor,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Explanation Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: BrandColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: BrandColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.verified_user_rounded,
+                          size: 20,
+                          color: primaryThemeColor,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Verified Admin Assistance',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: BrandColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'To protect your orders, delivery routes, and account security, password resets are processed through verified administrative assistance.\n\nPlease contact our central operations desk or your assigned franchise administrator to verify your identity and receive a secure temporary password.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: BrandColors.textSecondary,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              const Text(
+                'Official Support Channels',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: BrandColors.textPrimary,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Channel 1: Phone
+              _buildChannelTile(
+                context: context,
+                icon: Icons.phone_in_talk_rounded,
+                iconColor: BrandColors.primaryBlue,
+                title: 'Phone Support Hotline',
+                subtitle: supportPhone,
+                actionLabel: 'Call Now',
+                onTap: () => _makePhoneCall(context, supportPhone),
+              ),
+
+              const SizedBox(height: 10),
+
+              // Channel 2: WhatsApp
+              _buildChannelTile(
+                context: context,
+                icon: Icons.chat_rounded,
+                iconColor: BrandColors.greenDark,
+                title: 'WhatsApp Official Helpdesk',
+                subtitle: 'Direct operational assistance',
+                actionLabel: 'Chat',
+                onTap: () => _openWhatsApp(context, supportWhatsApp),
+              ),
+
+              const SizedBox(height: 10),
+
+              // Channel 3: Email
+              _buildChannelTile(
+                context: context,
+                icon: Icons.email_outlined,
+                iconColor: BrandColors.textPrimary,
+                title: 'Email Support',
+                subtitle: supportEmail,
+                actionLabel: 'Email',
+                onTap: () => _sendEmail(context, supportEmail),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Security Guarantee Alert
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: BrandColors.warningSoft,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: BrandColors.warningDark.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.lock_clock_rounded,
+                      size: 20,
+                      color: BrandColors.warningDark,
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Security Notice: WaterNow officials will NEVER ask for your current password or UPI PIN. An authorized admin will only provide a temporary password after verifying your identity.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: BrandColors.warningDark,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // Return to login button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primaryThemeColor,
+                    side: BorderSide(color: primaryThemeColor, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Back to Login',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildRequestStep(Color primaryColor) {
-    return Form(
-      key: _requestFormKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 12),
-
-          // Header Icon
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: primaryColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: primaryColor.withValues(alpha: 0.3),
-                width: 1.2,
-              ),
-            ),
-            child: Icon(
-              Icons.lock_reset_rounded,
-              size: 32,
-              color: primaryColor,
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Title
-          const Text(
-            'Forgot Password?',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: BrandColors.textPrimary,
-              letterSpacing: -0.4,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          const Text(
-            'Enter your registered email address or phone number to receive a secure password reset verification code.',
-            style: TextStyle(
-              fontSize: 14,
-              color: BrandColors.textSecondary,
-              height: 1.45,
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          // Email / Phone Field
-          TextFormField(
-            controller: _emailPhoneController,
-            enabled: !_isLoading,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _handleRequestResetCode(),
-            decoration: InputDecoration(
-              labelText: 'Email Address or Mobile Number',
-              hintText: 'e.g. name@example.com or 9876543210',
-              prefixIcon: Icon(
-                Icons.person_outline_rounded,
-                color: primaryColor,
-                size: 20,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: primaryColor,
-                  width: 1.8,
-                ),
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter your registered email or phone';
-              }
-              return null;
-            },
-          ),
-
-          const SizedBox(height: 24),
-
-          // Submit Button
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: _isLoading ? null : _handleRequestResetCode,
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text(
-                      'Send Verification Code',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Return to login
-          Center(
-            child: TextButton.icon(
-              onPressed: _isLoading ? null : () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back_rounded, size: 16),
-              label: const Text(
-                'Back to Login',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ),
-        ],
+  Widget _buildChannelTile({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required String actionLabel,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: BrandColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: BrandColors.border),
       ),
-    );
-  }
-
-  Widget _buildResetStep(Color primaryColor) {
-    return Form(
-      key: _resetFormKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const SizedBox(height: 12),
-
-          // Header Icon
           Container(
-            width: 58,
-            height: 58,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: BrandColors.greenSoft,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: BrandColors.greenDark.withValues(alpha: 0.3),
-                width: 1.2,
-              ),
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
-              Icons.password_rounded,
-              size: 32,
-              color: BrandColors.greenDark,
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: BrandColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: BrandColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
-
-          const SizedBox(height: 20),
-
-          // Title
-          const Text(
-            'Set New Password',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: BrandColors.textPrimary,
-              letterSpacing: -0.4,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          Text(
-            'Enter the 6-digit verification code sent for ${_targetIdentifier.isNotEmpty ? _targetIdentifier : "your account"} and choose your new password.',
-            style: const TextStyle(
-              fontSize: 14,
-              color: BrandColors.textSecondary,
-              height: 1.45,
-            ),
-          ),
-
-          const SizedBox(height: 28),
-
-          // Verification Code Field
-          TextFormField(
-            controller: _codeController,
-            enabled: !_isLoading,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.next,
-            maxLength: 6,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 4,
-            ),
-            decoration: InputDecoration(
-              labelText: '6-Digit Verification Code',
-              counterText: '',
-              prefixIcon: Icon(
-                Icons.pin_outlined,
-                color: primaryColor,
-                size: 20,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: primaryColor,
-                  width: 1.8,
-                ),
+          ElevatedButton(
+            onPressed: onTap,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: iconColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: const Size(60, 34),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
-            validator: (value) {
-              if (value == null || value.trim().length < 6) {
-                return 'Enter the 6-digit verification code';
-              }
-              return null;
-            },
-          ),
-
-          const SizedBox(height: 16),
-
-          // New Password Field
-          TextFormField(
-            controller: _passwordController,
-            enabled: !_isLoading,
-            obscureText: _obscurePassword,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: 'New Password',
-              prefixIcon: Icon(
-                Icons.lock_outline_rounded,
-                color: primaryColor,
-                size: 20,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: primaryColor,
-                  width: 1.8,
-                ),
-              ),
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                icon: Icon(
-                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                  color: BrandColors.textSecondary,
-                ),
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.length < 6) {
-                return 'Password must be at least 6 characters';
-              }
-              return null;
-            },
-          ),
-
-          const SizedBox(height: 16),
-
-          // Confirm Password Field
-          TextFormField(
-            controller: _confirmPasswordController,
-            enabled: !_isLoading,
-            obscureText: _obscureConfirmPassword,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _handleResetPassword(),
-            decoration: InputDecoration(
-              labelText: 'Confirm New Password',
-              prefixIcon: Icon(
-                Icons.lock_reset_rounded,
-                color: primaryColor,
-                size: 20,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: primaryColor,
-                  width: 1.8,
-                ),
-              ),
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                icon: Icon(
-                  _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                  color: BrandColors.textSecondary,
-                ),
-              ),
-            ),
-            validator: (value) {
-              if (value != _passwordController.text) {
-                return 'Passwords do not match';
-              }
-              return null;
-            },
-          ),
-
-          const SizedBox(height: 24),
-
-          // Submit Reset Button
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: _isLoading ? null : _handleResetPassword,
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text(
-                      'Reset Password & Login',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Change Email / Resend
-          Center(
-            child: TextButton(
-              onPressed: _isLoading ? null : () => setState(() => _step = 1),
-              child: const Text(
-                'Change Email / Request New Code',
-                style: TextStyle(
-                  color: BrandColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            child: Text(
+              actionLabel,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             ),
           ),
         ],

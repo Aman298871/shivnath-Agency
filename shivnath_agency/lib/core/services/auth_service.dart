@@ -125,6 +125,102 @@ class AuthService {
   }
 
 
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/auth/change-password/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'current_password': currentPassword,
+          'new_password': newPassword,
+          'confirm_password': confirmPassword,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        if (decoded['access'] != null) {
+          await SessionService().saveTokens(
+            accessToken: decoded['access'].toString(),
+            refreshToken: decoded['refresh']?.toString() ?? decoded['access'].toString(),
+          );
+        }
+        if (decoded['user'] is Map) {
+          try {
+            final user = UserModel.fromJson(Map<String, dynamic>.from(decoded['user'] as Map));
+            await SessionService().saveUser(user);
+          } catch (_) {}
+        }
+        return {'success': true, 'data': decoded, 'message': decoded['message'] ?? 'Password changed successfully.'};
+      }
+      return {
+        'success': false,
+        'message': _extractError(decoded is Map<String, dynamic> ? decoded : {}),
+        'data': decoded,
+      };
+    } catch (_) {
+      return {'success': false, 'message': 'Unable to connect to server. Please try again.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> adminResetPassword({
+    required int userId,
+    required String verificationReason,
+  }) async {
+    final token = await SessionService().getAccessToken();
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/accounts/users/$userId/reset-password/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'verification_reason': verificationReason.trim(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return {
+          'success': true,
+          'data': decoded,
+          'temporary_password': decoded['temporary_password'],
+          'message': decoded['message'] ?? 'Temporary password generated.',
+        };
+      }
+      return {
+        'success': false,
+        'message': _extractError(decoded is Map<String, dynamic> ? decoded : {}),
+        'data': decoded,
+      };
+    } catch (_) {
+      return {'success': false, 'message': 'Unable to connect to server. Please try again.'};
+    }
+  }
+
   Future<Map<String, dynamic>> getDistricts() async {
     try {
       final uri = Uri.parse('$baseUrl/api/auth/territory-master/');

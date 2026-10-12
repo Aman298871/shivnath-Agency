@@ -10,6 +10,7 @@ import '../../core/theme/role_theme.dart';
 import '../../core/widgets/shivnath_logo.dart';
 import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
+import 'change_password_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -157,6 +158,15 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         isLoading = false;
       });
+
+      if (user.mustChangePassword) {
+        ChangePasswordDialog.show(
+          context,
+          userEmail: user.email,
+          onSuccess: () => _openDashboard(user.role),
+        );
+        return;
+      }
 
       _openDashboard(user.role);
     } catch (e) {

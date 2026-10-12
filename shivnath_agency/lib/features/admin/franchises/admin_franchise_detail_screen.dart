@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/auth_service.dart';
 import '../../../core/services/franchise_service.dart';
 import '../../../core/services/InventoryService.dart';
 import '../../../core/utils/app_toast.dart';
@@ -25,6 +27,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
     with SingleTickerProviderStateMixin {
   final FranchiseService _franchiseService = FranchiseService();
   final InventoryService _inventoryService = InventoryService();
+  final AuthService _authService = AuthService();
   bool isLoading = true;
   String? errorMessage;
   Map<String, dynamic>? detailData;
@@ -298,6 +301,14 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
         title: Text(widget.franchiseName),
         actions: [
           IconButton(
+            tooltip: 'Reset Password',
+            icon: const Icon(Icons.lock_reset, color: Color(0xFFD97706)),
+            onPressed: () {
+              final franchise = Map<String, dynamic>.from(detailData?['franchise'] as Map? ?? {});
+              _showFranchiseResetPasswordDialog(franchise);
+            },
+          ),
+          IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
             onPressed: () {
@@ -447,6 +458,18 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                           Text(
                             'Phone: ${franchise['phone'] ?? 'N/A'} • Email: ${franchise['email'] ?? 'N/A'}',
                             style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFB45309),
+                              side: const BorderSide(color: Color(0xFFF59E0B)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            icon: const Icon(Icons.lock_reset_rounded, size: 16),
+                            label: const Text('Reset Password (Admin Assisted)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            onPressed: () => _showFranchiseResetPasswordDialog(franchise),
                           ),
                         ],
                       ),
@@ -1891,5 +1914,250 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
     } else {
       AppToast.error(context, res['message']?.toString() ?? 'Failed to reject franchise');
     }
+  }
+
+  Future<void> _showFranchiseResetPasswordDialog(Map<String, dynamic> franchise) async {
+    final rawUserId = franchise['user_id'];
+    final userId = rawUserId is int ? rawUserId : int.tryParse(rawUserId?.toString() ?? '');
+    if (userId == null) {
+      AppToast.error(context, 'Unable to identify user account for this franchise.');
+      return;
+    }
+
+    final ownerName = (franchise['owner_name'] ?? 'Franchise Owner').toString();
+    final businessName = (franchise['business_name'] ?? widget.franchiseName).toString();
+    final reasonController = TextEditingController();
+    bool isSubmitting = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.shield_outlined, color: Colors.amber.shade900),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Franchise Password Reset',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Target Franchise: $businessName',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                Text(
+                  'Operator: $ownerName',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Security Requirements',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '• Generates a cryptographically random temporary password.\n'
+                        '• Forces franchise to set a new password upon login.\n'
+                        '• Terminates all active sessions for this franchise.\n'
+                        '• Identity verification will be permanently logged in audit trail.',
+                        style: TextStyle(fontSize: 12, color: Colors.amber.shade900, height: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Identity Verification Reason / Reference *',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: reasonController,
+                  maxLines: 2,
+                  enabled: !isSubmitting,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Verified authorized partner via registered contact and FSSAI/KYC documents',
+                    hintStyle: const TextStyle(fontSize: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.all(10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber.shade800,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final reason = reasonController.text.trim();
+                      if (reason.length < 5) {
+                        AppToast.error(context, 'Please enter a valid verification reason (min 5 chars).');
+                        return;
+                      }
+
+                      setDialogState(() => isSubmitting = true);
+                      final res = await _authService.adminResetPassword(
+                        userId: userId,
+                        verificationReason: reason,
+                      );
+                      setDialogState(() => isSubmitting = false);
+
+                      if (!mounted || !dialogCtx.mounted) return;
+                      Navigator.pop(dialogCtx);
+
+                      if (res['success'] == true && res['temporary_password'] != null) {
+                        _showTemporaryPasswordSuccessDialog(businessName, res['temporary_password'].toString());
+                      } else {
+                        AppToast.error(context, res['message']?.toString() ?? 'Failed to reset password.');
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Generate Temporary Password'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTemporaryPasswordSuccessDialog(String targetName, String tempPassword) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 28),
+            SizedBox(width: 10),
+            Text('Password Reset Successful', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Temporary password generated for $targetName:'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      tempPassword,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        letterSpacing: 1.5,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, color: Color(0xFF0284C7)),
+                    tooltip: 'Copy password',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: tempPassword));
+                      AppToast.success(context, 'Temporary password copied to clipboard!');
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 18, color: Colors.red.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'IMPORTANT: This temporary password is shown ONLY ONCE. Share it securely with the verified partner. It is never logged or retrievable again.',
+                      style: TextStyle(fontSize: 12, color: Colors.red.shade800, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Understood & Close'),
+          ),
+        ],
+      ),
+    );
   }
 }

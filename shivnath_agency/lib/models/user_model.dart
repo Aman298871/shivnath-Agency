@@ -20,6 +20,7 @@ class UserModel {
   final int? paymentTermsDays;
   final double? commissionPercentage;
   final String? dealerStatus;
+  final bool mustChangePassword;
 
   const UserModel({
     required this.id,
@@ -43,6 +44,7 @@ class UserModel {
     this.paymentTermsDays,
     this.commissionPercentage,
     this.dealerStatus,
+    this.mustChangePassword = false,
   });
 
   bool get isApproved => status.toLowerCase() == 'approved';
@@ -127,6 +129,7 @@ class UserModel {
       paymentTermsDays: pTerms,
       commissionPercentage: commPct,
       dealerStatus: dStatus,
+      mustChangePassword: json['must_change_password'] == true,
     );
   }
 
@@ -138,6 +141,7 @@ class UserModel {
       'role': role,
       'phone': phone,
       'status': status,
+      'must_change_password': mustChangePassword,
       'rejection_reason': rejectionReason,
       'business_name': businessName,
       'city': city,

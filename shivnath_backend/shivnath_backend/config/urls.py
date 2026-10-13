@@ -133,6 +133,10 @@ urlpatterns = [
         "api/chat/",
         include("chat.urls"),
     ),
+    path(
+        "api/reports/",
+        include("reports.urls"),
+    ),
 ]
 
 if settings.MEDIA_ROOT:

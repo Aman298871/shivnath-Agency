@@ -3,7 +3,14 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/services/OrderService.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
-  const AdminOrdersScreen({super.key});
+  final String? initialOrderCode;
+  final String? initialFilter;
+
+  const AdminOrdersScreen({
+    super.key,
+    this.initialOrderCode,
+    this.initialFilter,
+  });
 
   @override
   State<AdminOrdersScreen> createState() => _AdminOrdersScreenState();
@@ -11,6 +18,7 @@ class AdminOrdersScreen extends StatefulWidget {
 
 class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   final OrderService _orderService = OrderService();
+  late final TextEditingController _searchController;
 
   List<Map<String, dynamic>> orders = [];
 
@@ -22,11 +30,26 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   };
 
   bool isLoading = true;
+  String search = '';
+  String filter = 'All';
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialOrderCode != null && widget.initialOrderCode!.isNotEmpty) {
+      search = widget.initialOrderCode!.trim();
+    }
+    _searchController = TextEditingController(text: search);
+    if (widget.initialFilter != null && widget.initialFilter!.isNotEmpty) {
+      filter = widget.initialFilter!;
+    }
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -64,20 +87,51 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     setState(() {
       isLoading = false;
     });
+
+    // If an initial order code was requested, automatically pop up its detail view!
+    if (widget.initialOrderCode != null && widget.initialOrderCode!.trim().isNotEmpty) {
+      final rawTarget = widget.initialOrderCode!.trim();
+      final cleanTarget = rawTarget.replaceAll('#', '').toLowerCase().trim();
+      final targetDigits = cleanTarget.replaceAll(RegExp(r'[^0-9]'), '');
+
+      final match = orders.firstWhere(
+        (o) {
+          final ordIdStr = (o['orderId'] ?? '').toString().replaceAll('#', '').toLowerCase().trim();
+          final dbIdStr = (o['id'] ?? '').toString().trim();
+          if (ordIdStr.isNotEmpty && ordIdStr == cleanTarget) return true;
+          if (dbIdStr.isNotEmpty && (cleanTarget == dbIdStr || (targetDigits.isNotEmpty && targetDigits == dbIdStr))) return true;
+          if (ordIdStr.isNotEmpty && (ordIdStr.contains(cleanTarget) || (cleanTarget.length > 3 && cleanTarget.contains(ordIdStr)))) return true;
+          return false;
+        },
+        orElse: () => {},
+      );
+      if (match.isNotEmpty && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _viewOrderDetails(match);
+          }
+        });
+      }
+    }
   }
 
-  String search = '';
-  String filter = 'All';
-
   List<Map<String, dynamic>> get filtered {
-    final q = search.toLowerCase();
+    final q = search.replaceAll('#', '').toLowerCase().trim();
 
     return orders.where((order) {
+      final ordId = order['orderId'].toString().replaceAll('#', '').toLowerCase();
+      final dbId = (order['id'] ?? '').toString().toLowerCase();
+      final cust = (order['customer_name'] ?? '').toString().toLowerCase();
+      final fran = (order['franchise'] ?? '').toString().toLowerCase();
+      final city = (order['city'] ?? '').toString().toLowerCase();
+
       final matches =
           q.isEmpty ||
-          order['orderId'].toString().toLowerCase().contains(q) ||
-          order['franchise'].toString().toLowerCase().contains(q) ||
-          order['city'].toString().toLowerCase().contains(q);
+          ordId.contains(q) ||
+          dbId == q ||
+          cust.contains(q) ||
+          fran.contains(q) ||
+          city.contains(q);
 
       final status = filter == 'All' || order['status'] == filter;
 
@@ -218,10 +272,20 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
   Widget _search() {
     return TextField(
+      controller: _searchController,
       onChanged: (v) => setState(() => search = v),
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         hintText: 'Search order, franchise or city...',
-        prefixIcon: Icon(Icons.search),
+        prefixIcon: const Icon(Icons.search),
+        suffixIcon: search.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() => search = '');
+                },
+              )
+            : null,
       ),
     );
   }

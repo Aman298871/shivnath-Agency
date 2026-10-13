@@ -14,6 +14,13 @@ from .views import (
     RazorpayStatusAPIView,
     OrderLifecycleRepairView,
 )
+from .wallet_views import (
+    WalletDetailAPIView,
+    WalletRechargeInitiateAPIView,
+    WalletRechargeVerifyAPIView,
+    WalletPayOrderAPIView,
+    WalletTransactionListAPIView,
+)
 
 urlpatterns = [
     path('', OrderListCreateView.as_view()),
@@ -28,4 +35,10 @@ urlpatterns = [
     path('<int:pk>/', OrderDetailView.as_view()),
     path('<int:pk>/status/', OrderStatusUpdateView.as_view()),
     path('stats/', OrderStatsView.as_view()),
+    # Prepaid My Water Wallet endpoints
+    path('wallet/', WalletDetailAPIView.as_view(), name='wallet-detail'),
+    path('wallet/recharge/', WalletRechargeInitiateAPIView.as_view(), name='wallet-recharge-initiate'),
+    path('wallet/verify-recharge/', WalletRechargeVerifyAPIView.as_view(), name='wallet-recharge-verify'),
+    path('wallet/pay-order/', WalletPayOrderAPIView.as_view(), name='wallet-pay-order'),
+    path('wallet/transactions/', WalletTransactionListAPIView.as_view(), name='wallet-transactions'),
 ]

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/services/InventoryService.dart';
 import '../../../core/services/OrderService.dart';
 import '../../../core/services/session_service.dart';
+import '../../../core/services/report_service.dart';
 import '../../../core/theme/brand_colors.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../models/user_model.dart';
@@ -34,10 +35,12 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
   final OrderService _orderService = OrderService();
   final InventoryService _invService = InventoryService();
   final SessionService _sessionService = SessionService();
+  final ReportService _reportService = ReportService();
 
   late TabController _tabController;
 
   bool _loading = false;
+  bool _isExporting = false;
   String? _error;
   UserModel? _currentUser;
 
@@ -233,12 +236,30 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
     }
   }
 
+  String _sanitizeCsv(dynamic value) {
+    if (value == null) return '';
+    var str = value.toString();
+    if (str.startsWith('=') ||
+        str.startsWith('+') ||
+        str.startsWith('-') ||
+        str.startsWith('@') ||
+        str.startsWith('\t') ||
+        str.startsWith('\r')) {
+      str = "'$str";
+    }
+    return str.replaceAll('"', '""');
+  }
+
   Future<void> _exportFranchiseCsv() async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+
     try {
       final buffer = StringBuffer();
+      buffer.write('\uFEFF'); // Excel UTF-8 BOM
       buffer.writeln('SHIVNATH FRANCHISE - PERFORMANCE REPORT');
-      buffer.writeln('Franchise,${_currentUser?.name ?? "Dealer"}');
-      buffer.writeln('Period,$_customRangeLabel');
+      buffer.writeln('Franchise,"${_sanitizeCsv(_currentUser?.name ?? "Dealer")}"');
+      buffer.writeln('Period,"${_sanitizeCsv(_customRangeLabel)}"');
       buffer.writeln('Exported At,${DateTime.now().toIso8601String()}');
       buffer.writeln();
 
@@ -253,12 +274,12 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
       buffer.writeln('--- TERRITORY ORDERS ---');
       buffer.writeln('Order Code,Customer,Status,Payment,Total Amount,Created At');
       for (final o in _orders) {
-        final code = o['order_code'] ?? o['id'] ?? '';
-        final cust = o['customer_name'] ?? o['customer'] ?? '';
-        final st = o['status'] ?? '';
-        final pay = o['payment'] ?? o['payment_status'] ?? '';
+        final code = _sanitizeCsv(o['order_code'] ?? o['id'] ?? '');
+        final cust = _sanitizeCsv(o['customer_name'] ?? o['customer'] ?? '');
+        final st = _sanitizeCsv(o['status'] ?? '');
+        final pay = _sanitizeCsv(o['payment'] ?? o['payment_status'] ?? '');
         final tot = o['total'] ?? o['total_amount'] ?? 0;
-        final dt = o['created_at'] ?? '';
+        final dt = _sanitizeCsv(o['created_at'] ?? '');
         buffer.writeln('"$code","$cust","$st","$pay",$tot,"$dt"');
       }
       buffer.writeln();
@@ -266,36 +287,75 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
       buffer.writeln('--- STOCK REPLENISHMENT REQUESTS ---');
       buffer.writeln('Request #,Product,Requested Qty,Approved Qty,Dispatched Qty,Status,Date');
       for (final r in _stockRequests) {
-        final num = r['request_number'] ?? r['id'] ?? '';
-        final prod = r['product_name'] ?? r['product'] ?? '';
+        final num = _sanitizeCsv(r['request_number'] ?? r['id'] ?? '');
+        final prod = _sanitizeCsv(r['product_name'] ?? r['product'] ?? '');
         final reqQty = r['requested_quantity'] ?? 0;
         final appQty = r['approved_quantity'] ?? 0;
         final dispQty = r['dispatched_quantity'] ?? 0;
-        final st = r['status'] ?? '';
-        final dt = r['created_at'] ?? '';
+        final st = _sanitizeCsv(r['status'] ?? '');
+        final dt = _sanitizeCsv(r['created_at'] ?? '');
         buffer.writeln('"$num","$prod",$reqQty,$appQty,$dispQty,"$st","$dt"');
       }
 
-      final bytes = Uint8List.fromList(utf8.encode(buffer.toString()));
-      final now = DateTime.now();
-      final fileName = 'franchise_report_${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}';
+      final fallbackBytes = Uint8List.fromList(utf8.encode(buffer.toString()));
 
-      await FileSaver.instance.saveFile(
-        name: fileName,
-        bytes: bytes,
-        ext: 'csv',
-        mimeType: MimeType.csv,
+      final result = await _reportService.exportReport(
+        reportType: 'franchise_performance',
+        period: _selectedPeriod.name,
+        startDate: _startDate != null ? DateTime.tryParse(_startDate!) : null,
+        endDate: _endDate != null ? DateTime.tryParse(_endDate!) : null,
+        fallbackLocalBytes: fallbackBytes,
+        openAfterDownload: true,
       );
 
       if (!mounted) return;
-      AppToast.success(
-        context,
-        'Franchise CSV report exported successfully.',
-        title: 'Export Complete',
-      );
+
+      if (result.success) {
+        AppToast.success(
+          context,
+          result.message,
+          title: 'Report Downloaded',
+        );
+
+        if (result.filePath != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              duration: const Duration(seconds: 8),
+              backgroundColor: const Color(0xFF0F172A),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Color(0xFF38BDF8), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Saved: ${result.fileName}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              action: SnackBarAction(
+                label: 'SHARE',
+                textColor: const Color(0xFF38BDF8),
+                onPressed: () {
+                  _reportService.shareReportFile(result.filePath!, fileName: result.fileName);
+                },
+              ),
+            ),
+          );
+        }
+      } else {
+        AppToast.error(context, result.message, title: 'Export Error');
+      }
     } catch (e) {
       if (!mounted) return;
       AppToast.error(context, 'Export failed: $e', title: 'Export Error');
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
     }
   }
 
@@ -348,14 +408,29 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
                 tooltip: 'Refresh Reports',
                 onPressed: _loadReportsData,
               ),
-              IconButton(
-                icon: const Icon(
-                  Icons.file_download_outlined,
-                  color: Color(0xFF475569),
+              if (_isExporting)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(BrandColors.primaryBlue),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                IconButton(
+                  icon: const Icon(
+                    Icons.file_download_outlined,
+                    color: Color(0xFF475569),
+                  ),
+                  tooltip: 'Export CSV Report',
+                  onPressed: _exportFranchiseCsv,
                 ),
-                tooltip: 'Export CSV Report',
-                onPressed: _exportFranchiseCsv,
-              ),
               const SizedBox(width: 8),
             ],
             bottom: PreferredSize(

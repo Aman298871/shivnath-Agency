@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 from products.models import Product
@@ -478,3 +479,156 @@ class OrderStatusHistory(models.Model):
 
     def __str__(self):
         return f'ORD-{self.order.id}: {self.old_status} -> {self.new_status}'
+
+
+class Wallet(models.Model):
+    """
+    Authoritative server-managed prepaid wallet for a customer.
+    Balance represents the verified available funds for order payments.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='water_wallet'
+    )
+    balance = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Authoritative server-managed wallet balance in INR"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Water Wallet'
+        verbose_name_plural = 'Water Wallets'
+
+    def __str__(self):
+        return f"Wallet ({self.user.username}): ₹{self.balance}"
+
+    def reconcile_balance(self):
+        """
+        Audit function: Recomputes balance directly from the immutable transaction ledger.
+        Ensures consistency between cached balance and ledger history.
+        """
+        from django.db.models import Sum
+        credits = self.transactions.filter(
+            status='SUCCESS',
+            transaction_type__in=['RECHARGE', 'ORDER_REFUND', 'ADMIN_ADJUSTMENT']
+        ).aggregate(s=Sum('amount'))['s'] or Decimal('0.00')
+
+        debits = self.transactions.filter(
+            status='SUCCESS',
+            transaction_type='ORDER_DEBIT'
+        ).aggregate(s=Sum('amount'))['s'] or Decimal('0.00')
+
+        computed = credits - debits
+        return computed == self.balance, computed
+
+
+class WalletTransaction(models.Model):
+    """
+    Immutable ledger of every wallet credit, debit, refund, or adjustment.
+    """
+    TRANSACTION_TYPE_CHOICES = [
+        ('RECHARGE', 'Wallet Top-up / Recharge'),
+        ('ORDER_DEBIT', 'Order Payment Debit'),
+        ('ORDER_REFUND', 'Order Cancellation Refund'),
+        ('ADMIN_ADJUSTMENT', 'Authorized Admin Adjustment'),
+    ]
+
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending Payment / Processing'),
+        ('SUCCESS', 'Success / Completed'),
+        ('FAILED', 'Failed / Cancelled'),
+        ('REVERSED', 'Reversed'),
+    ]
+
+    transaction_id = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
+        help_text="Unique internal transaction reference (e.g. WTX-YYYYMMDD-UUID)"
+    )
+    wallet = models.ForeignKey(
+        Wallet,
+        on_delete=models.CASCADE,
+        related_name='transactions'
+    )
+    transaction_type = models.CharField(
+        max_length=30,
+        choices=TRANSACTION_TYPE_CHOICES,
+        db_index=True
+    )
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Transaction amount in INR (always positive)"
+    )
+    balance_after = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Snapshot of wallet balance after this transaction completed"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PENDING',
+        db_index=True
+    )
+    # Payment gateway fields (used for RECHARGE)
+    razorpay_order_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text="Razorpay Order ID"
+    )
+    razorpay_payment_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text="Authoritative Razorpay Payment ID"
+    )
+    razorpay_signature = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Cryptographic HMAC signature from Razorpay"
+    )
+    # Order association (used for ORDER_DEBIT and ORDER_REFUND)
+    order = models.ForeignKey(
+        'orders.Order',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='wallet_transactions'
+    )
+    idempotency_key = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Client or server idempotency key to prevent replay attacks"
+    )
+    description = models.TextField(
+        blank=True,
+        default=''
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['wallet', '-created_at']),
+            models.Index(fields=['status', 'transaction_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.transaction_id} ({self.transaction_type}): ₹{self.amount} [{self.status}]"

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/services/InventoryService.dart';
+import '../../../core/services/report_service.dart';
 import '../../../core/widgets/app_toast.dart';
 
 import 'daily_pl_report_screen.dart';
@@ -19,10 +20,12 @@ class AdminReportsScreen extends StatefulWidget {
 
 class _AdminReportsScreenState extends State<AdminReportsScreen> {
   final InventoryService _inventoryService = InventoryService();
+  final ReportService _reportService = ReportService();
 
   String period = 'THIS MONTH';
   DateTime? customStartDate;
   DateTime? customEndDate;
+  bool _isExporting = false;
   bool isLoading = false;
 
   Map<String, dynamic> summary = {};
@@ -254,11 +257,17 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
-        onPressed: _exportReport,
-        icon: const Icon(Icons.download_outlined, size: 18),
-        label: const Text(
-          'Export CSV',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        onPressed: _isExporting ? null : _exportReport,
+        icon: _isExporting
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.download_outlined, size: 18),
+        label: Text(
+          _isExporting ? 'Exporting...' : 'Export CSV',
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         ),
       ),
     );
@@ -1506,8 +1515,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   // =========================================================
 
   Future<void> _exportReport() async {
+    setState(() => _isExporting = true);
     try {
       final buffer = StringBuffer();
+      // UTF-8 BOM for Microsoft Excel
+      buffer.write('\uFEFF');
       buffer.writeln('SHIVNATH AGENCY - BUSINESS REPORT');
       buffer.writeln('Period,$period');
       if (customStartDate != null && customEndDate != null) {
@@ -1564,27 +1576,65 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         );
       }
 
-      final bytes = Uint8List.fromList(utf8.encode(buffer.toString()));
-      final now = DateTime.now();
-      final fileName =
-          'shivnath_report_${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}';
+      final fallbackBytes = Uint8List.fromList(utf8.encode(buffer.toString()));
 
-      await FileSaver.instance.saveFile(
-        name: fileName,
-        bytes: bytes,
-        ext: 'csv',
-        mimeType: MimeType.csv,
+      final result = await _reportService.exportReport(
+        reportType: 'comprehensive',
+        period: period,
+        startDate: customStartDate,
+        endDate: customEndDate,
+        fallbackLocalBytes: fallbackBytes,
+        openAfterDownload: true,
       );
 
       if (!mounted) return;
-      AppToast.success(
-        context,
-        '$period report exported successfully.',
-        title: 'Export Complete',
-      );
+
+      if (result.success) {
+        AppToast.success(
+          context,
+          result.message,
+          title: 'Report Downloaded',
+        );
+
+        if (result.filePath != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              duration: const Duration(seconds: 8),
+              backgroundColor: const Color(0xFF0F172A),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Color(0xFF38BDF8), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Saved: ${result.fileName}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              action: SnackBarAction(
+                label: 'SHARE',
+                textColor: const Color(0xFF38BDF8),
+                onPressed: () {
+                  _reportService.shareReportFile(result.filePath!, fileName: result.fileName);
+                },
+              ),
+            ),
+          );
+        }
+      } else {
+        AppToast.error(context, result.message, title: 'Export Error');
+      }
     } catch (e) {
       if (!mounted) return;
       AppToast.error(context, 'Export failed: $e', title: 'Export Error');
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
     }
   }
 

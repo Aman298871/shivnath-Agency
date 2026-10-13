@@ -71,11 +71,16 @@ class OrderListCreateView(APIView):
 
         search = request.query_params.get('search', '').strip()
         if search:
-            orders = orders.filter(
+            clean_search = search.replace('ORD-', '').replace('ord-', '').replace('#', '').strip()
+            search_filters = (
                 Q(franchise_name__icontains=search)
                 | Q(city__icontains=search)
-                | Q(id__icontains=search)
+                | Q(customer_name__icontains=search)
+                | Q(client_name__icontains=search)
             )
+            if clean_search.isdigit():
+                search_filters |= Q(id=int(clean_search))
+            orders = orders.filter(search_filters)
 
         order_status = request.query_params.get('status', '').strip()
         if order_status:

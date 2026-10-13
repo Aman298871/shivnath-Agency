@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../customer/orders/order_detail_screen.dart';
 
 class AdminNotificationsScreen extends StatefulWidget {
   const AdminNotificationsScreen({super.key});
@@ -338,127 +339,174 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     final unread = item['is_read'] == false || item['read'] == false;
     final type = (item['notification_type'] ?? item['type'] ?? 'general').toString();
     final time = (item['created_at'] ?? item['time'] ?? '').toString();
+    final title = (item['title'] ?? '').toString();
+    final isOrderNotif = type == 'order' || type == 'bulk_order' || type == 'order_placed' || title.toLowerCase().contains('order');
+    final rawRefId = item['reference_id'] ?? item['order_id'];
+    final refId = rawRefId is int ? rawRefId : int.tryParse('$rawRefId') ?? 0;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: unread ? const Color(0xFFF8FAFF) : Colors.white,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: _typeColor(type).withAlpha(30),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              _typeIcon(type),
-              size: 20,
-              color: _typeColor(type),
+    void handleTap() async {
+      if (unread) {
+        final notifId = item['id'] is int ? item['id'] as int : null;
+        setState(() {
+          item['is_read'] = true;
+          item['read'] = true;
+        });
+        if (notifId != null) {
+          _authService.markNotificationsAsRead(id: notifId);
+        }
+      }
+      if (isOrderNotif && refId > 0) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OrderDetailScreen(
+              orderId: 'ORD-$refId',
+              dbId: refId,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        );
+      }
+    }
+
+    return Material(
+      color: unread ? const Color(0xFFF8FAFF) : Colors.white,
+      child: InkWell(
+        onTap: handleTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _typeColor(type).withAlpha(30),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  _typeIcon(type),
+                  size: 20,
+                  color: _typeColor(type),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        item['title'] ?? 'Notification',
-                        style: TextStyle(
-                          fontWeight:
-                              unread ? FontWeight.w800 : FontWeight.w600,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            item['title'] ?? 'Notification',
+                            style: TextStyle(
+                              fontWeight:
+                                  unread ? FontWeight.w800 : FontWeight.w600,
+                            ),
+                          ),
                         ),
+                        if (unread) ...[
+                          const SizedBox(width: 7),
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF0284C7),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                        if (isOrderNotif && refId > 0) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE0F2FE),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'TAP TO VIEW',
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      item['message'] ?? '',
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
                       ),
                     ),
-                    if (unread) ...[
-                      const SizedBox(width: 7),
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF0284C7),
-                          shape: BoxShape.circle,
+                    if (time.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        time,
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 10,
                         ),
                       ),
                     ],
                   ],
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  item['message'] ?? '',
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 12,
-                  ),
-                ),
-                if (time.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    time,
-                    style: const TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 10,
+              ),
+              const SizedBox(width: 10),
+              Column(
+                children: [
+                  if (unread)
+                    TextButton(
+                      onPressed: () async {
+                        final notifId = item['id'] is int ? item['id'] as int : null;
+                        setState(() {
+                          item['is_read'] = true;
+                          item['read'] = true;
+                        });
+                        if (notifId != null) {
+                          await _authService.markNotificationsAsRead(id: notifId);
+                        }
+                        if (mounted) {
+                          AppToast.success(
+                            context,
+                            'Notification marked as read.',
+                            title: 'Notification Read',
+                          );
+                        }
+                      },
+                      child: const Text(
+                        'Mark Read',
+                        style: TextStyle(fontSize: 10),
+                      ),
+                    ),
+                  IconButton(
+                    tooltip: 'Delete',
+                    onPressed: () {
+                      final title = (item['title'] ?? 'Notification').toString();
+                      setState(() {
+                        notifications.removeWhere(
+                          (e) => e['id'] == item['id'],
+                        );
+                      });
+                      AppToast.success(
+                        context,
+                        '$title dismissed.',
+                        title: 'Notification Dismissed',
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                      size: 18,
                     ),
                   ),
                 ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Column(
-            children: [
-              if (unread)
-                TextButton(
-                  onPressed: () async {
-                    final notifId = item['id'] is int ? item['id'] as int : null;
-                    setState(() {
-                      item['is_read'] = true;
-                      item['read'] = true;
-                    });
-                    if (notifId != null) {
-                      await _authService.markNotificationsAsRead(id: notifId);
-                    }
-                    if (mounted) {
-                      AppToast.success(
-                        context,
-                        'Notification marked as read.',
-                        title: 'Notification Read',
-                      );
-                    }
-                  },
-                  child: const Text(
-                    'Mark Read',
-                    style: TextStyle(fontSize: 10),
-                  ),
-                ),
-              IconButton(
-                tooltip: 'Delete',
-                onPressed: () {
-                  final title = (item['title'] ?? 'Notification').toString();
-                  setState(() {
-                    notifications.removeWhere(
-                      (e) => e['id'] == item['id'],
-                    );
-                  });
-                  AppToast.success(
-                    context,
-                    '$title dismissed.',
-                    title: 'Notification Dismissed',
-                  );
-                },
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.red,
-                  size: 18,
-                ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

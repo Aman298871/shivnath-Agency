@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/services/OrderService.dart';
+import '../../../core/services/session_service.dart';
 import '../../../core/theme/brand_colors.dart';
 import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/product_thumbnail.dart';
@@ -28,35 +29,65 @@ class OrderDetailScreen extends StatefulWidget {
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   final OrderService _orderService = OrderService();
+  final SessionService _sessionService = SessionService();
   Map<String, dynamic>? _order;
   bool _loading = false;
+  bool _updatingStatus = false;
   String? _error;
+  String? _userRole;
+
+  bool get _isAdminOrStaff {
+    final r = (_userRole ?? '').toLowerCase();
+    return r == 'admin' || r == 'super_admin' || r == 'staff' || r == 'franchise';
+  }
 
   @override
   void initState() {
     super.initState();
+    _loadUserRole();
     if (widget.initialOrder != null) {
       _order = Map<String, dynamic>.from(widget.initialOrder!);
     }
     _fetchLatestOrder();
   }
 
+  Future<void> _loadUserRole() async {
+    try {
+      final user = await _sessionService.getUser();
+      if (user != null && mounted) {
+        setState(() {
+          _userRole = user.role;
+        });
+      }
+    } catch (_) {}
+  }
+
   int? get _resolvedDbId {
-    if (widget.dbId != null) return widget.dbId;
+    if (widget.dbId != null && widget.dbId! > 0) return widget.dbId;
     if (_order != null && _order!['id'] != null) {
-      return int.tryParse(_order!['id'].toString());
+      final parsed = int.tryParse(_order!['id'].toString());
+      if (parsed != null && parsed > 0) return parsed;
     }
     final raw = widget.orderId.replaceAll('ORD-', '').replaceAll('#', '').trim();
     final parsed = int.tryParse(raw);
-    if (parsed != null && parsed > 1000) {
-      return parsed - 1000;
-    }
     return parsed;
   }
 
   Future<void> _fetchLatestOrder() async {
-    final id = _resolvedDbId;
-    if (id == null) return;
+    int? id = _resolvedDbId;
+    if (id == null || id <= 0) {
+      try {
+        final searchRes = await _orderService.getOrders(search: widget.orderId);
+        if (searchRes['success'] == true && searchRes['data'] != null) {
+          final List ordersList = searchRes['data']['orders'] ?? (searchRes['data'] is List ? searchRes['data'] : []);
+          if (ordersList.isNotEmpty) {
+            final first = ordersList.first;
+            id = first['id'] is int ? first['id'] as int : int.tryParse('${first['id']}');
+          }
+        }
+      } catch (_) {}
+    }
+    if (id == null || id <= 0) return;
 
     if (_order == null) {
       setState(() => _loading = true);
@@ -162,6 +193,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                     children: [
                       _buildHeaderCard(),
+                      if (_isAdminOrStaff) ...[
+                        const SizedBox(height: 16),
+                        _buildAdminActionsCard(),
+                      ],
                       const SizedBox(height: 16),
                       _buildFulfillmentCard(),
                       const SizedBox(height: 16),
@@ -179,6 +214,229 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                 ),
     );
+  }
+
+  Widget _buildAdminActionsCard() {
+    final curStatus = (_order?['status'] ?? widget.status ?? 'Order Placement').toString();
+    final lower = curStatus.toLowerCase();
+    final dbId = _resolvedDbId;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFBAE6FD), width: 1.5),
+      ),
+      color: const Color(0xFFF0F9FF),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0284C7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.admin_panel_settings_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ADMIN ORDER OPERATIONS',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0369A1),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        'Current Stage: $curStatus',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_updatingStatus)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(color: Color(0xFFBAE6FD)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.published_with_changes_rounded, size: 18),
+                  label: const Text(
+                    'UPDATE STATUS / FULFILL',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
+                  onPressed: (_updatingStatus || dbId == null) ? null : () => _showStatusUpdateDialog(dbId, curStatus),
+                ),
+                if (lower.contains('placement') || lower.contains('pending'))
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D9488),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                    icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                    label: const Text(
+                      'APPROVE ORDER',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                    onPressed: (_updatingStatus || dbId == null) ? null : () => _performStatusUpdate(dbId, 'Plant Approval'),
+                  ),
+                if (lower.contains('approval') || lower.contains('prep'))
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                    icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                    label: const Text(
+                      'DISPATCH ORDER',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                    onPressed: (_updatingStatus || dbId == null) ? null : () => _performStatusUpdate(dbId, 'Dispatch'),
+                  ),
+                if (lower.contains('dispatch'))
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                    icon: const Icon(Icons.task_alt_rounded, size: 18),
+                    label: const Text(
+                      'CONFIRM DELIVERED',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                    onPressed: (_updatingStatus || dbId == null) ? null : () => _performStatusUpdate(dbId, 'Delivered'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _performStatusUpdate(int id, String newStatus) async {
+    setState(() => _updatingStatus = true);
+    try {
+      final res = await _orderService.updateOrderStatus(id, newStatus);
+      if (!mounted) return;
+      if (res['success'] == true) {
+        AppToast.success(context, 'Order transitioned to $newStatus successfully!');
+        await _fetchLatestOrder();
+      } else {
+        AppToast.error(context, res['message'] ?? 'Failed to update order status.');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, 'Network error updating status: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _updatingStatus = false);
+    }
+  }
+
+  Future<void> _showStatusUpdateDialog(int id, String currentStatus) async {
+    const statuses = [
+      'Order Placement',
+      'Plant Approval',
+      'Preparing',
+      'Invoice Generated',
+      'Dispatch',
+      'Delivered',
+      'Cancelled',
+    ];
+
+    String selected = currentStatus;
+    if (!statuses.contains(selected)) {
+      selected = statuses.first;
+    }
+
+    final updated = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        String val = selected;
+        return StatefulBuilder(
+          builder: (context, setDlgState) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Update Order Status', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Select target lifecycle stage:', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: statuses.contains(val) ? val : statuses.first,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  items: statuses.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(),
+                  onChanged: (nv) {
+                    if (nv != null) setDlgState(() => val = nv);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => Navigator.pop(ctx, val),
+                child: const Text('Apply Status'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (updated != null && updated.isNotEmpty && mounted) {
+      await _performStatusUpdate(id, updated);
+    }
   }
 
   Widget _buildHeaderCard() {

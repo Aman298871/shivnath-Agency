@@ -30,6 +30,7 @@ import 'dashboard/admin_performance_screen.dart';
 import 'settings/admin_settings_screen.dart';
 import 'notifications/admin_notifications_screen.dart';
 import 'profile/admin_profile_screen.dart';
+import '../customer/orders/order_detail_screen.dart';
 import '../../models/user_model.dart';
 
 class AdminMainScreen extends StatefulWidget {
@@ -42,6 +43,7 @@ class AdminMainScreen extends StatefulWidget {
 class _AdminMainScreenState extends State<AdminMainScreen> {
   int currentIndex = 0;
   String? _targetBatchNumber;
+  String? _targetOrderCode;
   UserModel? _currentUser;
   Timer? _orderPollTimer;
   int _lastMaxOrderId = 0;
@@ -135,60 +137,77 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     final orderNum = order['order_id'] ?? order['id'] ?? 'New';
     final cust = order['customer_name'] ?? 'Customer';
     final amt = order['total_amount'] ?? order['amount'] ?? '';
+    final rawId = order['id'] is int ? order['id'] as int : int.tryParse('${order['id']}') ?? 0;
+    final codeStr = orderNum.toString();
+
+    void openThisOrder() {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OrderDetailScreen(
+            orderId: codeStr,
+            initialOrder: order,
+            dbId: rawId,
+          ),
+        ),
+      );
+    }
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        duration: const Duration(seconds: 8),
+        duration: const Duration(seconds: 10),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF0F172A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: Row(
-          children: [
-            const Icon(
-              Icons.notifications_active_rounded,
-              color: Color(0xFF38BDF8),
-              size: 26,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isPendingOnLogin
-                        ? (pendingCount > 1
-                            ? '$pendingCount PENDING ORDERS TO FULFILL'
-                            : 'NEW ORDER AWAITING FULFILLMENT!')
-                        : 'NEW ORDER RECEIVED!',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Order #$orderNum from $cust • ₹$amt',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF94A3B8),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+        content: InkWell(
+          onTap: openThisOrder,
+          child: Row(
+            children: [
+              const Icon(
+                Icons.notifications_active_rounded,
+                color: Color(0xFF38BDF8),
+                size: 26,
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isPendingOnLogin
+                          ? (pendingCount > 1
+                              ? '$pendingCount PENDING ORDERS TO FULFILL'
+                              : 'NEW ORDER AWAITING FULFILLMENT!')
+                          : 'NEW ORDER RECEIVED!',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Order #$orderNum from $cust • ₹$amt (Tap to open)',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF94A3B8),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         action: SnackBarAction(
-          label: 'VIEW ORDERS',
+          label: 'OPEN ORDER',
           textColor: const Color(0xFF38BDF8),
-          onPressed: () {
-            _selectMenu(7);
-          },
+          onPressed: openThisOrder,
         ),
       ),
     );
@@ -506,6 +525,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           },
           onOpenOrdersWithCode: (code) {
             setState(() {
+              _targetOrderCode = code;
               _selectMenu(7);
             });
           },
@@ -530,7 +550,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         return const AdminSuppliersScreen();
 
       case 7:
-        return const AdminOrdersScreen();
+        return AdminOrdersScreen(initialOrderCode: _targetOrderCode);
 
       case 8:
         return const AdminBillingScreen();
@@ -596,6 +616,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           },
           onOpenOrdersWithCode: (code) {
             setState(() {
+              _targetOrderCode = code;
               _selectMenu(7);
             });
           },
@@ -612,6 +633,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       currentIndex = index;
       if (index != 4) {
         _targetBatchNumber = null;
+      }
+      if (index != 7) {
+        _targetOrderCode = null;
       }
     });
   }

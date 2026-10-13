@@ -985,143 +985,177 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ..._pendingCustomerOrders.map((ord) {
           final ordId = ord['id'] is int ? ord['id'] as int : int.tryParse('${ord['id']}') ?? 0;
           final notifId = ord['notif_id'] is int ? ord['notif_id'] as int : ordId;
-          final ordCode = ord['order_id']?.toString() ?? ord['orderId']?.toString() ?? ord['order_code']?.toString() ?? '#ORD-$ordId';
+          final ordCode = (ord['order_id'] ?? ord['orderId'] ?? ord['order_code'] ?? 'ORD-$ordId').toString().replaceAll('#', '');
           final custName = ord['customer_name']?.toString() ?? ord['client_name']?.toString() ?? 'Customer';
           final amt = ord['total_amount']?.toString() ?? ord['amount']?.toString() ?? '0';
           final itemsCount = ord['items_count']?.toString() ?? ord['items']?.toString() ?? '1';
           final message = ord['message']?.toString() ?? 'New order placed by customer awaiting approval and dispatch.';
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFEFF6FF), Colors.white],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          void openThisOrder() {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OrderDetailScreen(
+                  orderId: ordCode,
+                  initialOrder: ord,
+                  dbId: ordId,
+                ),
               ),
+            ).then((_) => _loadDashboardData());
+          }
+
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF93C5FD), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0284C7).withValues(alpha: 0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+              onTap: openThisOrder,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEFF6FF), Colors.white],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF93C5FD), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.shopping_bag_rounded, color: Colors.white, size: 14),
-                          SizedBox(width: 5),
-                          Text(
-                            'NEW CUSTOMER ORDER RECEIVED',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0284C7),
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                        ],
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.shopping_bag_rounded, color: Colors.white, size: 14),
+                              SizedBox(width: 5),
+                              Text(
+                                'NEW CUSTOMER ORDER RECEIVED',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
+                          tooltip: 'Dismiss alert',
+                          onPressed: () {
+                            setState(() {
+                              _dismissedRequestIds.add(ordId);
+                              _dismissedNotificationIds.add(notifId);
+                              _pendingCustomerOrders.removeWhere((o) => o['id'] == ordId);
+                            });
+                            _notificationService.markAdminNotificationRead(notifId);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$ordCode • $custName',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0369A1),
                       ),
                     ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
-                      tooltip: 'Dismiss alert',
-                      onPressed: () {
-                        setState(() {
-                          _dismissedRequestIds.add(ordId);
-                          _dismissedNotificationIds.add(notifId);
-                          _pendingCustomerOrders.removeWhere((o) => o['id'] == ordId);
-                        });
-                        _notificationService.markAdminNotificationRead(notifId);
-                      },
+                    const SizedBox(height: 4),
+                    Text(
+                      'Amount: ₹$amt  •  Items: $itemsCount  •  Status: Order Placement',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                    if (message.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        message,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0369A1),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.visibility_outlined, size: 16),
+                          label: const Text(
+                            'VIEW ORDER DETAILS',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          onPressed: openThisOrder,
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0284C7),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.local_shipping_outlined, size: 16),
+                          label: const Text(
+                            'UPDATE STATUS / FULFILL',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          onPressed: () => _handleQuickFulfillOrder(ord),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF0284C7),
+                            side: const BorderSide(color: Color(0xFF0284C7)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                          label: const Text('VIEW IN ORDERS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          onPressed: () {
+                            if (widget.onOpenOrdersWithCode != null) {
+                              widget.onOpenOrdersWithCode!(ordCode);
+                            } else {
+                              widget.onOpenOrders?.call();
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '$ordCode • $custName',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0369A1),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Amount: ₹$amt  •  Items: $itemsCount  •  Status: Order Placement',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF334155),
-                  ),
-                ),
-                if (message.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    message,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF64748B),
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
-                  children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0284C7),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.local_shipping_outlined, size: 16),
-                      label: const Text(
-                        'UPDATE STATUS / FULFILL',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                      onPressed: () => _handleQuickFulfillOrder(ord),
-                    ),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0284C7),
-                        side: const BorderSide(color: Color(0xFF0284C7)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.receipt_long_outlined, size: 16),
-                      label: const Text('VIEW IN ORDERS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      onPressed: () {
-                        if (widget.onOpenOrdersWithCode != null) {
-                          widget.onOpenOrdersWithCode!(ordCode);
-                        } else {
-                          widget.onOpenOrders?.call();
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           );
         }),
@@ -1867,7 +1901,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         case 0:
           return widget.onOpenLeads;
         case 1:
-          return widget.onOpenOrders;
+          return () {
+            if (_pendingCustomerOrders.isNotEmpty && widget.onOpenOrdersWithCode != null) {
+              final first = _pendingCustomerOrders.first;
+              final code = (first['order_id'] ?? first['orderId'] ?? first['order_code'] ?? 'ORD-${first['id']}').toString().replaceAll('#', '');
+              widget.onOpenOrdersWithCode!(code);
+            } else {
+              widget.onOpenOrders?.call();
+            }
+          };
         case 2:
           return widget.onOpenStockRequests ?? widget.onOpenInventory;
         case 3:
@@ -1947,15 +1989,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _orderStageChip('New Placed', _newOrdersCount, const Color(0xFF2563EB), const Color(0xFFEFF6FF)),
+                _orderStageChip('New Placed', _newOrdersCount, const Color(0xFF2563EB), const Color(0xFFEFF6FF), onTap: widget.onOpenOrders),
                 const SizedBox(width: 8),
-                _orderStageChip('Pending Approval', _pendingApprovalCount, const Color(0xFFD97706), const Color(0xFFFFFBEB)),
+                _orderStageChip('Pending Approval', _pendingApprovalCount, const Color(0xFFD97706), const Color(0xFFFFFBEB), onTap: () {
+                  if (_pendingCustomerOrders.isNotEmpty && widget.onOpenOrdersWithCode != null) {
+                    final first = _pendingCustomerOrders.first;
+                    final code = (first['order_id'] ?? first['orderId'] ?? first['order_code'] ?? 'ORD-${first['id']}').toString().replaceAll('#', '');
+                    widget.onOpenOrdersWithCode!(code);
+                  } else {
+                    widget.onOpenOrders?.call();
+                  }
+                }),
                 const SizedBox(width: 8),
-                _orderStageChip('Preparing', _preparingCount, const Color(0xFF7C3AED), const Color(0xFFF5F3FF)),
+                _orderStageChip('Preparing', _preparingCount, const Color(0xFF7C3AED), const Color(0xFFF5F3FF), onTap: widget.onOpenOrders),
                 const SizedBox(width: 8),
-                _orderStageChip('Dispatched', _dispatchedCount, const Color(0xFF0284C7), const Color(0xFFE0F2FE)),
+                _orderStageChip('Dispatched', _dispatchedCount, const Color(0xFF0284C7), const Color(0xFFE0F2FE), onTap: widget.onOpenOrders),
                 const SizedBox(width: 8),
-                _orderStageChip('Delivered', _deliveredCount, const Color(0xFF16A34A), const Color(0xFFF0FDF4)),
+                _orderStageChip('Delivered', _deliveredCount, const Color(0xFF16A34A), const Color(0xFFF0FDF4), onTap: widget.onOpenOrders),
               ],
             ),
           ),
@@ -2059,31 +2109,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _orderStageChip(String label, int count, Color fg, Color bg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
+  Widget _orderStageChip(String label, int count, Color fg, Color bg, {VoidCallback? onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: fg.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: fg,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '$count',
-              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
-            ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: fg.withValues(alpha: 0.3)),
           ),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w700)),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: fg,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
       ),
     );
   }

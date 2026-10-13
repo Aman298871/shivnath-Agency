@@ -1809,8 +1809,8 @@ class AdminUserListView(APIView):
                         'service_status': cycle.service_status,
                         'remaining_days': rem,
                         'is_low_stock': (rem <= 7 and cycle.service_status == 'active'),
-                        'serving_franchise_id': cycle.serving_franchise.id,
-                        'serving_franchise_name': cycle.serving_franchise.business_name,
+                        'serving_franchise_id': cycle.serving_franchise.id if cycle.serving_franchise else None,
+                        'serving_franchise_name': cycle.serving_franchise.business_name if cycle.serving_franchise else 'Shivnath Agency (Direct)',
                     }
 
             item = {
@@ -1859,9 +1859,9 @@ class AdminUserListView(APIView):
                 from billing.models import Invoice
                 cust_invoices = Invoice.objects.filter(order__in=cust_orders)
                 if cust_invoices.exists():
-                    tot_rev = sum(inv.grand_total for inv in cust_invoices)
-                    tot_paid = sum(inv.amount_paid for inv in cust_invoices)
-                    tot_out = sum(inv.outstanding_balance for inv in cust_invoices)
+                    tot_rev = sum((inv.grand_total or Decimal('0.00')) for inv in cust_invoices)
+                    tot_paid = sum((inv.amount_paid or Decimal('0.00')) for inv in cust_invoices)
+                    tot_out = sum((inv.outstanding_balance or Decimal('0.00')) for inv in cust_invoices)
                 else:
                     tot_rev = sum((o.grand_total or o.amount or Decimal('0.00')) for o in cust_orders)
                     tot_paid = sum((o.grand_total or o.amount or Decimal('0.00')) for o in cust_orders.filter(payment_status='paid'))

@@ -560,6 +560,10 @@ class AuthService {
     for (final key in [
       'email',
       'password',
+      'phone',
+      'territory',
+      'zone_id',
+      'district',
       'role',
       'non_field_errors',
     ]) {
@@ -567,6 +571,13 @@ class AuthService {
         return _valueToString(
           data[key],
         );
+      }
+    }
+
+    if (data.isNotEmpty) {
+      final firstVal = data.values.first;
+      if (firstVal != null) {
+        return _valueToString(firstVal);
       }
     }
 

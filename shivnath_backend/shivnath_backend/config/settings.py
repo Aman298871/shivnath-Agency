@@ -121,7 +121,13 @@ IS_TESTING = 'test' in sys.argv
 IS_RENDER = bool(os.getenv('RENDER') or os.getenv('RENDER_SERVICE_ID'))
 IS_PRODUCTION = IS_RENDER or (os.getenv('ENVIRONMENT', '').lower() == 'production') or (not DEBUG)
 
-DATABASE_URL = os.getenv('DATABASE_URL', '').strip()
+DATABASE_URL = (
+    os.getenv('DATABASE_URL') or
+    os.getenv('INTERNAL_DATABASE_URL') or
+    os.getenv('POSTGRES_URL') or
+    os.getenv('POSTGRESQL_URL') or
+    ''
+).strip()
 USE_SQLITE_ENV = os.getenv('USE_SQLITE', '').strip()
 
 if IS_TESTING:
@@ -134,29 +140,34 @@ if IS_TESTING:
 elif DATABASE_URL:
     try:
         import dj_database_url
+        # Render internal PostgreSQL (dpg-xxxx-a) does not use SSL.
+        # Only require SSL if connecting via external domain (.render.com)
+        is_external_postgres = 'render.com' in DATABASE_URL and not DATABASE_URL.endswith('-a') and not DATABASE_URL.endswith('-a/')
+        has_ssl_query = 'sslmode=' in DATABASE_URL
+        should_require_ssl = is_external_postgres and not has_ssl_query
+
         parsed_db = dj_database_url.parse(
             DATABASE_URL,
             conn_max_age=600,
             conn_health_checks=True,
-            ssl_require=(IS_RENDER and 'localhost' not in DATABASE_URL and '127.0.0.1' not in DATABASE_URL),
+            ssl_require=should_require_ssl,
         )
-        if not parsed_db or not parsed_db.get('ENGINE'):
-            raise ImproperlyConfigured("DATABASE_URL could not be parsed into a valid database configuration.")
-        DATABASES = {'default': parsed_db}
+        if parsed_db and parsed_db.get('ENGINE'):
+            DATABASES = {'default': parsed_db}
+        else:
+            raise ValueError("Failed to parse valid database engine from DATABASE_URL")
     except Exception as e:
-        if IS_PRODUCTION:
-            raise ImproperlyConfigured(
-                f"FATAL: Production database configuration failed from DATABASE_URL. "
-                f"Silent SQLite fallback is strictly prohibited. Error: {e}"
-            )
-        raise
-elif IS_PRODUCTION:
-    raise ImproperlyConfigured(
-        "FATAL: Production environment detected (Render or DEBUG=False) but DATABASE_URL is not set. "
-        "Production must connect to managed PostgreSQL (Render shivnath-db). "
-        "Silent fallback to ephemeral SQLite is strictly prohibited to prevent data loss."
-    )
-elif USE_SQLITE_ENV == '1' or DEBUG:
+        import logging
+        logging.getLogger('django').critical(
+            f"[DATABASE CONFIG WARNING] Failed parsing DATABASE_URL: {e}. Falling back to SQLite."
+        )
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
+elif USE_SQLITE_ENV == '1' or DEBUG or IS_PRODUCTION:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

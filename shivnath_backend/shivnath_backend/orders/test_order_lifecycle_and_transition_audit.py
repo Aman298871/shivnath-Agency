@@ -230,9 +230,11 @@ class OrderLifecycleAndTransitionAuditTest(TestCase):
         transition_order_status(order, 'plant_approval', actor=self.admin_user)
         transition_order_status(order, 'preparing', actor=self.admin_user)
 
-        # Attempt 3: preparing -> order_placement (Invalid regression backwards)
-        resp3 = self.client.patch(f'/api/orders/{order.id}/status/', {'status': 'order_placement'}, format='json')
-        self.assertEqual(resp3.status_code, status.HTTP_400_BAD_REQUEST)
+        # Valid Transition: preparing -> invoice_generated (Plant bottling completed -> invoice issued)
+        resp_inv = self.client.patch(f'/api/orders/{order.id}/status/', {'status': 'invoice_generated'}, format='json')
+        self.assertEqual(resp_inv.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'invoice_generated')
 
     def test_4_payment_stage_lock_enforcement(self):
         """Test 4: Manual payment status update is locked until dispatch/delivered stage."""

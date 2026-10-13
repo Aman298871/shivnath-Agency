@@ -83,32 +83,38 @@ class ShivnathLogo extends StatelessWidget {
           else
             _buildWaterDropletMark(size),
           const SizedBox(width: 8),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Shivnath Agency',
-                style: TextStyle(
-                  fontSize: size * 0.58,
-                  fontWeight: FontWeight.w800,
-                  color: textColor ?? BrandColors.textPrimary,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              if (showSubtitle) ...[
-                const SizedBox(height: 1),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  'Water Business Management',
+                  'Shivnath Agency',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: size * 0.28,
-                    fontWeight: FontWeight.w600,
-                    color: textColor ?? BrandColors.textSecondary,
-                    letterSpacing: 0.2,
+                    fontSize: size * 0.58,
+                    fontWeight: FontWeight.w800,
+                    color: textColor ?? BrandColors.textPrimary,
+                    letterSpacing: -0.3,
                   ),
                 ),
+                if (showSubtitle) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    'Water Business Management',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: size * 0.28,
+                      fontWeight: FontWeight.w600,
+                      color: textColor ?? BrandColors.textSecondary,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       );

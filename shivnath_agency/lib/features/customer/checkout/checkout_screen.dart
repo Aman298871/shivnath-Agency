@@ -639,6 +639,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'theme': {
             'color': '#0284C7',
           },
+          'retry': {
+            'enabled': true,
+            'max_count': 3,
+          },
+          'send_sms_hash': true,
         };
 
         try {
@@ -894,9 +899,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                       SizedBox(width: 10),
-                      Text(
-                        'Checking fulfillment availability...',
-                        style: TextStyle(fontSize: 12),
+                      Expanded(
+                        child: Text(
+                          'Checking fulfillment availability...',
+                          style: TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -1091,15 +1099,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ],
               const SizedBox(height: 28),
-              const Row(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Payment Method',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  const Flexible(
+                    child: Text(
+                      'Payment Method',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  Spacer(),
+                  const SizedBox(width: 8),
                   Row(
-                    children: [
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
                       Icon(Icons.lock_rounded, size: 14, color: Color(0xFF16A34A)),
                       SizedBox(width: 4),
                       Text(
@@ -1128,9 +1142,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0284C7)),
                       ),
                       SizedBox(width: 12),
-                      Text(
-                        'Checking payment gateway status...',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      Expanded(
+                        child: Text(
+                          'Checking payment gateway status...',
+                          style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -1157,12 +1174,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           Expanded(
                             child: Row(
                               children: [
-                                const Text(
-                                  'Online Payment — Razorpay',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 14,
-                                    color: Color(0xFF14532D),
+                                const Flexible(
+                                  child: Text(
+                                    'Online Payment — Razorpay',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                      color: Color(0xFF14532D),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                 ),
                                 if (_gatewayStatus!['is_test_mode'] == true ||

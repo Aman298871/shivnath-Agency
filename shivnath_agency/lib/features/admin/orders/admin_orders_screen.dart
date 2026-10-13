@@ -1085,7 +1085,6 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       'Invoice Generated',
       'Dispatch',
       'Delivered',
-      'Payment Collection',
       'Cancelled',
     ];
 
@@ -1102,8 +1101,6 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       selected = 'Dispatch';
     } else if (lowerStatus.contains('deliver')) {
       selected = 'Delivered';
-    } else if (lowerStatus.contains('payment')) {
-      selected = 'Payment Collection';
     } else if (lowerStatus.contains('cancel')) {
       selected = 'Cancelled';
     } else if (statuses.contains(rawStatus)) {

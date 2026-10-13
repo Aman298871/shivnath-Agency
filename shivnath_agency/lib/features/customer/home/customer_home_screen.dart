@@ -474,19 +474,26 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 size: 26,
               ),
             ),
-            const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'WaterNow',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  'Pure Water. Delivered.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                ),
-              ],
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Text(
+                    'WaterNow',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                  Text(
+                    'Pure Water. Delivered.',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -599,11 +606,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                   size: 18,
                                 ),
                                 SizedBox(width: 7),
-                                Text(
-                                  'Fast Delivery',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
+                                Flexible(
+                                  child: Text(
+                                    'Fast Delivery',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -827,53 +838,76 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
                 const SizedBox(height: 24),
 
-                // STATS
-                Row(
-                  children: [
-                    Expanded(
-                      child: _DesktopStatCard(
-                        title: 'Active Orders',
-                        value: '2',
-                        icon: Icons.local_shipping_outlined,
-                        background: const Color(0xFFE0F2FE),
-                        iconColor: const Color(0xFF0284C7),
-                        onTap: _handleOpenOrders,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: _DesktopStatCard(
-                        title: 'Delivered',
-                        value: '18',
-                        icon: Icons.check_circle_outline,
-                        background: const Color(0xFFDCFCE7),
-                        iconColor: const Color(0xFF16A34A),
-                        onTap: _handleOpenOrders,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: _DesktopStatCard(
-                        title: 'Wallet Balance',
-                        value: '₹1,250',
-                        icon: Icons.account_balance_wallet_outlined,
-                        background: const Color(0xFFFEF3C7),
-                        iconColor: const Color(0xFFD97706),
-                        onTap: _showWalletDialog,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: _DesktopStatCard(
-                        title: 'Reward Points',
-                        value: '320',
-                        icon: Icons.stars_outlined,
-                        background: const Color(0xFFF3E8FF),
-                        iconColor: const Color(0xFF9333EA),
-                        onTap: _showRewardsDialog,
-                      ),
-                    ),
-                  ],
+                // STATS (Adaptive Row / 2x2 Grid based on available width)
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final card1 = _DesktopStatCard(
+                      title: 'Active Orders',
+                      value: '2',
+                      icon: Icons.local_shipping_outlined,
+                      background: const Color(0xFFE0F2FE),
+                      iconColor: const Color(0xFF0284C7),
+                      onTap: _handleOpenOrders,
+                    );
+                    final card2 = _DesktopStatCard(
+                      title: 'Delivered',
+                      value: '18',
+                      icon: Icons.check_circle_outline,
+                      background: const Color(0xFFDCFCE7),
+                      iconColor: const Color(0xFF16A34A),
+                      onTap: _handleOpenOrders,
+                    );
+                    final card3 = _DesktopStatCard(
+                      title: 'Wallet Balance',
+                      value: '₹1,250',
+                      icon: Icons.account_balance_wallet_outlined,
+                      background: const Color(0xFFFEF3C7),
+                      iconColor: const Color(0xFFD97706),
+                      onTap: _showWalletDialog,
+                    );
+                    final card4 = _DesktopStatCard(
+                      title: 'Reward Points',
+                      value: '320',
+                      icon: Icons.stars_outlined,
+                      background: const Color(0xFFF3E8FF),
+                      iconColor: const Color(0xFF9333EA),
+                      onTap: _showRewardsDialog,
+                    );
+
+                    if (constraints.maxWidth < 950) {
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(child: card1),
+                              const SizedBox(width: 14),
+                              Expanded(child: card2),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(child: card3),
+                              const SizedBox(width: 14),
+                              Expanded(child: card4),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(child: card1),
+                        const SizedBox(width: 14),
+                        Expanded(child: card2),
+                        const SizedBox(width: 14),
+                        Expanded(child: card3),
+                        const SizedBox(width: 14),
+                        Expanded(child: card4),
+                      ],
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 24),
@@ -927,11 +961,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                       size: 18,
                                     ),
                                     SizedBox(width: 7),
-                                    Text(
-                                      'Fast doorstep delivery',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
+                                    Flexible(
+                                      child: Text(
+                                        'Fast doorstep delivery',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
@@ -968,30 +1006,50 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
                 const SizedBox(height: 14),
 
-                Row(
-                  children: products.map((product) {
-                    return Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: _DesktopQuickProduct(product: product),
-                      ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isUltraWide = constraints.maxWidth >= 950;
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (int i = 0; i < products.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 12),
+                          Expanded(
+                            child: _DesktopQuickProduct(product: products[i]),
+                          ),
+                        ],
+                      ],
                     );
-                  }).toList(),
+                  },
                 ),
 
                 const SizedBox(height: 30),
 
-                // BOTTOM TWO COLUMNS
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: _RecentOrdersCard(onTap: _handleOpenOrders),
-                    ),
-                    const SizedBox(width: 18),
-                    Expanded(child: _SupportCard(onTap: _handleOpenSupport)),
-                  ],
+                // BOTTOM TWO COLUMNS (Adaptive for Tablet / Desktop)
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth < 900) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _RecentOrdersCard(onTap: _handleOpenOrders),
+                          const SizedBox(height: 18),
+                          _SupportCard(onTap: _handleOpenSupport),
+                        ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: _RecentOrdersCard(onTap: _handleOpenOrders),
+                        ),
+                        const SizedBox(width: 18),
+                        Expanded(child: _SupportCard(onTap: _handleOpenSupport)),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -1260,26 +1318,33 @@ class _DesktopStatCard extends StatelessWidget {
                 child: Icon(icon, color: iconColor),
               ),
               const SizedBox(width: 13),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF64748B),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -1472,10 +1537,12 @@ class _RecentOrdersCard extends StatelessWidget {
           const SizedBox(height: 18),
 
           ...orders.map(
-            (order) => InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
+            (order) => Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(13),
                 decoration: BoxDecoration(
@@ -1535,6 +1602,7 @@ class _RecentOrdersCard extends StatelessWidget {
                 ),
               ),
             ),
+          ),
           ),
         ],
       ),
@@ -1605,11 +1673,15 @@ class _SupportCard extends StatelessWidget {
                     color: Color(0xFF0284C7),
                   ),
                   SizedBox(width: 8),
-                  Text(
-                    'Chat with Support',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0284C7),
+                  Flexible(
+                    child: Text(
+                      'Chat with Support',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0284C7),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],

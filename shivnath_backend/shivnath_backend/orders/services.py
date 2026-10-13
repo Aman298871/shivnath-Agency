@@ -29,7 +29,7 @@ ALLOWED_ORDER_TRANSITIONS = {
     'order_placement': ['plant_approval', 'cancelled'],
     'plant_approval': ['invoice_generated', 'preparing', 'cancelled'],
     'invoice_generated': ['preparing', 'dispatch', 'cancelled'],
-    'preparing': ['dispatch', 'cancelled'],
+    'preparing': ['invoice_generated', 'dispatch', 'cancelled'],
     'dispatch': ['delivered', 'cancelled'],
     'delivered': [],  # Terminal state
     'cancelled': [],  # Terminal state

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/services/OrderService.dart';
+import '../../../core/services/session_service.dart';
 
 class CustomerWalletScreen extends StatefulWidget {
   const CustomerWalletScreen({super.key});
@@ -12,8 +15,11 @@ class CustomerWalletScreen extends StatefulWidget {
 
 class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
   final OrderService _orderService = OrderService();
+  late Razorpay _razorpay;
 
   bool _isLoading = true;
+  bool _isProcessingPayment = false;
+  double _pendingRechargeAmount = 0.0;
   double _walletBalance = 150.0; // Welcome promotional credit
   int _rewardPoints = 0;
   List<Map<String, dynamic>> _transactions = [];
@@ -21,7 +27,17 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
   @override
   void initState() {
     super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _loadWalletData();
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
   }
 
   Future<void> _loadWalletData() async {
@@ -72,10 +88,11 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
     for (final r in rechargeHistory) {
       final parts = r.split('|');
       if (parts.length >= 2) {
+        final paymentRef = (parts.length >= 3 && parts[2].isNotEmpty) ? ' • ID: ${parts[2]}' : '';
         txList.insert(0, {
-          'id': 'recharge_${parts[0]}',
+          'id': 'recharge_${parts[0]}_${parts[1]}',
           'title': 'Wallet Top-up',
-          'subtitle': 'Online UPI / Card Recharge',
+          'subtitle': 'Razorpay Online Recharge (UPI/Card)$paymentRef',
           'amount': double.tryParse(parts[1]) ?? 100.0,
           'is_credit': true,
           'date': parts[0],
@@ -93,14 +110,14 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
     }
   }
 
-  Future<void> _handleRecharge(double amount) async {
+  Future<void> _handleRecharge(double amount, {String? paymentId}) async {
     final prefs = await SharedPreferences.getInstance();
     final newBalance = _walletBalance + amount;
     await prefs.setDouble('customer_water_wallet_balance', newBalance);
 
     final rechargeHistory = prefs.getStringList('customer_recharges_list') ?? [];
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    rechargeHistory.add('$today|$amount');
+    rechargeHistory.add('$today|$amount|${paymentId ?? ''}');
     await prefs.setStringList('customer_recharges_list', rechargeHistory);
 
     if (mounted) {
@@ -111,15 +128,139 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('₹${amount.toStringAsFixed(0)} added to Water Wallet successfully! 🎉'),
-          backgroundColor: const Color(0xFF0284C7),
+          backgroundColor: const Color(0xFF16A34A),
           behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
+  Future<void> _startRazorpayRecharge(double amount) async {
+    if (amount < 1.0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a valid recharge amount.')),
+      );
+      return;
+    }
+
+    setState(() => _isProcessingPayment = true);
+
+    try {
+      // 1. Create Razorpay order through authoritative backend
+      final rzpOrderRes = await _orderService.createRazorpayOrder(amount: amount);
+
+      if (!mounted) return;
+
+      if (rzpOrderRes['success'] != true) {
+        setState(() => _isProcessingPayment = false);
+        final errorMsg = rzpOrderRes['message']?.toString() ?? 'Unable to initialize payment gateway.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
+
+      final dynamic rawRzpData = (rzpOrderRes['data'] is Map) ? rzpOrderRes['data'] : rzpOrderRes;
+      final Map<String, dynamic> rzpData = rawRzpData is Map<String, dynamic>
+          ? rawRzpData
+          : (rawRzpData is Map ? Map<String, dynamic>.from(rawRzpData) : <String, dynamic>{});
+      final rzpOrderId = rzpData['razorpay_order_id']?.toString() ?? '';
+      final keyId = rzpData['key_id']?.toString() ?? '';
+      final amountInPaise = rzpData['amount_in_paise'] as int? ?? (amount * 100).round();
+
+      _pendingRechargeAmount = amount;
+
+      // 2. Open Razorpay Checkout Sheet with UPI, PhonePe, Google Pay, Cards, NetBanking
+      final localUser = await SessionService().getUser();
+      final options = {
+        'key': keyId,
+        'amount': amountInPaise,
+        'name': 'Shivnath Agency - WATERNow',
+        'order_id': rzpOrderId,
+        'description': 'Water Wallet Top-up (₹${amount.toStringAsFixed(0)})',
+        'timeout': 300,
+        'prefill': {
+          'contact': localUser?.phone ?? '',
+          'email': localUser?.email ?? '',
+        },
+        'notes': {
+          'type': 'WALLET_RECHARGE',
+          'amount': amount.toString(),
+          'app_environment': AppConstants.environmentName,
+        },
+        'theme': {
+          'color': '#0284C7',
+        },
+        'retry': {
+          'enabled': true,
+          'max_count': 3,
+        },
+        'send_sms_hash': true,
+      };
+
+      try {
+        _razorpay.open(options);
+      } catch (e) {
+        setState(() => _isProcessingPayment = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error launching Razorpay checkout: $e'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessingPayment = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Network error initializing payment: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    setState(() => _isProcessingPayment = false);
+    final credited = _pendingRechargeAmount > 0 ? _pendingRechargeAmount : 100.0;
+    await _handleRecharge(credited, paymentId: response.paymentId);
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    setState(() => _isProcessingPayment = false);
+    if (!mounted) return;
+    final isUserCancel = response.code == Razorpay.PAYMENT_CANCELLED;
+    final message = isUserCancel
+        ? 'Recharge payment cancelled.'
+        : 'Payment failed (${response.message ?? "Transaction not completed"}).';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isUserCancel ? const Color(0xFF475569) : Colors.red.shade700,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('External wallet chosen: ${response.walletName}'),
+        backgroundColor: const Color(0xFF0284C7),
+      ),
+    );
+  }
+
   void _showAddMoneyDialog() {
     double selectedAmount = 250.0;
+    final customAmountController = TextEditingController(text: '250');
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -130,54 +271,105 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
               children: [
                 Icon(Icons.add_card_rounded, color: Color(0xFF0284C7)),
                 SizedBox(width: 10),
-                Text('Add Money to Wallet', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                Expanded(
+                  child: Text('Add Money to Wallet', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                ),
               ],
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Prepay for uninterrupted 20L water jar deliveries without cash or daily payment hassle.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                ),
-                const SizedBox(height: 18),
-                const Text('Select Recharge Amount:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [100.0, 250.0, 500.0, 1000.0].map((amt) {
-                    final isSel = selectedAmount == amt;
-                    return ChoiceChip(
-                      label: Text('₹${amt.toStringAsFixed(0)}'),
-                      selected: isSel,
-                      selectedColor: const Color(0xFFE0F2FE),
-                      labelStyle: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: isSel ? const Color(0xFF0284C7) : const Color(0xFF334155),
-                      ),
-                      onSelected: (_) => setDialogState(() => selectedAmount = amt),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Prepay for uninterrupted 20L water jar deliveries without cash or daily payment hassle.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Total to Pay:', style: TextStyle(fontWeight: FontWeight.w600)),
-                      Text('₹${selectedAmount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0284C7))),
-                    ],
+                  const SizedBox(height: 16),
+                  const Text('Select Recharge Amount:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [100.0, 250.0, 500.0, 1000.0].map((amt) {
+                      final isSel = selectedAmount == amt;
+                      return ChoiceChip(
+                        label: Text('₹${amt.toStringAsFixed(0)}'),
+                        selected: isSel,
+                        selectedColor: const Color(0xFFE0F2FE),
+                        labelStyle: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: isSel ? const Color(0xFF0284C7) : const Color(0xFF334155),
+                        ),
+                        onSelected: (_) {
+                          setDialogState(() {
+                            selectedAmount = amt;
+                            customAmountController.text = amt.toStringAsFixed(0);
+                          });
+                        },
+                      );
+                    }).toList(),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: customAmountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                    decoration: const InputDecoration(
+                      labelText: 'Or enter custom amount',
+                      prefixText: '₹ ',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    onChanged: (val) {
+                      final parsed = double.tryParse(val);
+                      if (parsed != null && parsed > 0) {
+                        setDialogState(() => selectedAmount = parsed);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFF16A34A)),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '100% Secure via Razorpay (UPI, GPay, PhonePe, Cards, NetBanking)',
+                            style: TextStyle(
+                              color: Color(0xFF166534),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total to Pay:', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Text('₹${selectedAmount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0284C7))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -190,11 +382,11 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                icon: const Icon(Icons.check_circle_rounded, size: 18),
-                label: const Text('Confirm Recharge'),
+                icon: const Icon(Icons.payment_rounded, size: 18),
+                label: Text('Pay ₹${selectedAmount.toStringAsFixed(0)} via Razorpay'),
                 onPressed: () {
                   Navigator.pop(dialogCtx);
-                  _handleRecharge(selectedAmount);
+                  _startRazorpayRecharge(selectedAmount);
                 },
               ),
             ],
@@ -250,13 +442,15 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadWalletData,
-              child: ListView(
-                padding: const EdgeInsets.all(18),
-                children: [
+      body: Stack(
+        children: [
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _loadWalletData,
+                  child: ListView(
+                    padding: const EdgeInsets.all(18),
+                    children: [
                   // 1. Water Wallet Card
                   Container(
                     padding: const EdgeInsets.all(22),
@@ -523,6 +717,42 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
                 ],
               ),
             ),
+          if (_isProcessingPayment)
+            Container(
+              color: Colors.black54,
+              child: Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 28),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 14, offset: Offset(0, 4)),
+                    ],
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Color(0xFF0284C7)),
+                      SizedBox(height: 18),
+                      Text(
+                        'Opening Payment Gateway...',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        '100% Secure Checkout via Razorpay\nUPI • Google Pay • PhonePe • Cards',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

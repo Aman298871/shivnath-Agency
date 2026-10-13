@@ -251,8 +251,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         actions: const [
           Padding(
-            padding: EdgeInsets.only(right: 18.0),
-            child: ShivnathLogo.horizontal(size: 32),
+            padding: EdgeInsets.only(right: 14.0),
+            child: ShivnathLogo.appBar(size: 26),
           ),
         ],
       ),

@@ -448,19 +448,22 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
-                        children: [
+                      Row(
+                        children: const [
                           Icon(
                             Icons.near_me_outlined,
                             size: 20,
                             color: Color(0xFF0284C7),
                           ),
                           SizedBox(width: 8),
-                          Text(
-                            'Select Your Territory *',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                          Expanded(
+                            child: Text(
+                              'Select Your Territory *',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -480,7 +483,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                           child: Center(
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
+                              children: const [
                                 SizedBox(
                                   width: 16,
                                   height: 16,
@@ -489,9 +492,12 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                   ),
                                 ),
                                 SizedBox(width: 10),
-                                Text(
-                                  'Loading territories...',
-                                  style: TextStyle(fontSize: 12),
+                                Flexible(
+                                  child: Text(
+                                    'Loading territories...',
+                                    style: TextStyle(fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),
@@ -575,16 +581,19 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
+                          children: const [
                             SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                             SizedBox(width: 10),
-                            Text(
-                              'Checking authorized franchises...',
-                              style: TextStyle(fontSize: 12),
+                            Flexible(
+                              child: Text(
+                                'Checking authorized franchises...',
+                                style: TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
@@ -602,20 +611,23 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
-                            children: [
+                          Row(
+                            children: const [
                               Icon(
                                 Icons.verified_rounded,
                                 color: Color(0xFF16A34A),
                                 size: 20,
                               ),
                               SizedBox(width: 8),
-                              Text(
-                                'Authorized Territory Franchise',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF15803D),
+                              Expanded(
+                                child: Text(
+                                  'Authorized Territory Franchise',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF15803D),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],

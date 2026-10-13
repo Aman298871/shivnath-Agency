@@ -444,13 +444,16 @@ class OrderListCreateView(APIView):
             except Exception:
                 pass
 
-            # Targeted Notifications to Actual Serving Franchise and Admin
-            try:
-                send_order_placed_notifications(order, stock_cycle)
-                from accounts.fcm_services import notify_order_created
-                notify_order_created(order)
-            except Exception as notif_err:
-                logger.error("FCM: Order creation notification dispatch error: %s", notif_err, exc_info=True)
+            # Authoritative targeted notifications dispatched strictly on DB transaction commit
+            def _dispatch_order_placed_notifs():
+                try:
+                    send_order_placed_notifications(order, stock_cycle)
+                    from accounts.fcm_services import notify_order_created
+                    notify_order_created(order)
+                except Exception as notif_err:
+                    logger.error("FCM: Order creation notification dispatch error: %s", notif_err, exc_info=True)
+
+            transaction.on_commit(_dispatch_order_placed_notifs)
 
             return Response(
                 {

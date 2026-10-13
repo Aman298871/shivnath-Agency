@@ -382,14 +382,38 @@ class ApproveFranchiseView(APIView):
             ]
         )
 
-        from .models import AdminAuditLog
+        # Synchronize UserProfile status to active so franchise can log in and access portal
+        user_prof = getattr(franchise.user, 'profile', None)
+        if user_prof:
+            user_prof.status = 'active'
+            user_prof.save(update_fields=['status'])
+
+        from .models import AdminAuditLog, FranchiseNotification
         AdminAuditLog.objects.create(
             actor=request.user,
             action='APPROVE_FRANCHISE',
             resource_type='FranchiseProfile',
             resource_id=str(franchise.id),
-            changes={'status': 'approved'}
+            changes={
+                'status': 'approved',
+                'reviewer_id': request.user.id,
+                'reviewer_username': request.user.username,
+                'fssai_status': fssai_status,
+                'approved_at': franchise.approved_at.isoformat() if franchise.approved_at else None,
+            }
         )
+
+        # In-app Franchise Notification
+        try:
+            FranchiseNotification.objects.create(
+                franchise=franchise,
+                title='Franchise Application Approved! 🎉',
+                message=f'Congratulations! Your franchise application for "{franchise.business_name}" has been approved by {request.user.get_full_name() or request.user.username}.',
+                notification_type='franchise_approval',
+                reference_id=franchise.id,
+            )
+        except Exception:
+            pass
 
         try:
             from accounts.fcm_services import notify_franchise_approval_status
@@ -409,6 +433,8 @@ class ApproveFranchiseView(APIView):
                         franchise.business_name,
                     'status':
                         franchise.status,
+                    'user_profile_status':
+                        user_prof.status if user_prof else 'active',
                     'fssai_number':
                         franchise.fssai_number,
                     'fssai_verification_status':
@@ -458,6 +484,38 @@ class RejectFranchiseView(APIView):
                 'updated_at',
             ]
         )
+
+        # Synchronize UserProfile status to rejected
+        user_prof = getattr(franchise.user, 'profile', None)
+        if user_prof:
+            user_prof.status = 'rejected'
+            user_prof.save(update_fields=['status'])
+
+        from .models import AdminAuditLog, FranchiseNotification
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            action='REJECT_FRANCHISE',
+            resource_type='FranchiseProfile',
+            resource_id=str(franchise.id),
+            changes={
+                'status': 'rejected',
+                'rejection_reason': reason,
+                'reviewer_id': request.user.id,
+                'reviewer_username': request.user.username,
+            }
+        )
+
+        # In-app Franchise Notification
+        try:
+            FranchiseNotification.objects.create(
+                franchise=franchise,
+                title='Franchise Application Update',
+                message=f'Your franchise application for "{franchise.business_name}" was not approved. Reason: {reason}',
+                notification_type='franchise_rejection',
+                reference_id=franchise.id,
+            )
+        except Exception:
+            pass
 
         try:
             from accounts.fcm_services import notify_franchise_approval_status

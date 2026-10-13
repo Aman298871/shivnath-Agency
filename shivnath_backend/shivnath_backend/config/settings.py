@@ -113,45 +113,64 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # --------------------------------------------------
-# POSTGRESQL DATABASE
+# DATABASE CONFIGURATION
 # --------------------------------------------------
+from django.core.exceptions import ImproperlyConfigured
 
-if os.getenv('USE_SQLITE') == '1' or 'test' in sys.argv:
+IS_TESTING = 'test' in sys.argv
+IS_RENDER = bool(os.getenv('RENDER') or os.getenv('RENDER_SERVICE_ID'))
+IS_PRODUCTION = IS_RENDER or (os.getenv('ENVIRONMENT', '').lower() == 'production') or (not DEBUG)
+
+DATABASE_URL = os.getenv('DATABASE_URL', '').strip()
+USE_SQLITE_ENV = os.getenv('USE_SQLITE', '').strip()
+
+if IS_TESTING:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-elif os.getenv('DATABASE_URL'):
+elif DATABASE_URL:
     try:
         import dj_database_url
-        DATABASES = {
-            'default': dj_database_url.config(
-                default=os.getenv('DATABASE_URL'),
-                conn_max_age=600,
-                conn_health_checks=True,
+        parsed_db = dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=(IS_RENDER and 'localhost' not in DATABASE_URL and '127.0.0.1' not in DATABASE_URL),
+        )
+        if not parsed_db or not parsed_db.get('ENGINE'):
+            raise ImproperlyConfigured("DATABASE_URL could not be parsed into a valid database configuration.")
+        DATABASES = {'default': parsed_db}
+    except Exception as e:
+        if IS_PRODUCTION:
+            raise ImproperlyConfigured(
+                f"FATAL: Production database configuration failed from DATABASE_URL. "
+                f"Silent SQLite fallback is strictly prohibited. Error: {e}"
             )
+        raise
+elif IS_PRODUCTION:
+    raise ImproperlyConfigured(
+        "FATAL: Production environment detected (Render or DEBUG=False) but DATABASE_URL is not set. "
+        "Production must connect to managed PostgreSQL (Render shivnath-db). "
+        "Silent fallback to ephemeral SQLite is strictly prohibited to prevent data loss."
+    )
+elif USE_SQLITE_ENV == '1' or DEBUG:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
-    except ImportError:
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': os.getenv('DB_NAME'),
-                'USER': os.getenv('DB_USER'),
-                'PASSWORD': os.getenv('DB_PASSWORD'),
-                'HOST': os.getenv('DB_HOST', 'localhost'),
-                'PORT': os.getenv('DB_PORT', '5432'),
-            }
-        }
+    }
 else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME'),
-            'USER': os.getenv('DB_USER'),
-            'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'NAME': os.getenv('DB_NAME', 'shivnath_agency'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', '127.0.0.1'),
             'PORT': os.getenv('DB_PORT', '5432'),
         }
     }

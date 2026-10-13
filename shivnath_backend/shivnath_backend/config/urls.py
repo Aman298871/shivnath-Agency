@@ -23,13 +23,33 @@ from rest_framework_simplejwt.views import (
 
 
 from django.http import JsonResponse
+from django.db import connection
+from pathlib import Path
 
 def root_health_view(request):
+    db_engine = settings.DATABASES['default'].get('ENGINE', 'unknown')
+    raw_name = str(settings.DATABASES['default'].get('NAME', 'unknown'))
+    safe_db_name = Path(raw_name).name if ('/' in raw_name or '\\' in raw_name) else raw_name
+
+    db_connected = False
+    try:
+        connection.ensure_connection()
+        db_connected = True
+    except Exception:
+        db_connected = False
+
     return JsonResponse({
         'status': 'online',
         'service': 'Shivnath Agency Pure Water Platform API',
         'admin_panel': '/admin/',
-        'version': '1.0.0'
+        'version': '1.0.0',
+        'database': {
+            'engine': db_engine,
+            'name': safe_db_name,
+            'connected': db_connected,
+            'is_postgresql': 'postgresql' in db_engine,
+            'is_sqlite': 'sqlite' in db_engine,
+        }
     })
 
 from django.conf import settings
@@ -42,8 +62,10 @@ from accounts.privacy_and_deletion_views import (
 
 urlpatterns = [
 
-    # Root Health Check
+    # Root Health Check & Safe Database Diagnostics
     path('', root_health_view, name='root_health'),
+    path('api/health/', root_health_view, name='api_health'),
+    path('api/system/db-status/', root_health_view, name='api_db_status'),
 
     # Public Legal & Google Play Compliance Pages
     path('privacy-policy/', privacy_policy_html_view, name='privacy_policy_html'),

@@ -300,5 +300,16 @@ def record_fssai_verification(franchise: FranchiseProfile,
             notification_type='franchise_registration',
             reference_id=franchise.id
         )
+
+        # Notify the affected franchise in their own notification inbox
+        if franchise.user:
+            from .models import FranchiseNotification
+            FranchiseNotification.objects.create(
+                franchise=franchise,
+                title=title,
+                message=f"Your FSSAI #{franchise.fssai_number} verification status has been updated to {new_status}. {mismatch_reason or notes or ''}".strip(),
+                notification_type='fssai_verification',
+                reference_id=franchise.id
+            )
     except Exception:
         pass

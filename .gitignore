@@ -29,11 +29,14 @@ local_settings.py
 *.swp
 *.swo
 .DS_Store
-*.env
+*.env*
 .env
+.env.test
 *.zip
 *.sql
 *.sqlite3*
+*.backup_*
+scratch_*.py
 serviceAccountKey*.json
 **/backups/
 **/scratch/

@@ -206,9 +206,19 @@ urlpatterns = [
         name='verify-franchise-fssai'
     ),
     path(
+        'franchises/<int:pk>/fssai/verify/',
+        VerifyFranchiseFSSAIView.as_view(),
+        name='verify-franchise-fssai-alias'
+    ),
+    path(
         'franchises/<int:pk>/fssai-details/',
         FranchiseFSSAIDetailView.as_view(),
         name='franchise-fssai-details'
+    ),
+    path(
+        'franchises/<int:pk>/fssai/',
+        FranchiseFSSAIDetailView.as_view(),
+        name='franchise-fssai-alias'
     ),
     path(
         'franchises/create/',

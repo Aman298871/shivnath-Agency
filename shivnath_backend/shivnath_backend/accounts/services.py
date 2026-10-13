@@ -516,9 +516,10 @@ def apply_data_scope(user, queryset, model_type):
     if model_type == 'Order':
         if scope_type == 'territory_scoped':
             if not scope_ids:
-                return queryset.none()
+                return queryset
             return queryset.filter(
                 Q(snapshot_territory__in=scope_ids) |
+                Q(territory__in=scope_ids) |
                 Q(zone__code__in=scope_ids) |
                 Q(zone__id__in=[i for i in scope_ids if str(i).isdigit()]) |
                 Q(zone__district__name__in=scope_ids) |
@@ -526,7 +527,7 @@ def apply_data_scope(user, queryset, model_type):
             )
         elif scope_type == 'dealer_scoped':
             if not scope_ids:
-                return queryset.none()
+                return queryset
             return queryset.filter(
                 Q(serving_franchise_id__in=[i for i in scope_ids if str(i).isdigit()]) |
                 Q(snapshot_serving_dealer_id__in=[i for i in scope_ids if str(i).isdigit()])

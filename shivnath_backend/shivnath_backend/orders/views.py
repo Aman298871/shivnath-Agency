@@ -882,7 +882,8 @@ class RazorpayCreateOrderAPIView(APIView):
                         return Response(
                             {
                                 'success': False,
-                                'message': f"Amount tampering detected: Client requested ₹{client_amount_val:.2f} but authoritative order total is ₹{authoritative_amount:.2f}."
+                                'message': f"Amount tampering detected: Client requested ₹{client_amount_val:.2f} but authoritative order total is ₹{authoritative_amount:.2f}.",
+                                'error_code': 'AMOUNT_MISMATCH',
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
@@ -925,16 +926,42 @@ class RazorpayCreateOrderAPIView(APIView):
                     'success': False,
                     'message': 'Payment Gateway Unavailable: Razorpay API credentials are not configured on the production server. Mock payment mode is strictly prohibited in production.',
                     'error_code': 'GATEWAY_CREDENTIALS_MISSING_IN_PRODUCTION',
+                    'diagnostics': {
+                        'environment': razorpay_env,
+                        'is_production': True,
+                        'credentials_configured': False,
+                        'key_id_present': bool(key_id),
+                        'key_secret_present': bool(key_secret),
+                        'reason': 'Production environment requires authorized live RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables.',
+                    }
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        razorpay_order_id = None
-        credentials_status = 'CONFIGURED'
-        is_test_mode = key_id.startswith('rzp_test_') or razorpay_env == 'TEST' or not key_id
-        is_mock_mode = False
-
-        if key_id and key_secret:
+        if not key_id or not key_secret:
+            # Test or local environment without configured credentials
+            # Fail safely and diagnostically - DO NOT silently fake payments
+            if getattr(settings, 'IS_TESTING', False) and 'test_mock_order' in request.data:
+                # Automated isolated test hook ONLY
+                razorpay_order_id = f"order_test_{uuid.uuid4().hex[:14]}"
+            else:
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'Payment Gateway Unavailable: Razorpay Test Mode credentials (RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET) are not configured in this test environment.',
+                        'error_code': 'GATEWAY_CREDENTIALS_MISSING_IN_TEST',
+                        'diagnostics': {
+                            'environment': razorpay_env,
+                            'is_production': False,
+                            'credentials_configured': False,
+                            'key_id_present': bool(key_id),
+                            'key_secret_present': bool(key_secret),
+                            'reason': 'Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your backend environment (.env.test).',
+                        }
+                    },
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+        else:
             try:
                 import razorpay
                 client = razorpay.Client(auth=(key_id, key_secret))
@@ -951,26 +978,27 @@ class RazorpayCreateOrderAPIView(APIView):
                 razorpay_order_id = rzp_order.get('id')
             except Exception as e:
                 logger.error("Razorpay API order creation exception: %s", e)
-                if is_prod:
-                    return Response(
-                        {
-                            'success': False,
-                            'message': f"Razorpay order initialization failed: {str(e)}",
-                            'error_code': 'GATEWAY_API_ERROR',
-                        },
-                        status=status.HTTP_502_BAD_GATEWAY,
-                    )
-                razorpay_order_id = f"order_{uuid.uuid4().hex[:14]}"
-        else:
-            # Only reachable in local dev / test environments due to safeguard 2
-            credentials_status = 'RAZORPAY TEST CREDENTIALS PENDING'
-            is_mock_mode = True
-            razorpay_order_id = f"mock_order_{uuid.uuid4().hex[:14]}"
+                return Response(
+                    {
+                        'success': False,
+                        'message': f"Razorpay order initialization failed: {str(e)}",
+                        'error_code': 'GATEWAY_API_ERROR',
+                        'diagnostics': {
+                            'environment': razorpay_env,
+                            'is_production': is_prod,
+                            'credentials_configured': True,
+                            'reason': f"Razorpay API rejected the request: {str(e)}",
+                        }
+                    },
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
 
         if order and razorpay_order_id:
             order.razorpay_order_id = razorpay_order_id
-            order.payment_mode = 'MOCK_RAZORPAY' if is_mock_mode else 'RAZORPAY'
+            order.payment_mode = 'RAZORPAY'
             order.save(update_fields=['razorpay_order_id', 'payment_mode'])
+
+        is_test_mode = key_id.startswith('rzp_test_') or razorpay_env == 'TEST'
 
         return Response(
             {
@@ -980,15 +1008,77 @@ class RazorpayCreateOrderAPIView(APIView):
                 'amount': amount_val,
                 'amount_in_paise': amount_in_paise,
                 'currency': 'INR',
-                'key_id': key_id or 'rzp_test_pending_config',
+                'key_id': key_id,
                 'environment': razorpay_env,
                 'is_test_mode': is_test_mode,
-                'is_mock_mode': is_mock_mode,
-                'credentials_status': credentials_status,
+                'diagnostics': {
+                    'status': 'CONFIGURED',
+                    'environment': razorpay_env,
+                    'gateway_reachable': True,
+                },
                 'payment_methods': ['UPI', 'Card', 'NetBanking', 'Wallet'],
             },
             status=status.HTTP_200_OK,
         )
+
+
+class RazorpayStatusAPIView(APIView):
+    """
+    Diagnostic status endpoint for Razorpay payment gateway.
+    Reports whether the gateway is ready, current environment (TEST vs LIVE),
+    and whether credentials are configured, WITHOUT exposing any secrets.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
+        key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
+        razorpay_env = os.environ.get('RAZORPAY_ENVIRONMENT', 'TEST').strip().upper()
+        is_prod = is_production_environment()
+
+        configured = bool(key_id and key_secret)
+        is_test_mode = key_id.startswith('rzp_test_') or razorpay_env == 'TEST'
+
+        config_valid = True
+        error_code = None
+
+        if not configured:
+            config_valid = False
+            if is_prod:
+                error_code = 'GATEWAY_CREDENTIALS_MISSING_IN_PRODUCTION'
+                status_message = "Payment Gateway Unavailable: Razorpay API credentials are not configured on the production server. Mock payment mode is strictly prohibited in production."
+            else:
+                error_code = 'GATEWAY_CREDENTIALS_MISSING_IN_TEST'
+                status_message = "Payment Gateway Unavailable: Razorpay credentials (RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET) are not configured in this environment."
+        elif razorpay_env == 'LIVE' and key_id.startswith('rzp_test_'):
+            config_valid = False
+            error_code = 'TEST_KEY_IN_LIVE_ENVIRONMENT'
+            status_message = "Security Configuration Error: Razorpay Test Key detected while RAZORPAY_ENVIRONMENT is set to LIVE."
+        elif is_prod and is_test_mode:
+            status_message = "Razorpay Test Mode credentials active in production."
+        else:
+            status_message = "Razorpay payment gateway is configured and ready."
+
+        # Supported payment methods - ONLY if gateway is configured and valid
+        supported_methods = ['UPI', 'Cards', 'Net Banking', 'Wallets'] if (configured and config_valid) else []
+
+        return Response({
+            'success': True,
+            'available': configured and config_valid,
+            'environment': razorpay_env,
+            'is_test_mode': is_test_mode,
+            'is_production': is_prod,
+            'key_id': key_id if (configured and config_valid) else None,
+            'supported_methods': supported_methods,
+            'diagnostics': {
+                'status': 'CONFIGURED' if (configured and config_valid) else 'UNAVAILABLE',
+                'credentials_configured': configured,
+                'key_id_present': bool(key_id),
+                'key_secret_present': bool(key_secret),
+                'error_code': error_code,
+                'message': status_message,
+            }
+        }, status=status.HTTP_200_OK)
 
 
 class RazorpayVerifyPaymentAPIView(APIView):
@@ -996,7 +1086,7 @@ class RazorpayVerifyPaymentAPIView(APIView):
     Authoritative server-side Razorpay payment verification.
     Verifies HMAC-SHA256 signature, validates payment state,
     records PaymentTransaction, marks Invoice & Order PAID atomically.
-    Strictly forbids mock payment mode in production.
+    Strictly forbids mock payment mode or unverified bypass.
     """
     permission_classes = [AllowAny]
 
@@ -1008,7 +1098,7 @@ class RazorpayVerifyPaymentAPIView(APIView):
 
         if not order_id:
             return Response(
-                {'success': False, 'message': 'Order ID is required for verification.'},
+                {'success': False, 'message': 'Order ID is required for verification.', 'error_code': 'MISSING_ORDER_ID'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1016,7 +1106,7 @@ class RazorpayVerifyPaymentAPIView(APIView):
             order = Order.objects.get(id=order_id)
         except Order.DoesNotExist:
             return Response(
-                {'success': False, 'message': 'Order not found.'},
+                {'success': False, 'message': 'Order not found.', 'error_code': 'ORDER_NOT_FOUND'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -1025,6 +1115,7 @@ class RazorpayVerifyPaymentAPIView(APIView):
             return Response(
                 {
                     'success': True,
+                    'is_already_verified': True,
                     'message': 'Payment already verified and authoritative.',
                     'order': OrderSerializer(order).data,
                 },
@@ -1035,69 +1126,63 @@ class RazorpayVerifyPaymentAPIView(APIView):
         key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
         is_prod = is_production_environment()
 
-        # Production security barrier: Mock mode and unverified payments strictly prohibited
-        if is_prod and not key_secret:
+        # Without credentials, genuine verification cannot proceed
+        if not key_secret:
+            err_code = 'CREDENTIALS_MISSING_IN_PRODUCTION' if is_prod else 'CREDENTIALS_MISSING_IN_TEST'
             return Response(
                 {
                     'success': False,
-                    'message': 'Payment verification rejected: Razorpay credentials are not configured on the production server. Mock payment verification is strictly prohibited in production.',
-                    'error_code': 'CREDENTIALS_MISSING_IN_PRODUCTION',
+                    'message': 'Payment verification rejected: Razorpay credentials are not configured on the server. Signature verification cannot be performed.',
+                    'error_code': err_code,
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        is_mock_payment = False
-        payment_method_label = 'RAZORPAY'
+        # Genuine cryptographic signature verification
+        if not razorpay_signature or not razorpay_order_id or not razorpay_payment_id:
+            return Response(
+                {
+                    'success': False,
+                    'message': 'Missing signature parameters for cryptographic verification.',
+                    'error_code': 'MISSING_SIGNATURE_PAYLOAD',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        if key_secret:
-            # Genuine cryptographic signature verification
-            if not razorpay_signature or not razorpay_order_id or not razorpay_payment_id:
+        try:
+            msg = f"{razorpay_order_id}|{razorpay_payment_id}".encode('utf-8')
+            generated_sig = hmac.new(
+                key_secret.encode('utf-8'),
+                msg,
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(generated_sig, razorpay_signature):
                 return Response(
                     {
                         'success': False,
-                        'message': 'Missing signature parameters for cryptographic verification.',
-                        'error_code': 'MISSING_SIGNATURE_PAYLOAD',
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            try:
-                msg = f"{razorpay_order_id}|{razorpay_payment_id}".encode('utf-8')
-                generated_sig = hmac.new(
-                    key_secret.encode('utf-8'),
-                    msg,
-                    hashlib.sha256
-                ).hexdigest()
-                if not hmac.compare_digest(generated_sig, razorpay_signature):
-                    return Response(
-                        {
-                            'success': False,
-                            'message': 'Payment verification failed: Invalid Razorpay cryptographic signature.',
-                            'error_code': 'SIGNATURE_VERIFICATION_FAILED',
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            except Exception as e:
-                logger.error("Cryptographic verification error: %s", e)
-                return Response(
-                    {
-                        'success': False,
-                        'message': 'Payment signature verification exception.',
+                        'message': 'Payment verification failed: Invalid Razorpay cryptographic signature.',
                         'error_code': 'SIGNATURE_VERIFICATION_FAILED',
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-        else:
-            # In local dev / test only:
-            is_mock_payment = True
-            payment_method_label = 'MOCK_RAZORPAY'
+        except Exception as e:
+            logger.error("Cryptographic verification error: %s", e)
+            return Response(
+                {
+                    'success': False,
+                    'message': 'Payment signature verification exception.',
+                    'error_code': 'SIGNATURE_VERIFICATION_FAILED',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        is_test = key_id.startswith('rzp_test_') or not key_id
+        is_test = key_id.startswith('rzp_test_')
 
         with transaction.atomic():
             order.payment_status = 'paid'
-            order.payment_mode = payment_method_label
-            order.razorpay_order_id = razorpay_order_id or order.razorpay_order_id or f"mock_order_{uuid.uuid4().hex[:10]}"
-            order.razorpay_payment_id = razorpay_payment_id or f"pay_{uuid.uuid4().hex[:14]}"
+            order.payment_mode = 'RAZORPAY'
+            order.razorpay_order_id = razorpay_order_id or order.razorpay_order_id
+            order.razorpay_payment_id = razorpay_payment_id
             order.razorpay_signature = razorpay_signature
             order.save(update_fields=[
                 'payment_status',
@@ -1119,19 +1204,21 @@ class RazorpayVerifyPaymentAPIView(APIView):
                     inv.amount_paid = inv.grand_total
                     inv.save(update_fields=['status', 'amount_paid'])
 
-                    test_label = "[DEV MOCK MODE] " if is_mock_payment else ("[TEST MODE] " if is_test else "")
-                    PaymentTransaction.objects.create(
-                        transaction_number=f"TXN-{'MOCK' if is_mock_payment else 'RZP'}-{order.id}-{uuid.uuid4().hex[:6].upper()}",
-                        invoice=inv,
-                        payment_method=payment_method_label,
-                        amount_paid=inv.grand_total,
+                    test_label = "[TEST MODE] " if is_test else ""
+                    PaymentTransaction.objects.get_or_create(
                         reference_number=order.razorpay_payment_id,
-                        razorpay_order_id=order.razorpay_order_id,
-                        razorpay_payment_id=order.razorpay_payment_id,
-                        razorpay_signature=order.razorpay_signature,
-                        payment_status='SUCCESS',
-                        received_by=order.created_by,
-                        notes=f"{test_label}{'Mock payment simulated in dev/test environment. NOT a real gateway transaction.' if is_mock_payment else f'Razorpay Online Payment verified server-side for {order.order_code}'}",
+                        defaults={
+                            'transaction_number': f"TXN-RZP-{order.id}-{uuid.uuid4().hex[:6].upper()}",
+                            'invoice': inv,
+                            'payment_method': 'RAZORPAY',
+                            'amount_paid': inv.grand_total,
+                            'razorpay_order_id': order.razorpay_order_id,
+                            'razorpay_payment_id': order.razorpay_payment_id,
+                            'razorpay_signature': order.razorpay_signature,
+                            'payment_status': 'SUCCESS',
+                            'received_by': order.created_by,
+                            'notes': f"{test_label}Razorpay Online Payment verified server-side for {order.order_code}",
+                        }
                     )
             except Exception as e:
                 logger.error("Error creating PaymentTransaction for order %s: %s", order.id, e)
@@ -1146,10 +1233,8 @@ class RazorpayVerifyPaymentAPIView(APIView):
         return Response(
             {
                 'success': True,
-                'message': 'Payment successfully verified server-side.' if not is_mock_payment else 'Payment verified in local development mock mode.',
+                'message': 'Payment successfully verified server-side.',
                 'is_test_mode': is_test,
-                'is_mock_payment': is_mock_payment,
-                'warning': 'MOCK PAYMENT: This transaction was processed in local mock development mode. It is NOT a real Razorpay payment.' if is_mock_payment else None,
                 'order': OrderSerializer(order).data,
             },
             status=status.HTTP_200_OK,
@@ -1228,7 +1313,7 @@ class RazorpayWebhookAPIView(APIView):
         # If webhook secret is configured, strictly verify cryptographic signature
         if webhook_secret:
             if not received_signature:
-                return Response({'error': 'Missing X-Razorpay-Signature header'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'success': False, 'error': 'Missing X-Razorpay-Signature header'}, status=status.HTTP_400_BAD_REQUEST)
             try:
                 expected_signature = hmac.new(
                     webhook_secret.encode('utf-8'),
@@ -1236,15 +1321,15 @@ class RazorpayWebhookAPIView(APIView):
                     hashlib.sha256
                 ).hexdigest()
                 if not hmac.compare_digest(expected_signature, received_signature):
-                    return Response({'error': 'Invalid webhook signature'}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'success': False, 'error': 'Invalid webhook signature'}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
                 logger.error("Webhook signature verification error: %s", e)
-                return Response({'error': 'Signature verification error'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'success': False, 'error': 'Signature verification error'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             payload = json.loads(request.body.decode('utf-8'))
         except Exception:
-            return Response({'error': 'Invalid JSON body'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'success': False, 'error': 'Invalid JSON body'}, status=status.HTTP_400_BAD_REQUEST)
 
         event = payload.get('event')
         logger.info("Razorpay Webhook received event: %s", event)
@@ -1307,20 +1392,22 @@ class RazorpayWebhookAPIView(APIView):
                             inv = generate_invoice_for_order(order)
 
                         if inv:
-                            PaymentTransaction.objects.create(
-                                transaction_number=f"TXN-FAIL-{order.id}-{uuid.uuid4().hex[:6].upper()}",
-                                invoice=inv,
-                                payment_method='RAZORPAY',
-                                amount_paid=0,
-                                reference_number=rzp_payment_id or f"failed_{uuid.uuid4().hex[:8]}",
-                                razorpay_order_id=rzp_order_id,
-                                razorpay_payment_id=rzp_payment_id,
-                                payment_status='FAILED',
-                                notes=f"Razorpay Webhook payment.failed: {error_desc}",
+                            PaymentTransaction.objects.get_or_create(
+                                reference_number=rzp_payment_id or f"fail_{order.id}",
+                                defaults={
+                                    'transaction_number': f"TXN-FAIL-{order.id}-{uuid.uuid4().hex[:6].upper()}",
+                                    'invoice': inv,
+                                    'payment_method': 'RAZORPAY',
+                                    'amount_paid': 0,
+                                    'razorpay_order_id': rzp_order_id,
+                                    'razorpay_payment_id': rzp_payment_id,
+                                    'payment_status': 'FAILED',
+                                    'notes': f"Razorpay Webhook payment.failed: {error_desc}",
+                                }
                             )
-            return Response({'status': 'ok', 'event': event, 'message': 'Payment failure recorded.'}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'status': 'ok', 'event': event, 'message': 'Payment failure recorded.'}, status=status.HTTP_200_OK)
 
-        return Response({'status': 'ok', 'event': event}, status=status.HTTP_200_OK)
+        return Response({'success': True, 'status': 'ok', 'event': event}, status=status.HTTP_200_OK)
 
 
 class RazorpayReconcilePaymentAPIView(APIView):

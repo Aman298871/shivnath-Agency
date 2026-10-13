@@ -641,6 +641,23 @@ class OrderService {
   // RAZORPAY ONLINE PAYMENT INTEGRATION
   // =====================================================
 
+  Future<Map<String, dynamic>> getRazorpayStatus() async {
+    try {
+      final response = await ApiClient.get(
+        Uri.parse('$baseUrl/api/orders/razorpay/status/'),
+        headers: await _headers(),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'available': false,
+        'message': 'Unable to connect to payment diagnostic service.',
+      };
+    }
+  }
+
   Future<Map<String, dynamic>> createRazorpayOrder({
     int? orderId,
     required double amount,

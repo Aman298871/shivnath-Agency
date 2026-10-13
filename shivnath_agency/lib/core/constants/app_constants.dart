@@ -30,6 +30,23 @@ class AppConstants {
   static const String userSessionKey = 'logged_in_user';
   static const String selectedRoleKey = 'selected_role';
 
-  /// Centralized API base URL pointing directly to Render cloud backend.
-  static String get apiBaseUrl => 'https://shivnath-agency.onrender.com';
+  static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+  static const String _envName = String.fromEnvironment('APP_ENV', defaultValue: '');
+
+  /// Centralized API base URL. Defaults to Render production, configurable via --dart-define=API_BASE_URL=...
+  static String get apiBaseUrl {
+    if (_envBaseUrl.isNotEmpty) {
+      return _envBaseUrl;
+    }
+    return 'https://shivnath-agency.onrender.com';
+  }
+
+  /// Indicates if this build is targeting a test or development backend
+  static bool get isTestMode {
+    if (_envName.toUpperCase() == 'TEST') return true;
+    if (_envBaseUrl.isNotEmpty && !_envBaseUrl.contains('onrender.com')) return true;
+    return false;
+  }
+
+  static String get environmentName => isTestMode ? 'TEST' : 'PRODUCTION';
 }

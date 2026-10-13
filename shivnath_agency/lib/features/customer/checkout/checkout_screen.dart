@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/services/OrderService.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/session_service.dart';
@@ -18,6 +20,13 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final String paymentMethod = 'RAZORPAY';
   bool _isSubmitting = false;
+
+  late Razorpay _razorpay;
+  Map<String, dynamic>? _gatewayStatus;
+  bool _isLoadingGatewayStatus = true;
+  int? _pendingOrderDbId;
+  Map<String, dynamic>? _pendingOrderObj;
+  String? _pendingRzpOrderId;
 
   final nameController = TextEditingController();
   final phoneController = TextEditingController();
@@ -45,7 +54,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _loadCustomerAndFranchises();
+    _checkGatewayStatus();
+  }
+
+  Future<void> _checkGatewayStatus() async {
+    setState(() => _isLoadingGatewayStatus = true);
+    final status = await OrderService().getRazorpayStatus();
+    if (!mounted) return;
+    setState(() {
+      _gatewayStatus = status;
+      _isLoadingGatewayStatus = false;
+    });
   }
 
   Future<void> _loadCustomerAndFranchises() async {
@@ -181,11 +205,123 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   void dispose() {
+    _razorpay.clear();
     nameController.dispose();
     phoneController.dispose();
     addressController.dispose();
     customDaysController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    final orderDbId = _pendingOrderDbId;
+    if (orderDbId == null) return;
+    setState(() => _isSubmitting = true);
+
+    try {
+      final orderService = OrderService();
+      final verifyRes = await orderService.verifyRazorpayPayment(
+        orderId: orderDbId,
+        razorpayOrderId: response.orderId ?? _pendingRzpOrderId ?? '',
+        razorpayPaymentId: response.paymentId ?? '',
+        razorpaySignature: response.signature ?? '',
+      );
+
+      if (!mounted) return;
+
+      if (verifyRes['success'] == true) {
+        final cart = Provider.of<CartProvider>(context, listen: false);
+        cart.clearCart();
+
+        final isTestMode = verifyRes['is_test_mode'] == true;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isTestMode
+                    ? '[TEST MODE] Razorpay sandbox payment verified successfully.'
+                    : 'Payment verified successfully. Order confirmed!',
+              ),
+              backgroundColor: const Color(0xFF16A34A),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+
+        final Map<String, dynamic> verifiedOrder =
+            (verifyRes['data'] is Map && verifyRes['data']['order'] is Map)
+                ? Map<String, dynamic>.from(verifyRes['data']['order'] as Map)
+                : (_pendingOrderObj ?? {'id': orderDbId});
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OrderSuccessScreen(
+              amount: (verifiedOrder['amount'] is num)
+                  ? (verifiedOrder['amount'] as num).toDouble()
+                  : 0.0,
+              orderData: verifiedOrder,
+            ),
+          ),
+        );
+      } else {
+        setState(() => _isSubmitting = false);
+        final errorMsg = verifyRes['message']?.toString() ?? 'Payment verification failed.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment verification error: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handlePaymentError(PaymentFailureResponse response) async {
+    setState(() => _isSubmitting = false);
+    final orderDbId = _pendingOrderDbId;
+    final rzpOrderId = _pendingRzpOrderId;
+
+    if (orderDbId != null) {
+      await OrderService().cancelRazorpayPayment(
+        orderId: orderDbId,
+        razorpayOrderId: rzpOrderId,
+        reason: '${response.code}: ${response.message}',
+      );
+    }
+
+    if (!mounted) return;
+    final isUserCancel = response.code == Razorpay.PAYMENT_CANCELLED;
+    final message = isUserCancel
+        ? 'Payment cancelled. Your cart and order have been preserved.'
+        : 'Payment failed (${response.message ?? 'Unknown reason'}). Your cart has been preserved.';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isUserCancel ? const Color(0xFF475569) : Colors.red.shade700,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Redirecting to wallet: ${response.walletName}...'),
+        backgroundColor: const Color(0xFF0284C7),
+      ),
+    );
   }
 
   DateTime get _calculatedEndDate {
@@ -226,6 +362,70 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Your cart is empty.')));
+      return;
+    }
+
+    // Check gateway status: if unavailable, show diagnostic modal
+    if (_gatewayStatus != null && _gatewayStatus!['available'] != true) {
+      final diag = _gatewayStatus!['diagnostics'] as Map<String, dynamic>?;
+      final msg = diag?['message']?.toString() ??
+          _gatewayStatus!['message']?.toString() ??
+          'Payment Gateway Unavailable: Razorpay API credentials are not configured on the production server. Mock payment mode is strictly prohibited in production.';
+      final isProd = _gatewayStatus!['is_production'] == true;
+
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text('Payment Gateway Unavailable', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(msg, style: const TextStyle(fontSize: 13, height: 1.4)),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Environment: ${_gatewayStatus!['environment'] ?? (isProd ? 'PRODUCTION' : 'TEST')}\n'
+                  'Error Code: ${diag?['error_code'] ?? 'GATEWAY_CREDENTIALS_MISSING'}',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontFamily: 'monospace'),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _checkGatewayStatus();
+              },
+              child: const Text('Re-check Status'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Dismiss'),
+            ),
+          ],
+        ),
+      );
       return;
     }
 
@@ -284,14 +484,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFF16A34A)),
-                  SizedBox(width: 4),
+                  const Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFF16A34A)),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      '100% Secure Razorpay Online Payment',
-                      style: TextStyle(color: Color(0xFF16A34A), fontSize: 11, fontWeight: FontWeight.w600),
+                      _gatewayStatus?['is_test_mode'] == true
+                          ? 'Razorpay Sandbox (Test Mode) Checkout'
+                          : '100% Secure Razorpay Online Payment',
+                      style: const TextStyle(color: Color(0xFF16A34A), fontSize: 11, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -338,6 +540,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     try {
       final orderService = OrderService();
+      // Step 1: Create Order with pending payment
       final res = await orderService.createOrder({
         'franchise': isDirect
             ? 'WaterNow (Direct Fulfillment)'
@@ -349,7 +552,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'items': totalItems,
         'amount': amount,
         'status': 'order_placement',
-        'payment': 'paid',
+        'payment': 'pending',
         'payment_mode': 'RAZORPAY',
         'duration_choice': durationChoice,
         'duration_days': durationDays,
@@ -367,7 +570,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             : (rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{});
         final int orderDbId = int.tryParse(orderObj['id']?.toString() ?? res['id']?.toString() ?? '0') ?? 0;
 
-        // Initialize Razorpay online order
+        // Step 2: Initialize Razorpay online order with server-validated amount
         final rzpOrderRes = await orderService.createRazorpayOrder(
           orderId: orderDbId > 0 ? orderDbId : null,
           amount: amount,
@@ -381,6 +584,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             SnackBar(
               content: Text(errorMsg),
               backgroundColor: Colors.red.shade700,
+              duration: const Duration(seconds: 4),
             ),
           );
           return;
@@ -390,70 +594,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final Map<String, dynamic> rzpData = rawRzpData is Map<String, dynamic>
             ? rawRzpData
             : (rawRzpData is Map ? Map<String, dynamic>.from(rawRzpData) : <String, dynamic>{});
-        final rzpOrderId = rzpData['razorpay_order_id']?.toString() ??
-            'order_${DateTime.now().millisecondsSinceEpoch}';
-        final isTestMode = rzpData['is_test_mode'] == true;
-        final isMockMode = rzpData['is_mock_mode'] == true;
+        final rzpOrderId = rzpData['razorpay_order_id']?.toString() ?? '';
+        final keyId = rzpData['key_id']?.toString() ?? '';
+        final amountInPaise = rzpData['amount_in_paise'] as int? ?? (amount * 100).round();
 
-        // Authoritative server-side payment verification
-        final verifyRes = await orderService.verifyRazorpayPayment(
-          orderId: orderDbId,
-          razorpayOrderId: rzpOrderId,
-          razorpayPaymentId: 'pay_${DateTime.now().millisecondsSinceEpoch}',
-          razorpaySignature: 'sig_${DateTime.now().millisecondsSinceEpoch}',
-        );
+        _pendingOrderDbId = orderDbId;
+        _pendingOrderObj = orderObj;
+        _pendingRzpOrderId = rzpOrderId;
 
-        if (!mounted) return;
+        // Step 3: Open Genuine Razorpay Checkout
+        final localUser = await SessionService().getUser();
+        final options = {
+          'key': keyId,
+          'amount': amountInPaise,
+          'name': 'Shivnath Agency - WATERNow',
+          'order_id': rzpOrderId,
+          'description': 'Order #${orderObj['order_code'] ?? orderDbId}',
+          'timeout': 300,
+          'prefill': {
+            'contact': phoneController.text.trim(),
+            'email': localUser?.email ?? '',
+          },
+          'notes': {
+            'order_id': orderDbId.toString(),
+            'app_environment': AppConstants.environmentName,
+          },
+          'theme': {
+            'color': '#0284C7',
+          },
+        };
 
-        if (verifyRes['success'] == true) {
-          final Map<String, dynamic> verifiedOrder = (verifyRes['data'] is Map && verifyRes['data']['order'] is Map)
-              ? Map<String, dynamic>.from(verifyRes['data']['order'] as Map)
-              : (orderObj.isNotEmpty ? orderObj : {'id': orderDbId, 'amount': amount});
-
-          cart.clearCart();
-          if (mounted) {
-            if (isMockMode) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('[DEV MOCK MODE] Order placed in local mock payment mode.'),
-                  backgroundColor: Color(0xFFD97706),
-                  duration: Duration(seconds: 4),
-                ),
-              );
-            } else if (isTestMode) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('[TEST MODE] Payment simulated in Razorpay Test Mode.'),
-                  backgroundColor: Color(0xFF0284C7),
-                  duration: Duration(seconds: 4),
-                ),
-              );
-            }
-          }
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => OrderSuccessScreen(
-                amount: amount,
-                orderData: verifiedOrder,
-              ),
-            ),
-          );
-        } else {
-          // Record cancellation / verification failure on backend
-          await orderService.cancelRazorpayPayment(
-            orderId: orderDbId,
-            reason: verifyRes['message']?.toString() ?? 'Payment verification failed',
-            razorpayOrderId: rzpOrderId,
-          );
-          if (!mounted) return;
+        try {
+          _razorpay.open(options);
+        } catch (e) {
           setState(() => _isSubmitting = false);
-          final errorMsg = verifyRes['message']?.toString() ?? 'Payment verification failed.';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$errorMsg Your cart has been preserved.'),
+              content: Text('Error launching Razorpay checkout: $e'),
               backgroundColor: Colors.red.shade700,
-              duration: const Duration(seconds: 4),
             ),
           );
         }
@@ -467,12 +645,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         );
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Network interruption during payment. Please check your order history.'),
+          content: Text('Network error during order initialization: $e'),
           backgroundColor: Colors.orange.shade800,
         ),
       );
@@ -916,62 +1094,193 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: const Color(0xFF86EFAC),
+              if (_isLoadingGatewayStatus) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Row(
+                    children: [
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0284C7)),
+                      ),
+                      SizedBox(width: 12),
+                      Text(
+                        'Checking payment gateway status...',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      ),
+                    ],
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF16A34A), size: 22),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Online Payment — Razorpay',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                              color: Color(0xFF14532D),
+              ] else if (_gatewayStatus != null && _gatewayStatus!['available'] == true) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFF86EFAC),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF16A34A), size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Text(
+                                  'Online Payment — Razorpay',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: Color(0xFF14532D),
+                                  ),
+                                ),
+                                if (_gatewayStatus!['is_test_mode'] == true) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF08A),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: const Color(0xFFEAB308)),
+                                    ),
+                                    child: const Text(
+                                      'SANDBOX TEST',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF854D0E),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                        ),
-                        Icon(
-                          Icons.radio_button_checked,
-                          color: Color(0xFF16A34A),
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'UPI (GPay, PhonePe, Paytm), Debit/Credit Cards, Net Banking & Wallets',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF166534),
-                        fontWeight: FontWeight.w500,
+                          const Icon(
+                            Icons.radio_button_checked,
+                            color: Color(0xFF16A34A),
+                            size: 20,
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _payBadge('UPI'),
-                        _payBadge('Cards'),
-                        _payBadge('Net Banking'),
-                        _payBadge('Wallets'),
-                      ],
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      const Text(
+                        'UPI (GPay, PhonePe, Paytm), Debit/Credit Cards, Net Banking & Wallets',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF166534),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: ((_gatewayStatus!['supported_methods'] as List?)?.map((m) => _payBadge(m.toString())).toList()) ?? [
+                          _payBadge('UPI'),
+                          _payBadge('Cards'),
+                          _payBadge('Net Banking'),
+                          _payBadge('Wallets'),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 22),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Payment Gateway Unavailable',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                color: Color(0xFF991B1B),
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: _checkGatewayStatus,
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEE2E2),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFFCA5A5)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.refresh, size: 12, color: Color(0xFF991B1B)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Retry',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF991B1B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _gatewayStatus?['diagnostics']?['message']?.toString() ??
+                            'Razorpay API credentials are not configured on the production server. Mock payment mode is strictly prohibited in production.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFB91C1C),
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFEE2E2)),
+                        ),
+                        child: Text(
+                          'Environment: ${_gatewayStatus?['environment'] ?? 'PRODUCTION'}  |  Code: ${_gatewayStatus?['diagnostics']?['error_code'] ?? 'GATEWAY_CREDENTIALS_MISSING'}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF7F1D1D),
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 28),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

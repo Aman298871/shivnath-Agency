@@ -11,12 +11,14 @@ from .views import (
     RazorpayCancelPaymentAPIView,
     RazorpayWebhookAPIView,
     RazorpayReconcilePaymentAPIView,
+    RazorpayStatusAPIView,
     OrderLifecycleRepairView,
 )
 
 urlpatterns = [
     path('', OrderListCreateView.as_view()),
     path('bulk/', CustomerBulkOrderView.as_view(), name='bulk-orders'),
+    path('razorpay/status/', RazorpayStatusAPIView.as_view(), name='razorpay-status'),
     path('razorpay/create-order/', RazorpayCreateOrderAPIView.as_view(), name='razorpay-create-order'),
     path('razorpay/verify-payment/', RazorpayVerifyPaymentAPIView.as_view(), name='razorpay-verify-payment'),
     path('razorpay/cancel-payment/', RazorpayCancelPaymentAPIView.as_view(), name='razorpay-cancel-payment'),

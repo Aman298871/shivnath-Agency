@@ -629,8 +629,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'description': 'Order #${orderObj['order_code'] ?? orderDbId}',
           'timeout': 300,
           'prefill': {
-            'contact': phoneController.text.trim(),
-            'email': localUser?.email ?? '',
+            'contact': phoneController.text.trim().isNotEmpty
+                ? phoneController.text.trim()
+                : (localUser?.phone != null && localUser!.phone.trim().isNotEmpty
+                    ? localUser.phone.trim()
+                    : '9876543210'),
+            'email': (localUser?.email != null && localUser!.email.trim().isNotEmpty)
+                ? localUser.email.trim()
+                : 'customer@shivnath.com',
           },
           'notes': {
             'order_id': orderDbId.toString(),

@@ -184,8 +184,12 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
         'description': 'Water Wallet Top-up (₹${amount.toStringAsFixed(0)})',
         'timeout': 300,
         'prefill': {
-          'contact': localUser?.phone ?? '',
-          'email': localUser?.email ?? '',
+          'contact': (localUser?.phone != null && localUser!.phone.trim().isNotEmpty)
+              ? localUser.phone.trim()
+              : '9876543210',
+          'email': (localUser?.email != null && localUser!.email.trim().isNotEmpty)
+              ? localUser.email.trim()
+              : 'customer@shivnath.com',
         },
         'notes': {
           'type': 'WALLET_RECHARGE',

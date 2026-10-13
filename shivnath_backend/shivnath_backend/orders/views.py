@@ -849,7 +849,34 @@ def is_production_environment():
         return True
     if not getattr(settings, 'DEBUG', True):
         return True
-    return False
+def get_razorpay_credentials():
+    """
+    Securely retrieves Razorpay credentials.
+    Defaults to the user-configured test credentials ('rzp_test_TnHOsEiTNcd25f' / 'KhXhv0YO2Lvu1aBFr5ks5s2R')
+    if not explicitly overridden via environment variables or settings.
+    """
+    from django.conf import settings
+    key_id = (
+        os.environ.get('RAZORPAY_KEY_ID') or 
+        getattr(settings, 'RAZORPAY_KEY_ID', '') or 
+        'rzp_test_TnHOsEiTNcd25f'
+    ).strip()
+    key_secret = (
+        os.environ.get('RAZORPAY_KEY_SECRET') or 
+        getattr(settings, 'RAZORPAY_KEY_SECRET', '') or 
+        'KhXhv0YO2Lvu1aBFr5ks5s2R'
+    ).strip()
+    razorpay_env = (
+        os.environ.get('RAZORPAY_ENVIRONMENT') or 
+        getattr(settings, 'RAZORPAY_ENVIRONMENT', '') or 
+        'TEST'
+    ).strip().upper()
+    webhook_secret = (
+        os.environ.get('RAZORPAY_WEBHOOK_SECRET') or 
+        getattr(settings, 'RAZORPAY_WEBHOOK_SECRET', '') or 
+        ''
+    ).strip()
+    return key_id, key_secret, razorpay_env, webhook_secret
 
 
 class RazorpayCreateOrderAPIView(APIView):
@@ -906,9 +933,7 @@ class RazorpayCreateOrderAPIView(APIView):
         amount_val = float(amount)
         amount_in_paise = int(round(amount_val * 100))
 
-        key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
-        key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
-        razorpay_env = os.environ.get('RAZORPAY_ENVIRONMENT', 'TEST').strip().upper()
+        key_id, key_secret, razorpay_env, webhook_secret = get_razorpay_credentials()
 
         is_prod = is_production_environment()
 
@@ -1034,9 +1059,7 @@ class RazorpayStatusAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
-        key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
-        razorpay_env = os.environ.get('RAZORPAY_ENVIRONMENT', 'TEST').strip().upper()
+        key_id, key_secret, razorpay_env, webhook_secret = get_razorpay_credentials()
         is_prod = is_production_environment()
 
         configured = bool(key_id and key_secret)
@@ -1125,8 +1148,7 @@ class RazorpayVerifyPaymentAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
-        key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
+        key_id, key_secret, razorpay_env, webhook_secret = get_razorpay_credentials()
         is_prod = is_production_environment()
 
         # Without credentials, genuine verification cannot proceed
@@ -1442,8 +1464,7 @@ class RazorpayReconcilePaymentAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
-        key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
+        key_id, key_secret, razorpay_env, webhook_secret = get_razorpay_credentials()
 
         # If order is already marked paid in DB
         if order.payment_status == 'paid':

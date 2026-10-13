@@ -288,10 +288,18 @@ if not DEBUG:
         SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
         SESSION_COOKIE_SECURE = True
         CSRF_COOKIE_SECURE = True
-        if os.getenv('SECURE_HSTS', 'False').lower() == 'true':
-            SECURE_HSTS_SECONDS = 31536000  # 1 year
-            SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-            SECURE_HSTS_PRELOAD = True
+    if os.getenv('SECURE_HSTS', 'False').lower() == 'true':
+        SECURE_HSTS_SECONDS = 31536000  # 1 year
+        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+        SECURE_HSTS_PRELOAD = True
+
+# --------------------------------------------------
+# RAZORPAY CONFIGURATION
+# --------------------------------------------------
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_test_TnHOsEiTNcd25f').strip()
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'KhXhv0YO2Lvu1aBFr5ks5s2R').strip()
+RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', '').strip()
+RAZORPAY_ENVIRONMENT = os.getenv('RAZORPAY_ENVIRONMENT', 'TEST').strip().upper()
 
 
 # --------------------------------------------------

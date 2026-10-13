@@ -1270,8 +1270,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _gatewayStatus?['diagnostics']?['message']?.toString() ??
-                            (_gatewayStatus?['data'] is Map ? _gatewayStatus!['data']['diagnostics']?['message']?.toString() : null) ??
+                        (_gatewayStatus?['diagnostics'] is Map
+                                ? (_gatewayStatus!['diagnostics'] as Map)['message']?.toString()
+                                : null) ??
+                            _gatewayStatus?['message']?.toString() ??
                             'Razorpay API credentials are not configured on the production server. Mock payment mode is strictly prohibited in production.',
                         style: const TextStyle(
                           fontSize: 12,
@@ -1289,7 +1291,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           border: Border.all(color: const Color(0xFFFEE2E2)),
                         ),
                         child: Text(
-                          'Environment: ${_gatewayStatus?['environment'] ?? (_gatewayStatus?['data'] is Map ? _gatewayStatus!['data']['environment'] : null) ?? 'PRODUCTION'}  |  Code: ${_gatewayStatus?['diagnostics']?['error_code'] ?? (_gatewayStatus?['data'] is Map ? _gatewayStatus!['data']['diagnostics']?['error_code'] : null) ?? 'GATEWAY_CREDENTIALS_MISSING'}',
+                          'Environment: ${_gatewayStatus?['environment'] ?? 'PRODUCTION'}  |  Code: ${(_gatewayStatus?['diagnostics'] is Map ? (_gatewayStatus!['diagnostics'] as Map)['error_code'] : null) ?? 'GATEWAY_CREDENTIALS_MISSING'}',
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,

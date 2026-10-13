@@ -66,8 +66,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _isLoadingGatewayStatus = true);
     final status = await OrderService().getRazorpayStatus();
     if (!mounted) return;
+
+    final Map<String, dynamic> normalized = Map<String, dynamic>.from(status);
+    if (status['data'] is Map<String, dynamic>) {
+      normalized.addAll(Map<String, dynamic>.from(status['data'] as Map));
+    }
+
     setState(() {
-      _gatewayStatus = status;
+      _gatewayStatus = normalized;
       _isLoadingGatewayStatus = false;
     });
   }
@@ -233,7 +239,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final cart = Provider.of<CartProvider>(context, listen: false);
         cart.clearCart();
 
-        final isTestMode = verifyRes['is_test_mode'] == true;
+        final rawVerifyData = (verifyRes['data'] is Map)
+            ? Map<String, dynamic>.from(verifyRes['data'] as Map)
+            : verifyRes;
+        final isTestMode = rawVerifyData['is_test_mode'] == true;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -366,12 +375,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     // Check gateway status: if unavailable, show diagnostic modal
-    if (_gatewayStatus != null && _gatewayStatus!['available'] != true) {
-      final diag = _gatewayStatus!['diagnostics'] as Map<String, dynamic>?;
+    final isGatewayAvail = _gatewayStatus != null &&
+        (_gatewayStatus!['available'] == true ||
+            (_gatewayStatus!['data'] is Map && _gatewayStatus!['data']['available'] == true));
+    if (!isGatewayAvail) {
+      final diag = (_gatewayStatus?['diagnostics'] is Map)
+          ? _gatewayStatus!['diagnostics'] as Map<String, dynamic>
+          : (_gatewayStatus?['data'] is Map && _gatewayStatus!['data']['diagnostics'] is Map)
+              ? _gatewayStatus!['data']['diagnostics'] as Map<String, dynamic>
+              : null;
       final msg = diag?['message']?.toString() ??
-          _gatewayStatus!['message']?.toString() ??
+          _gatewayStatus?['message']?.toString() ??
           'Payment Gateway Unavailable: Razorpay API credentials are not configured on the production server. Mock payment mode is strictly prohibited in production.';
-      final isProd = _gatewayStatus!['is_production'] == true;
+      final isProd = _gatewayStatus?['is_production'] == true ||
+          (_gatewayStatus?['data'] is Map && _gatewayStatus!['data']['is_production'] == true);
 
       await showDialog<void>(
         context: context,
@@ -590,7 +607,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           return;
         }
 
-        final dynamic rawRzpData = rzpOrderRes['data'];
+        final dynamic rawRzpData = (rzpOrderRes['data'] is Map) ? rzpOrderRes['data'] : rzpOrderRes;
         final Map<String, dynamic> rzpData = rawRzpData is Map<String, dynamic>
             ? rawRzpData
             : (rawRzpData is Map ? Map<String, dynamic>.from(rawRzpData) : <String, dynamic>{});
@@ -1118,7 +1135,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ],
                   ),
                 ),
-              ] else if (_gatewayStatus != null && _gatewayStatus!['available'] == true) ...[
+              ] else if (_gatewayStatus != null &&
+                  (_gatewayStatus!['available'] == true ||
+                      (_gatewayStatus!['data'] is Map && _gatewayStatus!['data']['available'] == true))) ...[
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -1146,7 +1165,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     color: Color(0xFF14532D),
                                   ),
                                 ),
-                                if (_gatewayStatus!['is_test_mode'] == true) ...[
+                                if (_gatewayStatus!['is_test_mode'] == true ||
+                                    (_gatewayStatus!['data'] is Map && _gatewayStatus!['data']['is_test_mode'] == true)) ...[
                                   const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1188,7 +1208,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 6,
-                        children: ((_gatewayStatus!['supported_methods'] as List?)?.map((m) => _payBadge(m.toString())).toList()) ?? [
+                        children: (((_gatewayStatus!['supported_methods'] ?? (_gatewayStatus!['data'] is Map ? _gatewayStatus!['data']['supported_methods'] : null)) as List?)?.map((m) => _payBadge(m.toString())).toList()) ?? [
                           _payBadge('UPI'),
                           _payBadge('Cards'),
                           _payBadge('Net Banking'),
@@ -1251,6 +1271,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       const SizedBox(height: 8),
                       Text(
                         _gatewayStatus?['diagnostics']?['message']?.toString() ??
+                            (_gatewayStatus?['data'] is Map ? _gatewayStatus!['data']['diagnostics']?['message']?.toString() : null) ??
                             'Razorpay API credentials are not configured on the production server. Mock payment mode is strictly prohibited in production.',
                         style: const TextStyle(
                           fontSize: 12,
@@ -1268,7 +1289,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           border: Border.all(color: const Color(0xFFFEE2E2)),
                         ),
                         child: Text(
-                          'Environment: ${_gatewayStatus?['environment'] ?? 'PRODUCTION'}  |  Code: ${_gatewayStatus?['diagnostics']?['error_code'] ?? 'GATEWAY_CREDENTIALS_MISSING'}',
+                          'Environment: ${_gatewayStatus?['environment'] ?? (_gatewayStatus?['data'] is Map ? _gatewayStatus!['data']['environment'] : null) ?? 'PRODUCTION'}  |  Code: ${_gatewayStatus?['diagnostics']?['error_code'] ?? (_gatewayStatus?['data'] is Map ? _gatewayStatus!['data']['diagnostics']?['error_code'] : null) ?? 'GATEWAY_CREDENTIALS_MISSING'}',
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,

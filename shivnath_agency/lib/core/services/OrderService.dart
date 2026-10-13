@@ -648,7 +648,16 @@ class OrderService {
         headers: await _headers(),
       );
 
-      return _decodeResponse(response);
+      final res = _decodeResponse(response);
+      if (res['success'] == true && res['data'] is Map<String, dynamic>) {
+        final data = Map<String, dynamic>.from(res['data'] as Map);
+        return {
+          'success': true,
+          ...data,
+          'data': data,
+        };
+      }
+      return res;
     } catch (e) {
       return {
         'success': false,
@@ -672,7 +681,16 @@ class OrderService {
         }),
       );
 
-      return _decodeResponse(response);
+      final res = _decodeResponse(response);
+      if (res['success'] == true && res['data'] is Map<String, dynamic>) {
+        final data = Map<String, dynamic>.from(res['data'] as Map);
+        return {
+          'success': true,
+          ...data,
+          'data': data,
+        };
+      }
+      return res;
     } catch (e) {
       return {
         'success': false,
@@ -699,7 +717,16 @@ class OrderService {
         }),
       );
 
-      return _decodeResponse(response);
+      final res = _decodeResponse(response);
+      if (res['success'] == true && res['data'] is Map<String, dynamic>) {
+        final data = Map<String, dynamic>.from(res['data'] as Map);
+        return {
+          'success': true,
+          ...data,
+          'data': data,
+        };
+      }
+      return res;
     } catch (e) {
       return {
         'success': false,

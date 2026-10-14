@@ -1,4 +1,4 @@
-package com.example.shivnath_agency
+package com.shivnathagency.waternow
 
 import io.flutter.embedding.android.FlutterActivity
 

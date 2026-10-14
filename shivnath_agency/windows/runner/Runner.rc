@@ -89,11 +89,11 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
+            VALUE "CompanyName", "com.shivnathagency" "\0"
             VALUE "FileDescription", "shivnath_agency" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "shivnath_agency" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.shivnathagency. All rights reserved." "\0"
             VALUE "OriginalFilename", "shivnath_agency.exe" "\0"
             VALUE "ProductName", "shivnath_agency" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

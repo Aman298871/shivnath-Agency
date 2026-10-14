@@ -37,7 +37,7 @@ After comprehensive code auditing, bug resolution, static analysis, and device t
 
 ## 3. Environment & Configuration Check
 
-- **Client App ID**: `com.example.shivnath_agency`
+- **Client App ID**: `com.shivnathagency.waternow`
 - **Keystore**: `android/app/upload-keystore.jks`
   - Alias: `shivnath`
   - Password: `shivnath@2026`

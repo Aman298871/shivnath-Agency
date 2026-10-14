@@ -8,7 +8,7 @@
 PRODUCT_NAME = shivnath_agency
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.shivnathAgency
+PRODUCT_BUNDLE_IDENTIFIER = com.shivnathagency.waternow
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 com.shivnathagency. All rights reserved.

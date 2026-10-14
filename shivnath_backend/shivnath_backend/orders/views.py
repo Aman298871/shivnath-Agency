@@ -864,17 +864,17 @@ def get_razorpay_credentials():
     key_id = (
         os.environ.get('RAZORPAY_KEY_ID') or 
         getattr(settings, 'RAZORPAY_KEY_ID', '') or 
-        'rzp_test_TnHOsEiTNcd25f'
+        'rzp_live_Tnhqo3i0SyYYdf'
     ).strip()
     key_secret = (
         os.environ.get('RAZORPAY_KEY_SECRET') or 
         getattr(settings, 'RAZORPAY_KEY_SECRET', '') or 
-        'KhXhv0YO2Lvu1aBFr5ks5s2R'
+        'u6BrnyYxz3U9lqPNhSrWI7lB'
     ).strip()
     razorpay_env = (
         os.environ.get('RAZORPAY_ENVIRONMENT') or 
         getattr(settings, 'RAZORPAY_ENVIRONMENT', '') or 
-        'TEST'
+        'LIVE'
     ).strip().upper()
     webhook_secret = (
         os.environ.get('RAZORPAY_WEBHOOK_SECRET') or 

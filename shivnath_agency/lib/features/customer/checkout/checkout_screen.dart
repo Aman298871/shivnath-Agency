@@ -645,12 +645,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'theme': {
             'color': '#0284C7',
           },
-          'method': {
-            'upi': true,
-            'card': true,
-            'netbanking': true,
-            'wallet': true,
-          },
           'retry': {
             'enabled': true,
             'max_count': 3,

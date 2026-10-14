@@ -622,7 +622,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Step 3: Open Genuine Razorpay Checkout
         final localUser = await SessionService().getUser();
         final options = {
-          'key': keyId,
+          'key': keyId.isNotEmpty ? keyId : AppConstants.razorpayKeyId,
           'amount': amountInPaise,
           'name': 'Shivnath Agency - WATERNow',
           'order_id': rzpOrderId,
@@ -644,6 +644,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           },
           'theme': {
             'color': '#0284C7',
+          },
+          'method': {
+            'upi': true,
+            'card': true,
+            'netbanking': true,
+            'wallet': true,
           },
           'retry': {
             'enabled': true,

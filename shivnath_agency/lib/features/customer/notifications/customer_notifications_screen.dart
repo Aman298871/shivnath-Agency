@@ -12,7 +12,7 @@ class CustomerNotificationsScreen extends StatefulWidget {
 class _CustomerNotificationsScreenState
     extends State<CustomerNotificationsScreen> {
   final StockService _stockService = StockService();
-  bool _isLoading = true;
+  bool _isSyncing = false;
   List<Map<String, dynamic>> _notifications = [];
 
   @override
@@ -22,6 +22,7 @@ class _CustomerNotificationsScreenState
   }
 
   Future<void> _fetchNotifications() async {
+    if (mounted) setState(() => _isSyncing = true);
     final res = await _stockService.getCustomerNotifications();
     if (!mounted) return;
 
@@ -29,10 +30,12 @@ class _CustomerNotificationsScreenState
       final list = res['data']['notifications'] as List? ?? [];
       setState(() {
         _notifications = List<Map<String, dynamic>>.from(list);
-        _isLoading = false;
+        _isSyncing = false;
       });
     } else {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isSyncing = false;
+      });
     }
   }
 
@@ -108,16 +111,11 @@ class _CustomerNotificationsScreenState
             ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () {
-              setState(() => _isLoading = true);
-              _fetchNotifications();
-            },
+            onPressed: _fetchNotifications,
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
+      body: RefreshIndicator(
               onRefresh: _fetchNotifications,
               child: _notifications.isEmpty
                   ? ListView(

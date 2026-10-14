@@ -17,11 +17,11 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
   final OrderService _orderService = OrderService();
   late Razorpay _razorpay;
 
-  bool _isLoading = true;
+  bool _isSyncing = false;
   bool _isProcessingPayment = false;
   double _pendingRechargeAmount = 0.0;
   double _walletBalance = 150.0; // Welcome promotional credit
-  int _rewardPoints = 0;
+  int _rewardPoints = 120;
   List<Map<String, dynamic>> _transactions = [];
 
   @override
@@ -41,21 +41,61 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
   }
 
   Future<void> _loadWalletData() async {
-    setState(() => _isLoading = true);
     final prefs = await SharedPreferences.getInstance();
 
-    // Load or initialize wallet balance
+    // 1. Instant local load (paint UI in < 10ms)
     if (!prefs.containsKey('customer_water_wallet_balance')) {
       await prefs.setDouble('customer_water_wallet_balance', 150.0);
     }
     final balance = prefs.getDouble('customer_water_wallet_balance') ?? 150.0;
 
-    // Load customer order transactions
-    List<Map<String, dynamic>> txList = [];
-    int points = 0;
+    // Load local recharge history first
+    final List<Map<String, dynamic>> txList = [];
+    final rechargeHistory = prefs.getStringList('customer_recharges_list') ?? [];
+    for (final r in rechargeHistory) {
+      final parts = r.split('|');
+      if (parts.length >= 2) {
+        final paymentRef = (parts.length >= 3 && parts[2].isNotEmpty) ? ' • ID: ${parts[2]}' : '';
+        txList.add({
+          'id': 'recharge_${parts[0]}_${parts[1]}',
+          'title': 'Wallet Top-up',
+          'subtitle': 'Razorpay Online Recharge (UPI/Card)$paymentRef',
+          'amount': double.tryParse(parts[1]) ?? 100.0,
+          'is_credit': true,
+          'date': parts[0],
+        });
+      }
+    }
 
+    if (mounted) {
+      setState(() {
+        _walletBalance = balance;
+        if (_transactions.isEmpty) {
+          _transactions = List.from(txList);
+        }
+        _isSyncing = true;
+      });
+    }
+
+    // 2. Safe background network sync with strict 4s timeout (never hangs UI)
+    int points = 0;
     try {
-      final res = await _orderService.getOrders();
+      // First try dedicated server wallet endpoint
+      final walletRes = await _orderService.getWalletDetails();
+      if (walletRes['success'] == true && walletRes['balance'] != null) {
+        final serverBalance = double.tryParse(walletRes['balance'].toString());
+        if (serverBalance != null && serverBalance > 0) {
+          await prefs.setDouble('customer_water_wallet_balance', serverBalance);
+          if (mounted) setState(() => _walletBalance = serverBalance);
+        }
+      }
+
+      // Then sync customer order history for transaction logs
+      final res = await _orderService.getOrders().timeout(
+        const Duration(seconds: 4),
+        onTimeout: () => {'success': false, 'data': {}},
+      );
+
       if (res['success'] == true && res['data'] is Map) {
         final rawOrders = res['data']['orders'];
         if (rawOrders is List) {
@@ -83,29 +123,11 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
       }
     } catch (_) {}
 
-    // Add wallet recharge history if any
-    final rechargeHistory = prefs.getStringList('customer_recharges_list') ?? [];
-    for (final r in rechargeHistory) {
-      final parts = r.split('|');
-      if (parts.length >= 2) {
-        final paymentRef = (parts.length >= 3 && parts[2].isNotEmpty) ? ' • ID: ${parts[2]}' : '';
-        txList.insert(0, {
-          'id': 'recharge_${parts[0]}_${parts[1]}',
-          'title': 'Wallet Top-up',
-          'subtitle': 'Razorpay Online Recharge (UPI/Card)$paymentRef',
-          'amount': double.tryParse(parts[1]) ?? 100.0,
-          'is_credit': true,
-          'date': parts[0],
-        });
-      }
-    }
-
     if (mounted) {
       setState(() {
-        _walletBalance = balance;
-        _rewardPoints = points > 0 ? points : 120; // Baseline points
+        _rewardPoints = points > 0 ? points : 120;
         _transactions = txList;
-        _isLoading = false;
+        _isSyncing = false;
       });
     }
   }
@@ -177,7 +199,7 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
       // 2. Open Razorpay Checkout Sheet with UPI, PhonePe, Google Pay, Cards, NetBanking
       final localUser = await SessionService().getUser();
       final options = {
-        'key': keyId,
+        'key': keyId.isNotEmpty ? keyId : AppConstants.razorpayKeyId,
         'amount': amountInPaise,
         'name': 'Shivnath Agency - WATERNow',
         'order_id': rzpOrderId,
@@ -198,6 +220,12 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
         },
         'theme': {
           'color': '#0284C7',
+        },
+        'method': {
+          'upi': true,
+          'card': true,
+          'netbanking': true,
+          'wallet': true,
         },
         'retry': {
           'enabled': true,
@@ -448,13 +476,23 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
       ),
       body: Stack(
         children: [
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _loadWalletData,
-                  child: ListView(
-                    padding: const EdgeInsets.all(18),
-                    children: [
+          RefreshIndicator(
+            onRefresh: _loadWalletData,
+            child: ListView(
+              padding: const EdgeInsets.all(18),
+              children: [
+                if (_isSyncing)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.all(Radius.circular(4)),
+                      child: LinearProgressIndicator(
+                        minHeight: 3,
+                        backgroundColor: Color(0xFFE2E8F0),
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0284C7)),
+                      ),
+                    ),
+                  ),
                   // 1. Water Wallet Card
                   Container(
                     padding: const EdgeInsets.all(22),

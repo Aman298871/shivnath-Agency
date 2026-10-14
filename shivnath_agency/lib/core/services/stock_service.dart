@@ -25,7 +25,7 @@ class StockService {
             Uri.parse('$baseUrl/api/accounts/customer/stock/'),
             headers: await _headers(),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 4));
 
       dynamic decoded;
       try {
@@ -155,7 +155,7 @@ class StockService {
             Uri.parse('$baseUrl/api/accounts/customer/notifications/'),
             headers: await _headers(),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 4));
 
       dynamic decoded;
       try {

@@ -5,6 +5,7 @@ import '../../../core/services/OrderService.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/theme/brand_colors.dart';
 import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/product_thumbnail.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -77,17 +78,34 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     int? id = _resolvedDbId;
     if (id == null || id <= 0) {
       try {
-        final searchRes = await _orderService.getOrders(search: widget.orderId);
+        final cleanWidgetId = widget.orderId.replaceAll('#', '').toLowerCase().trim();
+        final searchRes = await _orderService.getOrders(search: cleanWidgetId);
         if (searchRes['success'] == true && searchRes['data'] != null) {
           final List ordersList = searchRes['data']['orders'] ?? (searchRes['data'] is List ? searchRes['data'] : []);
-          if (ordersList.isNotEmpty) {
-            final first = ordersList.first;
-            id = first['id'] is int ? first['id'] as int : int.tryParse('${first['id']}');
+          for (final item in ordersList) {
+            if (item is Map) {
+              final mapped = _orderService.mapOrder(Map<String, dynamic>.from(item));
+              final ordIdStr = (mapped['orderId'] ?? '').toString().replaceAll('#', '').toLowerCase().trim();
+              final dbIdStr = (mapped['id'] ?? '').toString().trim();
+              if (ordIdStr == cleanWidgetId || dbIdStr == cleanWidgetId) {
+                id = mapped['id'] is int ? mapped['id'] as int : int.tryParse('${mapped['id']}');
+                _order = mapped;
+                break;
+              }
+            }
           }
         }
       } catch (_) {}
     }
-    if (id == null || id <= 0) return;
+    if (id == null || id <= 0) {
+      if (_order == null && mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Order "${widget.orderId}" could not be loaded. It may have been deleted, updated, or the server is unreachable.';
+        });
+      }
+      return;
+    }
 
     if (_order == null) {
       setState(() => _loading = true);
@@ -182,6 +200,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           onPressed: _fetchLatestOrder,
                           icon: const Icon(Icons.refresh_rounded, size: 18),
                           label: const Text('Retry'),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                          label: const Text('Back to Dashboard'),
                         ),
                       ],
                     ),
@@ -817,7 +841,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 final unitPrice = item['unit_price'] ?? item['price'] ?? 0;
                 final totalPrice = item['total_price'] ??
                     ((double.tryParse(unitPrice.toString()) ?? 0) * (int.tryParse(qty.toString()) ?? 1));
-                final imageUrl = item['product_image']?.toString() ?? '';
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),

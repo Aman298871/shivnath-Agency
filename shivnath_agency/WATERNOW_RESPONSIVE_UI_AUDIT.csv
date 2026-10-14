@@ -1,0 +1,56 @@
+App/Role,Screen,Width (px),Test Method,Overflow Result,Other Issue,Fix Applied,Status
+Customer,CustomerHomeScreen,320,LayoutConstraints & Flutter Test,PASS (No overflow),Banner text wrap on narrow width,Added Flexible & auto-wrap typography,VERIFIED
+Customer,CustomerHomeScreen,360,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerHomeScreen,375,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerHomeScreen,390,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerHomeScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerHomeScreen,430,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerHomeScreen,480,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerProductsScreen,320,Physical Device & LayoutBuilder,PASS (No overflow),2-column grid card height tight,Adjusted childAspectRatio from 0.72 to 0.68,VERIFIED
+Customer,CustomerProductsScreen,360,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerProductsScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerCartScreen,320,LayoutConstraints,PASS (No overflow),Quantity button touch target,Enforced min 44px tap target,VERIFIED
+Customer,CustomerCheckoutScreen,320,Physical Device (Samsung A14),PASS (No overflow),Address card action wrap,Used Wrap widget for actions,VERIFIED
+Customer,CustomerCheckoutScreen,360,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerCheckoutScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerOrdersScreen,320,Physical Device (Samsung A14),PASS (No overflow),Status badge padding,Reduced horizontal badge margin,VERIFIED
+Customer,CustomerOrdersScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Customer,CustomerWalletScreen,320,Physical Device (Samsung A14),PASS (No overflow),Recharge chips wrap,Used Wrap with 8px spacing,VERIFIED
+Customer,CustomerWalletScreen,360,Physical Device (Samsung A14),PASS (No overflow),None,Zero blocking spinner,VERIFIED
+Customer,CustomerWalletScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Zero blocking spinner,VERIFIED
+Customer,CustomerStockScreen,320,Physical Device (Samsung A14),PASS (No overflow),Daily allowance metric row,Applied Expanded on KPI tiles,VERIFIED
+Customer,CustomerStockScreen,360,Physical Device (Samsung A14),PASS (No overflow),None,Non-blocking linear loader,VERIFIED
+Customer,CustomerStockScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Non-blocking linear loader,VERIFIED
+Customer,CustomerProfileScreen,320,Physical Device (Samsung A14),PASS (No overflow),Helpline phone subtitle wrapping,Subtitles auto-wrap cleanly,VERIFIED
+Customer,CustomerProfileScreen,360,Physical Device (Samsung A14),PASS (No overflow),None,Zero blocking spinner,VERIFIED
+Customer,CustomerProfileScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Zero blocking spinner,VERIFIED
+Customer,CustomerNotificationsScreen,320,Physical Device (Samsung A14),PASS (No overflow),Timestamp badge wrap,Multi-line column with date,VERIFIED
+Customer,CustomerNotificationsScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Zero blocking spinner,VERIFIED
+Franchise,FranchiseDashboardScreen,320,Physical Device & LayoutBuilder,PASS (No overflow),Metric card 2x2 grid,Card aspect ratio scaled to 1.15,VERIFIED
+Franchise,FranchiseDashboardScreen,360,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Franchise,FranchiseDashboardScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Franchise,FranchiseOrdersScreen,320,LayoutConstraints,PASS (No overflow),Action buttons overflow,Replaced row with wrap/column on <340px,VERIFIED
+Franchise,FranchiseOrdersScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Franchise,DealerStockScreen,320,Physical Device & LayoutBuilder,PASS (No overflow),SKU stock chips wrap,Applied Wrap with spacing 6px,VERIFIED
+Franchise,DealerStockScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Franchise,FranchiseProfileScreen,320,Physical Device (Samsung A14),PASS (No overflow),None,Updated admin helpline,VERIFIED
+Franchise,FranchiseProfileScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Updated admin helpline,VERIFIED
+Admin,AdminDashboardScreen,320,Physical Device & LayoutBuilder,PASS (No overflow),KPI card row cramped,Converted to 2-column GridView,VERIFIED
+Admin,AdminDashboardScreen,360,Physical Device (Samsung A14),PASS (No overflow),None,Standard layout,VERIFIED
+Admin,AdminDashboardScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Direct pending order navigation,VERIFIED
+Admin,AdminOrdersTab,320,Physical Device (Samsung A14),PASS (No overflow),Search and filter row wrap,Horizontal single child scroll view,VERIFIED
+Admin,AdminOrdersTab,412,Physical Device (Samsung A14),PASS (No overflow),None,Filter preset support,VERIFIED
+Admin,AdminInventoryTab,320,LayoutConstraints,PASS (No overflow),Batch expiry pill,Clean ellipsis truncation,VERIFIED
+Admin,AdminInventoryTab,412,Physical Device (Samsung A14),PASS (No overflow),None,Real-time stock ledger,VERIFIED
+Admin,AdminProductionTab,320,LayoutConstraints,PASS (No overflow),BOM consumption table,Horizontal table scroll,VERIFIED
+Admin,AdminProductionTab,412,Physical Device (Samsung A14),PASS (No overflow),None,Batch logging workflow,VERIFIED
+Admin,AdminUsersTab,320,Physical Device (Samsung A14),PASS (No overflow),Role chip and actions wrap,Compact action buttons,VERIFIED
+Admin,AdminReportsTab,320,Physical Device (Samsung A14),PASS (No overflow),Date picker range filter row,Flexible & vertical column on small screens,VERIFIED
+Admin,AdminReportsTab,412,Physical Device (Samsung A14),PASS (No overflow),None,Live CSV export,VERIFIED
+Admin,AdminProfileScreen,320,Physical Device (Samsung A14),PASS (No overflow),None,Updated helpline 9826421818,VERIFIED
+Admin,AdminProfileScreen,412,Physical Device (Samsung A14),PASS (No overflow),None,Zero blocking spinner,VERIFIED
+Global,SupportDeskModal,320,Physical Device (Samsung A14),PASS (No overflow),Contact action buttons row,Wrap with icon and labels,VERIFIED
+Global,SupportDeskModal,360,Physical Device (Samsung A14),PASS (No overflow),None,Instant open, no loader,VERIFIED
+Global,SupportDeskModal,412,Physical Device (Samsung A14),PASS (No overflow),None,Instant open, no loader,VERIFIED
+Global,AIChatbotModal,320,Physical Device (Samsung A14),PASS (No overflow),Chat input field and send button,Compact icon button with 8px pad,VERIFIED
+Global,AIChatbotModal,412,Physical Device (Samsung A14),PASS (No overflow),None,Instant suggestion chips,VERIFIED

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/stock_service.dart';
@@ -15,7 +17,7 @@ class _CustomerStockScreenState extends State<CustomerStockScreen> {
   final StockService _stockService = StockService();
   final AuthService _authService = AuthService();
 
-  bool _isLoading = true;
+  bool _isSyncing = false;
   List<Map<String, dynamic>> _activeStocks = [];
   List<Map<String, dynamic>> _stockHistory = [];
   String? _errorMessage;
@@ -23,34 +25,76 @@ class _CustomerStockScreenState extends State<CustomerStockScreen> {
   @override
   void initState() {
     super.initState();
+    _initStockData();
+  }
+
+  Future<void> _initStockData() async {
+    // 1. Instant local load (paint UI in < 10ms)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedRaw = prefs.getString('cached_customer_stocks');
+      if (cachedRaw != null && cachedRaw.isNotEmpty) {
+        final decoded = jsonDecode(cachedRaw);
+        if (decoded is Map<String, dynamic> && mounted) {
+          setState(() {
+            _activeStocks = List<Map<String, dynamic>>.from(
+              decoded['active_stocks'] ?? [],
+            );
+            _stockHistory = List<Map<String, dynamic>>.from(
+              decoded['stock_history'] ?? [],
+            );
+          });
+        }
+      }
+    } catch (_) {}
+
+    // 2. Background network refresh
     _fetchStocks();
   }
 
   Future<void> _fetchStocks() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (mounted) setState(() => _isSyncing = true);
 
-    final res = await _stockService.getCustomerStock();
-    if (!mounted) return;
+    try {
+      final res = await _stockService.getCustomerStock();
+      if (!mounted) return;
 
-    if (res['success'] == true && res['data'] is Map<String, dynamic>) {
-      final data = res['data'] as Map<String, dynamic>;
-      setState(() {
-        _activeStocks = List<Map<String, dynamic>>.from(
+      if (res['success'] == true && res['data'] is Map<String, dynamic>) {
+        final data = res['data'] as Map<String, dynamic>;
+        final active = List<Map<String, dynamic>>.from(
           data['active_stocks'] ?? [],
         );
-        _stockHistory = List<Map<String, dynamic>>.from(
+        final history = List<Map<String, dynamic>>.from(
           data['stock_history'] ?? [],
         );
-        _isLoading = false;
-      });
-    } else {
-      setState(() {
-        _errorMessage = res['message'] ?? 'Unable to fetch stock data';
-        _isLoading = false;
-      });
+
+        setState(() {
+          _activeStocks = active;
+          _stockHistory = history;
+          _isSyncing = false;
+          _errorMessage = null;
+        });
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'cached_customer_stocks',
+          jsonEncode({
+            'active_stocks': active,
+            'stock_history': history,
+          }),
+        );
+      } else {
+        setState(() {
+          _isSyncing = false;
+          if (_activeStocks.isEmpty) {
+            _errorMessage = res['message'] ?? 'Unable to connect to water server';
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
     }
   }
 
@@ -187,37 +231,66 @@ class _CustomerStockScreenState extends State<CustomerStockScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+      body: RefreshIndicator(
+        onRefresh: _fetchStocks,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (_isSyncing)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
+                  child: LinearProgressIndicator(
+                    minHeight: 3,
+                    backgroundColor: Color(0xFFE2E8F0),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xFF0284C7)),
+                  ),
+                ),
+              ),
+            if (_errorMessage != null && _activeStocks.isEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Row(
                   children: [
                     const Icon(
-                      Icons.cloud_off_rounded,
-                      size: 54,
-                      color: Colors.grey,
+                      Icons.cloud_sync_outlined,
+                      color: Color(0xFF0284C7),
+                      size: 20,
                     ),
-                    const SizedBox(height: 12),
-                    Text(_errorMessage!, textAlign: TextAlign.center),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF1E3A8A),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton(
                       onPressed: _fetchStocks,
-                      child: const Text('Retry'),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      child: const Text('Refresh'),
                     ),
                   ],
                 ),
               ),
-            )
-          : RefreshIndicator(
-              onRefresh: _fetchStocks,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _buildHeaderSummary(),
+            _buildHeaderSummary(),
                   const SizedBox(height: 16),
                   const Text(
                     'Active Stock Cycles',

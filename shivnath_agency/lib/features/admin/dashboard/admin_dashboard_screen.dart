@@ -9,6 +9,7 @@ import '../../../core/services/OrderService.dart';
 import '../../../core/services/notification_service.dart';
 import '../inventory/dealer_stock_request_fulfillment_screen.dart';
 import '../../customer/orders/order_detail_screen.dart';
+import '../orders/pending_orders_picker_dialog.dart';
 import '../../../core/widgets/app_components.dart';
 import '../../../core/utils/app_toast.dart';
 
@@ -454,21 +455,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                         if (orderStatus != null && orderStatus.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE0F2FE),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              orderStatus.toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0284C7),
-                              ),
-                            ),
-                          ),
+                          AppStatusBadge.order(orderStatus, fontSize: 10),
                       ],
                     ),
                     const Divider(height: 20),
@@ -977,6 +964,47 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (_) {}
   }
 
+  void _openSpecificOrderDetail(Map<String, dynamic> ord) {
+    final rawId = ord['id'] is int ? ord['id'] as int : int.tryParse('${ord['id']}') ?? 0;
+    final ordCode = (ord['order_id'] ?? ord['orderId'] ?? ord['order_code'] ?? 'ORD-$rawId')
+        .toString()
+        .replaceAll('#', '');
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrderDetailScreen(
+          orderId: ordCode,
+          initialOrder: ord,
+          dbId: rawId,
+        ),
+      ),
+    ).then((_) {
+      _loadDashboardData();
+      _loadActionableAlerts();
+    });
+  }
+
+  void _handlePendingOrdersTap() {
+    if (_pendingCustomerOrders.length == 1) {
+      _openSpecificOrderDetail(_pendingCustomerOrders.first);
+    } else if (_pendingCustomerOrders.length > 1) {
+      PendingOrdersPickerDialog.show(
+        context,
+        pendingOrders: _pendingCustomerOrders,
+        onSelectOrder: (selectedOrder) {
+          _openSpecificOrderDetail(selectedOrder);
+        },
+        onRefresh: () async {
+          await _loadActionableAlerts();
+          await _loadDashboardData();
+        },
+      );
+    } else {
+      widget.onOpenOrders?.call();
+    }
+  }
+
   Widget _actionableAlertsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1141,15 +1169,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           ),
-                          icon: const Icon(Icons.receipt_long_outlined, size: 16),
-                          label: const Text('VIEW IN ORDERS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          onPressed: () {
-                            if (widget.onOpenOrdersWithCode != null) {
-                              widget.onOpenOrdersWithCode!(ordCode);
-                            } else {
-                              widget.onOpenOrders?.call();
-                            }
-                          },
+                          icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                          label: const Text('OPEN ORDER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          onPressed: openThisOrder,
                         ),
                       ],
                     ),
@@ -1786,7 +1808,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     _pendingStockExpiryBanner(),
                   ],
 
-                  if (_pendingStockRequests.isNotEmpty || _pendingPaymentVerifications.isNotEmpty) ...[
+                  if (_pendingStockRequests.isNotEmpty ||
+                      _pendingPaymentVerifications.isNotEmpty ||
+                      _pendingCustomerOrders.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _actionableAlertsSection(),
                   ],
@@ -1901,15 +1925,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         case 0:
           return widget.onOpenLeads;
         case 1:
-          return () {
-            if (_pendingCustomerOrders.isNotEmpty && widget.onOpenOrdersWithCode != null) {
-              final first = _pendingCustomerOrders.first;
-              final code = (first['order_id'] ?? first['orderId'] ?? first['order_code'] ?? 'ORD-${first['id']}').toString().replaceAll('#', '');
-              widget.onOpenOrdersWithCode!(code);
-            } else {
-              widget.onOpenOrders?.call();
-            }
-          };
+          return _handlePendingOrdersTap;
         case 2:
           return widget.onOpenStockRequests ?? widget.onOpenInventory;
         case 3:
@@ -1991,15 +2007,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 _orderStageChip('New Placed', _newOrdersCount, const Color(0xFF2563EB), const Color(0xFFEFF6FF), onTap: widget.onOpenOrders),
                 const SizedBox(width: 8),
-                _orderStageChip('Pending Approval', _pendingApprovalCount, const Color(0xFFD97706), const Color(0xFFFFFBEB), onTap: () {
-                  if (_pendingCustomerOrders.isNotEmpty && widget.onOpenOrdersWithCode != null) {
-                    final first = _pendingCustomerOrders.first;
-                    final code = (first['order_id'] ?? first['orderId'] ?? first['order_code'] ?? 'ORD-${first['id']}').toString().replaceAll('#', '');
-                    widget.onOpenOrdersWithCode!(code);
-                  } else {
-                    widget.onOpenOrders?.call();
-                  }
-                }),
+                _orderStageChip(
+                  'Pending Approval',
+                  _pendingApprovalCount,
+                  const Color(0xFFD97706),
+                  const Color(0xFFFFFBEB),
+                  onTap: _handlePendingOrdersTap,
+                ),
                 const SizedBox(width: 8),
                 _orderStageChip('Preparing', _preparingCount, const Color(0xFF7C3AED), const Color(0xFFF5F3FF), onTap: widget.onOpenOrders),
                 const SizedBox(width: 8),
@@ -2027,7 +2041,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _recentOrders.length,
-              separatorBuilder: (_, __) => const Divider(height: 16),
+              separatorBuilder: (context, index) => const Divider(height: 16),
               itemBuilder: (ctx, idx) {
                 final ord = _recentOrders[idx];
                 final code = ord['order_code']?.toString() ?? 'ORD-${ord['id']}';
@@ -2093,7 +2107,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           children: [
                             Text('₹$amt', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF1E293B))),
                             const SizedBox(height: 2),
-                            Text(status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2563EB))),
+                            AppStatusBadge.order(status, fontSize: 10),
                           ],
                         ),
                         const SizedBox(width: 8),

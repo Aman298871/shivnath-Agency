@@ -54,9 +54,10 @@ class SupportDeskModal extends StatefulWidget {
 }
 
 class _SupportDeskModalState extends State<SupportDeskModal> {
-  bool _isLoading = true;
+  bool _isLoading = false;
+  bool _isSyncing = false;
   String? _errorMessage;
-  SupportContactInfo? _contact;
+  SupportContactInfo? _contact = SupportDeskService.defaultContact;
   UserModel? _currentUser;
   List<SupportContactInfo> _adminAllContacts = [];
   bool _isAdmin = false;
@@ -68,11 +69,6 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
   }
 
   Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
     try {
       _currentUser = await SessionService().getUser();
       _isAdmin = _currentUser?.role.toLowerCase() == 'admin';
@@ -89,22 +85,15 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
         setState(() {
           _contact = contact;
           _isLoading = false;
+          _isSyncing = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _contact = SupportContactInfo(
-            name: 'Shivnath Agency Support Desk',
-            phone: '+91 98062 47194',
-            email: 'support@shivnath.com',
-            role: 'customer',
-            roleDisplay: 'Central Customer Helpline',
-            messageTemplate:
-                'Namaste Shivnath Support,\nI require assistance with my drinking water supply.',
-            target: 'central',
-          );
+          _contact ??= SupportDeskService.defaultContact;
           _isLoading = false;
+          _isSyncing = false;
         });
       }
     }
@@ -386,7 +375,21 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_isLoading)
+                  if (_isSyncing)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.all(Radius.circular(4)),
+                        child: LinearProgressIndicator(
+                          minHeight: 3,
+                          backgroundColor: Color(0xFFE2E8F0),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFF0284C7),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (_isLoading && _contact == null && _adminAllContacts.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 40),
                       child: Center(

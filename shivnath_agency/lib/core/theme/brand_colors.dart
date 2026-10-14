@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'order_status_style.dart';
 
 /// Centralized Brand Colors and Semantic Tokens for Shivnath Agency.
 ///
@@ -104,66 +105,14 @@ class BrandColors {
   }
 
   // ---------------------------------------------------------------------------
-  // Order Status Colors (Section 17)
+  // Order Status Colors (Section 17) - Delegated to OrderStatusStyle
   // ---------------------------------------------------------------------------
   static Color getOrderStatusColor(String? status) {
-    final s = status?.toUpperCase() ?? '';
-    switch (s) {
-      case 'ADMIN_APPROVED':
-      case 'APPROVED':
-      case 'DELIVERED':
-      case 'COMPLETED':
-        return green;
-
-      case 'PREPARING':
-      case 'PENDING':
-      case 'AWAITING_PAYMENT':
-        return yellowDark;
-
-      case 'CANCELLED':
-      case 'FAILED':
-      case 'REJECTED':
-        return red;
-
-      case 'RETURNED':
-        return const Color(0xFFEA580C);
-
-      case 'ORDER_PLACED':
-      case 'INVOICE_GENERATED':
-      case 'DISPATCHED':
-      case 'IN_TRANSIT':
-      case 'SHIPPED':
-      case 'PROCESSING':
-      default:
-        return primaryBlue;
-    }
+    return OrderStatusStyle.getColor(status);
   }
 
   static Color getOrderStatusSoftBackground(String? status) {
-    final s = status?.toUpperCase() ?? '';
-    switch (s) {
-      case 'ADMIN_APPROVED':
-      case 'APPROVED':
-      case 'DELIVERED':
-      case 'COMPLETED':
-        return greenSoft;
-
-      case 'PREPARING':
-      case 'PENDING':
-      case 'AWAITING_PAYMENT':
-        return yellowSoft;
-
-      case 'CANCELLED':
-      case 'FAILED':
-      case 'REJECTED':
-        return redSoft;
-
-      case 'RETURNED':
-        return const Color(0xFFFFF7ED);
-
-      default:
-        return blueSoft;
-    }
+    return OrderStatusStyle.getSoftBackground(status);
   }
 
   // ---------------------------------------------------------------------------

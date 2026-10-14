@@ -528,7 +528,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
   String get _displayPhone {
     final phone = _currentUser?.phone.trim();
     if (phone != null && phone.isNotEmpty) return phone;
-    return '+91 98062 47194';
+    return '+91 98264 21818';
   }
 
   String get _initials {
@@ -1155,7 +1155,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                                 color: BrandColors.greenDark,
                               ),
                               label: const Text(
-                                'Admin Support Desk (+91 98062 47194)',
+                                'Admin Support Desk (+91 98264 21818)',
                                 style: TextStyle(
                                   color: BrandColors.greenDark,
                                   fontWeight: FontWeight.w700,

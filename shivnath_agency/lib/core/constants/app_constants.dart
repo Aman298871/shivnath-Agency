@@ -49,4 +49,7 @@ class AppConstants {
   }
 
   static String get environmentName => isTestMode ? 'TEST' : 'PRODUCTION';
+
+  /// Official Razorpay Key ID for payments & checkout
+  static const String razorpayKeyId = 'rzp_live_Tnhqo3i0SyYYdf';
 }

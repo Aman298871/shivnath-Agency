@@ -365,13 +365,13 @@ class ChatService {
     final prods = ProductService.products;
     if (prods.isNotEmpty && (msg.contains('product') || msg.contains('price') || msg.contains('rate') || msg.contains('bottle') || msg.contains('jar'))) {
       final lines = prods.map((p) => '• ${p.name} (${p.size}): ₹${p.price.toStringAsFixed(2)} [Stock: ${p.stock}]').join('\n');
-      return '💧 *Shivnath Agency Product Price List*:\n$lines\n\nContact +91 98062 47194 for bulk orders.';
+      return '💧 *Shivnath Agency Product Price List*:\n$lines\n\nContact +91 98264 21818 for bulk orders.';
     }
 
     if (isFranchise || msg.contains('franchise') || msg.contains('investment')) {
-      return '🏢 *Franchise Opportunity*:\n• Territory: 5 KM Exclusive Zone\n• Margins: 25%-35% direct plant margin\n• Investment: ₹2 Lakh - ₹20 Lakh\n• Contact: +91 98062 47194';
+      return '🏢 *Franchise Opportunity*:\n• Territory: 5 KM Exclusive Zone\n• Margins: 25%-35% direct plant margin\n• Investment: ₹2 Lakh - ₹20 Lakh\n• Contact: +91 98264 21818';
     }
 
-    return 'Thank you for your inquiry. Our team is available at +91 98062 47194 to assist you immediately.';
+    return 'Thank you for your inquiry. Our team is available at +91 98264 21818 to assist you immediately.';
   }
 }

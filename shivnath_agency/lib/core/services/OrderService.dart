@@ -26,6 +26,39 @@ class OrderService {
   }
 
   // =====================================================
+  // GET WALLET DETAILS
+  // =====================================================
+  Future<Map<String, dynamic>> getWalletDetails() async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/orders/wallet/');
+      final response = await ApiClient.get(
+        uri,
+        headers: await _headers(),
+      ).timeout(const Duration(seconds: 4));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          decoded is Map<String, dynamic>) {
+        return {
+          'success': true,
+          'balance': decoded['balance'] ?? decoded['wallet_balance'],
+          'data': decoded,
+        };
+      }
+      return {'success': false, 'data': decoded};
+    } catch (_) {
+      return {'success': false, 'message': 'Network unavailable'};
+    }
+  }
+
+  // =====================================================
   // GET ALL ORDERS
   // =====================================================
 
@@ -293,6 +326,8 @@ class OrderService {
                 item['status']?.toString() ??
                 '',
           ),
+
+      'raw_status': item['status']?.toString() ?? '',
 
       'payment': item['payment_display']?.toString() ??
           _paymentDisplay(

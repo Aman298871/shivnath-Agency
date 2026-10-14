@@ -917,7 +917,7 @@ class AuthService {
         if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       };
 
-      final response = await ApiClient.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+      final response = await ApiClient.get(uri, headers: headers).timeout(const Duration(seconds: 4));
 
       dynamic decoded;
       try {

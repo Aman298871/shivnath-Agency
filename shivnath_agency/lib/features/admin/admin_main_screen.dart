@@ -31,6 +31,7 @@ import 'settings/admin_settings_screen.dart';
 import 'notifications/admin_notifications_screen.dart';
 import 'profile/admin_profile_screen.dart';
 import '../customer/orders/order_detail_screen.dart';
+import 'orders/pending_orders_picker_dialog.dart';
 import '../../models/user_model.dart';
 
 class AdminMainScreen extends StatefulWidget {
@@ -113,11 +114,15 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                 st == 'plant_approval';
           }).toList();
           if (pendingOrders.isNotEmpty) {
-            final firstPending = Map<String, dynamic>.from(pendingOrders.first as Map);
+            final ordersMapped = pendingOrders
+                .map((it) => Map<String, dynamic>.from(it as Map))
+                .toList();
+            final firstPending = ordersMapped.first;
             _showNewOrderAlert(
               firstPending,
               isPendingOnLogin: true,
               pendingCount: pendingOrders.length,
+              pendingOrdersList: ordersMapped,
             );
           }
         } else if (currentMaxId > _lastMaxOrderId && latestNewOrder != null) {
@@ -132,26 +137,42 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     Map<String, dynamic> order, {
     bool isPendingOnLogin = false,
     int pendingCount = 1,
+    List<Map<String, dynamic>> pendingOrdersList = const [],
   }) {
     if (!mounted) return;
     final orderNum = order['order_id'] ?? order['id'] ?? 'New';
     final cust = order['customer_name'] ?? 'Customer';
     final amt = order['total_amount'] ?? order['amount'] ?? '';
-    final rawId = order['id'] is int ? order['id'] as int : int.tryParse('${order['id']}') ?? 0;
-    final codeStr = orderNum.toString();
 
-    void openThisOrder() {
+    void openTargetOrder(Map<String, dynamic> target) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      final tRawId = target['id'] is int ? target['id'] as int : int.tryParse('${target['id']}') ?? 0;
+      final tCode = (target['order_id'] ?? target['orderId'] ?? target['order_code'] ?? 'ORD-$tRawId')
+          .toString()
+          .replaceAll('#', '');
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => OrderDetailScreen(
-            orderId: codeStr,
-            initialOrder: order,
-            dbId: rawId,
+            orderId: tCode,
+            initialOrder: target,
+            dbId: tRawId,
           ),
         ),
       );
+    }
+
+    void handleAlertTap() {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      if (pendingOrdersList.length > 1) {
+        PendingOrdersPickerDialog.show(
+          context,
+          pendingOrders: pendingOrdersList,
+          onSelectOrder: (selected) => openTargetOrder(selected),
+        );
+      } else {
+        openTargetOrder(order);
+      }
     }
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -162,7 +183,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         backgroundColor: const Color(0xFF0F172A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: InkWell(
-          onTap: openThisOrder,
+          onTap: handleAlertTap,
           child: Row(
             children: [
               const Icon(
@@ -190,7 +211,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Order #$orderNum from $cust • ₹$amt (Tap to open)',
+                      pendingOrdersList.length > 1
+                          ? '$pendingCount pending orders waiting for review. Tap to select.'
+                          : 'Order #$orderNum from $cust • ₹$amt (Tap to open)',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF94A3B8),
@@ -205,9 +228,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           ),
         ),
         action: SnackBarAction(
-          label: 'OPEN ORDER',
+          label: pendingOrdersList.length > 1 ? 'VIEW ALL (${pendingOrdersList.length})' : 'OPEN ORDER',
           textColor: const Color(0xFF38BDF8),
-          onPressed: openThisOrder,
+          onPressed: handleAlertTap,
         ),
       ),
     );

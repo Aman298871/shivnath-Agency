@@ -68,6 +68,17 @@ class SupportDeskService {
     return digitsOnly;
   }
 
+  static SupportContactInfo get defaultContact => SupportContactInfo(
+    name: 'Shivnath Agency Support Desk',
+    phone: '+91 98264 21818',
+    email: 'support@shivnath.com',
+    role: 'customer',
+    roleDisplay: 'Central Customer Helpline',
+    messageTemplate:
+        'Namaste Shivnath Support,\nI require assistance with my drinking water supply.',
+    target: 'central',
+  );
+
   /// Fetches contextual support contact from backend DB.
   static Future<SupportContactInfo> fetchSupportContact({
     String? role,
@@ -84,15 +95,7 @@ class SupportDeskService {
       }
     } catch (_) {}
 
-    return SupportContactInfo(
-      name: 'Shivnath Agency Support Desk',
-      phone: '+91 98062 47194',
-      email: 'support@shivnath.com',
-      role: role ?? 'customer',
-      roleDisplay: 'Central Customer Helpline',
-      messageTemplate: 'Namaste Shivnath Support,\nI require assistance with my drinking water supply.',
-      target: 'central',
-    );
+    return defaultContact;
   }
 
   /// Fetches all configured support contacts (Admin only)

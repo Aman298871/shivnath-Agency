@@ -17,10 +17,10 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   final SessionService _sessionService = SessionService();
   final nameController = TextEditingController(text: 'Administrator');
   final emailController = TextEditingController(text: 'admin@shivnath.com');
-  final phoneController = TextEditingController(text: '+91 98062 47194');
+  final phoneController = TextEditingController(text: '+91 98264 21818');
 
   UserModel? _currentUser;
-  bool _isLoading = true;
+  bool _isLoading = false;
   final String role = 'Super Administrator';
 
   @override
@@ -218,7 +218,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
               ),
               onPressed: () => SupportDeskModal.show(context),
               icon: const Icon(Icons.support_agent_rounded, color: Color(0xFFDC2626)),
-              label: const Text('Admin Helpline (+91 98062 47194)', style: TextStyle(fontWeight: FontWeight.w700)),
+              label: const Text('Admin Helpline (+91 98264 21818)', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ),
           const SizedBox(height: 10),

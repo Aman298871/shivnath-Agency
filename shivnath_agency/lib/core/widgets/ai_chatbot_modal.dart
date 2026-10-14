@@ -527,12 +527,12 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
           _ChatOptionItem(
             title: 'Call Support Helpline',
             answerText:
-                '📞 *Shivnath Customer Helpline*:\n• Phone: +91 98062 47194\n• Hours: 9:00 AM – 7:00 PM (Monday to Saturday)\n• Head Office: H Block, Farishta Complex, Raipur, CG.',
+                '📞 *Shivnath Customer Helpline*:\n• Phone: +91 98264 21818\n• Hours: 9:00 AM – 7:00 PM (Monday to Saturday)\n• Head Office: H Block, Farishta Complex, Raipur, CG.',
           ),
           _ChatOptionItem(
             title: 'WhatsApp Customer Desk',
             answerText:
-                '💬 Opening official WhatsApp customer support desk at +91 98062 47194. You can also continue typing here.',
+                '💬 Opening official WhatsApp customer support desk at +91 98264 21818. You can also continue typing here.',
           ),
         ],
       ),
@@ -629,7 +629,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         title: '📞 Contact Franchise Desk',
         inquiryType: 'franchise',
         answerText:
-            'Direct Franchise Desk: +91 98062 47194\nHead Office: H Block, Farishta Complex, Raipur, CG.\nEmail: franchise@shivnathagency.com',
+            'Direct Franchise Desk: +91 98264 21818\nHead Office: H Block, Farishta Complex, Raipur, CG.\nEmail: franchise@shivnathagency.com',
       ),
     ];
   }
@@ -1055,7 +1055,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         phone: WhatsAppService.officialSupportPhone,
         message: 'Namaste Shivnath Team,\nInquiry from Shivnath Pure Water App.',
       );
-      _respond('Connecting you to our official WhatsApp support at +91 98062 47194. You can also continue asking questions here!');
+      _respond('Connecting you to our official WhatsApp support at +91 98264 21818. You can also continue asking questions here!');
       return;
     }
 
@@ -1063,7 +1063,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
 
     if (lower.contains('download quotation') || lower.contains('quotation pdf') || lower.contains('download quote') || lower.contains('pdf quotation')) {
       if (isCustomer) {
-        _respond('As a valued customer, you can view our transparent retail and wholesale product prices directly in the Products menu! For corporate orders, call +91 98062 47194.');
+        _respond('As a valued customer, you can view our transparent retail and wholesale product prices directly in the Products menu! For corporate orders, call +91 98264 21818.');
         return;
       }
       _downloadQuotationPdf(qType: _lockedInquiryType ?? _currentInquiryType ?? 'franchise');
@@ -1093,7 +1093,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
     }
 
     final reply = res['reply']?.toString() ??
-        'Thank you for your inquiry. For direct assistance, call +91 98062 47194.';
+        'Thank you for your inquiry. For direct assistance, call +91 98264 21818.';
 
     final hasQuotationIntent = !isCustomer && (
         lower.contains('quotation') ||
@@ -1760,7 +1760,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
                         onTap: () {
                           SupportDeskService.showContactActionSheet(
                             context,
-                            phone: '+919806247194',
+                            phone: '+919826421818',
                             supportName: 'Admin Support Desk',
                             userName: _leadData['name']?.toString(),
                             userMobile: _leadData['phone']?.toString(),
@@ -1783,7 +1783,7 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
                               SizedBox(width: 6),
                               Flexible(
                                 child: Text(
-                                  'For further information, please contact +91 98062 47194 (Tap for Call / Message)',
+                                  'For further information, please contact +91 98264 21818 (Tap for Call / Message)',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,

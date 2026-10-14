@@ -2,7 +2,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 class WhatsAppService {
   static const String brandName = 'Shivnath Drinking Water';
-  static const String officialSupportPhone = '+919806247194';
+  static const String officialSupportPhone = '+919826421818';
 
   /// Cleans and formats phone number for WhatsApp wa.me URL.
   static String formatPhone(String phone) {

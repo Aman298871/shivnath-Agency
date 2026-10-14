@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/services/OrderService.dart';
+import '../../../core/widgets/app_components.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
   final String? initialOrderCode;
@@ -111,7 +112,99 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
             _viewOrderDetails(match);
           }
         });
+      } else if (mounted) {
+        // Order not in current local list: fetch directly from backend and show Retry on failure!
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _fetchAndOpenSpecificOrder(cleanTarget, targetDigits);
+          }
+        });
       }
+    }
+  }
+
+  Future<void> _fetchAndOpenSpecificOrder(String cleanTarget, String targetDigits) async {
+    final parsedId = int.tryParse(targetDigits) ?? 0;
+    Map<String, dynamic>? foundOrder;
+
+    if (parsedId > 0) {
+      try {
+        final res = await _orderService.getOrder(parsedId);
+        if (res['success'] == true && res['data'] is Map) {
+          final raw = res['data']['order'] ?? res['data'];
+          if (raw is Map) {
+            foundOrder = _orderService.mapOrder(Map<String, dynamic>.from(raw));
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (foundOrder == null) {
+      try {
+        final searchRes = await _orderService.getOrders(search: cleanTarget);
+        if (searchRes['success'] == true && searchRes['data'] != null) {
+          final List list = searchRes['data']['orders'] ?? (searchRes['data'] is List ? searchRes['data'] : []);
+          for (final item in list) {
+            if (item is Map) {
+              final mapped = _orderService.mapOrder(Map<String, dynamic>.from(item));
+              final ordIdStr = (mapped['orderId'] ?? '').toString().replaceAll('#', '').toLowerCase().trim();
+              final dbIdStr = (mapped['id'] ?? '').toString().trim();
+              if (ordIdStr == cleanTarget || dbIdStr == cleanTarget || dbIdStr == targetDigits) {
+                foundOrder = mapped;
+                break;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+
+    if (foundOrder != null) {
+      setState(() {
+        if (!orders.any((o) => o['id'] == foundOrder!['id'])) {
+          orders.insert(0, foundOrder!);
+        }
+      });
+      _viewOrderDetails(foundOrder);
+    } else {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626)),
+              SizedBox(width: 10),
+              Text('Order Not Found', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            ],
+          ),
+          content: Text(
+            'Unable to load order #$cleanTarget from the backend. The order may have been completed, cancelled, or the server returned an error.',
+            style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('View All Orders'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('Retry'),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _fetchAndOpenSpecificOrder(cleanTarget, targetDigits);
+              },
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -487,21 +580,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   }
 
   Widget _statusBadge(String status) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE0F2FE),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        status,
-        style: const TextStyle(
-          color: Color(0xFF0284C7),
-          fontWeight: FontWeight.w700,
-          fontSize: 9,
-        ),
-      ),
-    );
+    return AppStatusBadge.order(status, fontSize: 10);
   }
 
   Widget _info(String label, dynamic value) {

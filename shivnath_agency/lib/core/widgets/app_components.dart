@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/brand_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/order_status_style.dart';
 
 // =============================================================================
 // APP CARD
@@ -233,14 +234,14 @@ class AppStatusBadge extends StatelessWidget {
   });
 
   /// Factory for semantic order status badge
-  factory AppStatusBadge.order(String? status) {
-    final color = BrandColors.getOrderStatusColor(status);
-    final bg = BrandColors.getOrderStatusSoftBackground(status);
-    final cleanLabel = (status ?? 'PENDING').replaceAll('_', ' ');
+  factory AppStatusBadge.order(String? status, {double fontSize = 11.5, bool showIcon = true}) {
+    final style = OrderStatusStyle.fromStatus(status);
     return AppStatusBadge(
-      label: cleanLabel,
-      color: color,
-      backgroundColor: bg,
+      label: style.displayLabel.toUpperCase(),
+      color: style.primaryColor,
+      backgroundColor: style.backgroundColor,
+      icon: showIcon ? style.icon : null,
+      fontSize: fontSize,
     );
   }
 

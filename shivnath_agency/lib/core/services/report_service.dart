@@ -1,16 +1,14 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../constants/app_constants.dart';
-import 'api_client.dart';
 import 'session_service.dart';
 
 class ReportExportResult {
@@ -78,22 +76,25 @@ class ReportService {
         queryParams['search'] = search;
       }
 
-      final uri = Uri.parse('$baseUrl/api/reports/export/$reportType/').replace(
-        queryParameters: queryParams.isEmpty ? null : queryParams,
-      );
+      final uri = Uri.parse(
+        '$baseUrl/api/reports/export/$reportType/',
+      ).replace(queryParameters: queryParams.isEmpty ? null : queryParams);
 
       Uint8List? csvBytes;
       String? downloadedFileName;
 
       try {
         final token = await _sessionService.getAccessToken();
-        final response = await http.get(
-          uri,
-          headers: {
-            'Accept': 'text/csv',
-            if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-          },
-        ).timeout(const Duration(seconds: 25));
+        final response = await http
+            .get(
+              uri,
+              headers: {
+                'Accept': 'text/csv',
+                if (token != null && token.isNotEmpty)
+                  'Authorization': 'Bearer $token',
+              },
+            )
+            .timeout(const Duration(seconds: 25));
 
         if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
           csvBytes = response.bodyBytes;
@@ -116,7 +117,8 @@ class ReportService {
         } else {
           return ReportExportResult(
             success: false,
-            message: 'Unable to download report from server. Please check internet connection.',
+            message:
+                'Unable to download report from server. Please check internet connection.',
           );
         }
       }
@@ -124,7 +126,8 @@ class ReportService {
       // Generate a standardized file name if not provided by backend
       final now = DateTime.now();
       final dateSlug = DateFormat('yyyyMMdd_HHmmss').format(now);
-      final finalFileName = downloadedFileName ?? 'waternow_${reportType}_$dateSlug.csv';
+      final finalFileName =
+          downloadedFileName ?? 'waternow_${reportType}_$dateSlug.csv';
 
       // Save file to device storage
       String? savedFilePath;
@@ -142,7 +145,9 @@ class ReportService {
         await file.writeAsBytes(csvBytes, flush: true);
         savedFilePath = file.path;
       } catch (fileErr) {
-        debugPrint('[ReportService] Error writing to application storage: $fileErr');
+        debugPrint(
+          '[ReportService] Error writing to application storage: $fileErr',
+        );
       }
 
       // Also trigger FileSaver as secondary download registration
@@ -169,10 +174,9 @@ class ReportService {
       // Trigger Share sheet if requested
       if (shareAfterDownload && savedFilePath != null) {
         try {
-          await Share.shareXFiles(
-            [XFile(savedFilePath)],
-            text: 'WATERNow Report: $finalFileName',
-          );
+          await Share.shareXFiles([
+            XFile(savedFilePath),
+          ], text: 'WATERNow Report: $finalFileName');
         } catch (shareErr) {
           debugPrint('[ReportService] Share error: $shareErr');
         }
@@ -184,7 +188,8 @@ class ReportService {
         fileName: finalFileName,
         byteCount: csvBytes.length,
         bytes: csvBytes,
-        message: 'Report saved as $finalFileName (${(csvBytes.length / 1024).toStringAsFixed(1)} KB)',
+        message:
+            'Report saved as $finalFileName (${(csvBytes.length / 1024).toStringAsFixed(1)} KB)',
       );
     } catch (e) {
       return ReportExportResult(
@@ -206,10 +211,9 @@ class ReportService {
   /// Opens the system Share sheet for a report file
   Future<void> shareReportFile(String filePath, {String? fileName}) async {
     try {
-      await Share.shareXFiles(
-        [XFile(filePath)],
-        text: 'WATERNow Report ${fileName != null ? ': $fileName' : ''}',
-      );
+      await Share.shareXFiles([
+        XFile(filePath),
+      ], text: 'WATERNow Report ${fileName != null ? ': $fileName' : ''}');
     } catch (e) {
       debugPrint('[ReportService] Failed to share report: $e');
     }

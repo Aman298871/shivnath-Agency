@@ -189,8 +189,18 @@ class NotificationService {
         });
       }
 
-      // 8. Retrieve FCM Token
+      // 8. Retrieve FCM Token (with iOS APNs readiness check)
       try {
+        if (Platform.isIOS) {
+          String? apnsToken = await _fcm.getAPNSToken();
+          if (apnsToken == null) {
+            // Wait briefly for APNs registration to complete on iOS
+            await Future.delayed(const Duration(milliseconds: 1500));
+            apnsToken = await _fcm.getAPNSToken();
+          }
+          debugPrint('FCM: iOS APNs Token: $apnsToken');
+        }
+
         _currentFcmToken = await _fcm.getToken();
         debugPrint('FCM: Registration Token: $_currentFcmToken');
         if (_currentFcmToken != null && _currentFcmToken!.isNotEmpty) {

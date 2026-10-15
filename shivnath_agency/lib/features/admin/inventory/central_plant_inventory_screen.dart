@@ -1579,7 +1579,9 @@ class _CentralPlantInventoryScreenState
           children: [
             Icon(Icons.bolt_rounded, color: Color(0xFF0284C7)),
             SizedBox(width: 8),
-            Text('Fulfill All Requests', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            Expanded(
+              child: Text('Fulfill All Requests', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            ),
           ],
         ),
         content: const Text(
@@ -1832,9 +1834,11 @@ class _CentralPlantInventoryScreenState
                   color: Color(0xFF0284C7),
                 ),
                 SizedBox(width: 8),
-                Text(
-                  'Manufacture Product Batch',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                Expanded(
+                  child: Text(
+                    'Manufacture Product Batch',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                  ),
                 ),
               ],
             ),

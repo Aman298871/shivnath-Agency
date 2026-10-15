@@ -7,6 +7,7 @@ import 'core/theme/role_theme.dart';
 import 'core/services/notification_service.dart';
 import 'core/widgets/app_toast.dart';
 import 'features/customer/cart/cart_provider.dart';
+import 'firebase_options.dart';
 import 'routes/app_routes.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -16,7 +17,9 @@ void main() async {
 
   try {
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     }
   } catch (e) {
     debugPrint('Firebase.initializeApp warning: $e');

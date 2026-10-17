@@ -70,6 +70,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '877164366331',
     projectId: 'shivnath-agency',
     storageBucket: 'shivnath-agency.firebasestorage.app',
-    iosBundleId: 'com.shivnathagency.waternow',
+    iosBundleId: 'com.shivnath.waterwala',
   );
 }

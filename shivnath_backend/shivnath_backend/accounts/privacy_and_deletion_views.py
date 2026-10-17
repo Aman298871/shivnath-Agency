@@ -264,7 +264,7 @@ def privacy_policy_html_view(request):
                 We are committed to protecting the privacy, security, and personal data of our customers, franchise distributors, and administrative users.
             </p>
             <p>
-                This Privacy Policy explains how our mobile application (<strong>WaterNow</strong>, Application ID: <code>com.example.shivnath_agency</code>) and associated backend APIs collect, process, retain, and protect your information in full accordance with the Information Technology Act 2000, the Digital Personal Data Protection (DPDP) Act 2023, and Google Play Store policies.
+                This Privacy Policy explains how our mobile application (<strong>Water Wala</strong>, Application ID: <code>com.shivnath.waterwala</code>) and associated backend APIs collect, process, retain, and protect your information in full accordance with the Information Technology Act 2000, the Digital Personal Data Protection (DPDP) Act 2023, and Google Play Store policies.
             </p>
         </div>
 

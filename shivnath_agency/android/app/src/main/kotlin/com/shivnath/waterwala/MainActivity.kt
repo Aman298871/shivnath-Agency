@@ -1,4 +1,4 @@
-package com.shivnathagency.waternow
+package com.shivnath.waterwala
 
 import io.flutter.embedding.android.FlutterActivity
 

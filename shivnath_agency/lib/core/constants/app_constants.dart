@@ -1,6 +1,6 @@
 
 class AppConstants {
-  static const String appName = 'shivnath_agency';
+  static const String appName = 'Water Wala';
 
   static const String customerRole = 'customer';
   static const String franchiseRole = 'franchise';

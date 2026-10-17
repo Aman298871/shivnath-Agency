@@ -89,7 +89,7 @@ class ShivnathLogo extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Shivnath Agency',
+                  'Water Wala',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -164,11 +164,11 @@ class ShivnathLogo extends StatelessWidget {
     );
   }
 
-  /// Multi-color brand typography: "shivnath_agency"
+  /// Multi-color brand typography: "Water Wala"
   Widget _buildBrandText({required double fontSize}) {
     if (textColor != null) {
       return Text(
-        'shivnath_agency',
+        'Water Wala',
         style: TextStyle(
           fontSize: fontSize,
           fontWeight: FontWeight.w900,
@@ -188,32 +188,12 @@ class ShivnathLogo extends StatelessWidget {
         ),
         children: const [
           TextSpan(
-            text: 'shiv',
+            text: 'Water',
             style: TextStyle(color: BrandColors.primaryBlue),
           ),
           TextSpan(
-            text: 'n',
+            text: 'Wala',
             style: TextStyle(color: BrandColors.greenDark),
-          ),
-          TextSpan(
-            text: 'ath',
-            style: TextStyle(color: BrandColors.red),
-          ),
-          TextSpan(
-            text: '_',
-            style: TextStyle(color: BrandColors.textSecondary),
-          ),
-          TextSpan(
-            text: 'ag',
-            style: TextStyle(color: BrandColors.greenDark),
-          ),
-          TextSpan(
-            text: 'en',
-            style: TextStyle(color: BrandColors.yellowDark),
-          ),
-          TextSpan(
-            text: 'cy',
-            style: TextStyle(color: BrandColors.primaryBlue),
           ),
         ],
       ),

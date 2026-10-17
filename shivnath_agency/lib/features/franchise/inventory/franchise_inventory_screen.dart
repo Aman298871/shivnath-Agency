@@ -483,6 +483,8 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       context: context,
       builder: (dCtx) => StatefulBuilder(
         builder: (dCtx, setDState) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),

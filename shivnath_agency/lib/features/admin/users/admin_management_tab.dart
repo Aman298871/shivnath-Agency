@@ -124,6 +124,8 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (dialogCtx, setDialogState) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -133,14 +135,19 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
             children: [
               Icon(Icons.person_add_alt_1_rounded, color: primaryBlue),
               SizedBox(width: 8),
-              Text(
-                'Add New Admin',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              Expanded(
+                child: Text(
+                  'Add New Admin',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
               ),
             ],
           ),
           content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            constraints: BoxConstraints(
+              maxWidth: 500,
+              maxHeight: MediaQuery.of(dialogCtx).size.height * 0.75,
+            ),
             child: SizedBox(
               width: double.maxFinite,
               child: SingleChildScrollView(
@@ -405,6 +412,8 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (dialogCtx, setDialogState) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -415,7 +424,10 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
           ),
           content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 550),
+            constraints: BoxConstraints(
+              maxWidth: 500,
+              maxHeight: MediaQuery.of(dialogCtx).size.height * 0.75,
+            ),
             child: SizedBox(
               width: double.maxFinite,
               child: SingleChildScrollView(
@@ -619,6 +631,8 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Reset Password for ${admin['name'] ?? admin['username']}',

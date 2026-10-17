@@ -711,7 +711,7 @@ class OrderService {
         Uri.parse('$baseUrl/api/orders/razorpay/create-order/'),
         headers: await _headers(),
         body: jsonEncode({
-          if (orderId != null) 'order_id': orderId,
+          'order_id': ?orderId,
           'amount': amount,
         }),
       );
@@ -781,8 +781,8 @@ class OrderService {
         headers: await _headers(),
         body: jsonEncode({
           'order_id': orderId,
-          if (reason != null) 'reason': reason,
-          if (razorpayOrderId != null) 'razorpay_order_id': razorpayOrderId,
+          'reason': ?reason,
+          'razorpay_order_id': ?razorpayOrderId,
         }),
       );
 
@@ -805,7 +805,7 @@ class OrderService {
         headers: await _headers(),
         body: jsonEncode({
           'order_id': orderId,
-          if (razorpayOrderId != null) 'razorpay_order_id': razorpayOrderId,
+          'razorpay_order_id': ?razorpayOrderId,
         }),
       );
 

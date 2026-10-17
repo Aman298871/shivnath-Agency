@@ -393,6 +393,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
@@ -403,9 +405,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(msg, style: const TextStyle(fontSize: 13, height: 1.4)),
               const SizedBox(height: 14),
@@ -423,6 +426,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
             ],
+          ),
           ),
           actions: [
             TextButton(
@@ -469,6 +473,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -481,9 +487,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'Ready to complete your order via Razorpay?',
@@ -517,6 +524,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ],
           ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
@@ -544,7 +552,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     setState(() => _isSubmitting = true);
 
-    String selectedFranchiseName = 'WaterNow (Direct Fulfillment)';
+    String selectedFranchiseName = 'Water Wala (Direct Fulfillment)';
     if (!isDirect && selectedFranchiseId != null) {
       final match = eligibleFranchises.firstWhere(
         (f) => f['id'] == selectedFranchiseId,
@@ -552,7 +560,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       selectedFranchiseName = match['business_name']?.toString() ??
           match['name']?.toString() ??
-          'WaterNow Authorized Franchise';
+          'Water Wala Authorized Franchise';
     }
 
     try {
@@ -560,7 +568,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Step 1: Create Order with pending payment
       final res = await orderService.createOrder({
         'franchise': isDirect
-            ? 'WaterNow (Direct Fulfillment)'
+            ? 'Water Wala (Direct Fulfillment)'
             : selectedFranchiseName,
         'city': addressController.text.trim(),
         'customer_name': nameController.text.trim(),
@@ -624,7 +632,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final options = {
           'key': keyId.isNotEmpty ? keyId : AppConstants.razorpayKeyId,
           'amount': amountInPaise,
-          'name': 'Shivnath Agency - WATERNow',
+          'name': 'Shivnath Agency - WATER WALA',
           'order_id': rzpOrderId,
           'description': 'Order #${orderObj['order_code'] ?? orderDbId}',
           'timeout': 300,
@@ -972,7 +980,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
                 const SizedBox(height: 10),
                 _PaymentTile(
-                  title: 'Order Directly from WaterNow',
+                  title: 'Order Directly from Water Wala',
                   subtitle: 'Central company fulfillment & dispatch',
                   icon: Icons.business_outlined,
                   value: 'DIRECT_COMPANY',
@@ -1020,7 +1028,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
-                              'WaterNow',
+                              'Water Wala',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -1032,7 +1040,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'No franchise is currently assigned to your territory. Your order will be fulfilled directly by WaterNow central dispatch.',
+                        'No franchise is currently assigned to your territory. Your order will be fulfilled directly by Water Wala central dispatch.',
                         style: TextStyle(
                           fontSize: 12,
                           color: Color(0xFF075985),
@@ -1081,7 +1089,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
-                              'WaterNow',
+                              'Water Wala',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -1093,7 +1101,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'No delivery territory selected. Your order will be handled directly by WaterNow (you can complete your territory in Profile anytime).',
+                        'No delivery territory selected. Your order will be handled directly by Water Wala (you can complete your territory in Profile anytime).',
                         style: TextStyle(
                           fontSize: 12,
                           color: Color(0xFF475569),
@@ -1354,7 +1362,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: cart.items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final item = cart.items[index];
                   return Container(

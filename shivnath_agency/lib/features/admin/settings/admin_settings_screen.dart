@@ -1511,6 +1511,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           title: const Text('Create System Backup'),
           content: const Text(
             'Create a new backup snapshot of current application data and configuration?',
@@ -1594,6 +1596,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           title: const Text('Backup History'),
           content: ConstrainedBox(
             constraints: BoxConstraints(
@@ -2161,6 +2165,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           title: const Text('Delete User'),
           content: Text('Are you sure you want to delete ${user['name']}?'),
           actions: [

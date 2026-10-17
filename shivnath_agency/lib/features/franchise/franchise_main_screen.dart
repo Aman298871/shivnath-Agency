@@ -1036,6 +1036,8 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           title: const Text('Logout'),
           content: const Text('Are you sure you want to logout?'),
           actions: [

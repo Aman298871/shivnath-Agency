@@ -883,10 +883,13 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
         return StatefulBuilder(
           builder: (dialogInnerContext, setDialogState) {
             return AlertDialog(
+              actionsOverflowDirection: VerticalDirection.down,
+              actionsOverflowButtonSpacing: 8,
               title: const Text('Place New Order'),
               content: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
                 ),
                 child: SingleChildScrollView(
                   child: Column(
@@ -1106,6 +1109,8 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           title: Row(
             children: [
               const Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7)),
@@ -1121,7 +1126,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
           content: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
-              maxHeight: 650,
+              maxHeight: MediaQuery.of(dialogContext).size.height * 0.75,
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -1404,6 +1409,8 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
           final remainingAfterPayment = (maxOutstanding - enteredAmount).clamp(0.0, maxOutstanding);
 
           return AlertDialog(
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: 8,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -1878,6 +1885,8 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
           final remainingAfterPayment = (maxOutstanding - enteredAmount).clamp(0.0, maxOutstanding);
 
           return AlertDialog(
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: 8,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
@@ -1894,7 +1903,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
             content: ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(ctx).size.width * 0.9,
-                maxHeight: 520,
+                maxHeight: MediaQuery.of(ctx).size.height * 0.72,
               ),
               child: SingleChildScrollView(
                 child: Column(

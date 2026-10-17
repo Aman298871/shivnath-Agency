@@ -122,6 +122,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
@@ -135,12 +137,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'WaterNow delivers certified, mineral-rich packaged drinking water following stringent 7-stage purification:',
+              'Water Wala delivers certified, mineral-rich packaged drinking water following stringent 7-stage purification:',
               style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
             ),
             const SizedBox(height: 14),
@@ -178,6 +181,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
             ),
           ],
+        ),
         ),
         actions: [
           TextButton(
@@ -230,6 +234,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
@@ -247,8 +253,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: const EdgeInsets.all(18),
@@ -300,6 +307,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
           ],
         ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -321,6 +329,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
@@ -334,9 +344,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               padding: const EdgeInsets.all(16),
@@ -389,6 +400,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
             ),
           ],
+        ),
         ),
         actions: [
           TextButton(
@@ -481,7 +493,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: const [
                   Text(
-                    'WaterNow',
+                    'Water Wala',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,

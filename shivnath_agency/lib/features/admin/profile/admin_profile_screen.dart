@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../../../core/widgets/support_desk_modal.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
 
@@ -208,20 +207,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
             'Full Platform Administration',
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFDC2626),
-                side: const BorderSide(color: Color(0xFFFCA5A5)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () => SupportDeskModal.show(context),
-              icon: const Icon(Icons.support_agent_rounded, color: Color(0xFFDC2626)),
-              label: const Text('Admin Helpline (+91 98264 21818)', style: TextStyle(fontWeight: FontWeight.w700)),
-            ),
-          ),
-          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(

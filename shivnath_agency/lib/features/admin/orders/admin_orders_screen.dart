@@ -172,6 +172,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
@@ -1255,6 +1257,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (_, update) => AlertDialog(
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: 8,
             title: Text('Update ${order['orderId']}'),
             content: ConstrainedBox(
               constraints: BoxConstraints(

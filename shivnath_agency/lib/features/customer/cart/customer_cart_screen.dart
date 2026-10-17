@@ -69,7 +69,7 @@ class CustomerCartScreen extends StatelessWidget {
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: cart.items.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const SizedBox(height: 12),
                               itemBuilder: (context, index) {
                                 final item = cart.items[index];
@@ -99,7 +99,7 @@ class CustomerCartScreen extends StatelessWidget {
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: cart.items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final item = cart.items[index];
               return _MobileCartItem(item: item, cart: cart);
@@ -112,7 +112,7 @@ class CustomerCartScreen extends StatelessWidget {
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, -3),
               ),

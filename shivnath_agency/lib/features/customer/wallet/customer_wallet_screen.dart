@@ -201,7 +201,7 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
       final options = {
         'key': keyId.isNotEmpty ? keyId : AppConstants.razorpayKeyId,
         'amount': amountInPaise,
-        'name': 'Shivnath Agency - WATERNow',
+        'name': 'Shivnath Agency - WATER WALA',
         'order_id': rzpOrderId,
         'description': 'Water Wallet Top-up (₹${amount.toStringAsFixed(0)})',
         'timeout': 300,
@@ -292,6 +292,8 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (dialogCtx, setDialogState) {
           return AlertDialog(
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: 8,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: const Row(
               children: [
@@ -511,10 +513,14 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Available Wallet Balance',
-                              style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                            const Expanded(
+                              child: Text(
+                                'Available Wallet Balance',
+                                style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
@@ -522,6 +528,7 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.verified_user_rounded, color: Colors.white, size: 14),
                                   SizedBox(width: 4),

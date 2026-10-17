@@ -466,6 +466,8 @@ class _StockRequestDialogState extends State<_StockRequestDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      actionsOverflowDirection: VerticalDirection.down,
+      actionsOverflowButtonSpacing: 8,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(
         children: [
@@ -489,6 +491,7 @@ class _StockRequestDialogState extends State<_StockRequestDialog> {
       content: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.9,
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
         ),
         child: SingleChildScrollView(
           child: Column(

@@ -323,6 +323,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
@@ -464,17 +466,25 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
             Icon(Icons.check_circle, color: Colors.green, size: 28),
             SizedBox(width: 10),
-            Text('Password Reset Successful', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text(
+                'Password Reset Successful',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Temporary password generated for $userName:'),
             const SizedBox(height: 12),
@@ -536,6 +546,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             ),
           ],
         ),
+        ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -554,6 +565,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         title: const Text('Reset Failed'),
         content: Text(msg),
         actions: [

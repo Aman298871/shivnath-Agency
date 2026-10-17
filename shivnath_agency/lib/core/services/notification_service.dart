@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../constants/app_constants.dart';
@@ -24,7 +25,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // If payload does not contain system notification block, display via local notifications
   if (message.notification == null && message.data.isNotEmpty) {
     try {
-      final title = message.data['title']?.toString() ?? 'WaterNow';
+      final title = message.data['title']?.toString() ?? 'Water Wala';
       final body = message.data['body']?.toString() ?? 'New notification received';
       final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
       const AndroidInitializationSettings initAndroid =
@@ -93,49 +94,52 @@ class NotificationService {
       }
       debugPrint('FCM: Firebase app ready.');
 
-      // 2. Setup Android Notification Channel
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        channelId,
-        channelName,
-        description: channelDescription,
-        importance: Importance.max,
-        playSound: true,
-        enableVibration: true,
-      );
+      AndroidFlutterLocalNotificationsPlugin? androidPlugin;
+      if (!kIsWeb) {
+        // 2. Setup Android Notification Channel
+        const AndroidNotificationChannel channel = AndroidNotificationChannel(
+          channelId,
+          channelName,
+          description: channelDescription,
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+        );
 
-      final androidPlugin = _localNotifications
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
-      if (androidPlugin != null) {
-        await androidPlugin.createNotificationChannel(channel);
-        debugPrint('FCM: AndroidNotificationChannel created successfully.');
-      }
+        androidPlugin = _localNotifications
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+        if (androidPlugin != null) {
+          await androidPlugin.createNotificationChannel(channel);
+          debugPrint('FCM: AndroidNotificationChannel created successfully.');
+        }
 
-      // 3. Initialize Local Notifications Plugin
-      const AndroidInitializationSettings initAndroid =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
-      const DarwinInitializationSettings initDarwin =
-          DarwinInitializationSettings();
-      const InitializationSettings initSettings = InitializationSettings(
-        android: initAndroid,
-        iOS: initDarwin,
-      );
+        // 3. Initialize Local Notifications Plugin
+        const AndroidInitializationSettings initAndroid =
+            AndroidInitializationSettings('@mipmap/ic_launcher');
+        const DarwinInitializationSettings initDarwin =
+            DarwinInitializationSettings();
+        const InitializationSettings initSettings = InitializationSettings(
+          android: initAndroid,
+          iOS: initDarwin,
+        );
 
-      await _localNotifications.initialize(
-        initSettings,
-        onDidReceiveNotificationResponse: (NotificationResponse response) {
-          debugPrint('FCM: Local notification clicked: ${response.payload}');
-          if (response.payload != null && response.payload!.isNotEmpty) {
-            try {
-              final Map<String, dynamic> data = jsonDecode(response.payload!);
-              handleNotificationNavigation(data);
-            } catch (e) {
-              debugPrint('FCM: Error parsing notification payload: $e');
+        await _localNotifications.initialize(
+          initSettings,
+          onDidReceiveNotificationResponse: (NotificationResponse response) {
+            debugPrint('FCM: Local notification clicked: ${response.payload}');
+            if (response.payload != null && response.payload!.isNotEmpty) {
+              try {
+                final Map<String, dynamic> data = jsonDecode(response.payload!);
+                handleNotificationNavigation(data);
+              } catch (e) {
+                debugPrint('FCM: Error parsing notification payload: $e');
+              }
             }
-          }
-        },
-      );
+          },
+        );
+      }
 
       // 4. Request Permissions (Android 13+ and iOS)
       final settings = await _fcm.requestPermission(
@@ -169,8 +173,10 @@ class NotificationService {
         _showForegroundNotification(message);
       });
 
-      // 7. Background & Killed state handling
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      // 7. Background & Killed state handling (native only)
+      if (!kIsWeb) {
+        FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      }
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         debugPrint(
@@ -191,7 +197,7 @@ class NotificationService {
 
       // 8. Retrieve FCM Token (with iOS APNs readiness check)
       try {
-        if (Platform.isIOS) {
+        if (!kIsWeb && Platform.isIOS) {
           String? apnsToken = await _fcm.getAPNSToken();
           if (apnsToken == null) {
             // Wait briefly for APNs registration to complete on iOS
@@ -228,7 +234,7 @@ class NotificationService {
     final title =
         message.notification?.title ??
         message.data['title'] ??
-        'WaterNow';
+        'Water Wala';
     final body =
         message.notification?.body ??
         message.data['body'] ??
@@ -255,14 +261,16 @@ class NotificationService {
       ),
     );
 
-    final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    await _localNotifications.show(
-      id,
-      title,
-      body,
-      notificationDetails,
-      payload: jsonEncode(message.data),
-    );
+    if (!kIsWeb) {
+      final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      await _localNotifications.show(
+        id,
+        title,
+        body,
+        notificationDetails,
+        payload: jsonEncode(message.data),
+      );
+    }
 
     // Show actionable foreground dialog/banner if context is ready
     _showForegroundInAppAlert(title, body, message.data);

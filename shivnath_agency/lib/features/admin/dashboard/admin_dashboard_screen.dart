@@ -1107,6 +1107,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF0369A1),
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -1116,6 +1118,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF334155),
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     if (message.isNotEmpty) ...[
                       const SizedBox(height: 4),
@@ -1590,7 +1594,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedStatus,
+                    initialValue: selectedStatus,
                     decoration: InputDecoration(
                       labelText: 'Fulfillment Status',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -2897,10 +2901,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     String? button,
     VoidCallback? onTap,
   }) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (button != null && constraints.maxWidth < 360) {
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -2918,17 +2922,57 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   color: Color(0xFF94A3B8),
                 ),
               ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(50, 30),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: onTap,
+                  child: Text(button),
+                ),
+              ),
             ],
-          ),
-        ),
-        if (button != null)
-          TextButton(
-            onPressed: onTap,
-            child: Text(
-              button,
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-      ],
+            if (button != null)
+              TextButton(
+                onPressed: onTap,
+                child: Text(
+                  button,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

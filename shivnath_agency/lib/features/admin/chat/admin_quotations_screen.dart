@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'dart:io' as io;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
@@ -123,11 +124,12 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
           }
 
           List<int>? bytes = file.bytes;
-          if ((bytes == null || bytes.isEmpty) &&
+          if (!kIsWeb &&
+              (bytes == null || bytes.isEmpty) &&
               file.path != null &&
               file.path!.isNotEmpty) {
             try {
-              bytes = await File(file.path!).readAsBytes();
+              bytes = await io.File(file.path!).readAsBytes();
             } catch (e) {
               debugPrint('Could not read bytes from path: $e');
             }

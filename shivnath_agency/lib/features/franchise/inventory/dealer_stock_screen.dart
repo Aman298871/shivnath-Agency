@@ -886,6 +886,8 @@ class _DealerStockScreenState extends State<DealerStockScreen>
       builder: (dlgCtx) => StatefulBuilder(
         builder: (context, setDlgState) {
           return AlertDialog(
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: 8,
             title: const Row(
               children: [
                 Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF0284C7)),
@@ -1134,6 +1136,8 @@ class _DealerStockScreenState extends State<DealerStockScreen>
       builder: (dlgCtx) => StatefulBuilder(
         builder: (context, setDlgState) {
           return AlertDialog(
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: 8,
             title: const Row(
               children: [
                 Icon(Icons.inventory_rounded, color: Color(0xFF10B981)),

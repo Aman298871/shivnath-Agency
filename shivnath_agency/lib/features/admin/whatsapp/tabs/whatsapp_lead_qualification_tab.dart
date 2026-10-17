@@ -981,6 +981,8 @@ class _WhatsAppLeadQualificationTabState
         dialogContext,
       ) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           title: Column(
             crossAxisAlignment:
                 CrossAxisAlignment
@@ -1009,6 +1011,7 @@ class _WhatsAppLeadQualificationTabState
           content: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+              maxHeight: MediaQuery.of(dialogContext).size.height * 0.8,
             ),
             child:
                 SingleChildScrollView(

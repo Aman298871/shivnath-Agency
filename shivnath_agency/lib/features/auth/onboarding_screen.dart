@@ -19,7 +19,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<_OnboardingData> _pages = const [
     _OnboardingData(
-      title: 'Welcome to WaterNow',
+      title: 'Welcome to Water Wala',
       subtitle:
           'Order pure packaged water and manage deliveries from one powerful platform.',
       color: BrandColors.primaryBlue,
@@ -750,7 +750,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'WaterNow',
+                        'Water Wala',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,

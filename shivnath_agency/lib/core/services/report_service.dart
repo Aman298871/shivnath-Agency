@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -84,15 +83,11 @@ class ReportService {
       String? downloadedFileName;
 
       try {
-        final token = await _sessionService.getAccessToken();
+        final headers = await _headers();
         final response = await http
             .get(
               uri,
-              headers: {
-                'Accept': 'text/csv',
-                if (token != null && token.isNotEmpty)
-                  'Authorization': 'Bearer $token',
-              },
+              headers: headers,
             )
             .timeout(const Duration(seconds: 25));
 
@@ -127,30 +122,32 @@ class ReportService {
       final now = DateTime.now();
       final dateSlug = DateFormat('yyyyMMdd_HHmmss').format(now);
       final finalFileName =
-          downloadedFileName ?? 'waternow_${reportType}_$dateSlug.csv';
+          downloadedFileName ?? 'waterwala_${reportType}_$dateSlug.csv';
 
       // Save file to device storage
       String? savedFilePath;
-      try {
-        Directory appDir;
-        if (!kIsWeb && Platform.isAndroid) {
-          // On Android, prefer external storage or documents dir for user visibility
-          final extDir = await getExternalStorageDirectory();
-          appDir = extDir ?? await getApplicationDocumentsDirectory();
-        } else {
-          appDir = await getApplicationDocumentsDirectory();
-        }
+      if (!kIsWeb) {
+        try {
+          Directory appDir;
+          if (Platform.isAndroid) {
+            // On Android, prefer external storage or documents dir for user visibility
+            final extDir = await getExternalStorageDirectory();
+            appDir = extDir ?? await getApplicationDocumentsDirectory();
+          } else {
+            appDir = await getApplicationDocumentsDirectory();
+          }
 
-        final file = File('${appDir.path}/$finalFileName');
-        await file.writeAsBytes(csvBytes, flush: true);
-        savedFilePath = file.path;
-      } catch (fileErr) {
-        debugPrint(
-          '[ReportService] Error writing to application storage: $fileErr',
-        );
+          final file = File('${appDir.path}/$finalFileName');
+          await file.writeAsBytes(csvBytes, flush: true);
+          savedFilePath = file.path;
+        } catch (fileErr) {
+          debugPrint(
+            '[ReportService] Error writing to application storage: $fileErr',
+          );
+        }
       }
 
-      // Also trigger FileSaver as secondary download registration
+      // Also trigger FileSaver as secondary download registration (primary on Web)
       try {
         final baseName = finalFileName.replaceAll('.csv', '');
         await FileSaver.instance.saveFile(
@@ -159,10 +156,13 @@ class ReportService {
           ext: 'csv',
           mimeType: MimeType.csv,
         );
+        if (kIsWeb) {
+          savedFilePath = finalFileName;
+        }
       } catch (_) {}
 
-      // Automatically launch OpenFilex if requested
-      if (openAfterDownload && savedFilePath != null) {
+      // Automatically launch OpenFilex if requested (native only)
+      if (!kIsWeb && openAfterDownload && savedFilePath != null) {
         try {
           final openRes = await OpenFilex.open(savedFilePath);
           debugPrint('[ReportService] OpenFilex result: ${openRes.message}');
@@ -171,12 +171,12 @@ class ReportService {
         }
       }
 
-      // Trigger Share sheet if requested
-      if (shareAfterDownload && savedFilePath != null) {
+      // Trigger Share sheet if requested (native only)
+      if (!kIsWeb && shareAfterDownload && savedFilePath != null) {
         try {
           await Share.shareXFiles([
             XFile(savedFilePath),
-          ], text: 'WATERNow Report: $finalFileName');
+          ], text: 'WATER WALA Report: $finalFileName');
         } catch (shareErr) {
           debugPrint('[ReportService] Share error: $shareErr');
         }
@@ -213,7 +213,7 @@ class ReportService {
     try {
       await Share.shareXFiles([
         XFile(filePath),
-      ], text: 'WATERNow Report ${fileName != null ? ': $fileName' : ''}');
+      ], text: 'WATER WALA Report ${fileName != null ? ': $fileName' : ''}');
     } catch (e) {
       debugPrint('[ReportService] Failed to share report: $e');
     }

@@ -956,6 +956,8 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         title: const Text('Delete Supplier'),
         content: Text('Are you sure you want to delete ${supplier['name']}?'),
         actions: [

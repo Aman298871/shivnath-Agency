@@ -1,6 +1,6 @@
-import 'dart:io';
-
+import 'dart:io' as io;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -243,11 +243,12 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                               if (result != null && result.files.isNotEmpty) {
                                 final f = result.files.first;
                                 List<int>? bytes = f.bytes;
-                                if ((bytes == null || bytes.isEmpty) &&
+                                if (!kIsWeb &&
+                                    (bytes == null || bytes.isEmpty) &&
                                     f.path != null &&
                                     f.path!.isNotEmpty) {
                                   try {
-                                    bytes = await File(f.path!).readAsBytes();
+                                    bytes = await io.File(f.path!).readAsBytes();
                                   } catch (_) {}
                                 }
                                 setSheetState(() {
@@ -427,6 +428,8 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Remove Document?'),
         content: const Text(
@@ -548,30 +551,34 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: const Text(
           'Edit Franchise Profile',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Franchise Owner Name',
-                prefixIcon: Icon(Icons.person_outline),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Franchise Owner Name',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: phoneCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Contact Phone Number',
-                prefixIcon: Icon(Icons.phone_outlined),
+              const SizedBox(height: 14),
+              TextField(
+                controller: phoneCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Contact Phone Number',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(

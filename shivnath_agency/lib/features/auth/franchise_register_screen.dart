@@ -124,6 +124,8 @@ class _FranchiseRegisterScreenState
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
@@ -137,11 +139,13 @@ class _FranchiseRegisterScreenState
             ),
           ],
         ),
-        content: const Text(
-          'Your franchise registration request has been submitted successfully.\n\n'
-          'Your account is currently pending Admin verification and approval. '
-          'Once approved, you will be able to log in with your credentials.',
-          style: TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF334155)),
+        content: const SingleChildScrollView(
+          child: Text(
+            'Your franchise registration request has been submitted successfully.\n\n'
+            'Your account is currently pending Admin verification and approval. '
+            'Once approved, you will be able to log in with your credentials.',
+            style: TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF334155)),
+          ),
         ),
         actions: [
           SizedBox(

@@ -611,6 +611,8 @@ class _WhatsAppAutomationTabState
             setDialogState,
           ) {
             return AlertDialog(
+              actionsOverflowDirection: VerticalDirection.down,
+              actionsOverflowButtonSpacing: 8,
               title: const Column(
                 crossAxisAlignment:
                     CrossAxisAlignment.start,
@@ -632,6 +634,7 @@ class _WhatsAppAutomationTabState
               content: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+                  maxHeight: MediaQuery.of(dialogContext).size.height * 0.75,
                 ),
                 child: SingleChildScrollView(
                   child: Column(

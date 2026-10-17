@@ -126,6 +126,8 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
     final bool? shouldLogout = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         title: const Text('Logout'),
         content: const Text(
           'Are you sure you want to logout from Wholesale Dealer Portal?',

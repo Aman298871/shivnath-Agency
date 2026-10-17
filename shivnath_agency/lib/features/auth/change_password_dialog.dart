@@ -76,7 +76,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       Navigator.pop(context); // Close dialog
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Password changed successfully! Welcome to WaterNow.'),
+          content: Text('Password changed successfully! Welcome to Water Wala.'),
           backgroundColor: BrandColors.greenDark,
         ),
       );

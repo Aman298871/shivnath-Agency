@@ -177,13 +177,22 @@ class OrderStatusStyle {
 
   static String _cleanLabel(String raw, {required String fallback}) {
     if (raw.trim().isEmpty) return fallback;
-    final cleaned = raw.replaceAll('_', ' ').trim();
+    final lower = raw.trim().toLowerCase();
+    if (lower.contains('plant') && lower.contains('approv')) {
+      return 'Plant Approved';
+    }
+    if (lower.contains('admin') && lower.contains('approv')) {
+      return 'Admin Approved';
+    }
+    if (lower.contains('order') && lower.contains('place')) {
+      return 'Order Placed';
+    }
+    final cleaned = raw.replaceAll('_', ' ').replaceAll('/', ' / ').trim();
     // Capitalize each word nicely
     return cleaned
         .split(' ')
-        .map((w) => w.isNotEmpty
-            ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}'
-            : '')
+        .where((w) => w.isNotEmpty)
+        .map((w) => w == '/' ? '/' : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
         .join(' ');
   }
 
@@ -213,13 +222,17 @@ class OrderStatusStyle {
             Icon(icon, size: fontSize + 2.5, color: primaryColor),
             const SizedBox(width: 5),
           ],
-          Text(
-            displayLabel.toUpperCase(),
-            style: TextStyle(
-              color: primaryColor,
-              fontWeight: FontWeight.w800,
-              fontSize: fontSize,
-              letterSpacing: 0.4,
+          Flexible(
+            child: Text(
+              displayLabel.toUpperCase(),
+              style: TextStyle(
+                color: primaryColor,
+                fontWeight: FontWeight.w800,
+                fontSize: fontSize,
+                letterSpacing: 0.4,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

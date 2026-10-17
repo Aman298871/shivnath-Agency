@@ -33,6 +33,8 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -48,9 +50,10 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
               ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'Enter your existing password and choose a strong new password.',
@@ -119,6 +122,7 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
               ],
             ],
           ),
+        ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -323,6 +327,8 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
@@ -336,9 +342,10 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
             ),
           ],
         ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'You are on the latest version of Shivnath Franchise Portal.',
@@ -360,14 +367,15 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
             ),
           ],
         ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
-          ),
-        ],
       ),
-    );
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('OK'),
+        ),
+      ],
+    ),
+  );
   }
 
   @override

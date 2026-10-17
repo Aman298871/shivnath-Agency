@@ -578,6 +578,6 @@ class _LoginScreenState extends State<LoginScreen> {
     if (role == AppConstants.adminRole) {
       return 'Admin Control Panel: Reserved for Super Admin, Plant Operations, and authorized personnel.';
     }
-    return 'Use your registered email and password to access your WaterNow account.';
+    return 'Use your registered email and password to access your Water Wala account.';
   }
 }

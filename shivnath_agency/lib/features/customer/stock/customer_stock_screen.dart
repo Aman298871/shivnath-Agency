@@ -128,33 +128,37 @@ class _CustomerStockScreenState extends State<CustomerStockScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           isHold ? 'Resume Water Service' : 'Pause Water Service (Hold)',
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isHold
-                  ? 'Reactivate daily water deliveries. Your remaining stock cycle days will resume from today.'
-                  : 'Going on vacation or renovation? Pause your service and freeze remaining days safely.',
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: reasonController,
-              decoration: InputDecoration(
-                labelText: isHold ? 'Notes (Optional)' : 'Reason for Hold *',
-                hintText: isHold
-                    ? 'e.g. Back from trip'
-                    : 'e.g. Out of station for 10 days',
-                border: const OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isHold
+                    ? 'Reactivate daily water deliveries. Your remaining stock cycle days will resume from today.'
+                    : 'Going on vacation or renovation? Pause your service and freeze remaining days safely.',
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              TextField(
+                controller: reasonController,
+                decoration: InputDecoration(
+                  labelText: isHold ? 'Notes (Optional)' : 'Reason for Hold *',
+                  hintText: isHold
+                      ? 'e.g. Back from trip'
+                      : 'e.g. Out of station for 10 days',
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -1005,7 +1009,7 @@ class _CustomerStockScreenState extends State<CustomerStockScreen> {
                   ),
                 );
               },
-              child: const Text('Order Water Now'),
+              child: const Text('Order from Water Wala'),
             ),
           ],
         ),

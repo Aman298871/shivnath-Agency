@@ -6,7 +6,6 @@ import '../../core/services/InventoryService.dart';
 import '../../core/services/session_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/widgets/ai_chatbot_modal.dart';
-import '../../core/widgets/support_desk_modal.dart';
 import '../../routes/app_routes.dart';
 
 import 'dashboard/admin_dashboard_screen.dart';
@@ -798,8 +797,6 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       setState(() => currentIndex = 18);
     } else if (value == 'settings') {
       setState(() => currentIndex = 16);
-    } else if (value == 'support') {
-      SupportDeskModal.show(context);
     } else if (value == 'logout') {
       _logout();
     }
@@ -944,7 +941,6 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'profile', child: Text('My Profile')),
               PopupMenuItem(value: 'settings', child: Text('Settings')),
-              PopupMenuItem(value: 'support', child: Text('Support Desk')),
               PopupMenuDivider(),
               PopupMenuItem(
                 value: 'logout',
@@ -1409,21 +1405,6 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                       Icon(Icons.settings_outlined, size: 18),
                       SizedBox(width: 10),
                       Text('Settings'),
-                    ],
-                  ),
-                ),
-
-                PopupMenuItem<String>(
-                  value: 'support',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.headset_mic_outlined,
-                        size: 18,
-                        color: Color(0xFF0284C7),
-                      ),
-                      SizedBox(width: 10),
-                      Text('Support Desk'),
                     ],
                   ),
                 ),

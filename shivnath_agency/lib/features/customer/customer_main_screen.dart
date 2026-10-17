@@ -181,6 +181,8 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -290,7 +292,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'WaterNow',
+                                'Water Wala',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
@@ -518,7 +520,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'WaterNow',
+                                'Water Wala',
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w800,

@@ -35,7 +35,7 @@ class ForgotPasswordScreen extends StatelessWidget {
 
   Future<void> _openWhatsApp(BuildContext context, String phone) async {
     final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    final uri = Uri.parse('https://wa.me/91$cleanPhone?text=Hello%20WaterNow%20Support,%20I%20need%20assistance%20with%20resetting%20my%20account%20password.');
+    final uri = Uri.parse('https://wa.me/91$cleanPhone?text=Hello%20Water%20Wala%20Support,%20I%20need%20assistance%20with%20resetting%20my%20account%20password.');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
@@ -48,7 +48,7 @@ class ForgotPasswordScreen extends StatelessWidget {
   }
 
   Future<void> _sendEmail(BuildContext context, String email) async {
-    final uri = Uri.parse('mailto:$email?subject=WaterNow%20Password%20Reset%20Request');
+    final uri = Uri.parse('mailto:$email?subject=Water%20Wala%20Password%20Reset%20Request');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
@@ -67,7 +67,7 @@ class ForgotPasswordScreen extends StatelessWidget {
 
     const supportPhone = '+91 98765 43210';
     const supportWhatsApp = '9876543210';
-    const supportEmail = 'support@waternow.in';
+    const supportEmail = 'support@waterwala.in';
 
     return Scaffold(
       backgroundColor: BrandColors.white,
@@ -251,7 +251,7 @@ class ForgotPasswordScreen extends StatelessWidget {
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
-                        'Security Notice: WaterNow officials will NEVER ask for your current password or UPI PIN. An authorized admin will only provide a temporary password after verifying your identity.',
+                        'Security Notice: Water Wala officials will NEVER ask for your current password or UPI PIN. An authorized admin will only provide a temporary password after verifying your identity.',
                         style: TextStyle(
                           fontSize: 12,
                           color: BrandColors.warningDark,

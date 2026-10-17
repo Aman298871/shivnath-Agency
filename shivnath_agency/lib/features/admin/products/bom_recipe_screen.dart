@@ -851,9 +851,14 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
       builder: (dlgCtx) => StatefulBuilder(
         builder: (context, setDlgState) {
           return AlertDialog(
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: 8,
             title: const Text('Add Raw Material to Recipe'),
-            content: SizedBox(
-              width: MediaQuery.of(context).size.width,
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 450,
+                maxHeight: MediaQuery.of(context).size.height * 0.75,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

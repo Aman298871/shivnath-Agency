@@ -173,7 +173,7 @@ void main() {
 
         await tester.pumpWidget(
           const MaterialApp(
-            home: const LoginScreen(),
+            home: LoginScreen(),
           ),
         );
         await tester.pump();
@@ -253,6 +253,22 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
 
+        for (final element in tester.allElements) {
+          final ro = element.renderObject;
+          if (ro is RenderFlex && (ro.toString().contains('OVERFLOWING') || ro.toString().contains('overflowed'))) {
+            debugPrint('>>> WALLET OVERFLOWING WIDGET: ${element.widget}');
+            if (element.widget is Row) {
+              final row = element.widget as Row;
+              debugPrint('>>> WALLET ROW CHILDREN: ${row.children.map((c) => c.toStringShort()).toList()}');
+            }
+            final ancestors = <String>[];
+            element.visitAncestorElements((anc) {
+              ancestors.add(anc.widget.runtimeType.toString());
+              return ancestors.length < 6;
+            });
+            debugPrint('>>> WALLET ANCESTORS: ${ancestors.join(" -> ")}');
+          }
+        }
         final ex = tester.takeException();
         if (ex != null) {
           if (ex is FlutterError) {

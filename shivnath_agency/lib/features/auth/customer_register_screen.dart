@@ -192,7 +192,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
       territories = fallbacks.asMap().entries.map((e) => {
         'id': e.key + 1,
         'name': e.value,
-        'code': '${e.value.toUpperCase().replaceAll(' ', '_')}',
+        'code': e.value.toUpperCase().replaceAll(' ', '_'),
         'district_name': district,
       }).toList();
       isLoadingTerritories = false;
@@ -483,7 +483,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                           child: Center(
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
+                              children: [
                                 SizedBox(
                                   width: 16,
                                   height: 16,
@@ -581,7 +581,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
+                          children: [
                             SizedBox(
                               width: 16,
                               height: 16,

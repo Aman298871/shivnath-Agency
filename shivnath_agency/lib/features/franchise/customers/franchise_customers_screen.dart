@@ -59,28 +59,32 @@ class _FranchiseCustomersScreenState extends State<FranchiseCustomersScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isHold
-                  ? 'Are you sure you want to resume daily water delivery for this customer? Remaining duration will reactivate.'
-                  : 'Specify reason for pausing water delivery. The remaining duration countdown will freeze safely.',
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: reasonController,
-              decoration: InputDecoration(
-                labelText: isHold ? 'Notes / Reason (Optional)' : 'Reason for Hold *',
-                hintText: isHold ? 'e.g. Customer requested restart' : 'e.g. Vacation / Premises Renovation',
-                border: const OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isHold
+                    ? 'Are you sure you want to resume daily water delivery for this customer? Remaining duration will reactivate.'
+                    : 'Specify reason for pausing water delivery. The remaining duration countdown will freeze safely.',
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              TextField(
+                controller: reasonController,
+                decoration: InputDecoration(
+                  labelText: isHold ? 'Notes / Reason (Optional)' : 'Reason for Hold *',
+                  hintText: isHold ? 'e.g. Customer requested restart' : 'e.g. Vacation / Premises Renovation',
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(

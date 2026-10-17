@@ -148,6 +148,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: const Row(
           children: [
@@ -161,8 +163,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
@@ -189,6 +192,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               ),
             ),
           ],
+        ),
         ),
         actions: [
           TextButton(
@@ -527,6 +531,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: const Row(
           children: [
@@ -540,8 +546,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -607,6 +614,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             ),
           ],
         ),
+        ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -649,6 +657,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: const [
@@ -668,7 +678,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Are you sure you want to delete your WaterNow account? This action will:',
+                  'Are you sure you want to delete your Water Wala account? This action will:',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
                 const SizedBox(height: 8),
@@ -795,14 +805,17 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           isHold ? 'Resume Water Delivery' : 'Pause Water Delivery (Hold)',
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               isHold
@@ -822,6 +835,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               ),
             ),
           ],
+        ),
         ),
         actions: [
           Wrap(
@@ -903,7 +917,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     final franchise =
         _territoryData?['current_serving_franchise_name']?.toString() ??
         _territoryData?['registered_franchise_name']?.toString() ??
-        'WaterNow (Direct Fulfillment)';
+        'Water Wala (Direct Fulfillment)';
 
     final cycleStatus = _stockCycleData?['status']?.toString() ?? 'none';
     final daysRemaining = _stockCycleData?['days_remaining'] ?? 0;

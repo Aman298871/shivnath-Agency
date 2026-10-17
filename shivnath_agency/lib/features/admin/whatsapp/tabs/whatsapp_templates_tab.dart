@@ -1270,8 +1270,12 @@ class _WhatsAppTemplatesTabState extends State<WhatsAppTemplatesTab> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           title: const Text('Delete Template?'),
-          content: Text('Are you sure you want to delete "${item['name']}"?'),
+          content: SingleChildScrollView(
+            child: Text('Are you sure you want to delete "${item['name']}"?'),
+          ),
           actions: [
             TextButton(
               onPressed: () {

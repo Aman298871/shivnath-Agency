@@ -77,6 +77,8 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
@@ -105,10 +107,11 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -185,7 +188,8 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
             ),
           ],
         ),
-        actions: [
+      ),
+      actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Close'),
@@ -292,36 +296,42 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
             top: 20,
             bottom: MediaQuery.of(bCtx).viewInsets.bottom + 24,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.upload_file_rounded,
-                        color: Color(0xFF0284C7),
-                        size: 24,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.upload_file_rounded,
+                            color: Color(0xFF0284C7),
+                            size: 24,
+                          ),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Upload Franchise Document',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(width: 10),
-                      Text(
-                        'Upload Franchise Document',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(bCtx),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(bCtx),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 16),
               const Text(
                 'Document Type',
@@ -408,10 +418,6 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                     );
                     if (result != null && result.files.isNotEmpty) {
                       final file = result.files.first;
-                      final sizeInKb = file.size > 0 ? (file.size / 1024).round() : 1500;
-                      final sizeDisplay = sizeInKb > 1024
-                          ? '${(sizeInKb / 1024).toStringAsFixed(1)} MB'
-                          : '$sizeInKb KB';
                       setModalState(() {
                         selectedFileName = file.name;
                       });
@@ -564,7 +570,8 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   @override

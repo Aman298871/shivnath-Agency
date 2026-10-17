@@ -264,122 +264,132 @@ class _PendingOrdersPickerDialogState extends State<PendingOrdersPickerDialog> {
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
                               ),
-                              child: Row(
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Icon Badge
-                                  Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFFBEB),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFFFDE68A)),
-                                    ),
-                                    child: const Icon(
-                                      Icons.receipt_rounded,
-                                      color: Color(0xFFD97706),
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-
-                                  // Details
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Wrap(
+                                  // Top row: Code + Status Badge + OPEN Button
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      // Icon Badge
+                                      Container(
+                                        width: 34,
+                                        height: 34,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFFFBEB),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: const Color(0xFFFDE68A)),
+                                        ),
+                                        child: const Icon(
+                                          Icons.receipt_rounded,
+                                          color: Color(0xFFD97706),
+                                          size: 18,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Wrap(
                                           crossAxisAlignment: WrapCrossAlignment.center,
-                                          spacing: 8,
+                                          spacing: 6,
                                           runSpacing: 4,
                                           children: [
                                             Text(
                                               code,
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.w800,
-                                                fontSize: 14,
+                                                fontSize: 13.5,
                                                 color: Color(0xFF0F172A),
                                               ),
                                             ),
                                             AppStatusBadge.order(statusStr, fontSize: 9.5),
                                           ],
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          custName,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF334155),
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Open Action Chevron
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0284C7),
+                                          borderRadius: BorderRadius.circular(8),
                                         ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          'Source: $source ${dateStr.isNotEmpty ? '• $dateStr' : ''}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xFF64748B),
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Wrap(
-                                          crossAxisAlignment: WrapCrossAlignment.center,
-                                          spacing: 8,
-                                          runSpacing: 4,
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              '₹$amount',
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF0369A1),
+                                              'OPEN',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                                letterSpacing: 0.3,
                                               ),
                                             ),
+                                            SizedBox(width: 3),
+                                            Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 14),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                                  const SizedBox(height: 8),
+                                  // Bottom details: Customer, Source, Amount & Items
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
                                             Text(
-                                              '• $items Items',
+                                              custName,
                                               style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF334155),
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Source: $source ${dateStr.isNotEmpty ? '• $dateStr' : ''}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
                                                 color: Color(0xFF64748B),
                                               ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ],
                                         ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  // Open Action Chevron
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF0284C7),
-                                        borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
+                                      const SizedBox(width: 10),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
                                         children: [
                                           Text(
-                                            'OPEN',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w800,
-                                              letterSpacing: 0.3,
+                                            '₹$amount',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w900,
+                                              color: Color(0xFF0369A1),
                                             ),
                                           ),
-                                          SizedBox(width: 3),
-                                          Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 14),
+                                          Text(
+                                            '$items Items',
+                                            style: const TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w500,
+                                              color: Color(0xFF64748B),
+                                            ),
+                                          ),
                                         ],
                                       ),
-                                    ),
+                                    ],
                                   ),
                                 ],
                               ),

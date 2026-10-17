@@ -323,7 +323,7 @@ class _CustomerSettingsScreenState
               icon: Icons.support_agent_rounded,
               title: 'Help & Support',
               subtitle:
-                  'Contact WaterNow support team',
+                  'Contact Water Wala support team',
               onTap: () {
                 SupportDeskModal.show(context);
               },
@@ -344,7 +344,7 @@ class _CustomerSettingsScreenState
           children: [
             const _InfoRow(
               title: 'Application',
-              value: 'WaterNow',
+              value: 'Water Wala',
             ),
 
             const Divider(height: 1),
@@ -392,6 +392,8 @@ class _CustomerSettingsScreenState
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
@@ -402,63 +404,68 @@ class _CustomerSettingsScreenState
                 color: Color(0xFF0284C7),
               ),
               SizedBox(width: 10),
-              Text(
-                'Change Password',
+              Expanded(
+                child: Text(
+                  'Change Password',
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
           content: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+              maxHeight: MediaQuery.of(dialogContext).size.height * 0.75,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller:
-                      currentPasswordController,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(
-                    labelText:
-                        'Current Password',
-                    prefixIcon: Icon(
-                      Icons.lock_outline,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller:
+                        currentPasswordController,
+                    obscureText: true,
+                    decoration:
+                        const InputDecoration(
+                      labelText:
+                          'Current Password',
+                      prefixIcon: Icon(
+                        Icons.lock_outline,
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 14),
 
-                const SizedBox(height: 14),
-
-                TextField(
-                  controller:
-                      newPasswordController,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(
-                    labelText: 'New Password',
-                    prefixIcon: Icon(
-                      Icons.password_rounded,
+                  TextField(
+                    controller:
+                        newPasswordController,
+                    obscureText: true,
+                    decoration:
+                        const InputDecoration(
+                      labelText: 'New Password',
+                      prefixIcon: Icon(
+                        Icons.password_rounded,
+                      ),
                     ),
                   ),
-                ),
 
-                const SizedBox(height: 14),
+                  const SizedBox(height: 14),
 
-                TextField(
-                  controller:
-                      confirmPasswordController,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(
-                    labelText:
-                        'Confirm New Password',
-                    prefixIcon: Icon(
-                      Icons.password_rounded,
+                  TextField(
+                    controller:
+                        confirmPasswordController,
+                    obscureText: true,
+                    decoration:
+                        const InputDecoration(
+                      labelText:
+                          'Confirm New Password',
+                      prefixIcon: Icon(
+                        Icons.password_rounded,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           actions: [

@@ -148,7 +148,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         ),
                         SizedBox(height: 24),
                         Text(
-                          'WaterNow',
+                          'Water Wala',
                           style: TextStyle(
                             color: BrandColors.textPrimary,
                             fontSize: 28,

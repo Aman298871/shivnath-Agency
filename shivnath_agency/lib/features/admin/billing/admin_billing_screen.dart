@@ -421,7 +421,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
           Expanded(child: Text('BALANCE', style: _billingHeader)),
           Expanded(child: Text('DUE DATE', style: _billingHeader)),
           Expanded(child: Text('STATUS', style: _billingHeader)),
-          SizedBox(width: 180, child: Text('ACTIONS', style: _billingHeader)),
+          SizedBox(width: 200, child: Text('ACTIONS', style: _billingHeader, textAlign: TextAlign.right)),
         ],
       ),
     );
@@ -471,10 +471,14 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
           ),
           Expanded(child: _badge(invoice['status'].toString())),
           SizedBox(
-            width: 180,
+            width: 200,
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   tooltip: 'View Invoice',
                   onPressed: () {
                     _viewInvoice(invoice);
@@ -484,6 +488,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
 
                 if (invoice['status'] == 'Payment Verification Required')
                   IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     tooltip: 'Verify & Approve Payment',
                     onPressed: () {
                       _verifyPayment(invoice);
@@ -497,6 +504,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
 
                 if (invoice['status'] != 'Paid' && invoice['status'] != 'Payment Verification Required')
                   IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     tooltip: 'Record Payment',
                     onPressed: () {
                       _recordPayment(invoice);
@@ -510,6 +520,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
 
                 if (invoice['status'] != 'Paid')
                   IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     tooltip: 'Send Payment Reminder',
                     onPressed: () {
                       _sendReminder(invoice);
@@ -522,6 +535,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                   ),
 
                 IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   tooltip: 'Credit Management',
                   onPressed: () {
                     _manageCredit(invoice);

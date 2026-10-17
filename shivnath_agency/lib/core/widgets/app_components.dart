@@ -354,13 +354,17 @@ class AppStatusBadge extends StatelessWidget {
             Icon(icon, size: fontSize + 1, color: color),
             const SizedBox(width: 4),
           ],
-          Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w700,
-              color: color,
-              letterSpacing: 0.3,
+          Flexible(
+            child: Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w700,
+                color: color,
+                letterSpacing: 0.3,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

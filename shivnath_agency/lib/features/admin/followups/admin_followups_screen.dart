@@ -983,17 +983,6 @@ else
     }
   }
 
-  bool _validDate(String value) {
-    final regex = RegExp(
-      r'^\d{4}-\d{2}-\d{2}$',
-    );
-
-    if (!regex.hasMatch(value)) {
-      return false;
-    }
-
-    return DateTime.tryParse(value) != null;
-  }
 
   String _formatDate(String value) {
     final date =

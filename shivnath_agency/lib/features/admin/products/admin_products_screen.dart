@@ -861,6 +861,8 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
+              actionsOverflowDirection: VerticalDirection.down,
+              actionsOverflowButtonSpacing: 8,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -871,21 +873,27 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                     color: const Color(0xFF0284C7),
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    isEditing
-                        ? 'Edit Category'
-                        : (parent != null
-                              ? 'Add Subcategory'
-                              : 'Add Top-Level Category'),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      isEditing
+                          ? 'Edit Category'
+                          : (parent != null
+                                ? 'Add Subcategory'
+                                : 'Add Top-Level Category'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
               content: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 450),
+                constraints: BoxConstraints(
+                  maxWidth: 450,
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
                 child: SizedBox(
                   width: double.maxFinite,
                   child: SingleChildScrollView(
@@ -1069,10 +1077,14 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         title: const Text('Archive Category?'),
-        content: Text(
-          'Are you sure you want to archive "$name"?\n\n'
-          'Categories with active subcategories or active products cannot be archived.',
+        content: SingleChildScrollView(
+          child: Text(
+            'Are you sure you want to archive "$name"?\n\n'
+            'Categories with active subcategories or active products cannot be archived.',
+          ),
         ),
         actions: [
           TextButton(
@@ -1762,12 +1774,12 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                             "sku": sku,
                             "size": size,
                             "category": category,
-                            if (categoryRefId != null) "category_ref_id": categoryRefId,
+                            "category_ref_id": ?categoryRefId,
                             "price": price,
                             "dealer_wholesale_price": price,
                             "dealer_transfer_price": price,
-                            if (mrp != null) "retail_mrp": mrp,
-                            if (mrp != null) "mrp": mrp,
+                            "retail_mrp": ?mrp,
+                            "mrp": ?mrp,
                             "gst": gst,
                             "stock": stock,
                             "status": status,
@@ -1837,6 +1849,8 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           title: const Text('Delete Product'),
           content: Text('Are you sure you want to delete ${product['name']}?'),
           actions: [

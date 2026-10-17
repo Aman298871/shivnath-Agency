@@ -936,6 +936,8 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
       builder: (dlgCtx) => StatefulBuilder(
         builder: (context, setDlgState) {
           return AlertDialog(
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: 8,
             title: Row(
               children: [
                 const Icon(Icons.payment_rounded, color: BrandColors.greenDark, size: 22),

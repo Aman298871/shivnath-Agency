@@ -26,9 +26,28 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:877164366331:android:9c1e757744926eab41235e",
+        "mobilesdk_app_id": "1:877164366331:android:0c070e820da96fe541235e",
         "android_client_info": {
           "package_name": "com.shivnath.waterwala"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZz_-8scO6ChipNz582SMdxXAKr8_fjAo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:877164366331:android:9c1e757744926eab41235e",
+        "android_client_info": {
+          "package_name": "com.shivnathagency.waternow"
         }
       },
       "oauth_client": [],

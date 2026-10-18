@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/auth_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/app_toast.dart';
 
 class AdminPerformanceScreen extends StatefulWidget {
@@ -11,7 +11,7 @@ class AdminPerformanceScreen extends StatefulWidget {
 
 class _AdminPerformanceScreenState extends State<AdminPerformanceScreen> {
   static const Color primaryBlue = Color(0xFF0284C7);
-  final AuthService _authService = AuthService();
+  final AuthRepository _authRepository = AuthRepository();
 
   String _selectedFilter = 'today';
   DateTime? _customStartDate;
@@ -44,7 +44,7 @@ class _AdminPerformanceScreenState extends State<AdminPerformanceScreen> {
       if (_customEndDate != null) endStr = _customEndDate!.toIso8601String().substring(0, 10);
     }
 
-    final res = await _authService.getSuperAdminAdminPerformance(
+    final res = await _authRepository.getSuperAdminAdminPerformance(
       dateFilter: _selectedFilter,
       startDate: startStr,
       endDate: endStr,

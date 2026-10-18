@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/OrderService.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/contact_action_helper.dart';
@@ -13,6 +13,7 @@ class FranchiseOrdersScreen extends StatefulWidget {
 }
 
 class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
+  final OrderRepository _orderRepository = OrderRepository();
   List<Map<String, dynamic>> orders = [];
   bool isLoading = true;
 
@@ -27,14 +28,14 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
 
   Future<void> _fetchOrders() async {
     setState(() => isLoading = true);
-    final res = await OrderService().getOrders();
+    final res = await _orderRepository.getOrders();
     if (!mounted) return;
 
     if (res['success'] == true && res['data'] is Map) {
       final rawOrders = res['data']['orders'];
       if (rawOrders is List) {
         final mapped = rawOrders.whereType<Map>().map((item) {
-          final mappedItem = OrderService().mapOrder(
+          final mappedItem = _orderRepository.mapOrder(
             Map<String, dynamic>.from(item),
           );
           final rawDbId = item['id'] is int
@@ -1029,7 +1030,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                             final double totalAmount = (quantity * 20)
                                 .toDouble();
 
-                            final res = await OrderService().createOrder({
+                            final res = await _orderRepository.createOrder({
                               'franchise': franchiseName,
                               'city': city,
                               'items': quantity,
@@ -1390,7 +1391,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
         builder: (ctx, setDlgState) {
           if (!fetchedLiveBalance) {
             fetchedLiveBalance = true;
-            OrderService().getOrderPayments(dbId).then((res) {
+            _orderRepository.getOrderPayments(dbId).then((res) {
               if (res['success'] == true && res['data'] is Map) {
                 final data = res['data'] as Map;
                 final liveOutstanding = double.tryParse(data['outstanding_balance']?.toString() ?? '');
@@ -1747,7 +1748,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                         setDlgState(() => isSubmitting = true);
 
                         // 1. Update order fulfillment status
-                        final statusRes = await OrderService().updateOrderStatus(
+                        final statusRes = await _orderRepository.updateOrderStatus(
                           dbId,
                           selectedNewStatus,
                         );
@@ -1780,7 +1781,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                             'notes': notesController.text.trim(),
                           };
 
-                          final payRes = await OrderService().recordOrderPayment(dbId, paymentPayload);
+                          final payRes = await _orderRepository.recordOrderPayment(dbId, paymentPayload);
                           if (ctx.mounted) Navigator.pop(ctx);
                           Future.delayed(const Duration(milliseconds: 500), () {
                             amountController.dispose();
@@ -1866,7 +1867,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
         builder: (ctx, setDlgState) {
           if (!fetchedLiveBalance) {
             fetchedLiveBalance = true;
-            OrderService().getOrderPayments(dbId).then((res) {
+            _orderRepository.getOrderPayments(dbId).then((res) {
               if (res['success'] == true && res['data'] is Map) {
                 final data = res['data'] as Map;
                 final liveOutstanding = double.tryParse(data['outstanding_balance']?.toString() ?? '');
@@ -2116,7 +2117,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                           'notes': notesController.text.trim(),
                         };
 
-                        final res = await OrderService().recordOrderPayment(dbId, payload);
+                        final res = await _orderRepository.recordOrderPayment(dbId, payload);
                         if (!mounted) return;
 
                         if (res['success'] == true) {

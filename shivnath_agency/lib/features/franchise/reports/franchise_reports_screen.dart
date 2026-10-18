@@ -3,9 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/services/InventoryService.dart';
-import '../../../core/services/OrderService.dart';
-import '../../../core/services/session_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/services/report_service.dart';
 import '../../../core/theme/brand_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -31,9 +29,9 @@ class FranchiseReportsScreen extends StatefulWidget {
 
 class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
     with SingleTickerProviderStateMixin {
-  final OrderService _orderService = OrderService();
-  final InventoryService _invService = InventoryService();
-  final SessionService _sessionService = SessionService();
+  final OrderRepository _orderService = OrderRepository();
+  final InventoryRepository _invService = InventoryRepository();
+  final AuthRepository _sessionService = AuthRepository();
   final ReportService _reportService = ReportService();
 
   late TabController _tabController;
@@ -159,7 +157,7 @@ class _FranchiseReportsScreenState extends State<FranchiseReportsScreen>
     });
 
     try {
-      _currentUser = await _sessionService.getCurrentUser();
+      _currentUser = await _sessionService.getSessionUser();
       final dealerId = int.tryParse(_currentUser?.id ?? '0') ?? 0;
 
       // 1. Fetch Orders

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/stock_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 
 class CustomerNotificationsScreen extends StatefulWidget {
   const CustomerNotificationsScreen({super.key});
@@ -11,7 +11,7 @@ class CustomerNotificationsScreen extends StatefulWidget {
 
 class _CustomerNotificationsScreenState
     extends State<CustomerNotificationsScreen> {
-  final StockService _stockService = StockService();
+  final AuthRepository _authRepository = AuthRepository();
   bool _isSyncing = false;
   List<Map<String, dynamic>> _notifications = [];
 
@@ -23,7 +23,7 @@ class _CustomerNotificationsScreenState
 
   Future<void> _fetchNotifications() async {
     if (mounted) setState(() => _isSyncing = true);
-    final res = await _stockService.getCustomerNotifications();
+    final res = await _authRepository.getCustomerNotifications();
     if (!mounted) return;
 
     if (res['success'] == true && res['data'] is Map<String, dynamic>) {
@@ -51,7 +51,7 @@ class _CustomerNotificationsScreenState
         }
       }
     });
-    await _stockService.markCustomerNotificationsAsRead(id: id);
+    await _authRepository.markCustomerNotificationsAsRead(id: id);
   }
 
   IconData _getIcon(String? type) {

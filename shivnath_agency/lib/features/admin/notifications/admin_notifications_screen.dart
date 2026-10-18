@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/auth_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../customer/orders/order_detail_screen.dart';
 
@@ -12,7 +12,7 @@ class AdminNotificationsScreen extends StatefulWidget {
 }
 
 class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
-  final AuthService _authService = AuthService();
+  final AuthRepository _authRepository = AuthRepository();
   String tab = 'All';
   bool _isLoading = true;
 
@@ -26,7 +26,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
 
   Future<void> _loadNotifications() async {
     setState(() => _isLoading = true);
-    final res = await _authService.getAdminNotifications();
+    final res = await _authRepository.getAdminNotifications();
     if (mounted) {
       List<Map<String, dynamic>> list = [];
       if (res['success'] == true && res['data'] != null) {
@@ -352,7 +352,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
           item['read'] = true;
         });
         if (notifId != null) {
-          _authService.markNotificationsAsRead(id: notifId);
+          _authRepository.markNotificationsAsRead(id: notifId);
         }
       }
       if (isOrderNotif && refId > 0) {
@@ -466,7 +466,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                           item['read'] = true;
                         });
                         if (notifId != null) {
-                          await _authService.markNotificationsAsRead(id: notifId);
+                          await _authRepository.markNotificationsAsRead(id: notifId);
                         }
                         if (mounted) {
                           AppToast.success(
@@ -528,7 +528,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
       }
     });
 
-    await _authService.markNotificationsAsRead();
+    await _authRepository.markNotificationsAsRead();
 
     if (mounted) {
       AppToast.success(

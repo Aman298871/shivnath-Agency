@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/auth_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/app_toast.dart';
 
 class AdminManagementTab extends StatefulWidget {
@@ -11,7 +11,7 @@ class AdminManagementTab extends StatefulWidget {
 
 class _AdminManagementTabState extends State<AdminManagementTab> {
   static const Color primaryBlue = Color(0xFF0284C7);
-  final AuthService _authService = AuthService();
+  final AuthRepository _authRepository = AuthRepository();
 
   List<Map<String, dynamic>> _admins = [];
   bool _isLoading = true;
@@ -47,7 +47,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
 
   Future<void> _fetchAdmins() async {
     setState(() => _isLoading = true);
-    final res = await _authService.getSuperAdminAdmins();
+    final res = await _authRepository.getSuperAdminAdmins();
     if (mounted) {
       List<Map<String, dynamic>> list = [];
       if (res['success'] == true && res['data'] != null) {
@@ -364,7 +364,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                 'data_scope_type': selectedScope,
                 'admin_permissions': selectedPermissions.toList(),
               };
-              final res = await _authService.createSuperAdminAdmin(payload);
+              final res = await _authRepository.createSuperAdminAdmin(payload);
               if (dialogCtx.mounted) Navigator.pop(dialogCtx);
               if (!mounted) return;
               if (res['success'] == true) {
@@ -597,7 +597,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                 'data_scope_type': selectedScope,
                 'admin_permissions': selectedPermissions.toList(),
               };
-              final res = await _authService.updateSuperAdminAdmin(
+              final res = await _authRepository.updateSuperAdminAdmin(
                 id,
                 payload,
               );
@@ -661,7 +661,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                 AppToast.error(ctx, 'Password cannot be empty.');
                 return;
               }
-              final res = await _authService.resetSuperAdminAdminPassword(
+              final res = await _authRepository.resetSuperAdminAdminPassword(
                 id,
                 passCtrl.text.trim(),
               );
@@ -691,7 +691,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
     final currentActive = admin['is_active'] == true;
     final newActive = !currentActive;
 
-    final res = await _authService.toggleSuperAdminAdminActive(id, newActive);
+    final res = await _authRepository.toggleSuperAdminAdminActive(id, newActive);
     if (!mounted) return;
     if (res['success'] == true) {
       AppToast.success(

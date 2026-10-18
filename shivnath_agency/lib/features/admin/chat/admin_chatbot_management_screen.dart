@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/chat_service.dart';
-import '../../../core/services/product_service.dart';
+import '../../../core/repositories/product_repository.dart';
 import '../../../models/product_model.dart';
 
 class AdminChatbotManagementScreen extends StatefulWidget {
@@ -16,7 +16,7 @@ class _AdminChatbotManagementScreenState
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ChatService _chatService = ChatService();
-  final ProductService _productService = ProductService();
+  final ProductRepository _productService = ProductRepository();
 
   List<Map<String, dynamic>> _options = [];
   List<ProductModel> _products = [];
@@ -47,7 +47,7 @@ class _AdminChatbotManagementScreenState
       if (mounted) {
         setState(() {
           _options = opts;
-          _products = ProductService.products;
+          _products = ProductRepository.cachedProducts;
           _quotations = quotes;
           _isLoading = false;
         });

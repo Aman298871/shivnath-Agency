@@ -4,9 +4,7 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_constants.dart';
-import '../../../core/services/OrderService.dart';
-import '../../../core/services/auth_service.dart';
-import '../../../core/services/session_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../cart/cart_provider.dart';
 import 'order_success_screen.dart';
 
@@ -18,6 +16,9 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
+  final OrderRepository _orderRepository = OrderRepository();
+  final AuthRepository _authRepository = AuthRepository();
+
   final String paymentMethod = 'RAZORPAY';
   bool _isSubmitting = false;
 
@@ -64,7 +65,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _checkGatewayStatus() async {
     setState(() => _isLoadingGatewayStatus = true);
-    final status = await OrderService().getRazorpayStatus();
+    final status = await _orderRepository.getRazorpayStatus();
     if (!mounted) return;
 
     final Map<String, dynamic> normalized = Map<String, dynamic>.from(status);
@@ -83,8 +84,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     int? zoneId;
     bool hasTerritory = false;
 
-    // Instant local autofill from SessionService and SharedPreferences
-    final localUser = await SessionService().getUser();
+    // Instant local autofill from AuthRepository and SharedPreferences
+    final localUser = await _authRepository.getCachedUser();
     if (localUser != null) {
       if (localUser.name.isNotEmpty && nameController.text.isEmpty) {
         nameController.text = localUser.name;
@@ -107,7 +108,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
     } catch (_) {}
 
-    final userRes = await AuthService().getCurrentUser();
+    final userRes = await _authRepository.getCurrentUser();
     if (userRes['success'] == true && userRes['data'] is Map<String, dynamic>) {
       final data = userRes['data'] as Map<String, dynamic>;
       if (data['name'] != null && data['name'].toString().isNotEmpty) {
@@ -125,7 +126,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       // Fetch any existing customer previous outstanding
       try {
-        final ordRes = await OrderService().getOrders();
+        final ordRes = await _orderRepository.getOrders();
         if (ordRes['success'] == true && ordRes['data'] != null && ordRes['data']['orders'] is List) {
           final ordList = List<Map<String, dynamic>>.from(ordRes['data']['orders']);
           if (ordList.isNotEmpty && ordList.first['previous_outstanding'] != null) {
@@ -161,7 +162,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       'data': {'franchises': []},
     };
     if (district != null && district.isNotEmpty) {
-      fRes = await AuthService().getEligibleFranchises(
+      fRes = await _authRepository.getEligibleFranchises(
         district: district,
         zoneId: zoneId,
       );
@@ -225,8 +226,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final orderService = OrderService();
-      final verifyRes = await orderService.verifyRazorpayPayment(
+      final verifyRes = await _orderRepository.verifyRazorpayPayment(
         orderId: orderDbId,
         razorpayOrderId: response.orderId ?? _pendingRzpOrderId ?? '',
         razorpayPaymentId: response.paymentId ?? '',
@@ -301,9 +301,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final rzpOrderId = _pendingRzpOrderId;
 
     if (orderDbId != null) {
-      await OrderService().cancelRazorpayPayment(
+      await _orderRepository.cancelRazorpayPayment(
         orderId: orderDbId,
-        razorpayOrderId: rzpOrderId,
+        razorpayOrderId: rzpOrderId ?? '',
         reason: '${response.code}: ${response.message}',
       );
     }
@@ -564,9 +564,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     try {
-      final orderService = OrderService();
       // Step 1: Create Order with pending payment
-      final res = await orderService.createOrder({
+      final res = await _orderRepository.createOrder({
         'franchise': isDirect
             ? 'Water Wala (Direct Fulfillment)'
             : selectedFranchiseName,
@@ -596,7 +595,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final int orderDbId = int.tryParse(orderObj['id']?.toString() ?? res['id']?.toString() ?? '0') ?? 0;
 
         // Step 2: Initialize Razorpay online order with server-validated amount
-        final rzpOrderRes = await orderService.createRazorpayOrder(
+        final rzpOrderRes = await _orderRepository.createRazorpayOrder(
           orderId: orderDbId > 0 ? orderDbId : null,
           amount: amount,
         );
@@ -628,7 +627,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _pendingRzpOrderId = rzpOrderId;
 
         // Step 3: Open Genuine Razorpay Checkout
-        final localUser = await SessionService().getUser();
+        final localUser = await _authRepository.getCachedUser();
         final options = {
           'key': keyId.isNotEmpty ? keyId : AppConstants.razorpayKeyId,
           'amount': amountInPaise,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/services/auth_service.dart';
+import '../../core/repositories/auth_repository.dart';
 
 class CustomerRegisterScreen extends StatefulWidget {
   const CustomerRegisterScreen({super.key});
@@ -21,7 +21,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
-  final AuthService authService = AuthService();
+  final AuthRepository authService = AuthRepository();
 
   bool isLoading = false;
   bool obscurePassword = true;

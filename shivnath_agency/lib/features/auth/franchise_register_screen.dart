@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/services/auth_service.dart';
+import '../../core/repositories/auth_repository.dart';
 import '../../routes/app_routes.dart';
 import 'package:file_picker/file_picker.dart' as import_file_picker;
 
@@ -33,7 +33,7 @@ class _FranchiseRegisterScreenState
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
-  final AuthService authService = AuthService();
+  final AuthRepository authService = AuthRepository();
 
   bool isLoading = false;
   bool obscurePassword = true;

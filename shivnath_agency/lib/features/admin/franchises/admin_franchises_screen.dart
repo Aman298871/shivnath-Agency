@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../../../core/services/franchise_service.dart';
+import '../../../core/repositories/franchise_repository.dart';
 import '../../../core/widgets/document_preview_dialog.dart';
 import 'admin_franchise_detail_screen.dart';
 
@@ -12,7 +12,7 @@ class AdminFranchisesScreen extends StatefulWidget {
 }
 
 class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
-  final FranchiseService _franchiseService = FranchiseService();
+  final FranchiseRepository _franchiseService = FranchiseRepository();
 
   final List<Map<String, dynamic>> franchises = [];
 
@@ -1120,9 +1120,8 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
                             }
 
                             final result = await _franchiseService
-                                .createFranchise(
-                                  data: {
-                                    'owner_name': owner.text.trim(),
+                                .createFranchise({
+                                  'owner_name': owner.text.trim(),
                                     'business_name': businessName.text.trim(),
                                     'phone': phone.text.trim(),
                                     'email': email.text.trim(),
@@ -1212,8 +1211,8 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
 
                           final result = await _franchiseService
                               .updateFranchise(
-                                franchiseId: franchiseId,
-                                data: {
+                                franchiseId,
+                                {
                                   'owner_name': owner.text.trim(),
 
                                   'phone': phone.text.trim(),

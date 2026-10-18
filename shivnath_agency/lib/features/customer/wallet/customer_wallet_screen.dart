@@ -3,8 +3,7 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_constants.dart';
-import '../../../core/services/OrderService.dart';
-import '../../../core/services/session_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 
 class CustomerWalletScreen extends StatefulWidget {
   const CustomerWalletScreen({super.key});
@@ -14,7 +13,8 @@ class CustomerWalletScreen extends StatefulWidget {
 }
 
 class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
-  final OrderService _orderService = OrderService();
+  final OrderRepository _orderRepository = OrderRepository();
+  final AuthRepository _authRepository = AuthRepository();
   late Razorpay _razorpay;
 
   bool _isSyncing = false;
@@ -81,7 +81,7 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
     int points = 0;
     try {
       // First try dedicated server wallet endpoint
-      final walletRes = await _orderService.getWalletDetails();
+      final walletRes = await _orderRepository.getWalletDetails();
       if (walletRes['success'] == true && walletRes['balance'] != null) {
         final serverBalance = double.tryParse(walletRes['balance'].toString());
         if (serverBalance != null && serverBalance > 0) {
@@ -91,7 +91,7 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
       }
 
       // Then sync customer order history for transaction logs
-      final res = await _orderService.getOrders().timeout(
+      final res = await _orderRepository.getOrders().timeout(
         const Duration(seconds: 4),
         onTimeout: () => {'success': false, 'data': {}},
       );
@@ -169,7 +169,7 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
 
     try {
       // 1. Create Razorpay order through authoritative backend
-      final rzpOrderRes = await _orderService.createRazorpayOrder(amount: amount);
+      final rzpOrderRes = await _orderRepository.createRazorpayOrder(amount: amount);
 
       if (!mounted) return;
 
@@ -197,7 +197,7 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
       _pendingRechargeAmount = amount;
 
       // 2. Open Razorpay Checkout Sheet with UPI, PhonePe, Google Pay, Cards, NetBanking
-      final localUser = await SessionService().getUser();
+      final localUser = await _authRepository.getCachedUser();
       final options = {
         'key': keyId.isNotEmpty ? keyId : AppConstants.razorpayKeyId,
         'amount': amountInPaise,

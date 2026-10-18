@@ -74,6 +74,7 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
       _isAdmin = _currentUser?.role.toLowerCase() == 'admin';
 
       final contact = await SupportDeskService.fetchSupportContact(
+        role: _isAdmin ? 'admin' : (widget.leadRole ?? _currentUser?.role),
         inquiryType: widget.inquiryType,
       );
 
@@ -91,7 +92,9 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
     } catch (_) {
       if (mounted) {
         setState(() {
-          _contact ??= SupportDeskService.defaultContact;
+          _contact ??= _isAdmin
+              ? SupportDeskService.adminContact
+              : SupportDeskService.defaultContact;
           _isLoading = false;
           _isSyncing = false;
         });

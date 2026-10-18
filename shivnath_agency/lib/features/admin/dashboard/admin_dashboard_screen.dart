@@ -4,8 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/services/followup_service.dart';
 import '../../../core/services/lead_service.dart';
-import '../../../core/services/InventoryService.dart';
-import '../../../core/services/OrderService.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/services/notification_service.dart';
 import '../inventory/dealer_stock_request_fulfillment_screen.dart';
 import '../../customer/orders/order_detail_screen.dart';
@@ -52,8 +51,8 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final LeadService _leadService = LeadService();
   final FollowupService _followupService = FollowupService();
-  final InventoryService _inventoryService = InventoryService();
-  final OrderService _orderService = OrderService();
+  final InventoryRepository _inventoryRepository = InventoryRepository();
+  final OrderRepository _orderRepository = OrderRepository();
   final NotificationService _notificationService = NotificationService();
 
   List<Map<String, dynamic>> _pendingStockAlerts = [];
@@ -169,7 +168,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     try {
       // 1. Check Customer Orders
-      final orderRes = await _orderService.getOrders();
+      final orderRes = await _orderRepository.getOrders();
       if (orderRes['success'] == true) {
         List ordersList = [];
         if (orderRes['data'] is List) {
@@ -253,7 +252,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
 
       // 2. Check Franchise Stock Requests
-      final reqRes = await _inventoryService.getDealerStockRequests();
+      final reqRes = await _inventoryRepository.getDealerStockRequests();
       if (reqRes['success'] == true) {
         List reqList = [];
         if (reqRes['data'] is List) {
@@ -604,7 +603,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       int dispCount = 0;
       int delivCount = 0;
       try {
-        final orderRes = await _orderService.getOrders();
+        final orderRes = await _orderRepository.getOrders();
         if (orderRes['success'] == true) {
           final dynamic ordData = orderRes['data'];
           List rawOrders = [];
@@ -618,7 +617,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ordersCount = rawOrders.length;
           for (final ord in rawOrders) {
             if (ord is Map) {
-              final mapped = _orderService.mapOrder(Map<String, dynamic>.from(ord));
+              final mapped = _orderRepository.mapOrder(Map<String, dynamic>.from(ord));
               parsedOrders.add(mapped);
               final status = (mapped['status_raw'] ?? mapped['status'] ?? '').toString().toLowerCase();
               if (status.contains('place') || status.contains('new') || status.contains('created')) {
@@ -650,7 +649,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
       int franchiseReqCount = 0;
       try {
-        final reqRes = await _inventoryService.getDealerStockRequests();
+        final reqRes = await _inventoryRepository.getDealerStockRequests();
         if (reqRes['success'] == true) {
           final dynamic reqData = reqRes['data'];
           if (reqData is List) {
@@ -768,7 +767,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _loadPendingStockAlerts() async {
     try {
-      final res = await _inventoryService.getPendingStockExpiryAlerts();
+      final res = await _inventoryRepository.getPendingStockExpiryAlerts();
       if (!mounted) return;
       List? alerts;
       bool hasUnacknowledged = false;
@@ -803,7 +802,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _loadActionableAlerts() async {
     try {
       // 1. Pending Stock Requests from real backend API
-      final reqRes = await _inventoryService.getDealerStockRequests();
+      final reqRes = await _inventoryRepository.getDealerStockRequests();
       if (!mounted) return;
       if (reqRes['success'] == true) {
         List rawList = [];
@@ -876,7 +875,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final Set<int> seenTxnOrInvoice = {};
 
       // 2a. Direct authoritative database queries of pending transactions
-      final directPayRes = await _inventoryService.getPendingPayments();
+      final directPayRes = await _inventoryRepository.getPendingPayments();
       if (!mounted) return;
       if (directPayRes['success'] == true) {
         List rawTxns = [];
@@ -919,7 +918,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final List<Map<String, dynamic>> orderAlertList = [];
       final Set<int> seenOrderIds = {};
 
-      final ordersRes = await _orderService.getOrders(status: 'order_placement');
+      final ordersRes = await _orderRepository.getOrders(status: 'order_placement');
       if (!mounted) return;
       if (ordersRes['success'] == true && ordersRes['data'] != null) {
         final List rawOrders = ordersRes['data']['orders'] ?? (ordersRes['data'] is List ? ordersRes['data'] : []);
@@ -1637,7 +1636,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (updated != true) return;
 
-    final res = await _orderService.updateOrderStatus(ordId, selectedStatus);
+    final res = await _orderRepository.updateOrderStatus(ordId, selectedStatus);
     if (!mounted) return;
 
     if (res['success'] == true) {
@@ -1682,12 +1681,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     Map<String, dynamic> res;
     if (txnId > 0) {
-      res = await _inventoryService.verifyPaymentByTxnId(txnId: txnId);
+      res = await _inventoryRepository.verifyPaymentByTxnId(txnId: txnId);
       if (res['success'] != true && invId > 0) {
-        res = await _inventoryService.verifyInvoicePayment(invoiceId: invId);
+        res = await _inventoryRepository.verifyInvoicePayment(invoiceId: invId);
       }
     } else {
-      res = await _inventoryService.verifyInvoicePayment(invoiceId: invId);
+      res = await _inventoryRepository.verifyInvoicePayment(invoiceId: invId);
     }
 
     if (!mounted) return;
@@ -1747,12 +1746,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     Map<String, dynamic> res;
     if (txnId > 0) {
-      res = await _inventoryService.rejectPaymentByTxnId(txnId: txnId, reason: reason);
+      res = await _inventoryRepository.rejectPaymentByTxnId(txnId: txnId, reason: reason);
       if (res['success'] != true && invId > 0) {
-        res = await _inventoryService.rejectInvoicePayment(invoiceId: invId, reason: reason);
+        res = await _inventoryRepository.rejectInvoicePayment(invoiceId: invId, reason: reason);
       }
     } else {
-      res = await _inventoryService.rejectInvoicePayment(invoiceId: invId, reason: reason);
+      res = await _inventoryRepository.rejectInvoicePayment(invoiceId: invId, reason: reason);
     }
 
     if (!mounted) return;
@@ -3481,7 +3480,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 for (final a in _pendingStockAlerts) {
                                   final aId = a['id'];
                                   if (aId != null) {
-                                    await _inventoryService.actionPendingStockExpiryAlert(
+                                    await _inventoryRepository.actionPendingStockExpiryAlert(
                                       alertId: aId is int ? aId : int.tryParse(aId.toString()) ?? 0,
                                       action: 'ACKNOWLEDGE',
                                     );
@@ -3516,7 +3515,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 for (final a in _pendingStockAlerts) {
                                   final aId = a['id'];
                                   if (aId != null) {
-                                    await _inventoryService.actionPendingStockExpiryAlert(
+                                    await _inventoryRepository.actionPendingStockExpiryAlert(
                                       alertId: aId is int ? aId : int.tryParse(aId.toString()) ?? 0,
                                       action: 'SNOOZE',
                                       snoozeDays: 3,

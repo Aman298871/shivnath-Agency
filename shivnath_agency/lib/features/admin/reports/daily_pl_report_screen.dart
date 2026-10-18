@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/services/InventoryService.dart';
+import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/theme/brand_colors.dart';
 
 enum _DateFilter {
@@ -23,7 +23,7 @@ class DailyPlReportScreen extends StatefulWidget {
 
 class _DailyPlReportScreenState extends State<DailyPlReportScreen>
     with SingleTickerProviderStateMixin {
-  final InventoryService _invService = InventoryService();
+  final InventoryRepository _invService = InventoryRepository();
 
   bool _loading = false;
   String? _error;

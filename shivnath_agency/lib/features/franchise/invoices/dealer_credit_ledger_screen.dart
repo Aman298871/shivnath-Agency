@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/InventoryService.dart';
-import '../../../core/services/session_service.dart';
+import '../../../core/repositories/auth_repository.dart';
+import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/theme/brand_colors.dart';
 import '../../../models/user_model.dart';
 
@@ -17,8 +17,8 @@ class DealerCreditLedgerScreen extends StatefulWidget {
 }
 
 class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
-  final InventoryService _invService = InventoryService();
-  final SessionService _sessionService = SessionService();
+  final InventoryRepository _invService = InventoryRepository();
+  final AuthRepository _authRepository = AuthRepository();
 
   bool _loading = false;
   String? _error;
@@ -42,7 +42,7 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
     });
 
     try {
-      _user = await _sessionService.getCurrentUser();
+      _user = await _authRepository.getCachedUser();
       final dealerId = int.tryParse(_user?.id ?? '0') ?? 0;
 
       // 1. Fetch credit profile

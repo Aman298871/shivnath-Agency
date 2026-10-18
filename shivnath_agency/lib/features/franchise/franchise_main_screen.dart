@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/services/auth_service.dart';
-import '../../core/services/session_service.dart';
+import '../../core/repositories/app_repositories.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/widgets/support_desk_modal.dart';
 import '../../models/user_model.dart';
@@ -30,6 +29,7 @@ class FranchiseMainScreen extends StatefulWidget {
 }
 
 class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
+  final AuthRepository _authRepository = AuthRepository();
   int currentIndex = 0;
   UserModel? _currentUser;
 
@@ -42,16 +42,17 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
 
   Future<void> _loadUser() async {
     // 1. Load local cached user first
-    final cached = await SessionService().getCurrentUser();
+    final cached = await _authRepository.getSessionUser();
     if (mounted && cached != null) {
       setState(() => _currentUser = cached);
     }
 
     // 2. Fetch fresh real-time status from backend
-    final res = await AuthService().getCurrentUser();
+    final res = await _authRepository.getCurrentUser();
     if (res['success'] == true && res['data'] is Map<String, dynamic>) {
       final updated = UserModel.fromJson(res['data'] as Map<String, dynamic>);
-      await SessionService().saveUser(updated);
+      final token = await _authRepository.getAccessToken() ?? '';
+      await _authRepository.saveSession(token: token, user: updated, role: updated.role);
       if (mounted) {
         setState(() => _currentUser = updated);
       }
@@ -1062,7 +1063,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       return;
     }
 
-    await SessionService().logout();
+    await AuthRepository().logout();
 
     if (!mounted) {
       return;

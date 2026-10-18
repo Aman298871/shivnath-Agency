@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/services/product_service.dart';
-import '../../../core/services/session_service.dart';
-import '../../../core/services/stock_service.dart';
+import '../../../core/providers/product_provider.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
 import '../../../models/product_model.dart';
 import '../../../models/user_model.dart';
@@ -50,7 +49,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    final user = await SessionService().getUser();
+    final user = await AuthRepository().getCachedUser();
     if (mounted) {
       setState(() {
         _currentUser = user;
@@ -59,7 +58,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     }
 
     try {
-      final notifRes = await StockService().getCustomerNotifications();
+      final notifRes = await AuthRepository().getCustomerNotifications();
       if (mounted && notifRes['success'] == true && notifRes['data'] is Map<String, dynamic>) {
         final list = notifRes['data']['notifications'] as List? ?? [];
         final unread = list.where((n) => n['is_read'] != true).length;
@@ -420,7 +419,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _loadCurrentUser() async {
-    final user = await SessionService().getUser();
+    final user = await AuthRepository().getCachedUser();
     if (mounted && user != null) {
       setState(() {
         _currentUser = user;
@@ -435,7 +434,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _fetchProducts() async {
-    await ProductService().getProducts();
+    try {
+      await context.read<ProductProvider>().loadProducts();
+    } catch (_) {}
     if (mounted) setState(() {});
   }
 
@@ -459,7 +460,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   // =========================================================
 
   Widget _buildMobileHome() {
-    final allProducts = ProductService.products;
+    final providerProducts = context.watch<ProductProvider>().products;
+    final allProducts = providerProducts.isNotEmpty ? providerProducts : ProductRepository.cachedProducts;
 
     final filteredProducts = allProducts.where((product) {
       return product.name.toLowerCase().contains(search.toLowerCase().trim());
@@ -819,7 +821,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   // =========================================================
 
   Widget _buildDesktopHome() {
-    final products = ProductService.products.take(4).toList();
+    final providerProducts = context.watch<ProductProvider>().products;
+    final allProducts = providerProducts.isNotEmpty ? providerProducts : ProductRepository.cachedProducts;
+    final products = allProducts.take(4).toList();
 
     return Container(
       color: const Color(0xFFF8FAFC),

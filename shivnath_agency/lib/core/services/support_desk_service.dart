@@ -68,22 +68,64 @@ class SupportDeskService {
     return digitsOnly;
   }
 
+  static const String adminPhone = '+91 98264 21818';
+
+  static SupportContactInfo get adminContact => SupportContactInfo(
+    id: 1,
+    name: 'Admin Support Desk',
+    phone: adminPhone,
+    email: 'admin@shivnath.com',
+    role: 'admin',
+    roleDisplay: 'Central Admin Support Desk',
+    messageTemplate:
+        'Namaste Admin Support,\nI require operational assistance regarding Shivnath Agency.',
+    target: 'admin',
+  );
+
   static SupportContactInfo get defaultContact => SupportContactInfo(
-    name: 'Shivnath Agency Support Desk',
-    phone: '+91 98264 21818',
+    id: 2,
+    name: 'Admin Support Desk',
+    phone: adminPhone,
     email: 'support@shivnath.com',
-    role: 'customer',
-    roleDisplay: 'Central Customer Helpline',
+    role: 'admin',
+    roleDisplay: 'Central Customer Helpline & Admin Desk',
     messageTemplate:
         'Namaste Shivnath Support,\nI require assistance with my drinking water supply.',
     target: 'central',
   );
+
+  static List<SupportContactInfo> get defaultAllContacts => [
+    adminContact,
+    SupportContactInfo(
+      id: 2,
+      role: 'customer',
+      roleDisplay: 'Customer Support Desk',
+      name: 'Shivnath Agency Support Desk',
+      phone: adminPhone,
+      email: 'support@shivnath.com',
+      messageTemplate:
+          'Namaste Shivnath Support,\nI require assistance with my drinking water supply.',
+      target: 'central',
+    ),
+    SupportContactInfo(
+      id: 3,
+      role: 'franchise',
+      roleDisplay: 'Franchise Partner Desk',
+      name: 'Franchise Operations Desk',
+      phone: adminPhone,
+      email: 'franchise@shivnath.com',
+      messageTemplate:
+          'Namaste Shivnath Franchise Desk,\nI have an enquiry regarding franchise operations.',
+      target: 'central',
+    ),
+  ];
 
   /// Fetches contextual support contact from backend DB.
   static Future<SupportContactInfo> fetchSupportContact({
     String? role,
     String? inquiryType,
   }) async {
+    final effectiveRole = (role ?? inquiryType ?? '').toLowerCase();
     try {
       final res = await _authService.getSupportContact(
         role: role,
@@ -91,29 +133,43 @@ class SupportDeskService {
       );
 
       if (res['success'] == true && res['data'] is Map<String, dynamic>) {
-        return SupportContactInfo.fromJson(res['data'] as Map<String, dynamic>);
+        final contact = SupportContactInfo.fromJson(
+          res['data'] as Map<String, dynamic>,
+        );
+        if (contact.phone.isNotEmpty) {
+          return contact;
+        }
       }
     } catch (_) {}
 
-    return defaultContact;
+    return effectiveRole == 'admin' ? adminContact : defaultContact;
   }
 
   /// Fetches all configured support contacts (Admin only)
   static Future<List<SupportContactInfo>> fetchAllSupportContacts() async {
-    final res = await _authService.getSupportContact(fetchAll: true);
-    if (res['success'] == true && res['data'] is Map<String, dynamic>) {
-      final list = res['data']['contacts'];
-      if (list is List) {
-        return list
-            .map(
-              (item) => SupportContactInfo.fromJson(
-                Map<String, dynamic>.from(item as Map),
-              ),
-            )
-            .toList();
+    try {
+      final res = await _authService.getSupportContact(fetchAll: true);
+      if (res['success'] == true && res['data'] is Map<String, dynamic>) {
+        final list = res['data']['contacts'];
+        if (list is List && list.isNotEmpty) {
+          final contacts = list
+              .map(
+                (item) => SupportContactInfo.fromJson(
+                  Map<String, dynamic>.from(item as Map),
+                ),
+              )
+              .toList();
+
+          // Ensure admin contact is available in the list with 9826421818
+          if (!contacts.any((c) => c.role.toLowerCase() == 'admin')) {
+            contacts.insert(0, adminContact);
+          }
+          return contacts;
+        }
       }
-    }
-    return [];
+    } catch (_) {}
+
+    return defaultAllContacts;
   }
 
   /// Updates a support contact record (Admin only)

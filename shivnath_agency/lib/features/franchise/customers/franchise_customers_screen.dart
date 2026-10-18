@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/auth_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 import 'franchise_customer_stocks_screen.dart';
 
 class FranchiseCustomersScreen extends StatefulWidget {
@@ -11,7 +11,7 @@ class FranchiseCustomersScreen extends StatefulWidget {
 }
 
 class _FranchiseCustomersScreenState extends State<FranchiseCustomersScreen> {
-  final AuthService _authService = AuthService();
+  final AuthRepository _authRepository = AuthRepository();
   List<Map<String, dynamic>> _customers = [];
   bool _isLoading = true;
   String _searchQuery = '';
@@ -31,7 +31,7 @@ class _FranchiseCustomersScreenState extends State<FranchiseCustomersScreen> {
 
   Future<void> _fetchCustomers() async {
     setState(() => _isLoading = true);
-    final res = await _authService.getFranchiseCustomers(
+    final res = await _authRepository.getFranchiseCustomers(
       search: _searchQuery.trim().isEmpty ? null : _searchQuery.trim(),
     );
 
@@ -105,7 +105,7 @@ class _FranchiseCustomersScreenState extends State<FranchiseCustomersScreen> {
 
     if (confirmed != true) return;
 
-    final res = await _authService.updateServiceStatus(
+    final res = await _authRepository.updateServiceStatus(
       action: action,
       reason: reasonController.text.trim(),
       customerId: customerId,

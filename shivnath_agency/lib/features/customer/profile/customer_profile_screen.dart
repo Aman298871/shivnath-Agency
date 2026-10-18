@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
-import '../../../core/services/auth_service.dart';
-import '../../../core/services/session_service.dart';
-import '../../../core/services/stock_service.dart';
+import '../../../core/providers/auth_provider.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/support_desk_modal.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
@@ -21,9 +21,7 @@ class CustomerProfileScreen extends StatefulWidget {
 }
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
-  final SessionService _sessionService = SessionService();
-  final AuthService _authService = AuthService();
-  final StockService _stockService = StockService();
+  final AuthRepository _authRepository = AuthRepository();
   UserModel? _currentUser;
   bool _isLoading = false;
   String _savedAddress =
@@ -42,7 +40,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   /// Phase 1 – show UI immediately from local session cache (no network).
   Future<void> _loadUserDataInstant() async {
-    final user = await _sessionService.getCurrentUser();
+    final user = await _authRepository.getCachedUser();
     final prefs = await SharedPreferences.getInstance();
     final address = prefs.getString('customer_delivery_address');
 
@@ -63,19 +61,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   /// Phase 2 – silent background network refresh; updates UI when data arrives.
   Future<void> _refreshFromNetwork() async {
     try {
-      final res = await _authService.getCurrentUser();
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.refreshUser();
       if (!mounted) return;
-      if (res['success'] == true && res['data'] is Map<String, dynamic>) {
-        final d = res['data'] as Map<String, dynamic>;
-        try {
-          final user = UserModel.fromJson(d);
-          await _sessionService.saveUser(user);
-          _currentUser = user;
-        } catch (_) {}
+      if (authProvider.currentUser != null) {
         setState(() {
-          _territoryData =
-              (d['territory_info'] ?? d['territory']) as Map<String, dynamic>?;
-          _stockCycleData = d['stock_cycle'] as Map<String, dynamic>?;
+          _currentUser = authProvider.currentUser;
         });
       }
     } catch (_) {
@@ -83,7 +74,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     }
 
     try {
-      final notifRes = await _stockService.getCustomerNotifications();
+      final notifRes = await _authRepository.getCustomerNotifications();
       if (!mounted) return;
       if (notifRes['success'] == true && notifRes['data'] is Map<String, dynamic>) {
         final list = notifRes['data']['notifications'] as List? ?? [];
@@ -100,7 +91,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 
   Future<void> _logout() async {
-    await _sessionService.logout();
+    try {
+      await context.read<AuthProvider>().logout();
+    } catch (_) {
+      await _authRepository.clearSession();
+    }
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(
       context,
@@ -213,7 +208,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   name: nameController.text.trim(),
                   phone: phoneController.text.trim(),
                 );
-                await _sessionService.saveUser(updated);
+                await _authRepository.saveUser(updated);
                 setState(() => _currentUser = updated);
               }
               if (!ctx.mounted) return;
@@ -479,7 +474,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           'address': addr,
                         };
 
-                        final res = await _authService.updateProfile(payload);
+                        final res = await _authRepository.updateProfile(payload);
                         if (!ctx.mounted) return;
 
                         if (res['success'] == true) {
@@ -749,14 +744,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         return;
                       }
                       setDialogState(() => isSubmitting = true);
-                      final res = await _authService.deleteAccount(
+                      final res = await _authRepository.deleteAccount(
                         password: pass,
                         reason: reasonCtrl.text.trim(),
                       );
                       if (!mounted) return;
                       if (res['success'] == true) {
                         Navigator.pop(ctx);
-                        await _sessionService.logout();
+                        await _authRepository.logout();
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -866,7 +861,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     if (confirmed != true) return;
 
     setState(() => _isUpdatingStatus = true);
-    final res = await _authService.updateServiceStatus(
+    final res = await _authRepository.updateServiceStatus(
       action: action,
       reason: reasonController.text.trim(),
     );

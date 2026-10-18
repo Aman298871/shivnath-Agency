@@ -1,8 +1,9 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../../../core/services/OrderService.dart';
+import '../../../core/providers/order_provider.dart';
 import '../../../core/widgets/app_components.dart';
 import 'order_detail_screen.dart';
 
@@ -14,17 +15,15 @@ class CustomerOrdersScreen extends StatefulWidget {
 }
 
 class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
-  final OrderService _orderService = OrderService();
-  List<Map<String, dynamic>> _orders = [];
-  bool _isLoading = true;
-  String? _errorMessage;
   Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadOrders();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadOrders();
+    });
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (mounted) {
         _loadOrders(silent: true);
       }
@@ -38,46 +37,24 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   }
 
   Future<void> _loadOrders({bool silent = false}) async {
-    if (!silent || _orders.isEmpty) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-    }
-
-    final res = await _orderService.getOrders();
-    if (!mounted) return;
-
-    if (res['success'] == true && res['data'] is Map) {
-      final rawOrders = res['data']['orders'];
-      if (rawOrders is List) {
-        final mapped = rawOrders.whereType<Map>().map((item) {
-          return _orderService.mapOrder(Map<String, dynamic>.from(item));
-        }).toList();
-
-        setState(() {
-          _orders = mapped;
-          _isLoading = false;
-        });
-        return;
-      }
-    }
-
-    if (!silent || _orders.isEmpty) {
-      setState(() {
-        _orders = [];
-        _isLoading = false;
-        if (res['success'] != true && res['message'] != null) {
-          _errorMessage = res['message'].toString();
-        }
-      });
-    }
+    try {
+      await context.read<OrderProvider>().loadOrders(forceRefresh: true);
+    } catch (_) {}
   }
+
+  List<Map<String, dynamic>> _orders = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
   List<Map<String, dynamic>> get orders => _orders;
 
   @override
   Widget build(BuildContext context) {
+    final orderProvider = context.watch<OrderProvider>();
+    _orders = orderProvider.orders;
+    _isLoading = orderProvider.isLoading && _orders.isEmpty;
+    _errorMessage = orderProvider.errorMessage;
+
     return LayoutBuilder(
       builder: (
         context,

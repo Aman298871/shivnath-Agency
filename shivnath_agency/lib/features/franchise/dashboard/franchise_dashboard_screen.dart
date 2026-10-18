@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/InventoryService.dart';
-import '../../../core/services/franchise_service.dart';
+import '../../../core/repositories/franchise_repository.dart';
+import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
 import '../../../core/widgets/support_desk_modal.dart';
@@ -50,7 +50,8 @@ class FranchiseDashboardScreen extends StatefulWidget {
 
 class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
   final SessionService _sessionService = SessionService();
-  final FranchiseService _franchiseService = FranchiseService();
+  final FranchiseRepository _franchiseRepository = FranchiseRepository();
+  final InventoryRepository _inventoryRepository = InventoryRepository();
   UserModel? _currentUser;
   Map<String, dynamic> _stats = {
     'customers_served': 0,
@@ -82,7 +83,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
 
   Future<void> _loadStats() async {
     setState(() => _loadingStats = true);
-    final res = await _franchiseService.getDashboardStats();
+    final res = await _franchiseRepository.getDashboardStats();
     Map<String, dynamic> data = {};
     if (res['success'] == true && res['data'] is Map) {
       data = Map<String, dynamic>.from(res['data']);
@@ -94,7 +95,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
     // Direct dealer batches verification: if active_stock is 0 or null, check batches
     if (data['active_stock'] == null || data['active_stock'] == 0) {
       try {
-        final batchRes = await InventoryService().getDealerBatches();
+        final batchRes = await _inventoryRepository.getDealerBatches();
         if (batchRes['success'] == true && batchRes['data'] is List) {
           int totalActive = 0;
           int totalOnHold = 0;

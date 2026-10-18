@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/services/auth_service.dart';
-import '../../../core/services/franchise_service.dart';
-import '../../../core/services/InventoryService.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../core/widgets/document_preview_dialog.dart';
 
@@ -25,9 +23,9 @@ class AdminFranchiseDetailScreen extends StatefulWidget {
 
 class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
     with SingleTickerProviderStateMixin {
-  final FranchiseService _franchiseService = FranchiseService();
-  final InventoryService _inventoryService = InventoryService();
-  final AuthService _authService = AuthService();
+  final FranchiseRepository _franchiseService = FranchiseRepository();
+  final InventoryRepository _inventoryService = InventoryRepository();
+  final AuthRepository _authRepository = AuthRepository();
   bool isLoading = true;
   String? errorMessage;
   Map<String, dynamic>? detailData;
@@ -2043,7 +2041,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                       }
 
                       setDialogState(() => isSubmitting = true);
-                      final res = await _authService.adminResetPassword(
+                      final res = await _authRepository.adminResetPassword(
                         userId: userId,
                         verificationReason: reason,
                       );

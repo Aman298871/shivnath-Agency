@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/InventoryService.dart';
-import '../../../core/services/product_service.dart';
+import '../../../core/repositories/inventory_repository.dart';
+import '../../../core/repositories/product_repository.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../models/product_model.dart';
 import '../../customer/products/product_detail_screen.dart';
@@ -17,6 +17,7 @@ class FranchiseProductsScreen extends StatefulWidget {
 
 class _FranchiseProductsScreenState
     extends State<FranchiseProductsScreen> {
+  final ProductRepository _productRepository = ProductRepository();
   String search = '';
   int? selectedCategoryId;
   String selectedCategoryName = 'All';
@@ -34,7 +35,7 @@ class _FranchiseProductsScreenState
 
   Future<void> _fetchProducts() async {
     if (mounted) setState(() => _loadingProducts = true);
-    await ProductService().getProducts(
+    await _productRepository.getProducts(
       status: 'Active',
       categoryId: selectedCategoryId,
       category: selectedCategoryId == null && selectedCategoryName != 'All' ? selectedCategoryName : null,
@@ -44,7 +45,7 @@ class _FranchiseProductsScreenState
 
   Future<void> _fetchCategories() async {
     try {
-      final res = await ProductService().getCategories(activeOnly: true);
+      final res = await _productRepository.getCategories(activeOnly: true);
       if (res['success'] == true && res['data'] is Map) {
         final list = res['data']['categories'];
         if (list is List) {
@@ -104,7 +105,7 @@ class _FranchiseProductsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final products = ProductService.products.where((product) {
+    final products = ProductRepository.cachedProducts.where((product) {
       final statusLower = product.status.trim().toLowerCase();
       if (statusLower.isNotEmpty && statusLower != 'active') return false;
       final skuUpper = product.sku.trim().toUpperCase();
@@ -434,7 +435,7 @@ class _StockRequestDialogState extends State<_StockRequestDialog> {
     setState(() => _isSubmitting = true);
 
     try {
-      final res = await InventoryService().createDealerStockRequest({
+      final res = await InventoryRepository().createDealerStockRequest({
         'items': [
           {
             'product_id': widget.product.id,

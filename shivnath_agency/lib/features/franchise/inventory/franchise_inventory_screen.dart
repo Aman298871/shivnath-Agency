@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/InventoryService.dart';
-import '../../../core/services/product_service.dart';
+import '../../../core/repositories/inventory_repository.dart';
+import '../../../core/repositories/product_repository.dart';
 import '../../../models/product_model.dart';
 
 class FranchiseInventoryScreen extends StatefulWidget {
@@ -48,10 +48,10 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
     });
 
     try {
-      final invService = InventoryService();
+      final invRepository = InventoryRepository();
 
       // Fetch raw materials stock
-      final rawRes = await invService.getFranchiseRawMaterials();
+      final rawRes = await invRepository.getFranchiseRawMaterials();
       if (rawRes['success'] == true && rawRes['data'] is List) {
         _rawMaterials = List<Map<String, dynamic>>.from(rawRes['data']);
       } else if (rawRes['data'] is Map && rawRes['data']['results'] is List) {
@@ -61,7 +61,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       }
 
       // Fetch transactions
-      final txRes = await invService.getFranchiseTransactions();
+      final txRes = await invRepository.getFranchiseTransactions();
       if (txRes['success'] == true && txRes['data'] is List) {
         _transactions = List<Map<String, dynamic>>.from(txRes['data']);
       } else if (txRes['data'] is Map && txRes['data']['results'] is List) {
@@ -71,7 +71,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       }
 
       // Fetch production logs
-      final prodRes = await invService.getFranchiseProductionLogs();
+      final prodRes = await invRepository.getFranchiseProductionLogs();
       if (prodRes['success'] == true && prodRes['data'] is List) {
         _productionLogs = List<Map<String, dynamic>>.from(prodRes['data']);
       } else if (prodRes['data'] is Map && prodRes['data']['results'] is List) {
@@ -81,8 +81,8 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       }
 
       // Fetch finished products
-      await ProductService().getProducts();
-      _finishedProducts = ProductService.products;
+      await ProductRepository().getProducts();
+      _finishedProducts = ProductRepository.cachedProducts;
     } catch (e) {
       _error = 'Failed to load inventory data. Please check your connection.';
     }
@@ -533,7 +533,7 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
 
                       setDState(() => saving = true);
                       try {
-                        await InventoryService().createFranchiseProductionLog({
+                        await InventoryRepository().createFranchiseProductionLog({
                           'product_name': productName,
                           'quantity_produced': qty,
                           'notes': notesCtrl.text.trim(),

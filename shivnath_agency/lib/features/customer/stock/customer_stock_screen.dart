@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../core/services/auth_service.dart';
-import '../../../core/services/stock_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../products/customer_products_screen.dart';
 
 class CustomerStockScreen extends StatefulWidget {
@@ -14,8 +13,7 @@ class CustomerStockScreen extends StatefulWidget {
 }
 
 class _CustomerStockScreenState extends State<CustomerStockScreen> {
-  final StockService _stockService = StockService();
-  final AuthService _authService = AuthService();
+  final AuthRepository _authRepository = AuthRepository();
 
   bool _isSyncing = false;
   List<Map<String, dynamic>> _activeStocks = [];
@@ -56,7 +54,7 @@ class _CustomerStockScreenState extends State<CustomerStockScreen> {
     if (mounted) setState(() => _isSyncing = true);
 
     try {
-      final res = await _stockService.getCustomerStock();
+      final res = await _authRepository.getCustomerStock();
       if (!mounted) return;
 
       if (res['success'] == true && res['data'] is Map<String, dynamic>) {
@@ -181,7 +179,7 @@ class _CustomerStockScreenState extends State<CustomerStockScreen> {
 
     if (confirmed != true) return;
 
-    final res = await _authService.updateServiceStatus(
+    final res = await _authRepository.updateServiceStatus(
       action: action,
       reason: reasonController.text.trim(),
     );

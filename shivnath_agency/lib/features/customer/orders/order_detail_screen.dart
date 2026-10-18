@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/services/OrderService.dart';
-import '../../../core/services/session_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/theme/brand_colors.dart';
 import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -29,8 +28,8 @@ class OrderDetailScreen extends StatefulWidget {
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
-  final OrderService _orderService = OrderService();
-  final SessionService _sessionService = SessionService();
+  final OrderRepository _orderRepository = OrderRepository();
+  final AuthRepository _authRepository = AuthRepository();
   Map<String, dynamic>? _order;
   bool _loading = false;
   bool _updatingStatus = false;
@@ -54,7 +53,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Future<void> _loadUserRole() async {
     try {
-      final user = await _sessionService.getUser();
+      final user = await _authRepository.getCachedUser();
       if (user != null && mounted) {
         setState(() {
           _userRole = user.role;
@@ -79,12 +78,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (id == null || id <= 0) {
       try {
         final cleanWidgetId = widget.orderId.replaceAll('#', '').toLowerCase().trim();
-        final searchRes = await _orderService.getOrders(search: cleanWidgetId);
+        final searchRes = await _orderRepository.getOrders(search: cleanWidgetId);
         if (searchRes['success'] == true && searchRes['data'] != null) {
           final List ordersList = searchRes['data']['orders'] ?? (searchRes['data'] is List ? searchRes['data'] : []);
           for (final item in ordersList) {
             if (item is Map) {
-              final mapped = _orderService.mapOrder(Map<String, dynamic>.from(item));
+              final mapped = _orderRepository.mapOrder(Map<String, dynamic>.from(item));
               final ordIdStr = (mapped['orderId'] ?? '').toString().replaceAll('#', '').toLowerCase().trim();
               final dbIdStr = (mapped['id'] ?? '').toString().trim();
               if (ordIdStr == cleanWidgetId || dbIdStr == cleanWidgetId) {
@@ -112,13 +111,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
 
     try {
-      final res = await _orderService.getOrder(id);
+      final res = await _orderRepository.getOrder(id);
       if (!mounted) return;
 
       if (res['success'] == true && res['data'] is Map) {
         final raw = res['data']['order'] ?? res['data'];
         if (raw is Map) {
-          final mapped = _orderService.mapOrder(Map<String, dynamic>.from(raw));
+          final mapped = _orderRepository.mapOrder(Map<String, dynamic>.from(raw));
           setState(() {
             _order = mapped;
             _loading = false;
@@ -381,7 +380,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _performStatusUpdate(int id, String newStatus) async {
     setState(() => _updatingStatus = true);
     try {
-      final res = await _orderService.updateOrderStatus(id, newStatus);
+      final res = await _orderRepository.updateOrderStatus(id, newStatus);
       if (!mounted) return;
       if (res['success'] == true) {
         AppToast.success(context, 'Order transitioned to $newStatus successfully!');

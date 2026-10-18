@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/product_thumbnail.dart';
-import '../../../core/services/product_service.dart';
+import '../../../core/repositories/product_repository.dart';
 
 class AdminProductsScreen extends StatefulWidget {
   const AdminProductsScreen({super.key});
@@ -11,7 +11,7 @@ class AdminProductsScreen extends StatefulWidget {
 }
 
 class _AdminProductsScreenState extends State<AdminProductsScreen> {
-  final ProductService _productService = ProductService();
+  final ProductRepository _productService = ProductRepository();
 
   List<Map<String, dynamic>> products = [];
   bool loading = true;

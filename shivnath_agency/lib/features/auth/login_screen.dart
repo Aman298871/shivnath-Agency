@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
-import '../../core/services/auth_service.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/session_service.dart';
 import '../../core/theme/brand_colors.dart';
@@ -23,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final SessionService _sessionService = SessionService();
-  final AuthService _authService = AuthService();
   final formKey = GlobalKey<FormState>();
 
   bool obscurePassword = true;
@@ -78,7 +77,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = emailController.text.trim();
     final password = passwordController.text;
 
-    final result = await _authService.login(
+    final authProvider = context.read<AuthProvider>();
+    final result = await authProvider.login(
       email: email,
       password: password,
       role: role,

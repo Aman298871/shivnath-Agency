@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/chat_service.dart';
-import '../../../core/services/product_service.dart';
+import '../../../core/repositories/product_repository.dart';
 import '../../../models/product_model.dart';
 
 class AdminQuotationsScreen extends StatefulWidget {
@@ -17,7 +17,7 @@ class AdminQuotationsScreen extends StatefulWidget {
 
 class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
   final ChatService _chatService = ChatService();
-  final ProductService _productService = ProductService();
+  final ProductRepository _productService = ProductRepository();
 
   List<Map<String, dynamic>> _quotations = [];
   List<ProductModel> _products = [];
@@ -39,7 +39,7 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
       if (mounted) {
         setState(() {
           _quotations = quotes;
-          _products = ProductService.products;
+          _products = ProductRepository.cachedProducts;
           _isLoading = false;
         });
       }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../core/services/stock_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 
 class AdminStockManagementScreen extends StatefulWidget {
   const AdminStockManagementScreen({super.key});
@@ -12,7 +12,7 @@ class AdminStockManagementScreen extends StatefulWidget {
 
 class _AdminStockManagementScreenState
     extends State<AdminStockManagementScreen> {
-  final StockService _stockService = StockService();
+  final InventoryRepository _inventoryRepository = InventoryRepository();
 
   bool _isLoading = true;
   String _selectedFilter =
@@ -45,7 +45,7 @@ class _AdminStockManagementScreenState
   Future<void> _fetchStocks() async {
     setState(() => _isLoading = true);
 
-    final res = await _stockService.getAdminStocks(
+    final res = await _inventoryRepository.getAdminStocks(
       filter: _selectedFilter,
       search: _searchQuery.trim().isEmpty ? null : _searchQuery.trim(),
     );

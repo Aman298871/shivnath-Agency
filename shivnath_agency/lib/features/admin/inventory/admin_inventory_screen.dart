@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../../../core/services/InventoryService.dart';
+import '../../../core/repositories/inventory_repository.dart';
 import 'admin_stock_management_screen.dart';
 
 class AdminInventoryScreen extends StatefulWidget {
@@ -11,7 +11,7 @@ class AdminInventoryScreen extends StatefulWidget {
 }
 
 class _AdminInventoryScreenState extends State<AdminInventoryScreen> {
-  final InventoryService _inventoryService = InventoryService();
+  final InventoryRepository _inventoryService = InventoryRepository();
 
   List<Map<String, dynamic>> inventory = [];
   List<Map<String, dynamic>> stockRequests = [];

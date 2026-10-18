@@ -17,7 +17,6 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
   bool offerNotifications = false;
   bool stockAlerts = true;
 
-  String language = 'English';
   bool _isSyncing = false;
 
   void _showChangePasswordDialog() {
@@ -563,78 +562,6 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
                           value: offerNotifications,
                           onChanged: (value) {
                             setState(() => offerNotifications = value);
-                          },
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    _section(
-                      'Language & Localization',
-                      Icons.language_rounded,
-                      [
-                        RadioListTile<String>(
-                          value: 'English',
-                          groupValue: language,
-                          title: const Text(
-                            'English (Primary Interface)',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setState(() => language = value!);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Language set to English'),
-                                duration: Duration(seconds: 1),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
-                        ),
-                        RadioListTile<String>(
-                          value: 'Hindi',
-                          groupValue: language,
-                          title: const Text(
-                            'हिन्दी (Hindi)',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setState(() => language = value!);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('भाषा हिन्दी सेट की गई'),
-                                duration: Duration(seconds: 1),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
-                        ),
-                        RadioListTile<String>(
-                          value: 'Marathi',
-                          groupValue: language,
-                          title: const Text(
-                            'मराठी (Marathi)',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setState(() => language = value!);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('भाषा मराठी सेट केली'),
-                                duration: Duration(seconds: 1),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
                           },
                         ),
                       ],

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/InventoryService.dart';
-import '../../../core/services/product_service.dart';
+import '../../../core/repositories/inventory_repository.dart';
+import '../../../core/repositories/product_repository.dart';
 import '../../../models/product_model.dart';
 import '../../admin/inventory/dealer_stock_request_fulfillment_screen.dart';
 
@@ -19,7 +19,8 @@ class DealerStockScreen extends StatefulWidget {
 class _DealerStockScreenState extends State<DealerStockScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final InventoryService _invService = InventoryService();
+  final InventoryRepository _invService = InventoryRepository();
+  final ProductRepository _productRepository = ProductRepository();
 
   bool _loading = false;
   String? _error;
@@ -79,8 +80,8 @@ class _DealerStockScreenState extends State<DealerStockScreen>
       }
 
       // 3. Fetch products
-      await ProductService().getProducts();
-      _products = ProductService.products;
+      await _productRepository.getProducts();
+      _products = ProductRepository.cachedProducts;
     } catch (e) {
       _error = 'Failed to load stock data: $e';
     }

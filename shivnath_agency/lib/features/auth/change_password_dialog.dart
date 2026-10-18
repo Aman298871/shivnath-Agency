@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../../core/services/auth_service.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/theme/brand_colors.dart';
 
 class ChangePasswordDialog extends StatefulWidget {
@@ -40,7 +41,6 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _authService = AuthService();
 
   bool _obscureCurrent = true;
   bool _obscureNew = true;
@@ -64,7 +64,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       _errorMessage = null;
     });
 
-    final res = await _authService.changePassword(
+    final res = await context.read<AuthProvider>().changePassword(
       currentPassword: _currentPasswordController.text,
       newPassword: _newPasswordController.text,
       confirmPassword: _confirmPasswordController.text,

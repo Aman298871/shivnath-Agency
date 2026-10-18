@@ -85,6 +85,13 @@ class SessionService {
     );
   }
 
+  Future<void> saveToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_accessTokenKey, token);
+  }
+
+  Future<void> clearSession() => logout();
+
   Future<String?> getAccessToken() async {
     final prefs =
         await SharedPreferences.getInstance();

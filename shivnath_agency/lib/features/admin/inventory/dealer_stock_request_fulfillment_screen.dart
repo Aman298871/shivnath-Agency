@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/InventoryService.dart';
+import '../../../core/repositories/inventory_repository.dart';
 import 'central_plant_inventory_screen.dart';
 
 /// Live Dealer Stock Request Fulfillment Tracker Screen
@@ -26,7 +26,7 @@ class DealerStockRequestFulfillmentScreen extends StatefulWidget {
 
 class _DealerStockRequestFulfillmentScreenState
     extends State<DealerStockRequestFulfillmentScreen> {
-  final InventoryService _invService = InventoryService();
+  final InventoryRepository _invService = InventoryRepository();
 
   bool _loading = true;
   bool _fulfilling = false;

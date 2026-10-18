@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/services/product_service.dart';
+import '../../../core/repositories/product_repository.dart';
 import '../../../models/product_model.dart';
 import '../cart/cart_provider.dart';
 import '../cart/customer_cart_screen.dart';
@@ -25,6 +25,7 @@ class CategoryProductsScreen extends StatefulWidget {
 }
 
 class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
+  final ProductRepository _productRepository = ProductRepository();
   bool _loading = true;
   List<ProductModel> _products = [];
   String _search = '';
@@ -44,7 +45,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     });
 
     try {
-      final res = await ProductService().getProducts(
+      final res = await _productRepository.getProducts(
         categoryId: widget.categoryId,
         category: widget.categoryId == null ? widget.categoryName : null,
         status: 'Active',
@@ -57,10 +58,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         _products = [];
       }
 
-      // Fallback: If server returned empty, match from cached ProductService.products
-      if (_products.isEmpty && ProductService.products.isNotEmpty) {
+      // Fallback: If server returned empty, match from cached ProductRepository.cachedProducts
+      if (_products.isEmpty && ProductRepository.cachedProducts.isNotEmpty) {
         final catLower = widget.categoryName.toLowerCase();
-        _products = ProductService.products.where((p) {
+        _products = ProductRepository.cachedProducts.where((p) {
           final isBottle = catLower.contains('bottle');
           final isJar = catLower.contains('jar');
           if (isBottle) {

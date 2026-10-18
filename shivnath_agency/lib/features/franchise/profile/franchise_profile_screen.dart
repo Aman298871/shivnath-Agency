@@ -2,10 +2,12 @@ import 'dart:io' as io;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/services/auth_service.dart';
-import '../../../core/services/franchise_service.dart';
+import '../../../core/providers/auth_provider.dart';
+import '../../../core/repositories/auth_repository.dart';
+import '../../../core/repositories/franchise_repository.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/services/whatsapp_service.dart';
 import '../../../core/theme/brand_colors.dart';
@@ -22,8 +24,8 @@ class FranchiseProfileScreen extends StatefulWidget {
 
 class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
   final SessionService _sessionService = SessionService();
-  final AuthService _authService = AuthService();
-  final FranchiseService _franchiseService = FranchiseService();
+  final FranchiseRepository _franchiseRepository = FranchiseRepository();
+  final AuthRepository _authRepository = AuthRepository();
   UserModel? _currentUser;
   Map<String, dynamic>? _territoryInfo;
   bool _isTerritoryAssigned = false;
@@ -48,25 +50,11 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     }
 
     try {
-      final res = await _authService.getCurrentUser();
-      if (mounted &&
-          res['success'] == true &&
-          res['data'] is Map<String, dynamic>) {
-        final d = res['data'] as Map<String, dynamic>;
-        try {
-          final u = UserModel.fromJson(d);
-          await _sessionService.saveUser(u);
-          _currentUser = u;
-        } catch (_) {}
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.refreshUser();
+      if (mounted && authProvider.currentUser != null) {
         setState(() {
-          _territoryInfo = d['territory_info'] is Map<String, dynamic>
-              ? Map<String, dynamic>.from(d['territory_info'])
-              : null;
-          _isTerritoryAssigned =
-              _territoryInfo?['is_assigned'] == true ||
-              (_currentUser?.isTerritoryAssigned == true) ||
-              (_territoryInfo?['territory'] != null &&
-                  _territoryInfo!['territory'].toString().isNotEmpty);
+          _currentUser = authProvider.currentUser;
           _isLoading = false;
         });
       }
@@ -77,7 +65,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
 
   Future<void> _loadDocuments() async {
     setState(() => _isLoadingDocs = true);
-    final res = await _franchiseService.getFranchiseDocuments();
+    final res = await _franchiseRepository.getFranchiseDocuments();
     if (mounted) {
       List<Map<String, dynamic>> docList = [];
       if (res['success'] == true && res['data'] != null) {
@@ -359,7 +347,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                                 return;
                               }
                               setSheetState(() => isUploading = true);
-                              final res = await _franchiseService
+                              final res = await _franchiseRepository
                                   .uploadFranchiseDocument(
                                     documentType: selectedType,
                                     documentNumber: docNumberCtrl.text.trim(),
@@ -453,7 +441,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     );
 
     if (confirmed == true) {
-      final res = await _franchiseService.deleteFranchiseDocument(docId);
+      final res = await _franchiseRepository.deleteFranchiseDocument(docId);
       if (res['success'] == true) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -593,7 +581,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
             onPressed: () async {
               final newName = nameCtrl.text.trim();
               final newPhone = phoneCtrl.text.trim();
-              final res = await _authService.updateProfile({
+              final res = await _authRepository.updateProfile({
                 'name': newName,
                 'phone': newPhone,
               });
@@ -639,7 +627,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
       },
     );
 
-    final masterRes = await _authService.getTerritoryMaster();
+    final masterRes = await _authRepository.getTerritoryMaster();
     if (dialogContext != null && dialogContext!.mounted) {
       Navigator.pop(dialogContext!);
     }
@@ -853,7 +841,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
                                 ?.toString() ??
                             '';
 
-                        final res = await _authService.updateProfile({
+                        final res = await _authRepository.updateProfile({
                           'district': selectedDistrict,
                           'zone_id': selectedZoneId,
                           'territory': zName,

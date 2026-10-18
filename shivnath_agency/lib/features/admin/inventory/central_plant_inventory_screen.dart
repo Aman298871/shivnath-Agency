@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/InventoryService.dart';
-import '../../../core/services/OrderService.dart';
-import '../../../core/services/product_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../models/product_model.dart';
 import 'dealer_stock_request_fulfillment_screen.dart';
 
@@ -34,7 +32,8 @@ class _CentralPlantInventoryScreenState
     extends State<CentralPlantInventoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final InventoryService _invService = InventoryService();
+  final InventoryRepository _invService = InventoryRepository();
+  final ProductRepository _productRepository = ProductRepository();
 
   bool _loading = false;
   String? _error;
@@ -171,12 +170,12 @@ class _CentralPlantInventoryScreenState
       }
 
       // 4. Products - fetch active products directly from Product Master
-      final pRes = await ProductService().getProducts(activeOnly: true, status: 'Active');
+      final pRes = await _productRepository.getProducts(activeOnly: true, status: 'Active');
       List<ProductModel> fetchedList = [];
       if (pRes['parsed_products'] is List<ProductModel> && (pRes['parsed_products'] as List).isNotEmpty) {
         fetchedList = List<ProductModel>.from(pRes['parsed_products']);
       } else {
-        fetchedList = ProductService.products.where((p) => p.status.toLowerCase() == 'active').toList();
+        fetchedList = ProductRepository.cachedProducts.where((p) => p.status.toLowerCase() == 'active').toList();
       }
 
       const officialSkus = {'SHV-200', 'SHV-250', 'SHV-500', 'SHV-1L', 'SHV-20L'};
@@ -3127,7 +3126,7 @@ class _CentralPlantInventoryScreenState
                     ? null
                     : () async {
                         setDlgState(() => isUpdating = true);
-                        final res = await OrderService().updateOrderStatus(orderId, selectedStatus);
+                        final res = await OrderRepository().updateOrderStatus(orderId, selectedStatus);
                         setDlgState(() => isUpdating = false);
                         if (res['success'] == true) {
                           if (mounted) {

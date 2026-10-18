@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../../../core/services/OrderService.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/app_components.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
@@ -18,7 +18,7 @@ class AdminOrdersScreen extends StatefulWidget {
 }
 
 class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
-  final OrderService _orderService = OrderService();
+  final OrderRepository _orderRepository = OrderRepository();
   late final TextEditingController _searchController;
 
   List<Map<String, dynamic>> orders = [];
@@ -60,8 +60,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       });
     }
 
-    final ordersResult = await _orderService.getOrders();
-    final statsResult = await _orderService.getStats();
+    final ordersResult = await _orderRepository.getOrders();
+    final statsResult = await _orderRepository.getStats();
 
     if (!mounted) return;
 
@@ -70,7 +70,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
       orders = items
           .map(
-            (item) => _orderService.mapOrder(Map<String, dynamic>.from(item)),
+            (item) => _orderRepository.mapOrder(Map<String, dynamic>.from(item)),
           )
           .toList();
     } else {
@@ -129,11 +129,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
     if (parsedId > 0) {
       try {
-        final res = await _orderService.getOrder(parsedId);
+        final res = await _orderRepository.getOrder(parsedId);
         if (res['success'] == true && res['data'] is Map) {
           final raw = res['data']['order'] ?? res['data'];
           if (raw is Map) {
-            foundOrder = _orderService.mapOrder(Map<String, dynamic>.from(raw));
+            foundOrder = _orderRepository.mapOrder(Map<String, dynamic>.from(raw));
           }
         }
       } catch (_) {}
@@ -141,12 +141,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
     if (foundOrder == null) {
       try {
-        final searchRes = await _orderService.getOrders(search: cleanTarget);
+        final searchRes = await _orderRepository.getOrders(search: cleanTarget);
         if (searchRes['success'] == true && searchRes['data'] != null) {
           final List list = searchRes['data']['orders'] ?? (searchRes['data'] is List ? searchRes['data'] : []);
           for (final item in list) {
             if (item is Map) {
-              final mapped = _orderService.mapOrder(Map<String, dynamic>.from(item));
+              final mapped = _orderRepository.mapOrder(Map<String, dynamic>.from(item));
               final ordIdStr = (mapped['orderId'] ?? '').toString().replaceAll('#', '').toLowerCase().trim();
               final dbIdStr = (mapped['id'] ?? '').toString().trim();
               if (ordIdStr == cleanTarget || dbIdStr == cleanTarget || dbIdStr == targetDigits) {
@@ -1297,7 +1297,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     maximumSize: const Size(100, 44),
                   ),
                   onPressed: () async {
-                    final result = await _orderService.updateOrderStatus(
+                    final result = await _orderRepository.updateOrderStatus(
                       order['id'] as int,
                       selected,
                     );

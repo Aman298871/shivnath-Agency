@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/InventoryService.dart';
-import '../../../core/services/product_service.dart';
+import '../../../core/repositories/inventory_repository.dart';
+import '../../../core/repositories/product_repository.dart';
 import '../../../models/product_model.dart';
 
 /// Super Admin BOM (Bill of Materials) Recipe & Master Pricing Editor
@@ -17,7 +17,8 @@ class BomRecipeScreen extends StatefulWidget {
 class _BomRecipeScreenState extends State<BomRecipeScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final InventoryService _invService = InventoryService();
+  final InventoryRepository _invService = InventoryRepository();
+  final ProductRepository _productRepository = ProductRepository();
 
   bool _loading = false;
   String? _error;
@@ -63,8 +64,8 @@ class _BomRecipeScreenState extends State<BomRecipeScreen>
 
     try {
       // 1. Load active products
-      await ProductService().getProducts(activeOnly: true, status: 'Active');
-      final activeList = ProductService.products.where((p) => p.status.toLowerCase() == 'active').toList();
+      await _productRepository.getProducts(activeOnly: true, status: 'Active');
+      final activeList = ProductRepository.cachedProducts.where((p) => p.status.toLowerCase() == 'active').toList();
       const officialSkus = {'SHV-200', 'SHV-250', 'SHV-500', 'SHV-1L', 'SHV-20L'};
       final Map<String, ProductModel> uniqueMap = {};
       for (final p in activeList) {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/services/auth_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
@@ -11,7 +11,7 @@ class AdminUsersScreen extends StatefulWidget {
 
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
   static const Color primaryBlue = Color(0xFF0284C7);
-  final AuthService _authService = AuthService();
+  final AuthRepository _authRepository = AuthRepository();
   List<Map<String, dynamic>> _users = [];
   bool _isLoading = true;
   String _selectedRole = 'all';
@@ -25,7 +25,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Future<void> _fetchUsers() async {
     setState(() => _isLoading = true);
-    final res = await _authService.getUsers(
+    final res = await _authRepository.getUsers(
       role: _selectedRole == 'all' ? null : _selectedRole,
       search: _searchQuery.isEmpty ? null : _searchQuery,
     );
@@ -432,7 +432,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       }
 
                       setDialogState(() => isSubmitting = true);
-                      final res = await _authService.adminResetPassword(
+                      final res = await _authRepository.adminResetPassword(
                         userId: userId,
                         verificationReason: reason,
                       );

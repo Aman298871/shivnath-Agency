@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/auth_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 
 class FranchiseNotificationsScreen extends StatefulWidget {
   const FranchiseNotificationsScreen({super.key});
@@ -10,7 +10,7 @@ class FranchiseNotificationsScreen extends StatefulWidget {
 }
 
 class _FranchiseNotificationsScreenState extends State<FranchiseNotificationsScreen> {
-  final AuthService _authService = AuthService();
+  final AuthRepository _authRepository = AuthRepository();
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
 
@@ -22,7 +22,7 @@ class _FranchiseNotificationsScreenState extends State<FranchiseNotificationsScr
 
   Future<void> _fetchNotifications() async {
     setState(() => _isLoading = true);
-    final res = await _authService.getFranchiseNotifications();
+    final res = await _authRepository.getFranchiseNotifications();
     if (mounted) {
       List<Map<String, dynamic>> list = [];
       if (res['success'] == true && res['data'] != null && res['data']['notifications'] is List) {
@@ -36,7 +36,7 @@ class _FranchiseNotificationsScreenState extends State<FranchiseNotificationsScr
   }
 
   Future<void> _markAsRead(int? id) async {
-    await _authService.markFranchiseNotificationsAsRead(id: id);
+    await _authRepository.markFranchiseNotificationsAsRead(id: id);
     _fetchNotifications();
   }
 

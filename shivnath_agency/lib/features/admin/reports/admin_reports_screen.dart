@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/services/InventoryService.dart';
+import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/services/report_service.dart';
 import '../../../core/widgets/app_toast.dart';
 
@@ -18,7 +18,7 @@ class AdminReportsScreen extends StatefulWidget {
 }
 
 class _AdminReportsScreenState extends State<AdminReportsScreen> {
-  final InventoryService _inventoryService = InventoryService();
+  final InventoryRepository _inventoryService = InventoryRepository();
   final ReportService _reportService = ReportService();
 
   String period = 'THIS MONTH';

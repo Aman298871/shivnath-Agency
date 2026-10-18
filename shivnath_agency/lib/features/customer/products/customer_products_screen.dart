@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/services/product_service.dart';
+import '../../../core/providers/product_provider.dart';
+import '../../../core/repositories/product_repository.dart';
 import '../../../models/product_model.dart';
 import '../cart/cart_provider.dart';
 import '../cart/customer_cart_screen.dart';
@@ -18,6 +19,7 @@ class CustomerProductsScreen extends StatefulWidget {
 
 class _CustomerProductsScreenState
     extends State<CustomerProductsScreen> {
+  final ProductRepository _productRepository = ProductRepository();
   String search = '';
   int? selectedCategoryId;
   String selectedCategoryName = 'All';
@@ -30,31 +32,35 @@ class _CustomerProductsScreenState
   @override
   void initState() {
     super.initState();
-    _fetchProducts();
-    _fetchCategories();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchProducts();
+      _fetchCategories();
+    });
   }
 
   Future<void> _fetchProducts() async {
     if (mounted) setState(() => _loadingProducts = true);
-    final res = await ProductService().getProducts(
-      categoryId: selectedCategoryId,
-      category: selectedCategoryId == null && selectedCategoryName != 'All' ? selectedCategoryName : null,
-    );
-    if (mounted) {
-      setState(() {
-        if (res['parsed_products'] is List<ProductModel>) {
-          _loadedProducts = List<ProductModel>.from(res['parsed_products'] as List<ProductModel>);
-        } else {
-          _loadedProducts = [];
-        }
-        _loadingProducts = false;
-      });
+    try {
+      final productProvider = context.read<ProductProvider>();
+      await productProvider.loadProducts(
+        categoryId: selectedCategoryId,
+        category: selectedCategoryId == null && selectedCategoryName != 'All' ? selectedCategoryName : null,
+        forceRefresh: true,
+      );
+      if (mounted) {
+        setState(() {
+          _loadedProducts = productProvider.products;
+          _loadingProducts = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingProducts = false);
     }
   }
 
   Future<void> _fetchCategories() async {
     try {
-      final res = await ProductService().getCategories(activeOnly: true);
+      final res = await _productRepository.getCategories(activeOnly: true);
       if (res['success'] == true && res['data'] is Map) {
         final list = res['data']['categories'];
         if (list is List) {

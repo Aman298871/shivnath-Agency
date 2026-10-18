@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../core/services/auth_service.dart';
-import '../../../core/services/stock_service.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/services/whatsapp_service.dart';
 
 class FranchiseCustomerStocksScreen extends StatefulWidget {
@@ -14,8 +13,7 @@ class FranchiseCustomerStocksScreen extends StatefulWidget {
 
 class _FranchiseCustomerStocksScreenState
     extends State<FranchiseCustomerStocksScreen> {
-  final StockService _stockService = StockService();
-  final AuthService _authService = AuthService();
+  final AuthRepository _authRepository = AuthRepository();
 
   bool _isLoading = true;
   String _selectedFilter = 'all'; // all, low_stock, on_hold, expired
@@ -45,7 +43,7 @@ class _FranchiseCustomerStocksScreenState
   Future<void> _fetchCustomerStocks() async {
     setState(() => _isLoading = true);
 
-    final res = await _stockService.getFranchiseCustomerStocks(
+    final res = await _authRepository.getFranchiseCustomerStocks(
       filter: _selectedFilter,
       search: _searchQuery.trim().isEmpty ? null : _searchQuery.trim(),
     );
@@ -171,7 +169,7 @@ class _FranchiseCustomerStocksScreenState
 
     if (confirmed != true) return;
 
-    final res = await _authService.updateServiceStatus(
+    final res = await _authRepository.updateServiceStatus(
       action: action,
       reason: reasonController.text.trim(),
       customerId: customerId,

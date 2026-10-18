@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/InventoryService.dart';
+import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/widgets/app_toast.dart';
 
 int _asInt(dynamic val) {
@@ -28,7 +28,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
 
   Future<void> _loadBackendInvoices() async {
     try {
-      final res = await InventoryService().getInvoices();
+      final res = await InventoryRepository().getInvoices();
       if (res['success'] == true && res['data'] is List) {
         final list = (res['data'] as List).cast<Map<String, dynamic>>();
         if (list.isNotEmpty) {
@@ -2102,7 +2102,7 @@ class _AdminRecordPaymentDialogState extends State<_AdminRecordPaymentDialog> {
       if (invId != null) {
         final parsedId = int.tryParse(invId.toString());
         if (parsedId != null && parsedId > 0) {
-          await InventoryService().recordPayment(parsedId, {
+          await InventoryRepository().recordPayment(parsedId, {
             'amount': amount,
             'payment_method': _paymentMethod,
             'reference_number': _refController.text.trim(),
@@ -2476,7 +2476,7 @@ class _AdminVerifyPaymentDialogState extends State<_AdminVerifyPaymentDialog> {
                         setState(() => _isProcessing = true);
                         final parsedId = int.tryParse(invId.toString()) ?? 0;
                         if (parsedId > 0) {
-                          final res = await InventoryService().rejectInvoicePayment(
+                          final res = await InventoryRepository().rejectInvoicePayment(
                             invoiceId: parsedId,
                             reason: reasonCtrl.text.trim(),
                           );
@@ -2514,7 +2514,7 @@ class _AdminVerifyPaymentDialogState extends State<_AdminVerifyPaymentDialog> {
                       setState(() => _isProcessing = true);
                       final parsedId = int.tryParse(invId.toString()) ?? 0;
                       if (parsedId > 0) {
-                        final res = await InventoryService().verifyInvoicePayment(
+                        final res = await InventoryRepository().verifyInvoicePayment(
                           invoiceId: parsedId,
                           notes: _notesController.text.trim(),
                         );

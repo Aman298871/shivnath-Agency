@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/services/auth_service.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/session_service.dart';
 import '../../core/theme/brand_colors.dart';
@@ -20,7 +20,6 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   final SessionService _sessionService = SessionService();
-  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -33,10 +32,13 @@ class _SplashScreenState extends State<SplashScreen> {
       // Snappy splash dwell time for brand display
       await Future.delayed(const Duration(milliseconds: 1000));
 
-      final user = await _sessionService.getUser();
-      final token = await _sessionService.getAccessToken();
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.initialize();
 
       if (!mounted) return;
+
+      final user = authProvider.currentUser;
+      final token = authProvider.token;
 
       if (user == null || token == null || token.isEmpty) {
         final prefs = await SharedPreferences.getInstance();
@@ -58,18 +60,9 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
 
-      // Verify token validity with backend
+      // Verify token validity with backend via AuthProvider
       try {
-        final verifyRes = await _authService.getCurrentUser().timeout(const Duration(seconds: 4));
-        if (verifyRes['success'] != true && verifyRes['data'] is Map) {
-          final data = verifyRes['data'] as Map;
-          if (data['code'] == 'user_not_found' || data['detail'] == 'User not found') {
-            await _sessionService.logout();
-            if (!mounted) return;
-            Navigator.pushReplacementNamed(context, AppRoutes.roleSelection);
-            return;
-          }
-        }
+        await authProvider.refreshUser().timeout(const Duration(seconds: 4));
       } catch (_) {
         // Network timeout/offline - proceed with cached session
       }

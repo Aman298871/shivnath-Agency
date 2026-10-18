@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/product_service.dart';
+import '../../../core/repositories/product_repository.dart';
 
 class FranchiseCategoriesScreen extends StatefulWidget {
   const FranchiseCategoriesScreen({super.key});
@@ -11,7 +11,7 @@ class FranchiseCategoriesScreen extends StatefulWidget {
 }
 
 class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
-  final ProductService _productService = ProductService();
+  final ProductRepository _productService = ProductRepository();
 
   List<Map<String, dynamic>> _categoryTree = [];
   List<Map<String, dynamic>> _flatCategories = [];

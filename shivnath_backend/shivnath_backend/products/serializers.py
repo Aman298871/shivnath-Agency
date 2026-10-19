@@ -236,11 +236,33 @@ class ProductSerializer(serializers.ModelSerializer):
                 expiry_date__gt=today
             ).aggregate(s=Sum('remaining_quantity'))['s'] or 0
 
-            total_batch_stock = int(cp_stock) + int(dealer_stock)
-            effective_stock = max(instance.stock, total_batch_stock)
-            if effective_stock != instance.stock and total_batch_stock > 0:
-                Product.objects.filter(pk=instance.pk).update(stock=effective_stock)
-            ret['stock'] = effective_stock
+            # Franchise-specific stock resolution
+            request = self.context.get('request')
+            franchise_id = None
+            if request and hasattr(request, 'query_params'):
+                franchise_id = request.query_params.get('franchise_id') or request.query_params.get('serving_franchise_id')
+            if not franchise_id:
+                franchise_id = self.context.get('franchise_id')
+
+            if franchise_id:
+                try:
+                    f_stock = DealerStockBatch.objects.filter(
+                        product=instance,
+                        dealer_id=franchise_id,
+                        is_active=True,
+                        expiry_date__gt=today
+                    ).aggregate(s=Sum('remaining_quantity'))['s'] or 0
+                    ret['franchise_stock'] = int(f_stock)
+                    ret['stock'] = int(f_stock)
+                except Exception:
+                    ret['franchise_stock'] = 0
+            else:
+                total_batch_stock = int(cp_stock) + int(dealer_stock)
+                effective_stock = max(instance.stock, total_batch_stock)
+                if effective_stock != instance.stock and total_batch_stock > 0:
+                    Product.objects.filter(pk=instance.pk).update(stock=effective_stock)
+                ret['stock'] = effective_stock
+
             ret['central_stock'] = int(cp_stock)
             ret['dealer_stock'] = int(dealer_stock)
         except Exception:

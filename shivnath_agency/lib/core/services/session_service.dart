@@ -153,7 +153,12 @@ class SessionService {
         user != null;
   }
 
+  static int _sessionEpoch = 0;
+  static int get currentSessionEpoch => _sessionEpoch;
+  static bool isSessionActive(int epoch) => epoch == _sessionEpoch;
+
   Future<void> logout() async {
+    _sessionEpoch++;
     try {
       await NotificationService().unregisterDeviceTokenWithBackend();
     } catch (_) {}

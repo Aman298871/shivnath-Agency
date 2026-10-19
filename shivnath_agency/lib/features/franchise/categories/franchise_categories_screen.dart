@@ -170,63 +170,123 @@ class _FranchiseCategoriesScreenState extends State<FranchiseCategoriesScreen> {
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              onChanged: (val) => setState(
-                                () => _search = val.trim().toLowerCase(),
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Search categories by name...',
-                                prefixIcon: const Icon(
-                                  Icons.search_rounded,
-                                  color: Color(0xFF94A3B8),
+                      child: constraints.maxWidth < 460
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                TextField(
+                                  onChanged: (val) => setState(
+                                    () => _search = val.trim().toLowerCase(),
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Search categories by name...',
+                                    prefixIcon: const Icon(
+                                      Icons.search_rounded,
+                                      color: Color(0xFF94A3B8),
+                                    ),
+                                    isDense: true,
+                                    filled: true,
+                                    fillColor: const Color(0xFFF8FAFC),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
                                 ),
-                                isDense: true,
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton.icon(
+                                    onPressed: () {
+                                      setState(() {
+                                        if (_expandedCategoryIds.isEmpty) {
+                                          _collectCategoryIds(
+                                            _categoryTree,
+                                            _expandedCategoryIds,
+                                          );
+                                        } else {
+                                          _expandedCategoryIds.clear();
+                                        }
+                                      });
+                                    },
+                                    icon: Icon(
+                                      _expandedCategoryIds.isEmpty
+                                          ? Icons.unfold_more_rounded
+                                          : Icons.unfold_less_rounded,
+                                      size: 18,
+                                      color: const Color(0xFF0284C7),
+                                    ),
+                                    label: Text(
+                                      _expandedCategoryIds.isEmpty
+                                          ? 'Expand All'
+                                          : 'Collapse All',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF0284C7),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    onChanged: (val) => setState(
+                                      () => _search = val.trim().toLowerCase(),
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search categories by name...',
+                                      prefixIcon: const Icon(
+                                        Icons.search_rounded,
+                                        color: Color(0xFF94A3B8),
+                                      ),
+                                      isDense: true,
+                                      filled: true,
+                                      fillColor: const Color(0xFFF8FAFC),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                TextButton.icon(
+                                  onPressed: () {
+                                    setState(() {
+                                      if (_expandedCategoryIds.isEmpty) {
+                                        _collectCategoryIds(
+                                          _categoryTree,
+                                          _expandedCategoryIds,
+                                        );
+                                      } else {
+                                        _expandedCategoryIds.clear();
+                                      }
+                                    });
+                                  },
+                                  icon: Icon(
+                                    _expandedCategoryIds.isEmpty
+                                        ? Icons.unfold_more_rounded
+                                        : Icons.unfold_less_rounded,
+                                    size: 18,
+                                    color: const Color(0xFF0284C7),
+                                  ),
+                                  label: Text(
+                                    _expandedCategoryIds.isEmpty
+                                        ? 'Expand All'
+                                        : 'Collapse All',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF0284C7),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          TextButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                if (_expandedCategoryIds.isEmpty) {
-                                  _collectCategoryIds(
-                                    _categoryTree,
-                                    _expandedCategoryIds,
-                                  );
-                                } else {
-                                  _expandedCategoryIds.clear();
-                                }
-                              });
-                            },
-                            icon: Icon(
-                              _expandedCategoryIds.isEmpty
-                                  ? Icons.unfold_more_rounded
-                                  : Icons.unfold_less_rounded,
-                              size: 18,
-                              color: const Color(0xFF0284C7),
-                            ),
-                            label: Text(
-                              _expandedCategoryIds.isEmpty
-                                  ? 'Expand All'
-                                  : 'Collapse All',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF0284C7),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
 
                     const SizedBox(height: 16),

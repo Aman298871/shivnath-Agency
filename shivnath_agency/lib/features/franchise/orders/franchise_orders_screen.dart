@@ -4,6 +4,7 @@ import '../../../core/repositories/app_repositories.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/contact_action_helper.dart';
+import '../../../core/widgets/app_components.dart';
 
 class FranchiseOrdersScreen extends StatefulWidget {
   const FranchiseOrdersScreen({super.key});
@@ -68,8 +69,29 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     : 'Packaged Water');
 
           final double totalAmt = double.tryParse(mappedItem['amount']?.toString() ?? '0') ?? 0.0;
-          final double amtPaid = double.tryParse(item['amount_paid']?.toString() ?? mappedItem['amount_paid']?.toString() ?? '0') ?? 0.0;
-          final double outstandingAmt = double.tryParse(item['outstanding_amount']?.toString() ?? mappedItem['outstanding_amount']?.toString() ?? '${(totalAmt - amtPaid).clamp(0.0, totalAmt)}') ?? (totalAmt - amtPaid).clamp(0.0, totalAmt);
+          final String paymentStatus = (item['payment_status'] ?? mappedItem['payment_status'] ?? '').toString().toLowerCase();
+          final bool isPaid = paymentStatus == 'paid' ||
+              mappedItem['payment_collected'] == true ||
+              item['payment_collected'] == true ||
+              (item['invoice_status']?.toString().toUpperCase() == 'PAID');
+          final bool isPendingVerification = paymentStatus == 'pending_verification' ||
+              mappedItem['is_pending_verification'] == true ||
+              item['is_pending_verification'] == true ||
+              (item['invoice_status']?.toString().toUpperCase() == 'PAYMENT_PENDING_VERIFICATION');
+
+          final double amtPaid = isPaid
+              ? totalAmt
+              : (double.tryParse(item['amount_paid']?.toString() ?? mappedItem['amount_paid']?.toString() ?? '0') ?? 0.0);
+          final double outstandingAmt = isPaid
+              ? 0.0
+              : (double.tryParse(item['outstanding_amount']?.toString() ?? mappedItem['outstanding_amount']?.toString() ?? '${(totalAmt - amtPaid).clamp(0.0, totalAmt)}') ?? (totalAmt - amtPaid).clamp(0.0, totalAmt));
+          final double outstandingBal = isPaid
+              ? 0.0
+              : (double.tryParse(item['outstanding_balance']?.toString() ?? mappedItem['outstanding_balance']?.toString() ?? '$outstandingAmt') ?? outstandingAmt);
+
+          final rawStatus = item['status']?.toString() ?? mappedItem['raw_status']?.toString() ?? mappedItem['status']?.toString() ?? 'plant_approval';
+          final canonical = _orderRepository.canonicalStatus(rawStatus);
+          final displayStatus = _orderRepository.getStatusLabel(canonical);
 
           return {
             'db_id': rawDbId,
@@ -96,8 +118,13 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
             'amount': totalAmt,
             'amount_paid': amtPaid,
             'outstanding_amount': outstandingAmt,
-            'status': mappedItem['status']?.toString() ?? 'Plant Approval',
-            'payment': mappedItem['payment']?.toString() ?? 'Pending',
+            'outstanding_balance': outstandingBal,
+            'payment_status': isPaid ? 'paid' : (isPendingVerification ? 'pending_verification' : paymentStatus),
+            'payment_collected': isPaid,
+            'is_pending_verification': isPendingVerification,
+            'raw_status': canonical,
+            'status': displayStatus,
+            'payment': isPaid ? 'Paid' : (isPendingVerification ? 'Pending Verification' : (mappedItem['payment']?.toString() ?? 'Pending')),
             'city':
                 item['city']?.toString() ??
                 mappedItem['city']?.toString() ??
@@ -182,8 +209,8 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                       child: _StatCard(
                         title: 'Pending Approval',
                         value:
-                            '${orders.where((o) => o['status'] == 'Plant Approval').length}',
-                        subtitle: 'Waiting for plant',
+                            '${orders.where((o) => ['plant_approval', 'order_placement', 'preparing', 'invoice_generated'].contains(_orderRepository.canonicalStatus(o['raw_status'] ?? o['status']))).length}',
+                        subtitle: 'Action required',
                         icon: Icons.schedule_rounded,
                       ),
                     ),
@@ -192,7 +219,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                       child: _StatCard(
                         title: 'Dispatched',
                         value:
-                            '${orders.where((o) => o['status'] == 'Dispatched').length}',
+                            '${orders.where((o) => _orderRepository.canonicalStatus(o['raw_status'] ?? o['status']) == 'dispatch').length}',
                         subtitle: 'In transit',
                         icon: Icons.local_shipping_outlined,
                       ),
@@ -202,7 +229,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                       child: _StatCard(
                         title: 'Delivered',
                         value:
-                            '${orders.where((o) => o['status'] == 'Delivered').length}',
+                            '${orders.where((o) => _orderRepository.canonicalStatus(o['raw_status'] ?? o['status']) == 'delivered').length}',
                         subtitle: 'Completed',
                         icon: Icons.check_circle_outline,
                       ),
@@ -211,6 +238,8 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                 ),
 
                 const SizedBox(height: 22),
+
+                _buildPendingOrdersSection(),
 
                 _desktopFilters(),
 
@@ -221,6 +250,104 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPendingOrdersSection() {
+    final pending = orders.where((o) {
+      final s = _orderRepository.canonicalStatus(o['raw_status'] ?? o['status']);
+      return s == 'plant_approval' || s == 'order_placement' || s == 'preparing' || s == 'invoice_generated';
+    }).toList();
+
+    if (pending.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Actionable Pending Orders (${pending.length})',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: Color(0xFF92400E),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 94,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: pending.length,
+              separatorBuilder: (_, index) => const SizedBox(width: 10),
+              itemBuilder: (ctx, idx) {
+                final ord = pending[idx];
+                return InkWell(
+                  onTap: () => _details(ord),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: 220,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFFCD34D)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${ord['id']}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
+                            AppStatusBadge.order(ord['raw_status'] ?? ord['status'], fontSize: 9),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          ord['customer_name']?.toString() ?? 'Customer',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '₹${_formatAmount(ord['amount'])} • ${ord['product']}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -635,7 +762,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     child: _MobileStat(
                       title: 'Pending',
                       value:
-                          '${orders.where((o) => o['status'] == 'Plant Approval').length}',
+                          '${orders.where((o) => ['plant_approval', 'order_placement', 'preparing', 'invoice_generated'].contains(_orderRepository.canonicalStatus(o['raw_status'] ?? o['status']))).length}',
                     ),
                   ),
                 ],
@@ -649,7 +776,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     child: _MobileStat(
                       title: 'Dispatched',
                       value:
-                          '${orders.where((o) => o['status'] == 'Dispatched').length}',
+                          '${orders.where((o) => _orderRepository.canonicalStatus(o['raw_status'] ?? o['status']) == 'dispatch').length}',
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -657,13 +784,15 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     child: _MobileStat(
                       title: 'Delivered',
                       value:
-                          '${orders.where((o) => o['status'] == 'Delivered').length}',
+                          '${orders.where((o) => _orderRepository.canonicalStatus(o['raw_status'] ?? o['status']) == 'delivered').length}',
                     ),
                   ),
                 ],
               ),
 
               const SizedBox(height: 18),
+
+              _buildPendingOrdersSection(),
 
               if (isLoading)
                 const Center(
@@ -1285,7 +1414,10 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     '₹${_formatAmount(order['amount'])}',
                   ),
                   const SizedBox(height: 18),
-                  _orderProgress('${order['status']}'),
+                  _orderProgress(
+                    '${order['status']}',
+                    isPaid: order['payment_collected'] == true || order['payment_status'] == 'paid',
+                  ),
                 ],
               ),
             ),
@@ -1343,40 +1475,65 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
     }
 
     final double totalAmount = double.tryParse(order['amount']?.toString() ?? '0') ?? 0.0;
-    final double alreadyPaid = double.tryParse(order['amount_paid']?.toString() ?? '0') ?? 0.0;
-    double maxOutstanding = double.tryParse(order['outstanding_balance']?.toString() ?? '') ??
-        double.tryParse(order['outstanding_amount']?.toString() ?? '') ??
-        ((totalAmount - alreadyPaid) > 0 ? (totalAmount - alreadyPaid) : 0.0);
+    final String paymentStatus = (order['payment_status'] ?? '').toString().toLowerCase();
+    final bool isPaidInitial = order['payment_collected'] == true ||
+        paymentStatus == 'paid' ||
+        (order['payment']?.toString().toLowerCase() == 'paid');
+    final bool isPendingVerificationInitial = order['is_pending_verification'] == true ||
+        paymentStatus == 'pending_verification' ||
+        (order['payment']?.toString().toLowerCase().contains('verification') ?? false);
 
-    String rawStatus = order['status']?.toString() ?? 'Plant Approval';
-    String selectedNewStatus = 'Plant Approval';
-    final lower = rawStatus.toLowerCase();
-    if ((lower.contains('plant') && lower.contains('approval')) ||
-        lower.contains('admin approved') ||
-        lower == 'plant_approval') {
-      selectedNewStatus = 'Plant Approval';
-    } else if (lower.contains('dispatch')) {
-      selectedNewStatus = 'Dispatched';
-    } else if (rawStatus.toLowerCase().contains('invoice')) {
-      selectedNewStatus = 'Invoice Generated';
-    } else if (rawStatus.toLowerCase().contains('deliver')) {
-      selectedNewStatus = 'Delivered';
-    } else if (rawStatus.toLowerCase().contains('cancel')) {
-      selectedNewStatus = 'Cancelled';
-    } else if (rawStatus.toLowerCase().contains('placement')) {
-      selectedNewStatus = 'Order Placement';
+    final double alreadyPaid = isPaidInitial
+        ? totalAmount
+        : (double.tryParse(order['amount_paid']?.toString() ?? '0') ?? 0.0);
+    double maxOutstanding = isPaidInitial
+        ? 0.0
+        : (double.tryParse(order['outstanding_balance']?.toString() ?? '') ??
+            double.tryParse(order['outstanding_amount']?.toString() ?? '') ??
+            ((totalAmount - alreadyPaid) > 0 ? (totalAmount - alreadyPaid) : 0.0));
+
+    final String rawStatus = order['raw_status']?.toString() ?? order['status']?.toString() ?? 'plant_approval';
+    final String currentCanonical = _orderRepository.canonicalStatus(rawStatus);
+    List<String> statusOptions = _orderRepository.getAllowedNextStatuses(currentCanonical);
+    final bool isDelivered = currentCanonical == 'delivered';
+
+    if (statusOptions.isEmpty) {
+      if (isDelivered) {
+        statusOptions = ['delivered'];
+      } else {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: Color(0xFF0284C7)),
+                SizedBox(width: 8),
+                Expanded(child: Text('Terminal Status')),
+              ],
+            ),
+            content: Text(
+              'Order #${order['id']} is currently in "${_orderRepository.getStatusLabel(currentCanonical)}".\n\n'
+              'This order has reached a terminal state and cannot be transitioned to any other fulfillment stage.',
+              style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
     }
 
-    const statusOptions = [
-      'Order Placement',
-      'Plant Approval',
-      'Invoice Generated',
-      'Dispatched',
-      'Delivered',
-      'Cancelled',
-    ];
+    String selectedNewStatus = statusOptions.first;
 
-    bool collectPayment = false;
+    bool isOrderPaid = isPaidInitial || maxOutstanding <= 0.001;
+    bool isPendingVerification = isPendingVerificationInitial;
+    bool collectPayment = isOrderPaid;
     String paymentType = 'FULL'; // FULL, PARTIAL
     String paymentMode = 'CASH'; // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
     final amountController = TextEditingController(text: maxOutstanding.toStringAsFixed(2));
@@ -1395,11 +1552,25 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
               if (res['success'] == true && res['data'] is Map) {
                 final data = res['data'] as Map;
                 final liveOutstanding = double.tryParse(data['outstanding_balance']?.toString() ?? '');
-                if (liveOutstanding != null && ctx.mounted) {
+                final liveStatus = (data['payment_status'] ?? '').toString().toUpperCase();
+                final liveCollected = data['payment_collected'] == true || liveStatus == 'PAID' || (liveOutstanding != null && liveOutstanding <= 0.001);
+                final livePending = data['is_pending_verification'] == true || liveStatus == 'PAYMENT_PENDING_VERIFICATION' || liveStatus == 'PENDING_VERIFICATION';
+
+                if (ctx.mounted) {
                   setDlgState(() {
-                    maxOutstanding = liveOutstanding;
-                    if (paymentType == 'FULL' || amountController.text == totalAmount.toStringAsFixed(2) || amountController.text == '0.00') {
-                      amountController.text = maxOutstanding.toStringAsFixed(2);
+                    if (liveCollected) {
+                      isOrderPaid = true;
+                      collectPayment = true;
+                      maxOutstanding = 0.0;
+                      amountController.text = '0.00';
+                    } else if (liveOutstanding != null) {
+                      maxOutstanding = liveOutstanding;
+                      if (paymentType == 'FULL' || amountController.text == totalAmount.toStringAsFixed(2) || amountController.text == '0.00') {
+                        amountController.text = maxOutstanding.toStringAsFixed(2);
+                      }
+                    }
+                    if (livePending) {
+                      isPendingVerification = true;
                     }
                   });
                 }
@@ -1418,7 +1589,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
             title: Row(
               children: [
                 const Icon(Icons.local_shipping_outlined, color: Color(0xFF0284C7)),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Update Status (#${order['id']})',
@@ -1444,138 +1615,194 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     const SizedBox(height: 14),
 
                     // Fulfillment Status Dropdown
-                    DropdownButtonFormField<String>(
-                      initialValue: statusOptions.contains(selectedNewStatus)
-                          ? selectedNewStatus
-                          : statusOptions.first,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Fulfillment Status',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.local_shipping_outlined),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      ),
-                      items: statusOptions
-                          .map(
-                            (s) => DropdownMenuItem(
-                              value: s,
-                              child: Text(
-                                s,
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDlgState(() {
-                            selectedNewStatus = val;
-                            if (val.toLowerCase() == 'delivered' && maxOutstanding > 0 && !collectPayment) {
-                              collectPayment = true;
-                              amountController.text = maxOutstanding.toStringAsFixed(2);
-                            }
-                          });
-                        }
-                      },
-                    ),
-
-                    if (maxOutstanding <= 0) ...[
+                    if (isDelivered)
                       Container(
-                        margin: const EdgeInsets.only(top: 14),
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF0FDF4),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: const Color(0xFFBBF7D0)),
                         ),
-                        child: Row(
+                        child: const Row(
                           children: [
-                            const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 18),
-                            const SizedBox(width: 8),
+                            Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 20),
+                            SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Payment Status: Fully Paid (₹${totalAmount.toStringAsFixed(2)})',
-                                style: const TextStyle(
+                                'Fulfillment Status: Delivered',
+                                style: TextStyle(
                                   color: Color(0xFF166534),
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 12,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ] else ...[
-                      // Integrated Payment Collection Option
-                      Container(
-                        margin: const EdgeInsets.only(top: 16),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: collectPayment ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: collectPayment ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
-                          ),
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        initialValue: statusOptions.contains(selectedNewStatus)
+                            ? selectedNewStatus
+                            : statusOptions.first,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Fulfillment Status',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.local_shipping_outlined),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: Checkbox(
-                                    value: collectPayment,
-                                    activeColor: const Color(0xFF16A34A),
-                                    onChanged: (val) {
-                                      setDlgState(() {
-                                        collectPayment = val ?? false;
-                                        if (collectPayment) {
-                                          amountController.text = maxOutstanding.toStringAsFixed(2);
-                                        }
-                                      });
-                                    },
+                        items: statusOptions
+                            .map(
+                              (s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(
+                                  _orderRepository.getStatusLabel(s),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDlgState(() {
+                              selectedNewStatus = val;
+                              if (val == 'delivered' && maxOutstanding > 0 && !collectPayment) {
+                                collectPayment = true;
+                                amountController.text = maxOutstanding.toStringAsFixed(2);
+                              }
+                            });
+                          }
+                        },
+                      ),
+
+                    // Integrated Payment Collection Option
+                    Container(
+                      margin: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isOrderPaid
+                            ? const Color(0xFFF0FDF4)
+                            : (collectPayment ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC)),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isOrderPaid
+                              ? const Color(0xFF86EFAC)
+                              : (collectPayment ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Checkbox(
+                                  value: isOrderPaid ? true : collectPayment,
+                                  activeColor: const Color(0xFF16A34A),
+                                  onChanged: isOrderPaid
+                                      ? null
+                                      : (val) {
+                                          setDlgState(() {
+                                            collectPayment = val ?? false;
+                                            if (collectPayment) {
+                                              amountController.text = maxOutstanding.toStringAsFixed(2);
+                                            }
+                                          });
+                                        },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: isOrderPaid
+                                      ? null
+                                      : () {
+                                          setDlgState(() {
+                                            collectPayment = !collectPayment;
+                                            if (collectPayment) {
+                                              amountController.text = maxOutstanding.toStringAsFixed(2);
+                                            }
+                                          });
+                                        },
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            isOrderPaid ? 'Payment Collected' : 'Record Payment Collected',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13,
+                                              color: Color(0xFF0F172A),
+                                            ),
+                                          ),
+                                          if (isOrderPaid) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFDCFCE7),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: const Text(
+                                                'VERIFIED / PAID',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Color(0xFF166534),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      Text(
+                                        isOrderPaid
+                                            ? 'Fully Paid (₹${totalAmount.toStringAsFixed(2)}) • Admin Verified'
+                                            : 'Due: ₹${maxOutstanding.toStringAsFixed(2)} (Total: ₹${totalAmount.toStringAsFixed(2)})',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isOrderPaid ? const Color(0xFF166534) : const Color(0xFF64748B),
+                                          fontWeight: isOrderPaid ? FontWeight.w600 : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      setDlgState(() {
-                                        collectPayment = !collectPayment;
-                                        if (collectPayment) {
-                                          amountController.text = maxOutstanding.toStringAsFixed(2);
-                                        }
-                                      });
-                                    },
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Record Payment Collected',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                            color: Color(0xFF0F172A),
-                                          ),
-                                        ),
-                                        Text(
-                                          'Due: ₹${maxOutstanding.toStringAsFixed(2)} (Total: ₹${totalAmount.toStringAsFixed(2)})',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xFF64748B),
-                                          ),
-                                        ),
-                                      ],
+                              ),
+                            ],
+                          ),
+
+                          if (isPendingVerification && !isOrderPaid) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFFDE68A)),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.access_time_rounded, color: Color(0xFFD97706), size: 16),
+                                  SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Payment reported by franchise • Awaiting Admin verification',
+                                      style: TextStyle(fontSize: 11, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
+                          ],
 
-                            if (collectPayment) ...[
+                          if (!isOrderPaid && collectPayment) ...[
                               const Divider(height: 18),
 
                               // Payment Type (Full vs Partial)
@@ -1711,10 +1938,9 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
             actions: [
               TextButton(
                 onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
@@ -1722,7 +1948,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: collectPayment ? const Color(0xFF16A34A) : const Color(0xFF0284C7),
+                  backgroundColor: (isOrderPaid || collectPayment) ? const Color(0xFF16A34A) : const Color(0xFF0284C7),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -1731,8 +1957,13 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                 onPressed: isSubmitting
                     ? null
                     : () async {
+                        if (isDelivered && isOrderPaid) {
+                          Navigator.pop(ctx);
+                          return;
+                        }
+
                         double entered = 0.0;
-                        if (collectPayment) {
+                        if (!isOrderPaid && collectPayment) {
                           entered = double.tryParse(amountController.text) ?? 0.0;
                           if (paymentType == 'FULL' || entered > maxOutstanding) {
                             entered = maxOutstanding;
@@ -1747,31 +1978,33 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
 
                         setDlgState(() => isSubmitting = true);
 
-                        // 1. Update order fulfillment status
-                        final statusRes = await _orderRepository.updateOrderStatus(
-                          dbId,
-                          selectedNewStatus,
-                        );
+                        // 1. Update order fulfillment status if transition is needed
+                        if (selectedNewStatus != currentCanonical) {
+                          final statusRes = await _orderRepository.updateOrderStatus(
+                            dbId,
+                            selectedNewStatus,
+                          );
 
-                        if (!mounted) return;
+                          if (!mounted) return;
 
-                        if (statusRes['success'] != true) {
-                          setDlgState(() => isSubmitting = false);
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  statusRes['message']?.toString() ?? 'Failed to update order status',
+                          if (statusRes['success'] != true) {
+                            setDlgState(() => isSubmitting = false);
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    statusRes['message']?.toString() ?? 'Failed to update order status',
+                                  ),
+                                  backgroundColor: Colors.red.shade700,
                                 ),
-                                backgroundColor: Colors.red.shade700,
-                              ),
-                            );
+                              );
+                            }
+                            return;
                           }
-                          return;
                         }
 
-                        // 2. If payment collection was selected, record the payment
-                        if (collectPayment && entered > 0) {
+                        // 2. If payment collection was selected and not yet paid, record the payment
+                        if (!isOrderPaid && collectPayment && entered > 0) {
                           final paymentPayload = {
                             'payment_type': paymentType,
                             'amount': entered,
@@ -1790,11 +2023,14 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                           });
                           if (!mounted) return;
 
+                          order['raw_status'] = selectedNewStatus;
+                          order['status'] = _orderRepository.getStatusLabel(selectedNewStatus);
+
                           if (payRes['success'] == true) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'Order #${order['id']} updated to $selectedNewStatus & collected ₹${entered.toStringAsFixed(2)} ($paymentMode)!',
+                                  'Order #${order['id']} updated to ${_orderRepository.getStatusLabel(selectedNewStatus)} & collected ₹${entered.toStringAsFixed(2)} ($paymentMode)!',
                                 ),
                                 backgroundColor: const Color(0xFF16A34A),
                               ),
@@ -1803,7 +2039,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'Status updated to $selectedNewStatus, but payment recording failed: ${payRes['message'] ?? 'Unknown error'}',
+                                  'Status updated to ${_orderRepository.getStatusLabel(selectedNewStatus)}, but payment recording failed: ${payRes['message'] ?? 'Unknown error'}',
                                 ),
                                 backgroundColor: Colors.orange.shade800,
                                 duration: const Duration(seconds: 4),
@@ -1812,11 +2048,14 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                           }
                           _fetchOrders();
                         } else {
+                          order['raw_status'] = selectedNewStatus;
+                          order['status'] = _orderRepository.getStatusLabel(selectedNewStatus);
+
                           if (ctx.mounted) Navigator.pop(ctx);
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Order #${order['id']} status updated to $selectedNewStatus'),
+                              content: Text('Order #${order['id']} status updated to ${_orderRepository.getStatusLabel(selectedNewStatus)}'),
                               backgroundColor: const Color(0xFF16A34A),
                             ),
                           );
@@ -1829,7 +2068,9 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : Text(collectPayment ? 'Update & Record Payment' : 'Confirm Status'),
+                    : Text(isDelivered
+                        ? (isOrderPaid ? 'Close' : (collectPayment ? 'Record Payment' : 'OK'))
+                        : (collectPayment ? 'Update & Record Payment' : 'Confirm Status')),
               ),
             ],
           );
@@ -2182,7 +2423,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
     );
   }
 
-  Widget _orderProgress(String status) {
+  Widget _orderProgress(String status, {bool isPaid = false}) {
     final steps = [
       'Order Placement',
       'Plant Approval',
@@ -2201,7 +2442,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
     } else if (status == 'Dispatched') {
       activeStep = 3;
     } else if (status == 'Delivered') {
-      activeStep = 4;
+      activeStep = isPaid ? 5 : 4;
     }
 
     return Column(
@@ -2265,69 +2506,11 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
   }
 
   Widget _statusBadge(String status) {
-    Color bg;
-    Color fg;
-
-    switch (status) {
-      case 'Delivered':
-        bg = const Color(0xFFECFDF5);
-        fg = const Color(0xFF059669);
-        break;
-
-      case 'Dispatched':
-        bg = const Color(0xFFEFF6FF);
-        fg = const Color(0xFF2563EB);
-        break;
-
-      case 'Invoice Generated':
-        bg = const Color(0xFFF5F3FF);
-        fg = const Color(0xFF7C3AED);
-        break;
-
-      default:
-        bg = const Color(0xFFFFF7ED);
-        fg = const Color(0xFFEA580C);
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.w700),
-      ),
-    );
+    return AppStatusBadge.order(status);
   }
 
   Widget _paymentBadge(String payment) {
-    Color bg;
-    Color fg;
-
-    if (payment == 'Paid') {
-      bg = const Color(0xFFECFDF5);
-      fg = const Color(0xFF059669);
-    } else if (payment == 'Partial') {
-      bg = const Color(0xFFFFF7ED);
-      fg = const Color(0xFFEA580C);
-    } else {
-      bg = const Color(0xFFFEF2F2);
-      fg = const Color(0xFFDC2626);
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        payment,
-        style: TextStyle(color: fg, fontSize: 9, fontWeight: FontWeight.w700),
-      ),
-    );
+    return AppStatusBadge.payment(payment);
   }
 
   String _formatAmount(dynamic amount) {

@@ -297,3 +297,56 @@ class OrderLifecycleAndTransitionAuditTest(TestCase):
         # Re-run backfill to verify idempotency (zero duplicates)
         repair_historical_orders_lifecycle()
         self.assertEqual(order.status_history.count(), count_first_run)
+
+    def test_6_franchise_order_status_transitions_and_permissions(self):
+        """Test 6: Franchise order status transitions, error handling, alias normalization, and permission isolation."""
+        # 1. Create order assigned to Franchise Alpha
+        order = Order.objects.create(
+            client_name='Aman Franchise Order',
+            created_by=self.customer_user,
+            serving_franchise=self.franchise,
+            status='invoice_generated',
+            amount=Decimal('450.00'),
+            items_count=15,
+        )
+
+        # Set up franchise profile on UserProfile so role is franchise
+        prof_alpha = getattr(self.franchise_user, 'profile', None)
+        if prof_alpha:
+            prof_alpha.role = 'franchise'
+            prof_alpha.save()
+
+        prof_beta = getattr(self.unrelated_user, 'profile', None)
+        if prof_beta:
+            prof_beta.role = 'franchise'
+            prof_beta.save()
+
+        # A: Unrelated Franchise Beta tries to update Franchise Alpha's order -> MUST RETURN 403 FORBIDDEN
+        self.client.force_authenticate(user=self.unrelated_user)
+        resp_unauth = self.client.patch(f'/api/orders/{order.id}/status/', {'status': 'preparing'}, format='json')
+        self.assertEqual(resp_unauth.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(resp_unauth.data.get('success'))
+
+        # B: Authorized Franchise Alpha tries invalid jump: invoice_generated -> delivered -> MUST BE REJECTED (400)
+        self.client.force_authenticate(user=self.franchise_user)
+        resp_invalid_jump = self.client.patch(f'/api/orders/{order.id}/status/', {'status': 'delivered'}, format='json')
+        self.assertEqual(resp_invalid_jump.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp_invalid_jump.data.get('error_code'), 'INVALID_STATUS_TRANSITION')
+        self.assertIn("Invalid order status transition from 'invoice_generated' to 'delivered'", resp_invalid_jump.data.get('message', ''))
+        self.assertIn('preparing', resp_invalid_jump.data.get('allowed_transitions', []))
+        self.assertIn('dispatch', resp_invalid_jump.data.get('allowed_transitions', []))
+
+        # C: Authorized Franchise Alpha transitions using colloquial alias 'dispatched' -> MUST SUCCEED and normalize to 'dispatch'
+        resp_dispatch = self.client.patch(f'/api/orders/{order.id}/status/', {'status': 'dispatched'}, format='json')
+        self.assertEqual(resp_dispatch.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'dispatch')
+        self.assertEqual(resp_dispatch.data.get('current_status'), 'dispatch')
+        self.assertIn('delivered', resp_dispatch.data.get('allowed_transitions', []))
+
+        # D: From dispatch -> delivered -> MUST SUCCEED
+        resp_delivered = self.client.patch(f'/api/orders/{order.id}/status/', {'status': 'delivered'}, format='json')
+        self.assertEqual(resp_delivered.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'delivered')
+        self.assertEqual(resp_delivered.data.get('allowed_transitions'), [])

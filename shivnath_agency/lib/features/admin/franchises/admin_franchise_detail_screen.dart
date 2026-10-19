@@ -128,13 +128,17 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         title: const Text('Rejection Reason'),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: 'Enter reason for rejection...',
-            border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: TextField(
+            controller: ctrl,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Enter reason for rejection...',
+              border: OutlineInputBorder(),
+            ),
           ),
         ),
         actions: [
@@ -189,12 +193,14 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
               Icon(Icons.edit_note_rounded, color: Color(0xFF0284C7)),
               SizedBox(width: 8),
-              Text('Edit Credit & Billing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Expanded(child: Text('Edit Credit & Billing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
             ],
           ),
           content: SingleChildScrollView(
@@ -1551,6 +1557,8 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           return AlertDialog(
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: 8,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
@@ -1564,8 +1572,8 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                 ),
               ],
             ),
-            content: SizedBox(
-              width: 520,
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1769,17 +1777,20 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
       final proceed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706)),
               SizedBox(width: 10),
-              Text('FSSAI Not Yet Verified'),
+              Expanded(child: Text('FSSAI Not Yet Verified')),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'FSSAI Status: $fssaiStatus.\n'
@@ -1798,6 +1809,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
               ),
             ],
           ),
+        ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -1862,16 +1874,19 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         title: const Row(
           children: [
             Icon(Icons.cancel_outlined, color: Color(0xFFDC2626)),
             SizedBox(width: 10),
-            Text('Reject Franchise'),
+            Expanded(child: Text('Reject Franchise')),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Reject application for "${franchise['business_name']}". Enter the reason for rejection:'),
             const SizedBox(height: 12),
@@ -1886,6 +1901,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
             ),
           ],
         ),
+      ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
@@ -2080,12 +2096,18 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
           children: [
             Icon(Icons.check_circle, color: Colors.green, size: 28),
             SizedBox(width: 10),
-            Text('Password Reset Successful', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text(
+                'Password Reset Successful',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Temporary password generated for $targetName:'),
             const SizedBox(height: 12),
@@ -2145,6 +2167,7 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
             ),
           ],
         ),
+      ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(

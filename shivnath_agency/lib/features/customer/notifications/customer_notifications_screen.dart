@@ -120,6 +120,13 @@ class _CustomerNotificationsScreenState
               child: _notifications.isEmpty
                   ? ListView(
                       children: [
+                        if (_isSyncing)
+                          const LinearProgressIndicator(
+                            minHeight: 2.5,
+                            backgroundColor: Color(0xFFE2E8F0),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Color(0xFF0284C7)),
+                          ),
                         SizedBox(
                           height: MediaQuery.of(context).size.height * 0.6,
                           child: Center(

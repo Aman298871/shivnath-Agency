@@ -147,14 +147,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _startLiveOrderWatcher();
   }
 
+  Timer? _initialAlertTimer;
+
   @override
   void dispose() {
+    _initialAlertTimer?.cancel();
     _liveAlertTimer?.cancel();
     super.dispose();
   }
 
   void _startLiveOrderWatcher() {
-    Future.delayed(const Duration(seconds: 2), () {
+    _initialAlertTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) _checkLiveOrdersAndStockRequests();
     });
     _liveAlertTimer = Timer.periodic(const Duration(seconds: 8), (_) {

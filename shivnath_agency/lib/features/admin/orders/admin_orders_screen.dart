@@ -508,6 +508,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
     return Column(
       children: filtered.map((order) {
+        final isPaid = order['payment_collected'] == true ||
+            order['payment_status']?.toString().toLowerCase() == 'paid';
+        final isPending = order['is_pending_verification'] == true;
+        final canCollect = !isPaid;
+
         return Container(
           width: double.infinity,
           margin: const EdgeInsets.only(bottom: 12),
@@ -548,16 +553,45 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                       _info('Prev. Outstanding', '₹${order['previous_outstanding']}'),
                       _info('Total Exposure', '₹${order['total_exposure']}'),
                     ],
-                    _info('Payment', order['payment']),
+                    _info(
+                      'Payment',
+                      isPaid
+                          ? 'Paid (Verified)'
+                          : (isPending ? 'Pending Verification' : order['payment']),
+                    ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => _viewOrderDetails(order),
-                            child: const Text('View Items'),
+                            child: const Text('View Items', maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
                         ),
+                        if (canCollect) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isPending ? Colors.orange.shade800 : const Color(0xFF0D9488),
+                                side: BorderSide(
+                                  color: isPending ? Colors.orange.shade400 : const Color(0xFF0D9488),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                              ),
+                              onPressed: () => _collectPaymentAdmin(order),
+                              icon: Icon(
+                                isPending ? Icons.pending_actions_rounded : Icons.payments_outlined,
+                                size: 16,
+                              ),
+                              label: Text(
+                                isPending ? 'Verify' : 'Payment',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton(
@@ -566,7 +600,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                               foregroundColor: Colors.white,
                             ),
                             onPressed: () => _changeStatus(order),
-                            child: const Text('Status'),
+                            child: const Text('Status', maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
                         ),
                       ],
@@ -609,6 +643,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   }
 
   Future<void> _viewOrderDetails(Map<String, dynamic> order) async {
+    final bool isPaid = order['payment_collected'] == true ||
+        order['payment_status']?.toString().toLowerCase() == 'paid';
+    final bool isPending = order['is_pending_verification'] == true;
     final rawItems = order['items_list'];
     final List<Map<String, dynamic>> itemsList = rawItems is List
         ? List<Map<String, dynamic>>.from(rawItems)
@@ -1189,6 +1226,27 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (!isPaid) ...[
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isPending ? Colors.orange.shade800 : const Color(0xFF0D9488),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _collectPaymentAdmin(order);
+                        },
+                        icon: Icon(
+                          isPending ? Icons.pending_actions_rounded : Icons.payments_outlined,
+                          size: 18,
+                        ),
+                        label: Text(isPending ? 'Verify Payment' : 'Collect Payment'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0284C7),
@@ -1330,6 +1388,325 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  Future<void> _collectPaymentAdmin(Map<String, dynamic> order) async {
+    final int? dbId = order['id'] is int ? order['id'] as int : int.tryParse(order['id']?.toString() ?? '');
+    if (dbId == null) {
+      AppToast.error(context, 'Invalid order ID.');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final paymentDataRes = await _orderRepository.getOrderPayments(dbId);
+    if (mounted) {
+      Navigator.pop(context);
+    }
+
+    final paymentData = (paymentDataRes['success'] == true && paymentDataRes['data'] != null)
+        ? Map<String, dynamic>.from(paymentDataRes['data'] as Map)
+        : (paymentDataRes['data'] is Map ? Map<String, dynamic>.from(paymentDataRes['data'] as Map) : paymentDataRes);
+
+    final double totalAmount = double.tryParse(paymentData['total_amount']?.toString() ?? '') ??
+        double.tryParse(order['amount']?.toString() ?? '0') ?? 0.0;
+    final double amountPaid = double.tryParse(paymentData['amount_paid']?.toString() ?? '0') ?? 0.0;
+    final double outstandingBalance = double.tryParse(paymentData['outstanding_balance']?.toString() ?? '') ??
+        (totalAmount - amountPaid).clamp(0.0, totalAmount);
+
+    final List<dynamic> paymentsList = paymentData['payments'] is List ? (paymentData['payments'] as List) : [];
+    Map<String, dynamic>? pendingTxn;
+    for (var p in paymentsList) {
+      if (p is Map) {
+        final pStatus = p['payment_status']?.toString().toUpperCase();
+        if (pStatus == 'PENDING' || pStatus == 'PENDING_VERIFICATION') {
+          pendingTxn = Map<String, dynamic>.from(p);
+          break;
+        }
+      }
+    }
+
+    String selectedMethod = 'CASH';
+    final amountController = TextEditingController(
+      text: outstandingBalance > 0 ? outstandingBalance.toStringAsFixed(2) : totalAmount.toStringAsFixed(2),
+    );
+    final refController = TextEditingController();
+    final notesController = TextEditingController();
+    bool isSubmitting = false;
+
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(Icons.payments_outlined, color: Color(0xFF0D9488)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Payment: ${order['orderId']}',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.9,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Total Amount:', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                                Text('₹${totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Amount Paid:', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                                Text('₹${amountPaid.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 13)),
+                              ],
+                            ),
+                            const Divider(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Outstanding:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                Text(
+                                  '₹${outstandingBalance.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: outstandingBalance <= 0 ? Colors.green : const Color(0xFFE11D48),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      if (pendingTxn != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.amber.shade300),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.pending_actions_rounded, color: Colors.orange.shade800, size: 20),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Franchise Reported Payment',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange.shade900,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Amount: ₹${pendingTxn['amount_paid'] ?? ''} • Method: ${pendingTxn['payment_method'] ?? ''}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              if ((pendingTxn['reference_number'] ?? '').toString().isNotEmpty)
+                                Text(
+                                  'Ref: ${pendingTxn['reference_number']}',
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF16A34A),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: isSubmitting
+                                      ? null
+                                      : () async {
+                                          setDialogState(() => isSubmitting = true);
+                                          final txnId = pendingTxn!['id'] as int;
+                                          final vRes = await InventoryRepository().verifyPaymentByTxnId(txnId: txnId);
+                                          if (!mounted) return;
+                                          if (vRes['success'] == true) {
+                                            Navigator.pop(dialogCtx);
+                                            await _loadData();
+                                            if (mounted) {
+                                              AppToast.success(context, 'Payment verified and marked PAID.', title: 'Payment Verified');
+                                            }
+                                          } else {
+                                            setDialogState(() => isSubmitting = false);
+                                            AppToast.error(context, vRes['message'] ?? 'Failed to verify payment.');
+                                          }
+                                        },
+                                  icon: isSubmitting
+                                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : const Icon(Icons.check_circle_outline, size: 18),
+                                  label: const Text('Approve & Verify Receipt'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+
+                      if (outstandingBalance > 0) ...[
+                        const Text('Collect / Record Payment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedMethod,
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Method',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'CASH', child: Text('Cash')),
+                            DropdownMenuItem(value: 'UPI', child: Text('UPI / QR')),
+                            DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Bank Transfer (NEFT/RTGS)')),
+                            DropdownMenuItem(value: 'CHEQUE', child: Text('Cheque')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) setDialogState(() => selectedMethod = val);
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: amountController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(
+                            labelText: 'Amount (₹)',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: refController,
+                          decoration: const InputDecoration(
+                            labelText: 'Reference / UTR / Cheque # (Optional)',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: notesController,
+                          decoration: const InputDecoration(
+                            labelText: 'Notes (Optional)',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ] else ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade200),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.green, size: 20),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'This order has no outstanding balance.',
+                                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Close'),
+                ),
+                if (outstandingBalance > 0)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D9488),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            final parsedAmount = double.tryParse(amountController.text.trim());
+                            if (parsedAmount == null || parsedAmount <= 0) {
+                              AppToast.error(context, 'Please enter a valid amount.');
+                              return;
+                            }
+                            setDialogState(() => isSubmitting = true);
+                            final payload = {
+                              'payment_type': parsedAmount >= outstandingBalance ? 'FULL' : 'PARTIAL',
+                              'amount': parsedAmount,
+                              'payment_method': selectedMethod,
+                              'reference_number': refController.text.trim(),
+                              'notes': notesController.text.trim(),
+                            };
+                            final res = await _orderRepository.recordOrderPayment(dbId, payload);
+                            if (!mounted) return;
+                            if (res['success'] == true) {
+                              Navigator.pop(dialogCtx);
+                              await _loadData();
+                              if (mounted) {
+                                AppToast.success(context, 'Payment recorded successfully.', title: 'Payment Recorded');
+                              }
+                            } else {
+                              setDialogState(() => isSubmitting = false);
+                              AppToast.error(context, res['message'] ?? 'Failed to record payment.');
+                            }
+                          },
+                    child: isSubmitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Record Payment'),
+                  ),
+              ],
+            );
+          },
         );
       },
     );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../models/user_model.dart';
@@ -66,8 +68,14 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   }
 
   Future<void> _logout() async {
-    await _sessionService.logout();
+    ScaffoldMessenger.of(context).clearSnackBars();
+    try {
+      await context.read<AuthProvider>().logout();
+    } catch (_) {
+      await _sessionService.logout();
+    }
     if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
     Navigator.pushNamedAndRemoveUntil(
       context,
       AppRoutes.roleSelection,
@@ -365,6 +373,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
       setState(() => _currentUser = updated);
     }
 
+    if (!mounted) return;
     AppToast.success(
       context,
       'Your administrator profile has been updated.',

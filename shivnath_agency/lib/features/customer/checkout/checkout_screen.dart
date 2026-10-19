@@ -374,88 +374,100 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
-    // Check gateway status: if unavailable, show diagnostic modal
-    final isGatewayAvail = _gatewayStatus != null &&
-        (_gatewayStatus!['available'] == true ||
-            (_gatewayStatus!['data'] is Map && _gatewayStatus!['data']['available'] == true));
-    if (!isGatewayAvail) {
-      final diag = (_gatewayStatus?['diagnostics'] is Map)
-          ? _gatewayStatus!['diagnostics'] as Map<String, dynamic>
-          : (_gatewayStatus?['data'] is Map && _gatewayStatus!['data']['diagnostics'] is Map)
-              ? _gatewayStatus!['data']['diagnostics'] as Map<String, dynamic>
-              : null;
-      final msg = diag?['message']?.toString() ??
-          _gatewayStatus?['message']?.toString() ??
-          'Payment Gateway Unavailable: Razorpay API credentials are not configured on the production server. Mock payment mode is strictly prohibited in production.';
-      final isProd = _gatewayStatus?['is_production'] == true ||
-          (_gatewayStatus?['data'] is Map && _gatewayStatus!['data']['is_production'] == true);
-
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          actionsOverflowDirection: VerticalDirection.down,
-          actionsOverflowButtonSpacing: 8,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text('Payment Gateway Unavailable', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(msg, style: const TextStyle(fontSize: 13, height: 1.4)),
-              const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Environment: ${_gatewayStatus!['environment'] ?? (isProd ? 'PRODUCTION' : 'TEST')}\n'
-                  'Error Code: ${diag?['error_code'] ?? 'GATEWAY_CREDENTIALS_MISSING'}',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontFamily: 'monospace'),
-                ),
-              ),
-            ],
-          ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _checkGatewayStatus();
-              },
-              child: const Text('Re-check Status'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0284C7),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Dismiss'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
     final isDirect =
         orderSource == 'DIRECT_COMPANY' ||
         eligibleFranchises.isEmpty ||
         selectedFranchiseId == null;
-    final finalOrderSource = isDirect ? 'DIRECT_COMPANY' : 'FRANCHISE';
     final finalServingFranchiseId = isDirect ? null : selectedFranchiseId;
+
+    String selectedFranchiseName = 'Shivnath Agency (Direct)';
+    if (!isDirect && selectedFranchiseId != null) {
+      final match = eligibleFranchises.firstWhere(
+        (f) => f['id'] == selectedFranchiseId,
+        orElse: () => {},
+      );
+      selectedFranchiseName = match['business_name']?.toString() ??
+          match['name']?.toString() ??
+          'Authorized Franchise Partner';
+    }
+
+    // Only central direct company orders require Razorpay online payment gateway
+    if (isDirect) {
+      final isGatewayAvail = _gatewayStatus != null &&
+          (_gatewayStatus!['available'] == true ||
+              (_gatewayStatus!['data'] is Map && _gatewayStatus!['data']['available'] == true));
+      if (!isGatewayAvail) {
+        final diag = (_gatewayStatus?['diagnostics'] is Map)
+            ? _gatewayStatus!['diagnostics'] as Map<String, dynamic>
+            : (_gatewayStatus?['data'] is Map && _gatewayStatus!['data']['diagnostics'] is Map)
+                ? _gatewayStatus!['data']['diagnostics'] as Map<String, dynamic>
+                : null;
+        final msg = diag?['message']?.toString() ??
+            _gatewayStatus?['message']?.toString() ??
+            'Payment Gateway Unavailable: Razorpay API credentials are not configured on the production server. Mock payment mode is strictly prohibited in production.';
+        final isProd = _gatewayStatus?['is_production'] == true ||
+            (_gatewayStatus?['data'] is Map && _gatewayStatus!['data']['is_production'] == true);
+
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: 8,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text('Payment Gateway Unavailable', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(msg, style: const TextStyle(fontSize: 13, height: 1.4)),
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Environment: ${_gatewayStatus!['environment'] ?? (isProd ? 'PRODUCTION' : 'TEST')}\n'
+                      'Error Code: ${diag?['error_code'] ?? 'GATEWAY_CREDENTIALS_MISSING'}',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontFamily: 'monospace'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _checkGatewayStatus();
+                },
+                child: const Text('Re-check Status'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Dismiss'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
 
     final amount = cart.totalAmount;
     final totalItems = cart.itemCount;
@@ -492,9 +504,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Ready to complete your order via Razorpay?',
-                style: TextStyle(fontWeight: FontWeight.w600),
+              Text(
+                isDirect
+                    ? 'Ready to complete your central order via Razorpay?'
+                    : 'Place order with $selectedFranchiseName?',
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 12),
               Text('Total Items: $totalItems'),
@@ -510,14 +524,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFF16A34A)),
+                  Icon(
+                    isDirect ? Icons.lock_outline_rounded : Icons.handshake_outlined,
+                    size: 14,
+                    color: const Color(0xFF16A34A),
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      _gatewayStatus?['is_test_mode'] == true
-                          ? 'Razorpay Sandbox (Test Mode) Checkout'
-                          : '100% Secure Razorpay Online Payment',
-                      style: const TextStyle(color: Color(0xFF16A34A), fontSize: 11, fontWeight: FontWeight.w600),
+                      isDirect
+                          ? (_gatewayStatus?['is_test_mode'] == true
+                              ? 'Razorpay Sandbox (Test Mode) Checkout'
+                              : '100% Secure Razorpay Online Payment')
+                          : 'Pay on Delivery to Franchise (Cash / UPI)',
+                      style: const TextStyle(
+                        color: Color(0xFF16A34A),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -528,15 +552,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0284C7),
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Pay Now & Place Order'),
+              child: Text(isDirect ? 'Pay Now & Place Order' : 'Place Order'),
             ),
           ],
         );
@@ -552,23 +577,75 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     setState(() => _isSubmitting = true);
 
-    String selectedFranchiseName = 'Water Wala (Direct Fulfillment)';
-    if (!isDirect && selectedFranchiseId != null) {
-      final match = eligibleFranchises.firstWhere(
-        (f) => f['id'] == selectedFranchiseId,
-        orElse: () => {},
-      );
-      selectedFranchiseName = match['business_name']?.toString() ??
-          match['name']?.toString() ??
-          'Water Wala Authorized Franchise';
+    if (!isDirect) {
+      // Step 1: Create Order for Franchise - Settled directly with the serving franchise
+      try {
+        final res = await _orderRepository.createOrder({
+          'franchise': selectedFranchiseName,
+          'city': addressController.text.trim(),
+          'customer_name': nameController.text.trim(),
+          'phone': phoneController.text.trim(),
+          'delivery_address': addressController.text.trim(),
+          'items': totalItems,
+          'amount': amount,
+          'status': 'order_placement',
+          'payment': 'pending',
+          'payment_mode': 'FRANCHISE_COLLECTION',
+          'duration_choice': durationChoice,
+          'duration_days': durationDays,
+          'order_source': 'FRANCHISE',
+          'serving_franchise_id': finalServingFranchiseId,
+          'order_items': orderItems,
+        });
+
+        if (!mounted) return;
+
+        if (res['success'] == true) {
+          final dynamic rawData = res['data'];
+          final Map<String, dynamic> orderObj = (rawData is Map && rawData['order'] is Map)
+              ? Map<String, dynamic>.from(rawData['order'] as Map)
+              : (rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{});
+          cart.clearCart();
+          setState(() => _isSubmitting = false);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => OrderSuccessScreen(
+                amount: amount,
+                orderData: orderObj,
+              ),
+            ),
+          );
+          return;
+        } else {
+          setState(() => _isSubmitting = false);
+          final errorMsg = res['message']?.toString() ?? 'Failed to place franchise order.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMsg),
+              backgroundColor: Colors.red.shade700,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          return;
+        }
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Network error during franchise order creation: $e'),
+            backgroundColor: Colors.orange.shade800,
+          ),
+        );
+        return;
+      }
     }
 
     try {
-      // Step 1: Create Order with pending payment
+      // Step 1: Create Order with pending payment (Direct Company Order)
       final res = await _orderRepository.createOrder({
-        'franchise': isDirect
-            ? 'Water Wala (Direct Fulfillment)'
-            : selectedFranchiseName,
+        'franchise': 'Shivnath Agency (Direct)',
         'city': addressController.text.trim(),
         'customer_name': nameController.text.trim(),
         'phone': phoneController.text.trim(),
@@ -580,8 +657,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'payment_mode': 'RAZORPAY',
         'duration_choice': durationChoice,
         'duration_days': durationDays,
-        'order_source': finalOrderSource,
-        'serving_franchise_id': finalServingFranchiseId,
+        'order_source': 'DIRECT_COMPANY',
+        'serving_franchise_id': null,
         'order_items': orderItems,
       });
 
@@ -662,6 +739,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         try {
           _razorpay.open(options);
         } catch (e) {
+          if (!mounted) return;
           setState(() => _isSubmitting = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1138,7 +1216,85 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (_isLoadingGatewayStatus) ...[
+              if (orderSource == 'FRANCHISE' && selectedFranchiseId != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.handshake_rounded, color: Color(0xFF16A34A), size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'Pay on Delivery to Franchise',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                      color: Color(0xFF14532D),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                SizedBox(width: 6),
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFFDCFCE7),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Color(0xFF86EFAC)),
+                                  ),
+                                  child: Text(
+                                    'FRANCHISE ORDER',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF166534),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.radio_button_checked,
+                            color: Color(0xFF16A34A),
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Payment will be collected directly upon delivery by ${eligibleFranchises.firstWhere((f) => f['id'] == selectedFranchiseId, orElse: () => {})['business_name'] ?? 'the serving franchise'}.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF166534),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          _payBadge('Cash on Delivery'),
+                          _payBadge('Franchise UPI / QR'),
+                          _payBadge('Direct Settlement'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (_isLoadingGatewayStatus) ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),

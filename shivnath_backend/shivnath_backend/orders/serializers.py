@@ -219,6 +219,8 @@ class OrderSerializer(serializers.ModelSerializer):
     amount_paid = serializers.SerializerMethodField()
     outstanding_balance = serializers.SerializerMethodField()
     outstanding_amount = serializers.SerializerMethodField()
+    payment_collected = serializers.SerializerMethodField()
+    is_pending_verification = serializers.SerializerMethodField()
 
     previous_outstanding = serializers.SerializerMethodField()
     current_order_amount = serializers.SerializerMethodField()
@@ -248,6 +250,8 @@ class OrderSerializer(serializers.ModelSerializer):
             'amount_paid',
             'outstanding_balance',
             'outstanding_amount',
+            'payment_collected',
+            'is_pending_verification',
 
             'franchise_name',
             'serving_franchise',
@@ -330,6 +334,8 @@ class OrderSerializer(serializers.ModelSerializer):
             'amount_paid',
             'outstanding_balance',
             'outstanding_amount',
+            'payment_collected',
+            'is_pending_verification',
             'invoice_id',
             'invoice_number',
             'invoice_status',
@@ -359,9 +365,53 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def _get_invoice(self, obj):
         try:
-            return getattr(obj, 'invoice', None)
+            from billing.models import Invoice
+            return Invoice.objects.filter(order_id=obj.id).first()
         except Exception:
             return None
+
+    def get_amount_paid(self, obj):
+        if getattr(obj, 'payment_status', '').lower() == 'paid':
+            return float(obj.grand_total or obj.amount or 0.0)
+        inv = self._get_invoice(obj)
+        if inv:
+            if inv.status == 'PAID':
+                return float(inv.grand_total)
+            return float(inv.amount_paid or 0.0)
+        return 0.0
+
+    def get_outstanding_balance(self, obj):
+        if getattr(obj, 'payment_status', '').lower() == 'paid':
+            return 0.0
+        inv = self._get_invoice(obj)
+        if inv:
+            if inv.status == 'PAID':
+                return 0.0
+            return float(inv.outstanding_balance)
+        return float(obj.grand_total or obj.amount or 0.0)
+
+    def get_outstanding_amount(self, obj):
+        return self.get_outstanding_balance(obj)
+
+    def get_payment_collected(self, obj):
+        if getattr(obj, 'payment_status', '').lower() == 'paid':
+            return True
+        inv = self._get_invoice(obj)
+        if inv and inv.status == 'PAID':
+            return True
+        return False
+
+    def get_is_pending_verification(self, obj):
+        if getattr(obj, 'payment_status', '').lower() == 'paid':
+            return False
+        inv = self._get_invoice(obj)
+        if inv:
+            if inv.status == 'PAYMENT_PENDING_VERIFICATION':
+                return True
+            from billing.models import PaymentTransaction
+            if PaymentTransaction.objects.filter(invoice=inv, payment_status__in=['PENDING', 'PENDING_VERIFICATION']).exists():
+                return True
+        return getattr(obj, 'payment_status', '').lower() == 'pending_verification'
 
     def get_invoice_id(self, obj):
         inv = self._get_invoice(obj)
@@ -372,6 +422,8 @@ class OrderSerializer(serializers.ModelSerializer):
         return inv.invoice_number if inv else ''
 
     def get_invoice_status(self, obj):
+        if getattr(obj, 'payment_status', '').lower() == 'paid':
+            return 'PAID'
         inv = self._get_invoice(obj)
         return inv.status if inv else 'UNPAID'
 
@@ -404,12 +456,16 @@ class OrderSerializer(serializers.ModelSerializer):
         if inv and inv.payments.exists():
             last_p = inv.payments.last()
             return last_p.get_payment_method_display() or last_p.payment_method
+        pm = getattr(obj, 'payment_mode', '')
+        if pm == 'FRANCHISE_COLLECTION':
+            return 'Franchise Collection (Pay on Delivery)'
+        if pm == 'WALLET':
+            return 'Water Wallet'
         if getattr(obj, 'razorpay_payment_id', ''):
             return f"Razorpay Online ({obj.razorpay_payment_id})"
-        pm = getattr(obj, 'payment_mode', '')
         if pm and pm.upper() == 'RAZORPAY':
             return 'Online Payment (Razorpay)'
-        return 'Online Payment (Razorpay)'
+        return pm or 'Online Payment (Razorpay)'
 
     def get_order_notes(self, obj):
         notes = []
@@ -522,17 +578,45 @@ class OrderSerializer(serializers.ModelSerializer):
         return round(prev + curr, 2)
 
     def get_amount_paid(self, obj):
+        if getattr(obj, 'payment_status', '').lower() == 'paid':
+            return float(obj.grand_total or obj.amount or 0.0)
         if hasattr(obj, 'invoice') and obj.invoice:
+            if obj.invoice.status == 'PAID':
+                return float(obj.invoice.grand_total or obj.invoice.amount_paid)
             return float(obj.invoice.amount_paid)
         return 0.0
 
     def get_outstanding_balance(self, obj):
+        if getattr(obj, 'payment_status', '').lower() == 'paid':
+            return 0.0
         if hasattr(obj, 'invoice') and obj.invoice:
+            if obj.invoice.status == 'PAID':
+                return 0.0
             return float(obj.invoice.outstanding_balance)
         return float(obj.grand_total or obj.amount or 0.0)
 
     def get_outstanding_amount(self, obj):
         return self.get_outstanding_balance(obj)
+
+    def get_payment_collected(self, obj):
+        if getattr(obj, 'payment_status', '').lower() == 'paid':
+            return True
+        inv = self._get_invoice(obj)
+        if inv and inv.status == 'PAID':
+            return True
+        return False
+
+    def get_is_pending_verification(self, obj):
+        if getattr(obj, 'payment_status', '').lower() == 'paid':
+            return False
+        inv = self._get_invoice(obj)
+        if inv:
+            if inv.status == 'PAYMENT_PENDING_VERIFICATION':
+                return True
+            from billing.models import PaymentTransaction
+            if PaymentTransaction.objects.filter(invoice=inv, payment_status__in=['PENDING', 'PENDING_VERIFICATION']).exists():
+                return True
+        return getattr(obj, 'payment_status', '').lower() == 'pending_verification'
 
     def get_credit_limit(self, obj):
         if obj.serving_franchise:

@@ -9,6 +9,8 @@ from decimal import Decimal
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Sum, F
 from django.db import transaction
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -46,15 +48,16 @@ class OrderListCreateView(APIView):
         else:
             profile = getattr(user, 'profile', None)
             role = profile.role if profile else 'customer'
+            from accounts.models import FranchiseProfile
+            fp = getattr(user, 'franchise_profile', None) or FranchiseProfile.objects.filter(user=user).first()
+            if fp and role not in ['admin', 'super_admin'] and not user.is_superuser and not user.is_staff:
+                role = 'franchise'
+
             if user.is_superuser or role in ['admin', 'super_admin'] or user.is_staff or role == 'sales_executive':
                 from accounts.services import apply_data_scope
                 orders = Order.objects.select_related('created_by', 'serving_franchise').prefetch_related('items').all()
                 orders = apply_data_scope(user, orders, 'Order')
             elif role == 'franchise':
-                fp = getattr(user, 'franchise_profile', None)
-                if not fp:
-                    from accounts.models import FranchiseProfile
-                    fp = FranchiseProfile.objects.filter(user=user).first()
                 if fp:
                     orders = Order.objects.filter(
                         Q(serving_franchise=fp)
@@ -108,16 +111,93 @@ class OrderListCreateView(APIView):
             creator_fp = FranchiseProfile.objects.filter(user=creator).first()
 
         is_customer = not creator_fp and (not creator or getattr(getattr(creator, 'profile', None), 'role', 'customer') == 'customer')
-        req_pm = str(request.data.get('payment_mode') or request.data.get('payment_method') or request.data.get('payment') or '').strip().upper()
-        if is_customer and req_pm in ['COD', 'CASH', 'CASH_ON_DELIVERY', 'PAY_ON_DELIVERY', 'PENDING_COD']:
-            return Response(
-                {
+
+        serving_franchise = None
+        registered_franchise = None
+        zone = None
+
+        if creator_fp:
+            serving_franchise = creator_fp
+            registered_franchise = creator_fp
+            order_source = 'FRANCHISE'
+            if not zone and getattr(creator_fp, 'zone', None):
+                zone = getattr(creator_fp, 'zone', None)
+
+        if creator:
+            rel = getattr(creator, 'customer_relationship', None)
+            if rel:
+                registered_franchise = rel.registered_franchise
+                zone = rel.zone
+
+        serving_franchise_id = request.data.get('serving_franchise_id') or request.data.get('serving_franchise')
+        order_source_raw = str(request.data.get('order_source', '')).strip().upper()
+
+        if creator_fp:
+            order_source = 'FRANCHISE'
+            serving_franchise = creator_fp
+            registered_franchise = creator_fp
+        elif order_source_raw == 'DIRECT_COMPANY':
+            order_source = 'DIRECT_COMPANY'
+            serving_franchise = None
+        elif serving_franchise_id:
+            from accounts.models import FranchiseProfile
+            from accounts.services import resolve_serviceable_franchises
+            try:
+                sf = FranchiseProfile.objects.get(id=serving_franchise_id, status='approved')
+                if zone:
+                    serv_res = resolve_serviceable_franchises(zone=zone, district=rel.district if rel else None, allow_fallback=True)
+                    allowed_ids = {f['id'] for f in serv_res.get('franchises', [])}
+                    if allowed_ids and sf.id not in allowed_ids:
+                        return Response({
+                            'success': False,
+                            'message': f'Franchise "{sf.business_name}" is not serviceable for your delivery area ({zone.name}).'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                serving_franchise = sf
+                order_source = 'FRANCHISE'
+            except FranchiseProfile.DoesNotExist:
+                return Response({
                     'success': False,
-                    'message': 'Cash on Delivery (COD) is disabled for customer orders. Please complete your payment online securely via Razorpay.',
-                    'error_code': 'COD_NOT_ALLOWED',
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                    'message': 'Selected serving franchise does not exist or is not approved.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        elif zone:
+            from accounts.services import resolve_serviceable_franchises
+            serv_res = resolve_serviceable_franchises(zone=zone, district=None, allow_fallback=False)
+            available = serv_res.get('franchises', [])
+            if available:
+                from accounts.models import FranchiseProfile
+                primary_f = next((f for f in available if f.get('is_primary')), available[0])
+                serving_franchise = FranchiseProfile.objects.filter(id=primary_f['id'], status='approved').first()
+                order_source = 'FRANCHISE'
+            else:
+                order_source = 'DIRECT_COMPANY'
+                serving_franchise = None
+        else:
+            order_source = 'DIRECT_COMPANY'
+            serving_franchise = None
+
+        # Payment mode validation
+        req_pm = str(request.data.get('payment_mode') or request.data.get('payment_method') or request.data.get('payment') or '').strip().upper()
+        if order_source == 'DIRECT_COMPANY':
+            if is_customer and req_pm in ['COD', 'CASH', 'CASH_ON_DELIVERY', 'PAY_ON_DELIVERY', 'PENDING_COD']:
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'Cash on Delivery (COD) is disabled for direct company orders. Please complete your payment online securely via Razorpay or Water Wallet.',
+                        'error_code': 'COD_NOT_ALLOWED',
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            # Franchise order: online Razorpay via company account is prohibited
+            if req_pm in ['RAZORPAY', 'ONLINE', 'GATEWAY']:
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'Online central Razorpay payment cannot be used for franchise orders. Please select Pay on Delivery to Franchise.',
+                        'error_code': 'FRANCHISE_RAZORPAY_NOT_ALLOWED',
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         raw_items = request.data.get('order_items') or request.data.get('items_list') or []
         if not raw_items and isinstance(request.data.get('items'), list):
@@ -129,61 +209,52 @@ class OrderListCreateView(APIView):
         # If frontend sent items list or single product id, validate inventory atomically
         with transaction.atomic():
             validated_order_items = []
-            
+            from inventory.models import ProductionBatch, DealerStockBatch
+            from django.db.models import Sum
+            from datetime import date
+            today_chk = date.today()
+
+            items_to_check = []
             if isinstance(raw_items, list) and len(raw_items) > 0:
                 for it in raw_items:
                     p_id = it.get('product_id') or it.get('product') or it.get('id')
                     qty = int(it.get('quantity', 1))
+                    price = it.get('price')
                     if p_id:
-                        try:
-                            prod = Product.objects.select_for_update().get(id=p_id)
-                            from inventory.models import ProductionBatch, DealerStockBatch
-                            from django.db.models import Sum
-                            from datetime import date
-                            today_chk = date.today()
-                            cp_avail = ProductionBatch.objects.filter(
-                                product=prod, status='ACTIVE', expiry_date__gt=today_chk
-                            ).aggregate(s=Sum('quantity_remaining_company'))['s'] or 0
-                            dealer_avail = DealerStockBatch.objects.filter(
-                                product=prod, is_active=True, expiry_date__gt=today_chk
-                            ).aggregate(s=Sum('remaining_quantity'))['s'] or 0
-                            effective_avail = max(prod.stock, int(cp_avail) + int(dealer_avail))
-                            if effective_avail > prod.stock:
-                                prod.stock = effective_avail
-                                prod.save(update_fields=['stock'])
-
-                            if effective_avail < qty:
-                                return Response(
-                                    {
-                                        'success': False,
-                                        'message': f"Only {effective_avail} units are currently available for {prod.name}.",
-                                        'available_stock': effective_avail,
-                                        'product_id': prod.id,
-                                    },
-                                    status=status.HTTP_400_BAD_REQUEST,
-                                )
-                            validated_order_items.append((prod, qty, it.get('price') or prod.price))
-                        except Product.DoesNotExist:
-                            pass
+                        items_to_check.append((p_id, qty, price))
             elif product_id:
+                items_to_check.append((product_id, int(items_count or 1), None))
+
+            for p_id, qty, req_price in items_to_check:
                 try:
-                    qty = int(items_count or 1)
-                    prod = Product.objects.select_for_update().get(id=product_id)
-                    from inventory.models import ProductionBatch, DealerStockBatch
-                    from django.db.models import Sum
-                    from datetime import date
-                    today_chk = date.today()
+                    prod = Product.objects.select_for_update().get(id=p_id)
+                except Product.DoesNotExist:
+                    continue
+
+                if order_source == 'FRANCHISE' and serving_franchise and not creator_fp:
+                    dealer_avail = DealerStockBatch.objects.filter(
+                        dealer=serving_franchise,
+                        product=prod,
+                        is_active=True,
+                        expiry_date__gt=today_chk
+                    ).aggregate(s=Sum('remaining_quantity'))['s'] or 0
+
+                    if dealer_avail < qty:
+                        return Response(
+                            {
+                                'success': False,
+                                'message': f"Only {dealer_avail} units are currently available for {prod.name} at franchise '{serving_franchise.business_name}'.",
+                                'available_stock': dealer_avail,
+                                'product_id': prod.id,
+                                'franchise_id': serving_franchise.id,
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                else:
                     cp_avail = ProductionBatch.objects.filter(
                         product=prod, status='ACTIVE', expiry_date__gt=today_chk
                     ).aggregate(s=Sum('quantity_remaining_company'))['s'] or 0
-                    dealer_avail = DealerStockBatch.objects.filter(
-                        product=prod, is_active=True, expiry_date__gt=today_chk
-                    ).aggregate(s=Sum('remaining_quantity'))['s'] or 0
-                    effective_avail = max(prod.stock, int(cp_avail) + int(dealer_avail))
-                    if effective_avail > prod.stock:
-                        prod.stock = effective_avail
-                        prod.save(update_fields=['stock'])
-
+                    effective_avail = max(prod.stock, int(cp_avail))
                     if effective_avail < qty:
                         return Response(
                             {
@@ -194,9 +265,8 @@ class OrderListCreateView(APIView):
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                    validated_order_items.append((prod, qty, prod.price))
-                except Product.DoesNotExist:
-                    pass
+
+                validated_order_items.append((prod, qty, req_price or prod.price))
 
             # Prepare data for OrderSerializer
             order_data = request.data.copy()
@@ -204,100 +274,6 @@ class OrderListCreateView(APIView):
                 order_data['status'] = order_data['status'].strip().lower().replace(' ', '_')
             if 'payment' in order_data and isinstance(order_data['payment'], str):
                 order_data['payment'] = order_data['payment'].strip().lower()
-
-            serving_franchise = None
-            registered_franchise = None
-            zone = None
-
-            creator_fp = getattr(creator, 'franchise_profile', None) if creator else None
-            if not creator_fp and creator:
-                from accounts.models import FranchiseProfile
-                creator_fp = FranchiseProfile.objects.filter(user=creator).first()
-
-            if creator_fp:
-                serving_franchise = creator_fp
-                registered_franchise = creator_fp
-                order_source = 'FRANCHISE'
-                if not zone and getattr(creator_fp, 'zone', None):
-                    zone = getattr(creator_fp, 'zone', None)
-
-            if creator:
-                rel = getattr(creator, 'customer_relationship', None)
-                if rel:
-                    registered_franchise = rel.registered_franchise
-                    zone = rel.zone
-
-            serving_franchise_id = request.data.get('serving_franchise_id') or request.data.get('serving_franchise')
-            order_source_raw = str(request.data.get('order_source', '')).strip().upper()
-
-            if creator_fp:
-                # Creator is the franchise itself; ensure FRANCHISE order source and serving franchise
-                order_source = 'FRANCHISE'
-                serving_franchise = creator_fp
-                registered_franchise = creator_fp
-            elif order_source_raw == 'DIRECT_COMPANY':
-                order_source = 'DIRECT_COMPANY'
-                serving_franchise = None
-            elif serving_franchise_id:
-                from accounts.models import FranchiseProfile
-                from accounts.services import resolve_serviceable_franchises
-                try:
-                    sf = FranchiseProfile.objects.get(id=serving_franchise_id, status='approved')
-                    if zone:
-                        serv_res = resolve_serviceable_franchises(zone=zone, district=rel.district if rel else None, allow_fallback=True)
-                        allowed_ids = {f['id'] for f in serv_res.get('franchises', [])}
-                        if allowed_ids and sf.id not in allowed_ids:
-                            return Response({
-                                'success': False,
-                                'message': f'Franchise "{sf.business_name}" is not serviceable for your delivery area ({zone.name}).'
-                            }, status=status.HTTP_400_BAD_REQUEST)
-                    serving_franchise = sf
-                    order_source = 'FRANCHISE'
-                except FranchiseProfile.DoesNotExist:
-                    return Response({
-                        'success': False,
-                        'message': 'Selected serving franchise does not exist or is not approved.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-            elif zone:
-                from accounts.services import resolve_serviceable_franchises
-                # Exact zone matching only; no random or fallback franchise assigned
-                serv_res = resolve_serviceable_franchises(zone=zone, district=None, allow_fallback=False)
-                available = serv_res.get('franchises', [])
-                if available:
-                    from accounts.models import FranchiseProfile
-                    primary_f = next((f for f in available if f.get('is_primary')), available[0])
-                    serving_franchise = FranchiseProfile.objects.filter(id=primary_f['id'], status='approved').first()
-                    order_source = 'FRANCHISE'
-                else:
-                    # Case 2: Territory selected + NO eligible franchise available -> automatically route DIRECT_COMPANY
-                    order_source = 'DIRECT_COMPANY'
-                    serving_franchise = None
-            else:
-                # Case 3: Customer has NOT selected a territory/location -> automatically route DIRECT_COMPANY
-                order_source = 'DIRECT_COMPANY'
-                serving_franchise = None
-
-            # Fallback Check: If customer-placed order routed to dealer has insufficient non-expired stock, fallback to DIRECT_COMPANY
-            if order_source == 'FRANCHISE' and serving_franchise and not creator_fp:
-                from inventory.models import DealerStockBatch
-                from datetime import date
-                today_chk = date.today()
-                has_insufficient_dealer_stock = False
-                for prod, req_qty, _ in validated_order_items:
-                    dealer_batches = DealerStockBatch.objects.filter(
-                        dealer=serving_franchise,
-                        product=prod,
-                        is_active=True,
-                        expiry_date__gt=today_chk
-                    )
-                    if dealer_batches.exists():
-                        avail = sum(b.available_quantity for b in dealer_batches)
-                        if avail < req_qty:
-                            has_insufficient_dealer_stock = True
-                            break
-                if has_insufficient_dealer_stock:
-                    order_source = 'DIRECT_COMPANY'
-                    serving_franchise = None
 
             # Authoritative fulfillment source & franchise name resolution
             if order_source == 'DIRECT_COMPANY' or not serving_franchise:
@@ -311,6 +287,10 @@ class OrderListCreateView(APIView):
 
             order_data['order_source'] = order_source
             order_data['franchise_name'] = resolved_franchise_name
+
+            if order_source == 'FRANCHISE':
+                order_data['payment_mode'] = 'FRANCHISE_COLLECTION'
+                order_data['payment_status'] = 'pending'
 
             if not order_data.get('city'):
                 user_city = getattr(getattr(creator, 'profile', None), 'city', '') if creator else ''
@@ -370,6 +350,7 @@ class OrderListCreateView(APIView):
                 order_source=order_source,
                 territory=territory_snapshot,
                 delivery_address=delivery_address_val,
+                payment_mode=order_data.get('payment_mode', 'ONLINE'),
             )
 
             # Deduct stock and create OrderItems
@@ -395,10 +376,26 @@ class OrderListCreateView(APIView):
                 notes='Order placed by client.',
             )
 
-            # Perform soft FEFO batch reservation if batches exist
+            # Perform atomic FEFO batch reservation
+            from inventory.services import reserve_order_stock_fefo_atomic
             try:
-                from inventory.services import reserve_order_stock_fefo_atomic
                 reserve_order_stock_fefo_atomic(order)
+            except (DjangoValidationError, DRFValidationError) as ve:
+                transaction.set_rollback(True)
+                if hasattr(ve, 'detail'):
+                    err_msg = str(ve.detail[0] if isinstance(ve.detail, list) else ve.detail)
+                elif hasattr(ve, 'messages'):
+                    err_msg = str(ve.messages[0])
+                else:
+                    err_msg = str(ve)
+                return Response(
+                    {
+                        'success': False,
+                        'message': err_msg,
+                        'error_code': 'INSUFFICIENT_BATCH_STOCK',
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             except Exception:
                 pass
 
@@ -644,6 +641,17 @@ class OrderDetailView(APIView):
         from django.core.exceptions import ValidationError as DjangoValidationError
 
         # Security & Operational Rule: Payment status cannot be marked paid before allowed operational stage (dispatch/delivered)
+        if 'payment' in data and 'payment_status' not in data:
+            raw_p = str(data.get('payment', '')).lower()
+            if 'paid' in raw_p or 'collect' in raw_p:
+                data['payment_status'] = 'paid'
+            elif 'partial' in raw_p:
+                data['payment_status'] = 'partial'
+            elif 'pending_verification' in raw_p or 'verification' in raw_p:
+                data['payment_status'] = 'pending_verification'
+            elif 'pending' in raw_p:
+                data['payment_status'] = 'pending'
+
         if 'payment_status' in data:
             req_ps = str(data.get('payment_status', '')).lower()
             try:
@@ -696,6 +704,33 @@ class OrderDetailView(APIView):
                     bypass_validation=True,  # Already validated above
                 )
 
+            if updated_order.payment_status == 'paid':
+                try:
+                    from billing.services import generate_invoice_for_order
+                    from billing.models import PaymentTransaction
+                    from decimal import Decimal
+                    from django.utils import timezone
+                    inv = generate_invoice_for_order(updated_order)
+                    if inv:
+                        inv.amount_paid = Decimal(str(inv.grand_total))
+                        inv.status = 'PAID'
+                        inv.save(update_fields=['amount_paid', 'status'])
+                        if not inv.payments.filter(payment_status='SUCCESS').exists():
+                            count = PaymentTransaction.objects.count() + 1
+                            txn_number = f"PAY-{timezone.now().strftime('%Y%m%d')}-{count:05d}"
+                            PaymentTransaction.objects.create(
+                                transaction_number=txn_number,
+                                invoice=inv,
+                                payment_method='CASH',
+                                amount_paid=inv.grand_total,
+                                reference_number=f"ADM-ORD-{updated_order.id}",
+                                payment_status='SUCCESS',
+                                received_by=user,
+                                notes='Payment verified and marked collected by Admin.'
+                            )
+                except Exception as ex:
+                    logger.warning("Failed to auto-synchronize invoice on order payment_status='paid': %s", ex)
+
         return Response(
             {
                 'success': True,
@@ -737,64 +772,101 @@ class OrderStatusUpdateView(APIView):
         return self.patch(request, pk)
 
     def patch(self, request, pk):
-        order = get_object_or_404(Order, pk=pk)
+        from django.db import transaction
+        from orders.services import (
+            ALLOWED_ORDER_TRANSITIONS,
+            validate_order_status_transition,
+            transition_order_status,
+        )
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
         user = request.user
         profile = getattr(user, 'profile', None)
         role = profile.role if profile else 'admin'
 
-        # Franchise must only update orders assigned to them
-        if role == 'franchise' and not user.is_superuser:
-            fp = getattr(user, 'franchise_profile', None)
-            if not fp or order.serving_franchise_id != fp.id:
-                return Response({
-                    'success': False,
-                    'message': 'You are not authorized to update this order.'
-                }, status=status.HTTP_403_FORBIDDEN)
-
-        new_status = request.data.get('status', '').strip().lower()
+        raw_status = request.data.get('status', '').strip().lower()
         notes = request.data.get('notes', '').strip()
+
+        # Normalize common colloquial / display variations to canonical backend status
+        status_aliases = {
+            'dispatched': 'dispatch',
+            'in_transit': 'dispatch',
+            'out_for_delivery': 'dispatch',
+            'shipped': 'dispatch',
+            'approved': 'plant_approval',
+            'admin_approved': 'plant_approval',
+            'completed': 'delivered',
+            'complete': 'delivered',
+            'cancelled': 'cancelled',
+            'cancel': 'cancelled',
+            'bottling': 'preparing',
+            'packaging': 'preparing',
+        }
+        new_status = status_aliases.get(raw_status, raw_status)
 
         valid_statuses = dict(Order.STATUS_CHOICES).keys()
         if new_status not in valid_statuses:
             return Response(
                 {
                     'success': False,
-                    'message': 'Invalid order status.',
+                    'message': f"Invalid order status '{raw_status}'.",
+                    'valid_statuses': list(valid_statuses),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from orders.services import validate_order_status_transition, transition_order_status
-        from django.core.exceptions import ValidationError as DjangoValidationError
+        with transaction.atomic():
+            order = Order.objects.select_for_update().filter(pk=pk).first()
+            if not order:
+                return Response({
+                    'success': False,
+                    'message': 'Order not found.'
+                }, status=status.HTTP_404_NOT_FOUND)
 
-        old_status = order.status
-        try:
-            validate_order_status_transition(old_status, new_status)
-        except DjangoValidationError as te:
+            # Franchise must only update orders assigned to them
+            if role == 'franchise' and not user.is_superuser:
+                fp = getattr(user, 'franchise_profile', None)
+                if not fp or order.serving_franchise_id != fp.id:
+                    return Response({
+                        'success': False,
+                        'message': 'You are not authorized to update this order.'
+                    }, status=status.HTTP_403_FORBIDDEN)
+
+            old_status = order.status
+            try:
+                validate_order_status_transition(old_status, new_status)
+            except DjangoValidationError as te:
+                allowed = ALLOWED_ORDER_TRANSITIONS.get((old_status or '').lower().strip(), [])
+                return Response(
+                    {
+                        'success': False,
+                        'message': str(te.message if hasattr(te, 'message') else te),
+                        'error_code': 'INVALID_STATUS_TRANSITION',
+                        'current_status': old_status,
+                        'allowed_transitions': allowed,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            updated_order = transition_order_status(
+                order,
+                new_status,
+                actor=user,
+                notes=notes,
+                bypass_validation=True,
+            )
+
+            allowed_next = ALLOWED_ORDER_TRANSITIONS.get(new_status, [])
+
             return Response(
                 {
-                    'success': False,
-                    'message': str(te.message if hasattr(te, 'message') else te),
-                    'error_code': 'INVALID_STATUS_TRANSITION',
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+                    'success': True,
+                    'message': f'{order.order_code} status changed to {new_status} successfully.',
+                    'order': OrderSerializer(updated_order).data,
+                    'current_status': new_status,
+                    'allowed_transitions': allowed_next,
+                }
             )
-
-        updated_order = transition_order_status(
-            order,
-            new_status,
-            actor=user,
-            notes=notes,
-            bypass_validation=True,
-        )
-
-        return Response(
-            {
-                'success': True,
-                'message': f'{order.order_code} status changed to {new_status} successfully.',
-                'order': OrderSerializer(updated_order).data,
-            }
-        )
 
 
 # =========================================================
@@ -858,30 +930,39 @@ def is_production_environment():
 def get_razorpay_credentials():
     """
     Securely retrieves Razorpay credentials.
-    Defaults to the user-configured test credentials ('rzp_test_TnHOsEiTNcd25f' / 'KhXhv0YO2Lvu1aBFr5ks5s2R')
-    if not explicitly overridden via environment variables or settings.
+    Respects explicit environment variables (including empty string in tests).
+    Defaults to the user-configured credentials if not explicitly set in environment or settings.
     """
     from django.conf import settings
-    key_id = (
-        os.environ.get('RAZORPAY_KEY_ID') or 
-        getattr(settings, 'RAZORPAY_KEY_ID', '') or 
-        'rzp_live_Tnhqo3i0SyYYdf'
-    ).strip()
-    key_secret = (
-        os.environ.get('RAZORPAY_KEY_SECRET') or 
-        getattr(settings, 'RAZORPAY_KEY_SECRET', '') or 
-        'u6BrnyYxz3U9lqPNhSrWI7lB'
-    ).strip()
-    razorpay_env = (
-        os.environ.get('RAZORPAY_ENVIRONMENT') or 
-        getattr(settings, 'RAZORPAY_ENVIRONMENT', '') or 
-        'LIVE'
-    ).strip().upper()
-    webhook_secret = (
-        os.environ.get('RAZORPAY_WEBHOOK_SECRET') or 
-        getattr(settings, 'RAZORPAY_WEBHOOK_SECRET', '') or 
-        ''
-    ).strip()
+
+    if 'RAZORPAY_KEY_ID' in os.environ:
+        key_id = os.environ['RAZORPAY_KEY_ID'].strip()
+    elif getattr(settings, 'RAZORPAY_KEY_ID', None) is not None:
+        key_id = str(settings.RAZORPAY_KEY_ID).strip()
+    else:
+        key_id = 'rzp_live_Tnhqo3i0SyYYdf'
+
+    if 'RAZORPAY_KEY_SECRET' in os.environ:
+        key_secret = os.environ['RAZORPAY_KEY_SECRET'].strip()
+    elif getattr(settings, 'RAZORPAY_KEY_SECRET', None) is not None:
+        key_secret = str(settings.RAZORPAY_KEY_SECRET).strip()
+    else:
+        key_secret = 'u6BrnyYxz3U9lqPNhSrWI7lB'
+
+    if 'RAZORPAY_ENVIRONMENT' in os.environ:
+        razorpay_env = os.environ['RAZORPAY_ENVIRONMENT'].strip().upper()
+    elif getattr(settings, 'RAZORPAY_ENVIRONMENT', None) is not None:
+        razorpay_env = str(settings.RAZORPAY_ENVIRONMENT).strip().upper()
+    else:
+        razorpay_env = 'LIVE'
+
+    if 'RAZORPAY_WEBHOOK_SECRET' in os.environ:
+        webhook_secret = os.environ['RAZORPAY_WEBHOOK_SECRET'].strip()
+    elif getattr(settings, 'RAZORPAY_WEBHOOK_SECRET', None) is not None:
+        webhook_secret = str(settings.RAZORPAY_WEBHOOK_SECRET).strip()
+    else:
+        webhook_secret = ''
+
     return key_id, key_secret, razorpay_env, webhook_secret
 
 
@@ -910,6 +991,17 @@ class RazorpayCreateOrderAPIView(APIView):
         if order_id:
             try:
                 order = Order.objects.get(id=order_id)
+                # Safeguard: Franchise orders cannot use central company Razorpay
+                if getattr(order, 'order_source', '') == 'FRANCHISE':
+                    return Response(
+                        {
+                            'success': False,
+                            'message': 'Franchise orders cannot be processed through central company Razorpay gateway. Payment must be collected directly by the serving franchise upon delivery.',
+                            'error_code': 'FRANCHISE_ORDER_ONLINE_PAYMENT_NOT_SUPPORTED',
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 authoritative_amount = float(order.grand_total if getattr(order, 'grand_total', None) else order.amount)
                 # Anti-tampering check: if client sent an amount, verify it matches order total
                 if amount is not None:
@@ -1140,6 +1232,16 @@ class RazorpayVerifyPaymentAPIView(APIView):
             return Response(
                 {'success': False, 'message': 'Order not found.', 'error_code': 'ORDER_NOT_FOUND'},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if getattr(order, 'order_source', '') == 'FRANCHISE':
+            return Response(
+                {
+                    'success': False,
+                    'message': 'Franchise orders cannot be verified via central Razorpay gateway. Payment must be collected directly by the serving franchise upon delivery.',
+                    'error_code': 'FRANCHISE_ORDER_PAYMENT_NOT_SUPPORTED',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Idempotency: If order is already verified and marked paid, return success immediately

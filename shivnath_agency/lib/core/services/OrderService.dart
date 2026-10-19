@@ -334,6 +334,16 @@ class OrderService {
             item['payment_status']?.toString() ?? '',
           ),
 
+      'payment_status': item['payment_status']?.toString().toLowerCase() ?? '',
+
+      'payment_collected': item['payment_collected'] == true ||
+          (item['payment_status']?.toString().toLowerCase() == 'paid') ||
+          (item['invoice_status']?.toString().toUpperCase() == 'PAID'),
+
+      'is_pending_verification': item['is_pending_verification'] == true ||
+          (item['payment_status']?.toString().toLowerCase() == 'pending_verification') ||
+          (item['invoice_status']?.toString().toUpperCase() == 'PAYMENT_PENDING_VERIFICATION'),
+
       'duration_choice': item['duration_choice']?.toString() ?? '',
 
       'order_source': item['order_source']?.toString() ?? '',
@@ -490,26 +500,97 @@ class OrderService {
   // STATUS CONVERSION
   // =====================================================
 
+  static String statusToApi(String value) {
+    return canonicalStatus(value);
+  }
+
   String _statusToApi(String value) {
-    switch (value) {
-      case 'Order Placement':
-        return 'order_placement';
-      case 'Plant Approval':
-        return 'plant_approval';
-      case 'Preparing':
-        return 'preparing';
-      case 'Invoice Generated':
-        return 'invoice_generated';
-      case 'Dispatch':
-        return 'dispatch';
-      case 'Delivered':
-        return 'delivered';
-      case 'Payment Collection':
-        return 'payment_collection';
-      case 'Cancelled':
-        return 'cancelled';
+    return statusToApi(value);
+  }
+
+  static String canonicalStatus(String? value) {
+    if (value == null || value.trim().isEmpty) return 'order_placement';
+    final lower = value.trim().toLowerCase().replaceAll(' ', '_');
+
+    if (lower == 'dispatch' ||
+        lower == 'dispatched' ||
+        lower == 'out_for_delivery' ||
+        lower == 'in_transit' ||
+        lower == 'shipped' ||
+        lower.contains('dispatch')) {
+      return 'dispatch';
+    }
+    if (lower == 'invoice_generated' || lower.contains('invoice')) {
+      return 'invoice_generated';
+    }
+    if (lower == 'preparing' || lower.contains('prepar') || lower.contains('bottling')) {
+      return 'preparing';
+    }
+    if (lower == 'delivered' ||
+        lower == 'completed' ||
+        lower.contains('deliver') ||
+        lower.contains('complet')) {
+      return 'delivered';
+    }
+    if (lower == 'plant_approval' ||
+        lower == 'approved' ||
+        lower == 'admin_approved' ||
+        (lower.contains('plant') && lower.contains('approv'))) {
+      return 'plant_approval';
+    }
+    if (lower == 'cancelled' || lower == 'cancel') {
+      return 'cancelled';
+    }
+    if (lower == 'payment_collection') {
+      return 'payment_collection';
+    }
+    if (lower == 'order_placement' || lower == 'new' || lower == 'created' || lower == 'pending') {
+      return 'order_placement';
+    }
+    return lower;
+  }
+
+  static List<String> getAllowedNextStatuses(String? currentStatus) {
+    final canonical = canonicalStatus(currentStatus);
+    switch (canonical) {
+      case 'order_placement':
+        return ['plant_approval', 'cancelled'];
+      case 'plant_approval':
+        return ['invoice_generated', 'preparing', 'cancelled'];
+      case 'invoice_generated':
+        return ['preparing', 'dispatch', 'cancelled'];
+      case 'preparing':
+        return ['invoice_generated', 'dispatch', 'cancelled'];
+      case 'dispatch':
+        return ['delivered', 'cancelled'];
+      case 'delivered':
+      case 'cancelled':
       default:
-        return value.trim().toLowerCase().replaceAll(' ', '_');
+        return [];
+    }
+  }
+
+  static String getStatusLabel(String? status) {
+    final canonical = canonicalStatus(status);
+    switch (canonical) {
+      case 'order_placement':
+        return 'Order Placement';
+      case 'plant_approval':
+        return 'Plant Approval';
+      case 'invoice_generated':
+        return 'Invoice Generated';
+      case 'preparing':
+        return 'Preparing / Bottling';
+      case 'dispatch':
+        return 'Dispatched / In Transit';
+      case 'delivered':
+        return 'Delivered';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'payment_collection':
+        return 'Payment Collection';
+      default:
+        return normalizeStatusDisplay(status ?? '');
     }
   }
 

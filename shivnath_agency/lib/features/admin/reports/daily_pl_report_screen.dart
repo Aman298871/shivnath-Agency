@@ -1774,111 +1774,134 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
+      builder: (ctx) => SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(10),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                  child: const Icon(Icons.store_rounded, color: Color(0xFFD97706), size: 24),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        fName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
-                        ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      Text(
-                        'Stock Request: ',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF64748B),
-                        ),
+                      child: const Icon(Icons.store_rounded, color: Color(0xFFD97706), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const Text(
+                            'Stock Request: ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                _modalRow('Product', req['product_name']?.toString() ?? '-'),
+                _modalRow('Requested Qty', ' units'),
+                _modalRow('Dispatched Qty', ' units'),
+                _modalRow('Status', req['status']?.toString() ?? '-'),
+                _modalRow('Outstanding Due', 'Rs.'),
+                const SizedBox(height: 20),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isCompact = constraints.maxWidth < 340;
+                    final closeBtn = OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Close'),
+                    );
+                    final filterBtn = ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        setState(() {
+                          if (isSelected) {
+                            _selectedFranchiseId = null;
+                            _selectedFranchiseName = null;
+                          } else {
+                            _selectedFranchiseId = fId;
+                            _selectedFranchiseName = fName;
+                          }
+                        });
+                        _loadReports();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isSelected ? const Color(0xFFEF4444) : const Color(0xFFD97706),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(isSelected ? 'Clear Filter' : 'Filter by this Franchise'),
+                      ),
+                    );
+
+                    if (isCompact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          filterBtn,
+                          const SizedBox(height: 8),
+                          closeBtn,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(child: closeBtn),
+                        const SizedBox(width: 10),
+                        Expanded(child: filterBtn),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 8),
-            _modalRow('Product', req['product_name']?.toString() ?? '-'),
-            _modalRow('Requested Qty', ' units'),
-            _modalRow('Dispatched Qty', ' units'),
-            _modalRow('Status', req['status']?.toString() ?? '-'),
-            _modalRow('Outstanding Due', 'Rs.'),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: const Text('Close'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      setState(() {
-                        if (isSelected) {
-                          _selectedFranchiseId = null;
-                          _selectedFranchiseName = null;
-                        } else {
-                          _selectedFranchiseId = fId;
-                          _selectedFranchiseName = fName;
-                        }
-                      });
-                      _loadReports();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isSelected ? const Color(0xFFEF4444) : const Color(0xFFD97706),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: Text(isSelected ? 'Clear Filter' : 'Filter by this Franchise'),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1890,8 +1913,21 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -1989,111 +2025,120 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
+      builder: (ctx) => SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (icon != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
                     decoration: BoxDecoration(
-                      color: themeColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    child: Icon(icon, color: themeColor, size: 22),
                   ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    if (icon != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: themeColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
                         ),
+                        child: Icon(icon, color: themeColor, size: 22),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: BrandColors.textSecondary,
-                        ),
-                      ),
+                      const SizedBox(width: 12),
                     ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: BrandColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: BrandColors.border),
+                const SizedBox(height: 12),
+                ...items.map((it) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              it['label'] ?? '',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF475569),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            it['value'] ?? '',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: it['color'] != null
+                                  ? Color(int.parse(it['color']!))
+                                  : const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Divider(height: 1, color: BrandColors.border),
-            const SizedBox(height: 12),
-            ...items.map((it) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        it['label'] ?? '',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                      Text(
-                        it['value'] ?? '',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: it['color'] != null
-                              ? Color(int.parse(it['color']!))
-                              : const Color(0xFF0F172A),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F172A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w700)),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -2115,97 +2160,104 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(22),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
+      builder: (ctx) => SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(22),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  isProfitable ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                  color: isProfitable ? const Color(0xFF059669) : const Color(0xFFDC2626),
-                  size: 26,
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Icon(
+                      isProfitable ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                      color: isProfitable ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                      size: 26,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        isProfitable ? 'Net Profit Statement' : 'Net Loss Statement',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Authoritative ERP Formula: Revenue (Delivered) − Snapshot COGS − Operating Expenses',
+                  style: TextStyle(fontSize: 12, color: BrandColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: BrandColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      _formulaRow('Gross Revenue (Delivered)', '₹${fmt.format(grossRev)}', const Color(0xFF0284C7)),
+                      const SizedBox(height: 8),
+                      _formulaRow('− Snapshot COGS', '₹${fmt.format(cogs)}', const Color(0xFFEF4444)),
+                      const Divider(height: 16),
+                      _formulaRow('= Gross Profit Margin', '₹${fmt.format(grossProfit)}', const Color(0xFF10B981)),
+                      const SizedBox(height: 8),
+                      _formulaRow('− Operating Expenses', '₹${fmt.format(expenses)}', const Color(0xFFDC2626)),
+                      const Divider(height: 16),
+                      _formulaRow(
+                        isProfitable ? '═ Net Profit' : '═ Net Loss',
+                        '₹${fmt.format(netProfit.abs())}',
+                        isProfitable ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                        isBold: true,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Text(
-                  isProfitable ? 'Net Profit Statement' : 'Net Loss Statement',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF0F172A),
+                  'Operating Margin: $marginPct% on realized turnover.',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'Authoritative ERP Formula: Revenue (Delivered) − Snapshot COGS − Operating Expenses',
-              style: TextStyle(fontSize: 12, color: BrandColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: BrandColors.border),
-              ),
-              child: Column(
-                children: [
-                  _formulaRow('Gross Revenue (Delivered)', '₹${fmt.format(grossRev)}', const Color(0xFF0284C7)),
-                  const SizedBox(height: 8),
-                  _formulaRow('− Snapshot COGS', '₹${fmt.format(cogs)}', const Color(0xFFEF4444)),
-                  const Divider(height: 16),
-                  _formulaRow('= Gross Profit Margin', '₹${fmt.format(grossProfit)}', const Color(0xFF10B981)),
-                  const SizedBox(height: 8),
-                  _formulaRow('− Operating Expenses', '₹${fmt.format(expenses)}', const Color(0xFFDC2626)),
-                  const Divider(height: 16),
-                  _formulaRow(
-                    isProfitable ? '═ Net Profit' : '═ Net Loss',
-                    '₹${fmt.format(netProfit.abs())}',
-                    isProfitable ? const Color(0xFF059669) : const Color(0xFFDC2626),
-                    isBold: true,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Operating Margin: $marginPct% on realized turnover.',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F172A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w700)),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -2215,14 +2267,18 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isBold ? 14 : 12,
-            fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
-            color: const Color(0xFF334155),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: isBold ? 14 : 12,
+              fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+              color: const Color(0xFF334155),
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
+        const SizedBox(width: 8),
         Text(
           value,
           style: TextStyle(

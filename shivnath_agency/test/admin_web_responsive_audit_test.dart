@@ -43,6 +43,18 @@ void main() {
         } else {
           expect(find.byType(AppBar), findsOneWidget);
         }
+        for (final element in tester.allElements) {
+          final ro = element.renderObject;
+          if (ro is RenderFlex && (ro.toString().contains('OVERFLOWING') || ro.toString().contains('overflowed'))) {
+            debugPrint('>>> OVERFLOWING WIDGET IN ADMIN MAIN: ${element.widget}');
+            final ancestors = <String>[];
+            element.visitAncestorElements((anc) {
+              ancestors.add(anc.widget.runtimeType.toString());
+              return ancestors.length < 8;
+            });
+            debugPrint('>>> ANCESTORS: ${ancestors.join(" -> ")}');
+          }
+        }
 
         final ex = tester.takeException();
         expect(ex, isNull, reason: 'Layout exception at ${width.toInt()}px');

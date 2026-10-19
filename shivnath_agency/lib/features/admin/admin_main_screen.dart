@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
+import '../../core/providers/auth_provider.dart';
 import '../../core/repositories/app_repositories.dart';
 import '../../core/services/notification_service.dart';
+import '../../core/services/session_service.dart';
 import '../../core/widgets/ai_chatbot_modal.dart';
 import '../../core/widgets/support_desk_modal.dart';
 import '../../routes/app_routes.dart';
@@ -47,6 +51,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   Timer? _orderPollTimer;
   int _lastMaxOrderId = 0;
   bool _baselineOrdersLoaded = false;
+  bool _isLoggingOut = false;
   final OrderRepository _orderService = OrderRepository();
   final InventoryRepository _inventoryService = InventoryRepository();
   final AuthRepository _authRepository = AuthRepository();
@@ -63,7 +68,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
 
   @override
   void dispose() {
+    _isLoggingOut = true;
     _orderPollTimer?.cancel();
+    _orderPollTimer = null;
     super.dispose();
   }
 
@@ -77,9 +84,16 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   }
 
   Future<void> _pollOrders() async {
+    final sessionEpoch = SessionService.currentSessionEpoch;
+    if (_isLoggingOut || !mounted) return;
     try {
       final res = await _orderService.getOrders();
-      if (!mounted) return;
+      if (!mounted || _isLoggingOut || !SessionService.isSessionActive(sessionEpoch)) return;
+      try {
+        final auth = context.read<AuthProvider>();
+        if (!auth.isAuthenticated || (auth.currentUser?.role != 'admin' && auth.currentUser?.role != 'super_admin')) return;
+      } catch (_) {}
+
       if (res['success'] == true && res['data'] != null) {
         final List items =
             res['data']['orders'] ?? (res['data'] is List ? res['data'] : []);
@@ -138,7 +152,11 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     int pendingCount = 1,
     List<Map<String, dynamic>> pendingOrdersList = const [],
   }) {
-    if (!mounted) return;
+    if (!mounted || _isLoggingOut || !SessionService.isSessionActive(SessionService.currentSessionEpoch)) return;
+    try {
+      final auth = context.read<AuthProvider>();
+      if (!auth.isAuthenticated || (auth.currentUser?.role != 'admin' && auth.currentUser?.role != 'super_admin')) return;
+    } catch (_) {}
     final orderNum = order['order_id'] ?? order['id'] ?? 'New';
     final cust = order['customer_name'] ?? 'Customer';
     final amt = order['total_amount'] ?? order['amount'] ?? '';
@@ -236,9 +254,15 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   }
 
   Future<void> _pollStockRequests() async {
+    final sessionEpoch = SessionService.currentSessionEpoch;
+    if (_isLoggingOut || !mounted) return;
     try {
       final res = await _inventoryService.getDealerStockRequests();
-      if (!mounted) return;
+      if (!mounted || _isLoggingOut || !SessionService.isSessionActive(sessionEpoch)) return;
+      try {
+        final auth = context.read<AuthProvider>();
+        if (!auth.isAuthenticated || (auth.currentUser?.role != 'admin' && auth.currentUser?.role != 'super_admin')) return;
+      } catch (_) {}
       if (res['success'] == true && res['data'] is List) {
         final List items = res['data'] as List;
         if (items.isEmpty) {
@@ -809,11 +833,27 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   // =========================================================
 
   Future<void> _logout() async {
-    await AuthRepository().logout();
+    _isLoggingOut = true;
+    _orderPollTimer?.cancel();
+    _orderPollTimer = null;
+
+    // Immediately clear all existing and pending SnackBars
+    ScaffoldMessenger.of(context).clearSnackBars();
+
+    // Dismiss any active dialogs (such as PendingOrdersPickerDialog)
+    Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst || route.settings.name == AppRoutes.adminDashboard);
+
+    try {
+      await context.read<AuthProvider>().logout();
+    } catch (_) {
+      await _authRepository.logout();
+    }
 
     if (!mounted) {
       return;
     }
+
+    ScaffoldMessenger.of(context).clearSnackBars();
 
     Navigator.pushNamedAndRemoveUntil(
       context,
@@ -1001,59 +1041,65 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'Shivnath Agency',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Flexible(
+                              child: Text(
+                                'Shivnath Agency',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFFEF4444,
-                              ).withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
+                            const SizedBox(width: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1.5,
+                              ),
+                              decoration: BoxDecoration(
                                 color: const Color(
                                   0xFFEF4444,
-                                ).withValues(alpha: 0.6),
-                                width: 0.8,
+                                ).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: const Color(
+                                    0xFFEF4444,
+                                  ).withValues(alpha: 0.6),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: const Text(
+                                'ADMIN',
+                                style: TextStyle(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFFCA5A5),
+                                  letterSpacing: 0.5,
+                                ),
                               ),
                             ),
-                            child: const Text(
-                              'ADMIN',
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFFFCA5A5),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        _currentUser?.roleDisplay.isNotEmpty == true
-                            ? '${_currentUser!.roleDisplay} Panel'
-                            : 'Admin Control Panel',
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 11,
+                          ],
                         ),
-                      ),
-                    ],
+                        Text(
+                          _currentUser?.roleDisplay.isNotEmpty == true
+                              ? '${_currentUser!.roleDisplay} Panel'
+                              : 'Admin Control Panel',
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 11,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -1211,49 +1257,56 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
             // =================================================
             // SEARCH
             // =================================================
-            SizedBox(
-              width: 360,
-              height: 44,
-              child: TextField(
-                onSubmitted: _searchSection,
-                textAlignVertical: TextAlignVertical.center,
-                decoration: InputDecoration(
-                  hintText: 'Search leads, franchise, orders...',
-                  hintStyle: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF64748B),
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                    size: 20,
-                    color: Color(0xFF475569),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 0,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF0284C7),
-                      width: 1.2,
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  child: SizedBox(
+                    height: 44,
+                    child: TextField(
+                      onSubmitted: _searchSection,
+                      textAlignVertical: TextAlignVertical.center,
+                      decoration: InputDecoration(
+                        hintText: 'Search leads, franchise, orders...',
+                        hintStyle: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF64748B),
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          size: 20,
+                          color: Color(0xFF475569),
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 0,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF0284C7),
+                            width: 1.2,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
 
-            const Spacer(),
+            const SizedBox(width: 12),
 
             // =================================================
             // AI ASSISTANT
@@ -1467,12 +1520,12 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
 
                       const SizedBox(width: 10),
 
-                      const SizedBox(
-                        height: 40,
+                      Flexible(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
                             Text(
                               'Admin',
                               style: TextStyle(
@@ -1481,6 +1534,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                                 color: Color(0xFF111827),
                                 fontWeight: FontWeight.w700,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             SizedBox(height: 5),
                             Text(
@@ -1491,6 +1545,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                                 color: Color(0xFF94A3B8),
                                 fontWeight: FontWeight.w400,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),

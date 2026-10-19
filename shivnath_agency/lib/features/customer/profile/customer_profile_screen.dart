@@ -236,18 +236,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          left: 20,
-          right: 20,
-          top: 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
               children: [
                 const Icon(Icons.location_on, color: Color(0xFF0284C7)),
                 const SizedBox(width: 8),
@@ -314,7 +316,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   void _showTerritoryLocationDialog() {

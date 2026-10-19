@@ -27,6 +27,8 @@ class CreditAndPaymentFlowE2ETest(TestCase):
         admin_profile.role = 'admin'
         admin_profile.save()
 
+        self.admin_user.refresh_from_db()
+
         # Franchise user
         self.franchise_user = User.objects.create_user(
             username='franchise_test',
@@ -43,6 +45,7 @@ class CreditAndPaymentFlowE2ETest(TestCase):
             status='approved',
             city='Raipur'
         )
+        self.franchise_user.refresh_from_db()
 
         # Product
         self.cat = ProductCategory.objects.create(name='Packaged Water', slug='water')
@@ -197,3 +200,175 @@ class CreditAndPaymentFlowE2ETest(TestCase):
             format='json'
         )
         self.assertEqual(bad_res.status_code, 400)
+
+    def test_franchise_order_partial_collection_and_admin_approval(self):
+        """Franchise records partial collection on customer order; admin approves; ledger updates once."""
+        from orders.models import Order
+        order = Order.objects.create(
+            created_by=self.franchise_user,
+            serving_franchise=self.franchise,
+            franchise_name=self.franchise.business_name,
+            city='Raipur',
+            amount=Decimal('1200.00'),
+            grand_total=Decimal('1200.00'),
+            status='delivered',
+            payment_status='pending',
+            payment_mode='FRANCHISE_COLLECTION',
+            order_source='FRANCHISE'
+        )
+
+        # 1. Franchise records partial collection of ₹500
+        self.client.force_authenticate(user=self.franchise_user)
+        pay_res = self.client.post(
+            f'/api/billing/orders/{order.id}/payments/',
+            data={
+                'payment_type': 'PARTIAL',
+                'amount': '500.00',
+                'payment_method': 'CASH',
+                'notes': 'Partial cash collected on delivery'
+            },
+            format='json'
+        )
+        self.assertEqual(pay_res.status_code, 201)
+        self.assertTrue(pay_res.data.get('is_pending_verification'))
+
+        txn = PaymentTransaction.objects.filter(invoice__order=order).first()
+        self.assertIsNotNone(txn)
+        self.assertEqual(txn.payment_status, 'PENDING_VERIFICATION')
+        self.assertEqual(txn.amount_paid, Decimal('500.00'))
+
+        # Before approval, invoice amount_paid is 0 and order payment_status is still pending
+        order.refresh_from_db()
+        self.assertEqual(order.payment_status, 'pending')
+        invoice = txn.invoice
+        self.assertEqual(invoice.amount_paid, Decimal('0.00'))
+        self.assertEqual(invoice.outstanding_balance, Decimal('1416.00'))  # ₹1200 + 18% GST
+
+        # 2. Non-admin (franchise user) attempts to approve payment -> HTTP 403 Forbidden
+        bad_appr = self.client.post(f'/api/billing/payments/{txn.id}/verify/', format='json')
+        self.assertEqual(bad_appr.status_code, 403)
+
+        # 3. Admin approves payment
+        self.client.force_authenticate(user=self.admin_user)
+        appr_res = self.client.post(f'/api/billing/payments/{txn.id}/verify/', format='json')
+        self.assertEqual(appr_res.status_code, 200)
+
+        txn.refresh_from_db()
+        self.assertEqual(txn.payment_status, 'SUCCESS')
+
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.amount_paid, Decimal('500.00'))
+        self.assertEqual(invoice.outstanding_balance, Decimal('916.00'))
+        self.assertEqual(invoice.status, 'PARTIALLY_PAID')
+
+        order.refresh_from_db()
+        self.assertEqual(order.payment_status, 'partial')
+
+        # 4. Duplicate approval attempt is rejected
+        dup_appr = self.client.post(f'/api/billing/payments/{txn.id}/verify/', format='json')
+        self.assertEqual(dup_appr.status_code, 400)
+        self.assertIn('already processed', dup_appr.data.get('message', ''))
+
+        # Verify invoice is NOT credited twice
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.amount_paid, Decimal('500.00'))
+
+    def test_franchise_order_collection_rejection_leaves_order_unpaid(self):
+        """Admin rejection of franchise collection leaves invoice and order unpaid."""
+        from orders.models import Order
+        order = Order.objects.create(
+            created_by=self.franchise_user,
+            serving_franchise=self.franchise,
+            franchise_name=self.franchise.business_name,
+            city='Raipur',
+            amount=Decimal('600.00'),
+            grand_total=Decimal('600.00'),
+            status='delivered',
+            payment_status='pending',
+            payment_mode='FRANCHISE_COLLECTION',
+            order_source='FRANCHISE'
+        )
+
+        # 1. Franchise submits collection of ₹600
+        self.client.force_authenticate(user=self.franchise_user)
+        pay_res = self.client.post(
+            f'/api/billing/orders/{order.id}/payments/',
+            data={
+                'payment_type': 'PARTIAL',
+                'amount': '600.00',
+                'payment_method': 'UPI',
+                'reference_number': 'FAKE_REF_001'
+            },
+            format='json'
+        )
+        self.assertEqual(pay_res.status_code, 201)
+        txn = PaymentTransaction.objects.filter(invoice__order=order).first()
+
+        # 2. Admin rejects payment
+        self.client.force_authenticate(user=self.admin_user)
+        rej_res = self.client.post(
+            f'/api/billing/payments/{txn.id}/reject/',
+            data={'notes': 'Fraudulent screenshot submitted'},
+            format='json'
+        )
+        self.assertEqual(rej_res.status_code, 200)
+
+        txn.refresh_from_db()
+        self.assertEqual(txn.payment_status, 'REJECTED')
+
+        invoice = txn.invoice
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.amount_paid, Decimal('0.00'))
+        self.assertEqual(invoice.outstanding_balance, Decimal('708.00'))  # ₹600 + 18% GST
+        self.assertEqual(invoice.status, 'UNPAID')
+
+        order.refresh_from_db()
+        self.assertEqual(order.payment_status, 'pending')
+
+        # 3. Attempting to approve rejected transaction fails
+        bad_appr = self.client.post(f'/api/billing/payments/{txn.id}/verify/', format='json')
+        self.assertEqual(bad_appr.status_code, 400)
+
+    def test_franchise_overpayment_handled_and_rejected(self):
+        """Collection amounts greater than outstanding are capped on orders and rejected on invoice endpoints."""
+        from orders.models import Order
+        order = Order.objects.create(
+            created_by=self.franchise_user,
+            serving_franchise=self.franchise,
+            franchise_name=self.franchise.business_name,
+            city='Raipur',
+            amount=Decimal('500.00'),
+            grand_total=Decimal('500.00'),
+            status='delivered',
+            payment_status='pending',
+            payment_mode='FRANCHISE_COLLECTION',
+            order_source='FRANCHISE'
+        )
+        self.client.force_authenticate(user=self.franchise_user)
+        # Outstanding is ₹590 (500 + 18% GST).
+        # 1. On OrderPaymentsAPIView, submitting ₹1000 is capped to outstanding (₹590.00)
+        pay_res = self.client.post(
+            f'/api/billing/orders/{order.id}/payments/',
+            data={
+                'payment_type': 'PARTIAL',
+                'amount': '1000.00',
+                'payment_method': 'CASH',
+            },
+            format='json'
+        )
+        self.assertEqual(pay_res.status_code, 201)
+        txn = PaymentTransaction.objects.filter(invoice__order=order).first()
+        self.assertEqual(txn.amount_paid, Decimal('590.00'))  # Capped to ₹590.00
+
+        # 2. On InvoicePaymentAPIView, submitting > outstanding raises ValueError -> HTTP 400
+        inv_res = self.client.post(
+            f'/api/billing/invoices/{txn.invoice.id}/payments/',
+            data={
+                'amount': '1000.00',
+                'payment_method': 'CASH'
+            },
+            format='json'
+        )
+        self.assertEqual(inv_res.status_code, 400)
+        self.assertIn('cannot exceed', str(inv_res.data).lower())
+

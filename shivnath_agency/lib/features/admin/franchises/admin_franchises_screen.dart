@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/repositories/franchise_repository.dart';
 import '../../../core/widgets/document_preview_dialog.dart';
@@ -390,7 +391,7 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
                 Expanded(child: Text('STATUS', style: _headerStyle)),
                 Expanded(child: Text('RENEWAL', style: _headerStyle)),
                 SizedBox(
-                  width: 200,
+                  width: 270,
                   child: Text('ACTIONS', style: _headerStyle),
                 ),
               ],
@@ -478,7 +479,7 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
             ),
           ),
           SizedBox(
-            width: 230,
+            width: 270,
             child: Row(
               children: [
                 if (item['fssaiCertificateUrl'] != null && item['fssaiCertificateUrl'].toString().isNotEmpty)
@@ -496,6 +497,17 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
                     },
                     icon: const Icon(Icons.description_outlined, color: Color(0xFF0284C7), size: 17),
                   ),
+                IconButton(
+                  tooltip: 'Verify FSSAI Status',
+                  onPressed: () {
+                    _showVerifyFssaiDialog(item);
+                  },
+                  icon: const Icon(
+                    Icons.verified_user_outlined,
+                    color: Color(0xFF16A34A),
+                    size: 17,
+                  ),
+                ),
                 IconButton(
                   tooltip: 'View Franchise',
                   onPressed: () {
@@ -644,6 +656,14 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
                       },
                       icon: const Icon(Icons.description_outlined, color: Color(0xFF0284C7)),
                     ),
+
+                  IconButton(
+                    tooltip: 'Verify FSSAI Status',
+                    onPressed: () {
+                      _showVerifyFssaiDialog(item);
+                    },
+                    icon: const Icon(Icons.verified_user_outlined, color: Color(0xFF16A34A)),
+                  ),
 
                   IconButton(
                     tooltip: 'View',
@@ -1664,6 +1684,252 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _showVerifyFssaiDialog(Map<String, dynamic> item) async {
+    final franchiseId = _toInt(item['id']);
+    if (franchiseId <= 0) {
+      AppToast.error(context, 'Invalid franchise ID.');
+      return;
+    }
+
+    String selectedAction = 'VERIFIED';
+    final currentStatus = (item['fssaiStatus']?.toString() ?? 'PENDING_VERIFICATION').toUpperCase();
+    if (currentStatus == 'FAILED') {
+      selectedAction = 'FAILED';
+    } else if (currentStatus == 'MANUAL_REVIEW_REQUIRED') {
+      selectedAction = 'MANUAL_REVIEW_REQUIRED';
+    }
+
+    final officialNameCtrl = TextEditingController(text: item['fssaiBusinessName']?.toString() ?? item['businessName']?.toString() ?? '');
+    final officialExpiryCtrl = TextEditingController(text: item['fssaiExpiryDate']?.toString() ?? '');
+    final notesCtrl = TextEditingController();
+    final reasonCtrl = TextEditingController(text: item['fssaiRejectionReason']?.toString() ?? '');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final isMobile = MediaQuery.of(ctx).size.width < 600;
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.verified_user_outlined, color: Color(0xFF16A34A)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Verify FSSAI: ${item['businessName'] ?? item['owner']}',
+                    style: TextStyle(fontSize: isMobile ? 15 : 17, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isMobile ? 360 : 520),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'FSSAI Number: ${item['fssaiNumber'] != null && item['fssaiNumber'].toString().isNotEmpty ? item['fssaiNumber'] : 'Not Provided'}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E3A8A)),
+                                ),
+                              ),
+                              _fssaiStatusBadge(currentStatus),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Franchise Owner: ${item['owner'] ?? 'N/A'}',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: () async {
+                              final uri = Uri.parse('https://foscos.fssai.gov.in/');
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                              }
+                            },
+                            child: const Row(
+                              children: [
+                                Icon(Icons.open_in_new_rounded, size: 14, color: Color(0xFF0284C7)),
+                                SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Lookup on Official FoSCoS Portal (https://foscos.fssai.gov.in)',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF0284C7),
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (item['fssaiCertificateUrl'] != null && item['fssaiCertificateUrl'].toString().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: () {
+                                DocumentPreviewDialog.show(
+                                  context: ctx,
+                                  title: 'FSSAI Certificate - ${item['businessName'] ?? item['owner']}',
+                                  documentUrl: item['fssaiCertificateUrl'].toString(),
+                                  documentNumber: item['fssaiNumber']?.toString(),
+                                  documentType: 'FSSAI_CERTIFICATE',
+                                  verificationStatus: item['fssaiStatus']?.toString(),
+                                );
+                              },
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.description_outlined, size: 14, color: Color(0xFF0284C7)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Preview Uploaded Certificate',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF0284C7),
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Verification Decision *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'VERIFIED', label: Text('Verified', style: TextStyle(fontSize: 12))),
+                        ButtonSegment(value: 'MANUAL_REVIEW_REQUIRED', label: Text('Review', style: TextStyle(fontSize: 12))),
+                        ButtonSegment(value: 'FAILED', label: Text('Failed', style: TextStyle(fontSize: 12))),
+                      ],
+                      selected: {selectedAction},
+                      onSelectionChanged: (set) {
+                        setDialogState(() {
+                          selectedAction = set.first;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: officialNameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Official Business Name (on FoSCoS portal)',
+                        hintText: 'Exact FBO name returned by FoSCoS',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: officialExpiryCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Official Validity Expiry (YYYY-MM-DD)',
+                        hintText: 'e.g. 2027-12-31',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    if (selectedAction == 'FAILED' || selectedAction == 'MANUAL_REVIEW_REQUIRED') ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: reasonCtrl,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          labelText: selectedAction == 'FAILED' ? 'Rejection Reason *' : 'Review Reason',
+                          hintText: selectedAction == 'FAILED'
+                              ? 'Explain why certificate failed verification...'
+                              : 'Reason for manual review / mismatch notes...',
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: notesCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Internal Audit Notes',
+                        hintText: 'Optional remarks for audit history...',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: selectedAction == 'FAILED'
+                      ? const Color(0xFFDC2626)
+                      : (selectedAction == 'VERIFIED' ? const Color(0xFF16A34A) : const Color(0xFFD97706)),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  if (selectedAction == 'FAILED' && reasonCtrl.text.trim().isEmpty) {
+                    AppToast.error(ctx, 'Rejection reason is required when marking FSSAI as FAILED.');
+                    return;
+                  }
+                  Navigator.pop(ctx, true);
+                },
+                child: Text('Submit $selectedAction'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmed == true) {
+      final res = await _franchiseService.verifyFranchiseFSSAI(
+        franchiseId: franchiseId,
+        action: selectedAction,
+        notes: notesCtrl.text.trim(),
+        reason: reasonCtrl.text.trim(),
+        officialBusinessName: officialNameCtrl.text.trim(),
+        officialExpiryDate: officialExpiryCtrl.text.trim().isNotEmpty ? officialExpiryCtrl.text.trim() : null,
+      );
+
+      if (!mounted) return;
+      if (res['success'] == true) {
+        AppToast.success(context, res['message']?.toString() ?? 'FSSAI status updated successfully');
+        await _loadFranchises();
+      } else {
+        AppToast.error(context, res['message']?.toString() ?? 'Failed to update FSSAI status');
+      }
+    }
   }
 
   Future<void> _approveFranchise(Map<String, dynamic> item) async {

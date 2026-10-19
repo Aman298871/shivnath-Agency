@@ -32,6 +32,18 @@ class OrderRepository {
     return await _orderService.updateOrderStatus(id, status);
   }
 
+  List<String> getAllowedNextStatuses(String? currentStatus) {
+    return OrderService.getAllowedNextStatuses(currentStatus);
+  }
+
+  String getStatusLabel(String? status) {
+    return OrderService.getStatusLabel(status);
+  }
+
+  String canonicalStatus(String? status) {
+    return OrderService.canonicalStatus(status);
+  }
+
   Future<Map<String, dynamic>> getWalletDetails() async {
     return await _orderService.getWalletDetails();
   }

@@ -289,28 +289,46 @@ class RecordOrderPaymentAPIView(views.APIView):
                 if order.created_by != user:
                     return Response({'error': 'Unauthorized to view payments for this order.'}, status=status.HTTP_403_FORBIDDEN)
 
+        is_paid = (getattr(order, 'payment_status', '').lower() == 'paid')
+        total_amt = float(order.grand_total or order.amount or 0.0)
+
         if not hasattr(order, 'invoice') or not order.invoice:
             return Response({
                 'success': True,
                 'order_id': order.id,
                 'order_code': order.order_code,
                 'payments': [],
-                'total_amount': float(order.grand_total or order.amount or 0.0),
-                'amount_paid': 0.0,
-                'outstanding_balance': float(order.grand_total or order.amount or 0.0),
-                'payment_status': order.payment_status,
+                'total_amount': total_amt,
+                'amount_paid': total_amt if is_paid else 0.0,
+                'outstanding_balance': 0.0 if is_paid else total_amt,
+                'payment_status': 'PAID' if is_paid else order.payment_status,
+                'payment_collected': is_paid,
+                'is_pending_verification': getattr(order, 'payment_status', '').lower() == 'pending_verification',
             })
 
+        if is_paid and order.invoice.status != 'PAID':
+            try:
+                from decimal import Decimal
+                order.invoice.amount_paid = Decimal(str(order.invoice.grand_total))
+                order.invoice.status = 'PAID'
+                order.invoice.save(update_fields=['amount_paid', 'status'])
+            except Exception:
+                pass
+
         payments = PaymentTransaction.objects.filter(invoice=order.invoice).order_by('-payment_date')
+        inv_paid = order.invoice.status == 'PAID' or is_paid
+        has_pending = payments.filter(payment_status__in=['PENDING', 'PENDING_VERIFICATION']).exists()
         return Response({
             'success': True,
             'order_id': order.id,
             'order_code': order.order_code,
             'invoice_number': order.invoice.invoice_number,
             'total_amount': float(order.invoice.grand_total),
-            'amount_paid': float(order.invoice.amount_paid),
-            'outstanding_balance': float(order.invoice.outstanding_balance),
-            'payment_status': order.invoice.status,
+            'amount_paid': float(order.invoice.grand_total) if inv_paid else float(order.invoice.amount_paid),
+            'outstanding_balance': 0.0 if inv_paid else float(order.invoice.outstanding_balance),
+            'payment_status': 'PAID' if inv_paid else order.invoice.status,
+            'payment_collected': inv_paid,
+            'is_pending_verification': not inv_paid and (order.invoice.status == 'PAYMENT_PENDING_VERIFICATION' or getattr(order, 'payment_status', '').lower() == 'pending_verification' or has_pending),
             'payments': PaymentTransactionSerializer(payments, many=True).data,
         })
 
@@ -402,6 +420,9 @@ class RecordOrderPaymentAPIView(views.APIView):
                 logger.warning("FCM: Payment notification dispatch warning: %s", e)
 
             invoice.refresh_from_db()
+            if not is_pending and invoice.status == 'PAID':
+                order.payment_status = 'paid'
+                order.save(update_fields=['payment_status'])
             order.refresh_from_db()
 
             msg = f"Payment of ₹{amount} submitted for Admin verification." if is_pending else f"Payment of ₹{amount} successfully recorded."

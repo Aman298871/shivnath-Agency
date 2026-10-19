@@ -7,6 +7,8 @@ import 'package:shivnath_agency/features/auth/login_screen.dart';
 import 'package:shivnath_agency/features/customer/cart/cart_provider.dart';
 import 'package:shivnath_agency/features/customer/cart/customer_cart_screen.dart';
 import 'package:shivnath_agency/features/customer/checkout/checkout_screen.dart';
+import 'package:shivnath_agency/core/providers/auth_provider.dart';
+import 'package:shivnath_agency/core/providers/product_provider.dart';
 import 'package:shivnath_agency/features/customer/home/customer_home_screen.dart';
 import 'package:shivnath_agency/features/customer/wallet/customer_wallet_screen.dart';
 
@@ -126,6 +128,8 @@ void main() {
           MultiProvider(
             providers: [
               ChangeNotifierProvider.value(value: cartProvider),
+              ChangeNotifierProvider(create: (_) => ProductProvider()),
+              ChangeNotifierProvider(create: (_) => AuthProvider()),
             ],
             child: const MaterialApp(
               home: CustomerHomeScreen(),

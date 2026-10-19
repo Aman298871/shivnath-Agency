@@ -803,60 +803,83 @@ class _CustomerStockScreenState extends State<CustomerStockScreen> {
                 const SizedBox(height: 10),
 
                 // Actions: Pause/Resume + Refill
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: status == 'hold'
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isCompact = constraints.maxWidth < 280;
+                    final pauseButton = OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: status == 'hold'
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFFE11D48),
+                        side: BorderSide(
+                          color: status == 'hold'
                               ? const Color(0xFF16A34A)
                               : const Color(0xFFE11D48),
-                          side: BorderSide(
-                            color: status == 'hold'
-                                ? const Color(0xFF16A34A)
-                                : const Color(0xFFE11D48),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
-                        onPressed: () => _handleHoldResume(stock),
-                        icon: Icon(
-                          status == 'hold'
-                              ? Icons.play_arrow_rounded
-                              : Icons.pause_circle_outline_rounded,
-                          size: 18,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        label: Text(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      ),
+                      onPressed: () => _handleHoldResume(stock),
+                      icon: Icon(
+                        status == 'hold'
+                            ? Icons.play_arrow_rounded
+                            : Icons.pause_circle_outline_rounded,
+                        size: 18,
+                      ),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
                           status == 'hold' ? 'Resume Service' : 'Pause Service',
+                          maxLines: 1,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0284C7),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    );
+
+                    final refillButton = ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CustomerProductsScreen(),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const CustomerProductsScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.autorenew_rounded, size: 18),
-                        label: const Text('Refill Stock'),
+                        );
+                      },
+                      icon: const Icon(Icons.autorenew_rounded, size: 18),
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Refill Stock', maxLines: 1),
                       ),
-                    ),
-                  ],
+                    );
+
+                    if (isCompact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          pauseButton,
+                          const SizedBox(height: 8),
+                          refillButton,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(child: pauseButton),
+                        const SizedBox(width: 10),
+                        Expanded(child: refillButton),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),

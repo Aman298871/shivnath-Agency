@@ -149,12 +149,13 @@ class _FranchiseCustomersScreenState extends State<FranchiseCustomersScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.all(22),
+      builder: (ctx) => SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(22),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -324,7 +325,8 @@ class _FranchiseCustomersScreenState extends State<FranchiseCustomersScreen> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _detailRow(IconData icon, String label, String val) {

@@ -1,12 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
-import '../../../core/repositories/franchise_repository.dart';
-import '../../../core/repositories/inventory_repository.dart';
+import '../../../core/repositories/app_repositories.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
+import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/support_desk_modal.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
+import '../../customer/orders/order_detail_screen.dart';
 import '../profile/franchise_profile_screen.dart';
 
 class FranchiseDashboardScreen extends StatefulWidget {
@@ -52,6 +54,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
   final SessionService _sessionService = SessionService();
   final FranchiseRepository _franchiseRepository = FranchiseRepository();
   final InventoryRepository _inventoryRepository = InventoryRepository();
+  final OrderRepository _orderRepository = OrderRepository();
   UserModel? _currentUser;
   Map<String, dynamic> _stats = {
     'customers_served': 0,
@@ -65,10 +68,154 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
   };
   bool _loadingStats = true;
 
+  // Real-time live order alert & polling mechanism (matching Admin experience)
+  Timer? _liveAlertTimer;
+  int _lastSeenOrderId = 0;
+  final Set<int> _dismissedOrderIds = {};
+  bool _isCheckingLiveAlerts = false;
+  bool _isLoggingOut = false;
+  List<Map<String, dynamic>> _pendingOrders = [];
+
   @override
   void initState() {
     super.initState();
     _loadSession();
+    _startLiveOrderWatcher();
+  }
+
+  @override
+  void dispose() {
+    _liveAlertTimer?.cancel();
+    _isLoggingOut = true;
+    super.dispose();
+  }
+
+  void _startLiveOrderWatcher() {
+    _liveAlertTimer?.cancel();
+    _liveAlertTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      _checkLiveOrders();
+    });
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) _checkLiveOrders();
+    });
+  }
+
+  Future<void> _checkLiveOrders() async {
+    if (_isCheckingLiveAlerts || _isLoggingOut) return;
+    final sessionEpoch = SessionService.currentSessionEpoch;
+    if (!mounted || !SessionService.isSessionActive(sessionEpoch)) return;
+
+    _isCheckingLiveAlerts = true;
+    try {
+      final res = await _orderRepository.getOrders();
+      if (!mounted || _isLoggingOut || !SessionService.isSessionActive(sessionEpoch)) return;
+
+      if (res['success'] == true && res['data'] is Map) {
+        final rawOrders = res['data']['orders'];
+        if (rawOrders is List) {
+          int maxOrderId = 0;
+          Map<String, dynamic>? newestOrder;
+          final List<Map<String, dynamic>> pendingList = [];
+
+          for (final item in rawOrders) {
+            if (item is Map) {
+              final mapped = _orderRepository.mapOrder(Map<String, dynamic>.from(item));
+              final rawDbId = item['id'] is int
+                  ? item['id'] as int
+                  : (int.tryParse(item['id']?.toString() ?? '') ??
+                        (mapped['id'] is int ? mapped['id'] as int : null));
+              final rawId = mapped['orderId']?.toString();
+              final fallbackId = rawDbId != null ? 'ORD-${1000 + rawDbId}' : '';
+              final orderCode = (rawId != null && rawId.isNotEmpty) ? rawId : fallbackId;
+              final rawStatus = item['status']?.toString() ?? mapped['status']?.toString() ?? '';
+              final canonical = _orderRepository.canonicalStatus(rawStatus);
+
+              final orderData = {
+                'db_id': rawDbId,
+                'id': orderCode,
+                'customer_name': item['created_by_name']?.toString() ?? mapped['customer_name']?.toString() ?? 'Customer',
+                'customer_phone': item['customer_phone']?.toString() ?? mapped['customer_phone']?.toString() ?? '',
+                'delivery_address': item['delivery_address']?.toString() ?? mapped['delivery_address']?.toString() ?? '',
+                'city': item['city']?.toString() ?? mapped['city']?.toString() ?? '',
+                'amount': mapped['amount'] ?? item['total_amount'] ?? 0,
+                'status': _orderRepository.getStatusLabel(canonical),
+                'raw_status': canonical,
+                'created_at': mapped['date']?.toString() ?? item['created_at']?.toString() ?? '',
+                'product': mapped['franchise']?.toString() ?? 'Packaged Water',
+                'raw': item,
+              };
+
+              if (['plant_approval', 'order_placement', 'preparing', 'invoice_generated'].contains(canonical)) {
+                pendingList.add(orderData);
+              }
+
+              final idNum = rawDbId ?? 0;
+              if (idNum > maxOrderId) {
+                maxOrderId = idNum;
+                newestOrder = orderData;
+              }
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              _pendingOrders = pendingList;
+              _stats['pending_orders'] = pendingList.length;
+              _stats['total_orders'] = rawOrders.length;
+            });
+          }
+
+          if (_lastSeenOrderId == 0) {
+            _lastSeenOrderId = maxOrderId;
+          } else if (maxOrderId > _lastSeenOrderId && newestOrder != null && !_dismissedOrderIds.contains(maxOrderId)) {
+            _lastSeenOrderId = maxOrderId;
+            if (mounted && !_isLoggingOut && SessionService.isSessionActive(sessionEpoch)) {
+              final orderCode = newestOrder['id']?.toString() ?? 'ORD-$maxOrderId';
+              final custName = newestOrder['customer_name']?.toString() ?? 'Customer';
+              final summary = newestOrder['product']?.toString() ?? 'Packaged Water';
+              final amt = '₹${newestOrder['amount'] ?? 0}';
+              final dateStr = newestOrder['created_at']?.toString() ?? '';
+              final address = newestOrder['delivery_address']?.toString() ?? newestOrder['city']?.toString() ?? '';
+              final orderStatus = newestOrder['status']?.toString() ?? 'Pending';
+
+              _showLiveOrderAlertDialog(
+                type: 'Assigned Customer Order',
+                code: orderCode,
+                partyName: custName,
+                details: summary,
+                amountOrQty: amt,
+                time: dateStr,
+                deliveryAddress: address,
+                orderStatus: orderStatus,
+                onView: () {
+                  Navigator.of(context, rootNavigator: true).pop();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => OrderDetailScreen(
+                        orderId: orderCode,
+                        initialOrder: newestOrder?['raw'] is Map ? Map<String, dynamic>.from(newestOrder!['raw'] as Map) : newestOrder,
+                        dbId: maxOrderId,
+                      ),
+                    ),
+                  ).then((_) {
+                    _loadStats();
+                    _checkLiveOrders();
+                  });
+                },
+                onDismiss: () {
+                  _dismissedOrderIds.add(maxOrderId);
+                  Navigator.of(context, rootNavigator: true).pop();
+                },
+              );
+            }
+          }
+        }
+      }
+    } catch (_) {
+    } finally {
+      _isCheckingLiveAlerts = false;
+    }
   }
 
   Future<void> _loadSession() async {
@@ -151,6 +298,8 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
     );
 
     if (shouldLogout == true) {
+      _isLoggingOut = true;
+      _liveAlertTimer?.cancel();
       await _sessionService.logout();
       if (!context.mounted) return;
       Navigator.pushNamedAndRemoveUntil(
@@ -159,6 +308,376 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
         (_) => false,
       );
     }
+  }
+
+  void _showLiveOrderAlertDialog({
+    required String type,
+    required String code,
+    required String partyName,
+    required String details,
+    required String amountOrQty,
+    required String time,
+    required VoidCallback onView,
+    required VoidCallback onDismiss,
+    String? deliveryAddress,
+    String? orderStatus,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: EdgeInsets.zero,
+        content: Container(
+          width: 440,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: Colors.white,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.shopping_bag_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'NEW ${type.toUpperCase()}',
+                            style: const TextStyle(
+                              color: Colors.amberAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          Text(
+                            code,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                      onPressed: onDismiss,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Body Details
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.person_rounded,
+                            size: 20,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Customer Name',
+                                style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              ),
+                              Text(
+                                partyName,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (orderStatus != null && orderStatus.isNotEmpty)
+                          AppStatusBadge.order(orderStatus, fontSize: 10),
+                      ],
+                    ),
+                    const Divider(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Item Details', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                              const SizedBox(height: 2),
+                              Text(
+                                details,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const Text('Total Amount', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            const SizedBox(height: 2),
+                            Text(
+                              amountOrQty,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF10B981),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (deliveryAddress != null && deliveryAddress.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              deliveryAddress,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            ),
+                            onPressed: onDismiss,
+                            child: const Text('DISMISS', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700, fontSize: 12)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0284C7),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.receipt_long_rounded, size: 16),
+                            label: const Text('VIEW ORDER', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                            onPressed: onView,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionablePendingOrdersSection() {
+    if (_pendingOrders.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 22),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.notifications_active_rounded, color: Color(0xFFD97706), size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Actionable Pending Orders (${_pendingOrders.length})',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                ],
+              ),
+              if (widget.onOpenOrders != null)
+                TextButton(
+                  onPressed: widget.onOpenOrders,
+                  child: const Text('View All', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFFB45309))),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 105,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _pendingOrders.length,
+              separatorBuilder: (_, index) => const SizedBox(width: 12),
+              itemBuilder: (ctx, idx) {
+                final ord = _pendingOrders[idx];
+                final dbId = ord['db_id'] is int ? ord['db_id'] as int : int.tryParse('${ord['db_id']}');
+                final code = ord['id']?.toString() ?? 'ORD';
+
+                return InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => OrderDetailScreen(
+                          orderId: code,
+                          initialOrder: ord['raw'] is Map ? Map<String, dynamic>.from(ord['raw'] as Map) : ord,
+                          dbId: dbId,
+                        ),
+                      ),
+                    ).then((_) {
+                      _loadStats();
+                      _checkLiveOrders();
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 250,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFCD34D)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              code,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
+                            AppStatusBadge.order(ord['raw_status'] ?? ord['status'], fontSize: 9),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          ord['customer_name']?.toString() ?? 'Customer',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                ord['product']?.toString() ?? 'Packaged Water',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                              ),
+                            ),
+                            Text(
+                              '₹${ord['amount'] ?? 0}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF16A34A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String get _displayName {
@@ -542,6 +1061,8 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                     ),
 
                     const SizedBox(height: 22),
+
+                    _buildActionablePendingOrdersSection(),
 
                     _quickOperationsGrid(desktop),
 

@@ -14,9 +14,8 @@ void main() {
         ),
       );
 
-      // Initial loading
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('My Water Stock'), findsOneWidget);
+      expect(find.text('Pure Drinking Water Stock'), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 100));
     });
@@ -29,7 +28,7 @@ void main() {
       );
 
       expect(find.text('Notifications'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('No notifications'), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 100));
     });

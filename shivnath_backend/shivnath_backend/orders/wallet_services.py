@@ -1,5 +1,5 @@
 """
-Authoritative Service Layer for WATERNow Prepaid 'My Water Wallet'.
+Authoritative Service Layer for Prepaid 'My Water Wallet'.
 Guarantees ACID transactions, row-level database locking (select_for_update),
 idempotency, cryptographic Razorpay HMAC verification, and immutable ledger logging.
 """
@@ -60,7 +60,7 @@ def initiate_wallet_recharge(user, amount_in_rupees):
             'currency': 'INR',
             'receipt': receipt_id,
             'notes': {
-                'purpose': 'WATERNow Wallet Recharge',
+                'purpose': 'Water Wallet Recharge',
                 'user_id': str(user.id),
                 'username': user.username,
                 'internal_txn_id': internal_txn_id,
@@ -185,9 +185,16 @@ def verify_wallet_recharge(user, razorpay_order_id, razorpay_payment_id, razorpa
 def debit_wallet_for_order(order, user):
     """
     Atomically debits the order's grand total from the user's Water Wallet.
-    Raises ValidationError if balance is insufficient.
+    Raises ValidationError if balance is insufficient or if order is for a franchise.
+    Central company wallet balances cannot subsidize franchise orders.
     Updates Order status and payment_status to 'paid'.
     """
+    if getattr(order, 'order_source', '') == 'FRANCHISE':
+        raise ValidationError(
+            "Central Water Wallet balances cannot be used to pay for Franchise orders. "
+            "Franchise orders must be settled directly with the delivering franchise upon delivery."
+        )
+
     required_amount = order.grand_total or order.amount
     if not required_amount or required_amount <= Decimal('0.00'):
         raise ValidationError("Invalid order amount for wallet payment.")

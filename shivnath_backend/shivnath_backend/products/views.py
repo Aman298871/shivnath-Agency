@@ -195,6 +195,7 @@ class ProductListCreateView(APIView):
         serializer = ProductSerializer(
             queryset,
             many=True,
+            context={"request": request},
         )
 
         return Response({

@@ -398,20 +398,39 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _showStatusUpdateDialog(int id, String currentStatus) async {
-    const statuses = [
-      'Order Placement',
-      'Plant Approval',
-      'Preparing',
-      'Invoice Generated',
-      'Dispatch',
-      'Delivered',
-      'Cancelled',
-    ];
+    final String currentCanonical = _orderRepository.canonicalStatus(currentStatus);
+    final List<String> statuses = _orderRepository.getAllowedNextStatuses(currentCanonical);
 
-    String selected = currentStatus;
-    if (!statuses.contains(selected)) {
-      selected = statuses.first;
+    if (statuses.isEmpty) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: Color(0xFF0284C7)),
+              SizedBox(width: 8),
+              Expanded(child: Text('Terminal Status')),
+            ],
+          ),
+          content: Text(
+            'This order is currently in "${_orderRepository.getStatusLabel(currentCanonical)}".\n\n'
+            'It has reached a terminal state and cannot be transitioned to any other fulfillment stage.',
+            style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
     }
+
+    String selected = statuses.first;
 
     final updated = await showDialog<String>(
       context: context,
@@ -436,7 +455,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
-                    items: statuses.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(),
+                    items: statuses.map((s) => DropdownMenuItem(value: s, child: Text(_orderRepository.getStatusLabel(s), style: const TextStyle(fontWeight: FontWeight.w600)))).toList(),
                     onChanged: (nv) {
                       if (nv != null) setDlgState(() => val = nv);
                     },
@@ -1018,48 +1037,53 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.receipt_rounded, color: Color(0xFF0284C7)),
-                const SizedBox(width: 8),
-                Text(
-                  'Tax Invoice $invNumber',
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.receipt_rounded, color: Color(0xFF0284C7)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Tax Invoice $invNumber',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                _infoRow('Billed To', customer.toString()),
+                _infoRow('Serving Plant/Dealer', _order?['franchise']?.toString() ?? 'Shivnath Agency'),
+                _infoRow('Items Subtotal', '₹$subtotal'),
+                _infoRow('CGST + SGST (18%)', '₹$tax'),
+                _infoRow('Delivery Fee', 'FREE'),
+                const Divider(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Invoice Grand Total', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                    Text('₹$grandTotal', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: BrandColors.redDark)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Close'),
+                  ),
                 ),
               ],
             ),
-            const Divider(height: 24),
-            _infoRow('Billed To', customer.toString()),
-            _infoRow('Serving Plant/Dealer', _order?['franchise']?.toString() ?? 'Shivnath Agency'),
-            _infoRow('Items Subtotal', '₹$subtotal'),
-            _infoRow('CGST + SGST (18%)', '₹$tax'),
-            _infoRow('Delivery Fee', 'FREE'),
-            const Divider(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Invoice Grand Total', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                Text('₹$grandTotal', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: BrandColors.redDark)),
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Close'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -263,17 +263,22 @@ class _DocumentPreviewDialogState extends State<DocumentPreviewDialog> {
                 color: Color(0xFFF8FAFC),
                 border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.arrow_back, size: 16),
                     label: const Text('Back'),
                   ),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      if (_fileBytes != null) ...[
+                      if (_fileBytes != null)
                         OutlinedButton.icon(
                           onPressed: _downloadFile,
                           icon: const Icon(Icons.download_rounded, size: 16),
@@ -283,8 +288,6 @@ class _DocumentPreviewDialogState extends State<DocumentPreviewDialog> {
                             side: const BorderSide(color: Color(0xFF0284C7)),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                      ],
                       ElevatedButton.icon(
                         onPressed: _openInExternalBrowser,
                         icon: const Icon(Icons.open_in_new_rounded, size: 16),

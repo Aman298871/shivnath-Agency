@@ -289,6 +289,35 @@ class OrderService {
         ? rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList()
         : [];
 
+    final double rawGrandTotal = double.tryParse(item['invoice_grand_total']?.toString() ?? item['grand_total']?.toString() ?? '') ?? 0.0;
+    final double rawBaseAmount = double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
+    final double totalAmt = rawGrandTotal > 0 ? rawGrandTotal : rawBaseAmount;
+
+    final bool isPaid = item['payment_collected'] == true ||
+        (item['payment_status']?.toString().toLowerCase() == 'paid') ||
+        (item['invoice_status']?.toString().toUpperCase() == 'PAID');
+
+    final double amtPaid = isPaid
+        ? totalAmt
+        : (double.tryParse(item['amount_paid']?.toString() ?? '0') ?? 0.0);
+
+    final double outstandingBal = isPaid
+        ? 0.0
+        : (double.tryParse(item['outstanding_balance']?.toString() ?? '') ??
+            double.tryParse(item['outstanding_amount']?.toString() ?? '') ??
+            (totalAmt - amtPaid).clamp(0.0, totalAmt));
+
+    final bool isPartial = !isPaid && amtPaid > 0 && outstandingBal > 0;
+
+    String paymentLabel;
+    if (isPaid) {
+      paymentLabel = 'PAYMENT COLLECTED';
+    } else if (isPartial) {
+      paymentLabel = 'PARTIALLY PAID';
+    } else {
+      paymentLabel = 'PAYMENT PENDING';
+    }
+
     return {
       'id': item['id'],
 
@@ -316,10 +345,11 @@ class OrderService {
 
       'items_list': itemsList,
 
-      'amount': double.tryParse(
-            item['amount']?.toString() ?? '0',
-          ) ??
-          0,
+      'amount': totalAmt,
+      'base_amount': rawBaseAmount,
+      'subtotal': double.tryParse(item['invoice_subtotal']?.toString() ?? '') ?? rawBaseAmount,
+      'tax_amount': double.tryParse(item['invoice_tax']?.toString() ?? '') ?? 0.0,
+      'grand_total': totalAmt,
 
       'status': normalizeStatusDisplay(
             item['status_display']?.toString() ??
@@ -329,20 +359,13 @@ class OrderService {
 
       'raw_status': item['status']?.toString() ?? '',
 
-      'payment': item['payment_display']?.toString() ??
-          _paymentDisplay(
-            item['payment_status']?.toString() ?? '',
-          ),
+      'payment': paymentLabel,
 
-      'payment_status': item['payment_status']?.toString().toLowerCase() ?? '',
+      'payment_status': isPaid ? 'paid' : (isPartial ? 'partial' : 'pending'),
 
-      'payment_collected': item['payment_collected'] == true ||
-          (item['payment_status']?.toString().toLowerCase() == 'paid') ||
-          (item['invoice_status']?.toString().toUpperCase() == 'PAID'),
+      'payment_collected': isPaid,
 
-      'is_pending_verification': item['is_pending_verification'] == true ||
-          (item['payment_status']?.toString().toLowerCase() == 'pending_verification') ||
-          (item['invoice_status']?.toString().toUpperCase() == 'PAYMENT_PENDING_VERIFICATION'),
+      'is_pending_verification': false,
 
       'duration_choice': item['duration_choice']?.toString() ?? '',
 
@@ -357,11 +380,9 @@ class OrderService {
       'total_delivered_units': int.tryParse(item['total_delivered_units']?.toString() ?? '0') ?? 0,
       'total_pending_stock_units': int.tryParse(item['total_pending_stock_units']?.toString() ?? '0') ?? 0,
 
-      'amount_paid': double.tryParse(item['amount_paid']?.toString() ?? '0') ?? 0.0,
-      'outstanding_balance': double.tryParse(item['outstanding_balance']?.toString() ?? '') ??
-          double.tryParse(item['outstanding_amount']?.toString() ?? '') ?? 0.0,
-      'outstanding_amount': double.tryParse(item['outstanding_amount']?.toString() ?? '') ??
-          double.tryParse(item['outstanding_balance']?.toString() ?? '') ?? 0.0,
+      'amount_paid': amtPaid,
+      'outstanding_balance': outstandingBal,
+      'outstanding_amount': outstandingBal,
       'previous_outstanding': double.tryParse(item['previous_outstanding']?.toString() ?? '0') ?? 0.0,
       'current_order_amount': double.tryParse(item['current_order_amount']?.toString() ?? item['amount']?.toString() ?? '0') ?? 0.0,
       'total_exposure': double.tryParse(item['total_exposure']?.toString() ?? '0') ?? 0.0,
@@ -373,10 +394,10 @@ class OrderService {
 
       'invoice_id': item['invoice_id'],
       'invoice_number': item['invoice_number']?.toString() ?? '',
-      'invoice_status': item['invoice_status']?.toString() ?? 'UNPAID',
+      'invoice_status': isPaid ? 'PAID' : (isPartial ? 'PARTIALLY_PAID' : (item['invoice_status']?.toString() ?? 'UNPAID')),
       'invoice_subtotal': double.tryParse(item['invoice_subtotal']?.toString() ?? item['amount']?.toString() ?? '0') ?? 0.0,
       'invoice_tax': double.tryParse(item['invoice_tax']?.toString() ?? '0') ?? 0.0,
-      'invoice_grand_total': double.tryParse(item['invoice_grand_total']?.toString() ?? item['grand_total']?.toString() ?? item['amount']?.toString() ?? '0') ?? 0.0,
+      'invoice_grand_total': totalAmt,
       'delivery_charges': double.tryParse(item['delivery_charges']?.toString() ?? '0') ?? 0.0,
       'discount_amount': double.tryParse(item['discount_amount']?.toString() ?? '0') ?? 0.0,
       'payment_mode': item['payment_mode']?.toString() ?? 'Pending',
@@ -665,18 +686,6 @@ class OrderService {
     }
   }
 
-  String _paymentDisplay(String value) {
-    switch (value) {
-      case 'pending':
-        return 'Pending';
-      case 'partial':
-        return 'Partial';
-      case 'paid':
-        return 'Paid';
-      default:
-        return value;
-    }
-  }
 
   // =====================================================
   // DATE FORMAT

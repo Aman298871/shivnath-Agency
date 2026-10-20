@@ -201,8 +201,8 @@ class CreditAndPaymentFlowE2ETest(TestCase):
         )
         self.assertEqual(bad_res.status_code, 400)
 
-    def test_franchise_order_partial_collection_and_admin_approval(self):
-        """Franchise records partial collection on customer order; admin approves; ledger updates once."""
+    def test_franchise_order_partial_collection_direct_settlement(self):
+        """Franchise records partial collection on customer order; settles immediately without admin verification bottleneck."""
         from orders.models import Order
         order = Order.objects.create(
             created_by=self.franchise_user,
@@ -230,81 +230,45 @@ class CreditAndPaymentFlowE2ETest(TestCase):
             format='json'
         )
         self.assertEqual(pay_res.status_code, 201)
-        self.assertTrue(pay_res.data.get('is_pending_verification'))
+        self.assertFalse(pay_res.data.get('is_pending_verification'))
 
         txn = PaymentTransaction.objects.filter(invoice__order=order).first()
         self.assertIsNotNone(txn)
-        self.assertEqual(txn.payment_status, 'PENDING_VERIFICATION')
+        self.assertEqual(txn.payment_status, 'SUCCESS')
         self.assertEqual(txn.amount_paid, Decimal('500.00'))
 
-        # Before approval, invoice amount_paid is 0 and order payment_status is still pending
-        order.refresh_from_db()
-        self.assertEqual(order.payment_status, 'pending')
-        invoice = txn.invoice
-        self.assertEqual(invoice.amount_paid, Decimal('0.00'))
-        self.assertEqual(invoice.outstanding_balance, Decimal('1416.00'))  # ₹1200 + 18% GST
-
-        # 2. Non-admin (franchise user) attempts to approve payment -> HTTP 403 Forbidden
-        bad_appr = self.client.post(f'/api/billing/payments/{txn.id}/verify/', format='json')
-        self.assertEqual(bad_appr.status_code, 403)
-
-        # 3. Admin approves payment
-        self.client.force_authenticate(user=self.admin_user)
-        appr_res = self.client.post(f'/api/billing/payments/{txn.id}/verify/', format='json')
-        self.assertEqual(appr_res.status_code, 200)
-
-        txn.refresh_from_db()
-        self.assertEqual(txn.payment_status, 'SUCCESS')
-
-        invoice.refresh_from_db()
-        self.assertEqual(invoice.amount_paid, Decimal('500.00'))
-        self.assertEqual(invoice.outstanding_balance, Decimal('916.00'))
-        self.assertEqual(invoice.status, 'PARTIALLY_PAID')
-
+        # Immediate update: invoice amount_paid is 500 and order payment_status is partial
         order.refresh_from_db()
         self.assertEqual(order.payment_status, 'partial')
-
-        # 4. Duplicate approval attempt is rejected
-        dup_appr = self.client.post(f'/api/billing/payments/{txn.id}/verify/', format='json')
-        self.assertEqual(dup_appr.status_code, 400)
-        self.assertIn('already processed', dup_appr.data.get('message', ''))
-
-        # Verify invoice is NOT credited twice
+        invoice = txn.invoice
         invoice.refresh_from_db()
         self.assertEqual(invoice.amount_paid, Decimal('500.00'))
+        self.assertEqual(invoice.outstanding_balance, Decimal('916.00'))  # ₹1200 + 18% GST (1416) - 500
 
-    def test_franchise_order_collection_rejection_leaves_order_unpaid(self):
-        """Admin rejection of franchise collection leaves invoice and order unpaid."""
-        from orders.models import Order
-        order = Order.objects.create(
-            created_by=self.franchise_user,
-            serving_franchise=self.franchise,
-            franchise_name=self.franchise.business_name,
-            city='Raipur',
-            amount=Decimal('600.00'),
+    def test_dealer_purchase_payment_rejection_leaves_invoice_unpaid(self):
+        """Admin rejection of wholesale dealer purchase payment leaves dealer invoice unpaid."""
+        invoice = Invoice.objects.create(
+            invoice_number='INV-DLR-REJ-001',
+            invoice_type='DEALER_PURCHASE_INVOICE',
+            billed_to_name=self.franchise.business_name,
+            subtotal=Decimal('600.00'),
             grand_total=Decimal('600.00'),
-            status='delivered',
-            payment_status='pending',
-            payment_mode='FRANCHISE_COLLECTION',
-            order_source='FRANCHISE'
+            amount_paid=Decimal('0.00'),
+            status='UNPAID'
         )
 
-        # 1. Franchise submits collection of ₹600
-        self.client.force_authenticate(user=self.franchise_user)
-        pay_res = self.client.post(
-            f'/api/billing/orders/{order.id}/payments/',
-            data={
-                'payment_type': 'PARTIAL',
-                'amount': '600.00',
-                'payment_method': 'UPI',
-                'reference_number': 'FAKE_REF_001'
-            },
-            format='json'
+        # 1. Franchise submits wholesale payment for verification
+        txn = submit_payment_for_verification(
+            invoice_id=invoice.id,
+            amount_paid=Decimal('600.00'),
+            payment_method='UPI',
+            reference_number='DLR_UPI_REF_001',
+            actor=self.franchise_user,
+            notes='Wholesale payment via UPI'
         )
-        self.assertEqual(pay_res.status_code, 201)
-        txn = PaymentTransaction.objects.filter(invoice__order=order).first()
+        self.assertEqual(txn.payment_status, 'PENDING_VERIFICATION')
 
-        # 2. Admin rejects payment
+        # 2. Admin rejects wholesale payment
         self.client.force_authenticate(user=self.admin_user)
         rej_res = self.client.post(
             f'/api/billing/payments/{txn.id}/reject/',
@@ -316,21 +280,17 @@ class CreditAndPaymentFlowE2ETest(TestCase):
         txn.refresh_from_db()
         self.assertEqual(txn.payment_status, 'REJECTED')
 
-        invoice = txn.invoice
         invoice.refresh_from_db()
         self.assertEqual(invoice.amount_paid, Decimal('0.00'))
-        self.assertEqual(invoice.outstanding_balance, Decimal('708.00'))  # ₹600 + 18% GST
+        self.assertEqual(invoice.outstanding_balance, Decimal('600.00'))
         self.assertEqual(invoice.status, 'UNPAID')
-
-        order.refresh_from_db()
-        self.assertEqual(order.payment_status, 'pending')
 
         # 3. Attempting to approve rejected transaction fails
         bad_appr = self.client.post(f'/api/billing/payments/{txn.id}/verify/', format='json')
         self.assertEqual(bad_appr.status_code, 400)
 
     def test_franchise_overpayment_handled_and_rejected(self):
-        """Collection amounts greater than outstanding are capped on orders and rejected on invoice endpoints."""
+        """Collection amounts greater than outstanding are strictly rejected on order collection endpoints."""
         from orders.models import Order
         order = Order.objects.create(
             created_by=self.franchise_user,
@@ -346,7 +306,7 @@ class CreditAndPaymentFlowE2ETest(TestCase):
         )
         self.client.force_authenticate(user=self.franchise_user)
         # Outstanding is ₹590 (500 + 18% GST).
-        # 1. On OrderPaymentsAPIView, submitting ₹1000 is capped to outstanding (₹590.00)
+        # Submitting ₹1000 exceeds remaining balance (₹590.00) and is rejected with HTTP 400
         pay_res = self.client.post(
             f'/api/billing/orders/{order.id}/payments/',
             data={
@@ -356,19 +316,6 @@ class CreditAndPaymentFlowE2ETest(TestCase):
             },
             format='json'
         )
-        self.assertEqual(pay_res.status_code, 201)
-        txn = PaymentTransaction.objects.filter(invoice__order=order).first()
-        self.assertEqual(txn.amount_paid, Decimal('590.00'))  # Capped to ₹590.00
-
-        # 2. On InvoicePaymentAPIView, submitting > outstanding raises ValueError -> HTTP 400
-        inv_res = self.client.post(
-            f'/api/billing/invoices/{txn.invoice.id}/payments/',
-            data={
-                'amount': '1000.00',
-                'payment_method': 'CASH'
-            },
-            format='json'
-        )
-        self.assertEqual(inv_res.status_code, 400)
-        self.assertIn('cannot exceed', str(inv_res.data).lower())
+        self.assertEqual(pay_res.status_code, 400)
+        self.assertIn('exceed', str(pay_res.data).lower())
 

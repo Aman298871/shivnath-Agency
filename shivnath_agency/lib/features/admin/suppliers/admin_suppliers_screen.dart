@@ -671,21 +671,6 @@ class _AdminSuppliersScreenState extends State<AdminSuppliersScreen> {
                                     );
                                     return;
                                   }
-
-                                  final data = {
-                                    'id':
-                                        supplier?['id'] ??
-                                        DateTime.now().millisecondsSinceEpoch,
-                                    'name': supplierName,
-                                    'contact': contact.text.trim(),
-                                    'phone': phoneNumber,
-                                    'email': email.text.trim(),
-                                    'category': category.text.trim(),
-                                    'gst': gst.text.trim().toUpperCase(),
-                                    'city': city.text.trim(),
-                                    'status': status,
-                                  };
-
                                   final body = {
                                     "name": supplierName,
 

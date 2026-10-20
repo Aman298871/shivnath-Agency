@@ -531,23 +531,6 @@ class _ProductCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _placeholder() {
-    return Image.asset(
-      product.assetFallbackImage,
-      fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => Container(
-        color: const Color(0xFFE0F2FE),
-        child: const Center(
-          child: Icon(
-            Icons.water_drop_rounded,
-            size: 36,
-            color: Color(0xFF0284C7),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _QuantityControl extends StatelessWidget {

@@ -68,26 +68,35 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                     ? mappedItem['franchise']!.toString()
                     : 'Packaged Water');
 
-          final double totalAmt = double.tryParse(mappedItem['amount']?.toString() ?? '0') ?? 0.0;
+          final double rawGrandTotal = double.tryParse(item['invoice_grand_total']?.toString() ?? item['grand_total']?.toString() ?? '') ?? 0.0;
+          final double rawBaseAmount = double.tryParse(item['amount']?.toString() ?? mappedItem['amount']?.toString() ?? '0') ?? 0.0;
+          final double totalAmt = rawGrandTotal > 0 ? rawGrandTotal : rawBaseAmount;
+
           final String paymentStatus = (item['payment_status'] ?? mappedItem['payment_status'] ?? '').toString().toLowerCase();
           final bool isPaid = paymentStatus == 'paid' ||
               mappedItem['payment_collected'] == true ||
               item['payment_collected'] == true ||
               (item['invoice_status']?.toString().toUpperCase() == 'PAID');
-          final bool isPendingVerification = paymentStatus == 'pending_verification' ||
-              mappedItem['is_pending_verification'] == true ||
-              item['is_pending_verification'] == true ||
-              (item['invoice_status']?.toString().toUpperCase() == 'PAYMENT_PENDING_VERIFICATION');
 
           final double amtPaid = isPaid
               ? totalAmt
               : (double.tryParse(item['amount_paid']?.toString() ?? mappedItem['amount_paid']?.toString() ?? '0') ?? 0.0);
           final double outstandingAmt = isPaid
               ? 0.0
-              : (double.tryParse(item['outstanding_amount']?.toString() ?? mappedItem['outstanding_amount']?.toString() ?? '${(totalAmt - amtPaid).clamp(0.0, totalAmt)}') ?? (totalAmt - amtPaid).clamp(0.0, totalAmt));
+              : (double.tryParse(item['outstanding_amount']?.toString() ?? mappedItem['outstanding_amount']?.toString() ?? '') ??
+                 double.tryParse(item['outstanding_balance']?.toString() ?? mappedItem['outstanding_balance']?.toString() ?? '') ??
+                 (totalAmt - amtPaid).clamp(0.0, totalAmt));
           final double outstandingBal = isPaid
               ? 0.0
               : (double.tryParse(item['outstanding_balance']?.toString() ?? mappedItem['outstanding_balance']?.toString() ?? '$outstandingAmt') ?? outstandingAmt);
+
+          final bool isPartial = !isPaid && amtPaid > 0 && outstandingBal > 0;
+
+          final String paymentLabel = isPaid
+              ? 'PAYMENT COLLECTED'
+              : (isPartial
+                  ? 'PARTIALLY PAID'
+                  : 'PAYMENT PENDING');
 
           final rawStatus = item['status']?.toString() ?? mappedItem['raw_status']?.toString() ?? mappedItem['status']?.toString() ?? 'plant_approval';
           final canonical = _orderRepository.canonicalStatus(rawStatus);
@@ -116,15 +125,19 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                 mappedItem['items'] ??
                 (itemsList.isNotEmpty ? itemsList.length : 1),
             'amount': totalAmt,
+            'base_amount': rawBaseAmount,
+            'subtotal': double.tryParse(item['invoice_subtotal']?.toString() ?? '') ?? rawBaseAmount,
+            'tax_amount': double.tryParse(item['invoice_tax']?.toString() ?? '') ?? 0.0,
+            'grand_total': totalAmt,
             'amount_paid': amtPaid,
-            'outstanding_amount': outstandingAmt,
+            'outstanding_amount': outstandingBal,
             'outstanding_balance': outstandingBal,
-            'payment_status': isPaid ? 'paid' : (isPendingVerification ? 'pending_verification' : paymentStatus),
+            'payment_status': isPaid ? 'paid' : (isPartial ? 'partial' : 'pending'),
             'payment_collected': isPaid,
-            'is_pending_verification': isPendingVerification,
+            'is_pending_verification': false,
             'raw_status': canonical,
             'status': displayStatus,
-            'payment': isPaid ? 'Paid' : (isPendingVerification ? 'Pending Verification' : (mappedItem['payment']?.toString() ?? 'Pending')),
+            'payment': paymentLabel,
             'city':
                 item['city']?.toString() ??
                 mappedItem['city']?.toString() ??
@@ -1479,9 +1492,6 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
     final bool isPaidInitial = order['payment_collected'] == true ||
         paymentStatus == 'paid' ||
         (order['payment']?.toString().toLowerCase() == 'paid');
-    final bool isPendingVerificationInitial = order['is_pending_verification'] == true ||
-        paymentStatus == 'pending_verification' ||
-        (order['payment']?.toString().toLowerCase().contains('verification') ?? false);
 
     final double alreadyPaid = isPaidInitial
         ? totalAmount
@@ -1532,7 +1542,6 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
     String selectedNewStatus = statusOptions.first;
 
     bool isOrderPaid = isPaidInitial || maxOutstanding <= 0.001;
-    bool isPendingVerification = isPendingVerificationInitial;
     bool collectPayment = isOrderPaid;
     String paymentType = 'FULL'; // FULL, PARTIAL
     String paymentMode = 'CASH'; // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
@@ -1554,7 +1563,6 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                 final liveOutstanding = double.tryParse(data['outstanding_balance']?.toString() ?? '');
                 final liveStatus = (data['payment_status'] ?? '').toString().toUpperCase();
                 final liveCollected = data['payment_collected'] == true || liveStatus == 'PAID' || (liveOutstanding != null && liveOutstanding <= 0.001);
-                final livePending = data['is_pending_verification'] == true || liveStatus == 'PAYMENT_PENDING_VERIFICATION' || liveStatus == 'PENDING_VERIFICATION';
 
                 if (ctx.mounted) {
                   setDlgState(() {
@@ -1568,9 +1576,6 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                       if (paymentType == 'FULL' || amountController.text == totalAmount.toStringAsFixed(2) || amountController.text == '0.00') {
                         amountController.text = maxOutstanding.toStringAsFixed(2);
                       }
-                    }
-                    if (livePending) {
-                      isPendingVerification = true;
                     }
                   });
                 }
@@ -1750,7 +1755,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                                                 borderRadius: BorderRadius.circular(4),
                                               ),
                                               child: const Text(
-                                                'VERIFIED / PAID',
+                                                'PAYMENT COLLECTED',
                                                 style: TextStyle(
                                                   fontSize: 9,
                                                   fontWeight: FontWeight.w800,
@@ -1763,7 +1768,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                                       ),
                                       Text(
                                         isOrderPaid
-                                            ? 'Fully Paid (₹${totalAmount.toStringAsFixed(2)}) • Admin Verified'
+                                            ? 'Fully Collected (₹${totalAmount.toStringAsFixed(2)}) • Franchise Direct Collection'
                                             : 'Due: ₹${maxOutstanding.toStringAsFixed(2)} (Total: ₹${totalAmount.toStringAsFixed(2)})',
                                         style: TextStyle(
                                           fontSize: 11,
@@ -1777,30 +1782,6 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                               ),
                             ],
                           ),
-
-                          if (isPendingVerification && !isOrderPaid) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFFBEB),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFFDE68A)),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.access_time_rounded, color: Color(0xFFD97706), size: 16),
-                                  SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Payment reported by franchise • Awaiting Admin verification',
-                                      style: TextStyle(fontSize: 11, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
 
                           if (!isOrderPaid && collectPayment) ...[
                               const Divider(height: 18),
@@ -2027,6 +2008,27 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                           order['status'] = _orderRepository.getStatusLabel(selectedNewStatus);
 
                           if (payRes['success'] == true) {
+                            final double remainingAfter = (maxOutstanding - entered).clamp(0.0, maxOutstanding);
+                            final payData = payRes['data'] is Map ? payRes['data'] as Map : null;
+                            final bool newPaid = (payData != null && payData['payment_collected'] == true) || remainingAfter <= 0.001;
+                            final double newAmtPaid = payData != null && payData['amount_paid'] != null
+                                ? (double.tryParse(payData['amount_paid'].toString()) ?? (totalAmount - remainingAfter))
+                                : (totalAmount - remainingAfter);
+                            final double newBalance = payData != null && payData['outstanding_balance'] != null
+                                ? (double.tryParse(payData['outstanding_balance'].toString()) ?? remainingAfter)
+                                : remainingAfter;
+                            final bool newPartial = !newPaid && newAmtPaid > 0 && newBalance > 0;
+
+                            setState(() {
+                              order['payment_collected'] = newPaid;
+                              order['payment_status'] = newPaid ? 'paid' : (newPartial ? 'partial' : 'pending');
+                              order['payment'] = newPaid ? 'PAYMENT COLLECTED' : (newPartial ? 'PARTIALLY PAID' : 'PAYMENT PENDING');
+                              order['amount_paid'] = newAmtPaid;
+                              order['outstanding_amount'] = newBalance;
+                              order['outstanding_balance'] = newBalance;
+                              order['is_pending_verification'] = false;
+                            });
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -2369,6 +2371,28 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                             notesController.dispose();
                           });
                           if (!mounted) return;
+
+                          final double remainingAfter = (maxOutstanding - entered).clamp(0.0, maxOutstanding);
+                          final payData = res['data'] is Map ? res['data'] as Map : null;
+                          final bool newPaid = (payData != null && payData['payment_collected'] == true) || remainingAfter <= 0.001;
+                          final double newAmtPaid = payData != null && payData['amount_paid'] != null
+                              ? (double.tryParse(payData['amount_paid'].toString()) ?? (totalAmount - remainingAfter))
+                              : (totalAmount - remainingAfter);
+                          final double newBalance = payData != null && payData['outstanding_balance'] != null
+                              ? (double.tryParse(payData['outstanding_balance'].toString()) ?? remainingAfter)
+                              : remainingAfter;
+                          final bool newPartial = !newPaid && newAmtPaid > 0 && newBalance > 0;
+
+                          setState(() {
+                            order['payment_collected'] = newPaid;
+                            order['payment_status'] = newPaid ? 'paid' : (newPartial ? 'partial' : 'pending');
+                            order['payment'] = newPaid ? 'PAYMENT COLLECTED' : (newPartial ? 'PARTIALLY PAID' : 'PAYMENT PENDING');
+                            order['amount_paid'] = newAmtPaid;
+                            order['outstanding_amount'] = newBalance;
+                            order['outstanding_balance'] = newBalance;
+                            order['is_pending_verification'] = false;
+                          });
+
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Payment of ₹$entered recorded successfully!'),

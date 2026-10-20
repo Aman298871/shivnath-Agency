@@ -1,5 +1,8 @@
 from accounts.fcm_services import logger
 from django.db import models
+from django.utils import timezone
+import datetime
+from decimal import Decimal
 from rest_framework import generics, status, views, permissions
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
@@ -269,9 +272,9 @@ class CompanyBillingProfileAPIView(views.APIView):
 
 class RecordOrderPaymentAPIView(views.APIView):
     """
-    Authoritative endpoint for recording payment on an Order by either Franchise or Admin.
-    Automatically generates invoice if not present, links payment to Order, Invoice, and Customer,
-    records authoritative PaymentTransaction, and creates audit notification.
+    Authoritative endpoint for recording customer payment on an Order by either Franchise or Admin.
+    Directly settles the customer sale invoice, updates Order payment_status immediately,
+    and logs an authoritative PaymentTransaction.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -292,7 +295,13 @@ class RecordOrderPaymentAPIView(views.APIView):
         is_paid = (getattr(order, 'payment_status', '').lower() == 'paid')
         total_amt = float(order.grand_total or order.amount or 0.0)
 
-        if not hasattr(order, 'invoice') or not order.invoice:
+        from billing.models import Invoice, PaymentTransaction
+        from billing.services import generate_invoice_for_order
+        invoice = Invoice.objects.filter(order=order).first()
+        if not invoice:
+            invoice = generate_invoice_for_order(order)
+
+        if not invoice:
             return Response({
                 'success': True,
                 'order_id': order.id,
@@ -303,45 +312,47 @@ class RecordOrderPaymentAPIView(views.APIView):
                 'outstanding_balance': 0.0 if is_paid else total_amt,
                 'payment_status': 'PAID' if is_paid else order.payment_status,
                 'payment_collected': is_paid,
-                'is_pending_verification': getattr(order, 'payment_status', '').lower() == 'pending_verification',
+                'is_pending_verification': False,
             })
 
-        if is_paid and order.invoice.status != 'PAID':
+        if is_paid and invoice.status != 'PAID':
             try:
-                from decimal import Decimal
-                order.invoice.amount_paid = Decimal(str(order.invoice.grand_total))
-                order.invoice.status = 'PAID'
-                order.invoice.save(update_fields=['amount_paid', 'status'])
+                invoice.amount_paid = Decimal(str(invoice.grand_total))
+                invoice.status = 'PAID'
+                invoice.save(update_fields=['amount_paid', 'status'])
             except Exception:
                 pass
 
-        payments = PaymentTransaction.objects.filter(invoice=order.invoice).order_by('-payment_date')
-        inv_paid = order.invoice.status == 'PAID' or is_paid
+        payments = PaymentTransaction.objects.filter(invoice=invoice).order_by('-payment_date')
+        inv_paid = invoice.status == 'PAID' or is_paid
         has_pending = payments.filter(payment_status__in=['PENDING', 'PENDING_VERIFICATION']).exists()
+        
+        # Order payment is collected if fully paid
+        payment_status_display = 'PAID' if inv_paid else ('PARTIALLY_PAID' if invoice.status == 'PARTIALLY_PAID' or order.payment_status == 'partial' else 'PENDING')
+
         return Response({
             'success': True,
             'order_id': order.id,
             'order_code': order.order_code,
-            'invoice_number': order.invoice.invoice_number,
-            'total_amount': float(order.invoice.grand_total),
-            'amount_paid': float(order.invoice.grand_total) if inv_paid else float(order.invoice.amount_paid),
-            'outstanding_balance': 0.0 if inv_paid else float(order.invoice.outstanding_balance),
-            'payment_status': 'PAID' if inv_paid else order.invoice.status,
+            'invoice_number': invoice.invoice_number,
+            'total_amount': float(invoice.grand_total),
+            'amount_paid': float(invoice.grand_total) if inv_paid else float(invoice.amount_paid),
+            'outstanding_balance': 0.0 if inv_paid else float(invoice.outstanding_balance),
+            'payment_status': payment_status_display,
             'payment_collected': inv_paid,
-            'is_pending_verification': not inv_paid and (order.invoice.status == 'PAYMENT_PENDING_VERIFICATION' or getattr(order, 'payment_status', '').lower() == 'pending_verification' or has_pending),
+            'is_pending_verification': (invoice.status == 'PAYMENT_PENDING_VERIFICATION' or getattr(order, 'payment_status', '').lower() == 'pending_verification') and not inv_paid,
             'payments': PaymentTransactionSerializer(payments, many=True).data,
         })
 
     def post(self, request, order_id):
         from orders.models import Order
-        from decimal import Decimal
         from billing.services import generate_invoice_for_order
 
         order = get_object_or_404(Order, id=order_id)
         user = request.user
         role = getattr(getattr(user, 'profile', None), 'role', '')
 
-        # Permission check: Admin, Super Admin, or the serving Franchise
+        # Permission check: Admin, Super Admin, or the fulfilling/registered Franchise
         if not user.is_superuser and role not in ['admin', 'super_admin']:
             fp = getattr(user, 'franchise_profile', None)
             if role == 'franchise':
@@ -364,30 +375,53 @@ class RecordOrderPaymentAPIView(views.APIView):
             try:
                 amount = Decimal(str(amount_raw))
             except Exception:
-                return Response({'error': 'Invalid payment amount.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Invalid payment amount.', 'message': 'Invalid payment amount.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if amount <= Decimal('0.00'):
-            return Response({'error': 'Payment amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Payment amount must be greater than zero.', 'message': 'Payment amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if amount > outstanding:
-            amount = outstanding
+            msg = f'Payment amount (₹{amount}) exceeds remaining balance (₹{outstanding}).'
+            return Response({
+                'error': msg,
+                'message': msg
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         payment_method = request.data.get('payment_method', 'CASH')
         reference_number = request.data.get('reference_number', '') or request.data.get('transaction_reference', '')
         notes = request.data.get('notes', '')
 
+        # Duplicate submission protection (prevent double-click within 30s)
+        cutoff = timezone.now() - datetime.timedelta(seconds=30)
+        clean_method = 'CASH' if 'CASH' in str(payment_method).upper() else ('UPI' if 'UPI' in str(payment_method).upper() else 'OTHER')
+        dup = PaymentTransaction.objects.filter(
+            invoice=invoice,
+            amount_paid=amount,
+            received_by=user,
+            payment_status='SUCCESS',
+            payment_date__gte=cutoff
+        ).first()
+        if dup:
+            msg = 'Duplicate payment submission detected. This payment was already recorded.'
+            return Response({
+                'error': msg,
+                'message': msg,
+                'transaction': PaymentTransactionSerializer(dup).data
+            }, status=status.HTTP_409_CONFLICT)
+
         try:
+            # Settle immediately for customer order collection by Franchise/Admin
             txn = record_payment_transaction(
                 invoice_id=invoice.id,
                 amount_paid=amount,
                 payment_method=payment_method,
                 reference_number=reference_number,
                 actor=user,
-                notes=notes
+                notes=notes,
+                is_direct_collection=True
             )
-            is_pending = (txn.payment_status in ['PENDING', 'PENDING_VERIFICATION'])
 
-            # Create notification for Admin & Super Admin & Customer Push
+            # Notifications
             try:
                 from accounts.models import AdminNotification
                 from accounts.fcm_services import notify_payment_received
@@ -395,17 +429,14 @@ class RecordOrderPaymentAPIView(views.APIView):
                 if role == 'franchise' and hasattr(user, 'franchise_profile'):
                     collector_name = f"Franchise {user.franchise_profile.business_name}"
 
-                notif_type = 'payment_verification' if is_pending else 'general'
-                notif_title = f"Payment Verification Required: Order #{order.order_code}" if is_pending else f"Payment Collected: Order #{order.order_code}"
-                notif_msg = (
-                    f"₹{amount} payment submitted for Order #{order.order_code} by {collector_name} via {payment_method}. Awaiting Admin verification."
-                    if is_pending else
-                    f"₹{amount} collected for Order #{order.order_code} by {collector_name} via {payment_method}. Remaining balance: ₹{invoice.outstanding_balance}."
-                )
+                invoice.refresh_from_db()
+                notif_title = f"Payment Collected: Order #{order.order_code}"
+                notif_msg = f"₹{amount} collected for Order #{order.order_code} by {collector_name} via {payment_method}. Remaining balance: ₹{invoice.outstanding_balance}."
+                
                 AdminNotification.objects.create(
                     title=notif_title,
                     message=notif_msg,
-                    notification_type=notif_type,
+                    notification_type='general',
                     reference_id=invoice.id
                 )
                 notify_payment_received(
@@ -413,31 +444,187 @@ class RecordOrderPaymentAPIView(views.APIView):
                     amount=amount,
                     actor_name=collector_name,
                     collector_name=collector_name,
-                    is_pending=is_pending,
+                    is_pending=False,
                     invoice=invoice
                 )
             except Exception as e:
                 logger.warning("FCM: Payment notification dispatch warning: %s", e)
 
             invoice.refresh_from_db()
-            if not is_pending and invoice.status == 'PAID':
-                order.payment_status = 'paid'
-                order.save(update_fields=['payment_status'])
             order.refresh_from_db()
 
-            msg = f"Payment of ₹{amount} submitted for Admin verification." if is_pending else f"Payment of ₹{amount} successfully recorded."
+            msg = f"Payment of ₹{amount} successfully recorded."
+            res_data = {
+                'payment_collected': order.payment_status == 'paid',
+                'order_payment_status': order.payment_status,
+                'is_pending_verification': False,
+                'amount_paid': float(invoice.amount_paid),
+                'outstanding_balance': float(invoice.outstanding_balance),
+                'total_amount': float(invoice.grand_total),
+                'transaction': PaymentTransactionSerializer(txn).data,
+                'invoice': InvoiceSerializer(invoice).data,
+            }
 
             return Response({
                 'success': True,
                 'message': msg,
-                'is_pending_verification': is_pending,
-                'transaction': PaymentTransactionSerializer(txn).data,
-                'invoice': InvoiceSerializer(invoice).data,
-                'order_payment_status': order.payment_status,
-                'outstanding_balance': float(invoice.outstanding_balance),
+                'data': res_data,
+                **res_data
             }, status=status.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': str(e), 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FranchiseCollectionsSummaryAPIView(views.APIView):
+    """
+    Authoritative Admin endpoint for aggregated franchise collections:
+    - Total collected (overall & within date range)
+    - Breakdown by payment mode (Cash, UPI, Cheque, etc.)
+    - Breakdown by date
+    - Breakdown by franchise
+    - Total outstanding customer balances
+    - Discrepancies and exceptions
+    - Recent transaction log for inspection
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        is_admin = (
+            request.user.is_staff or 
+            request.user.is_superuser or 
+            (hasattr(request.user, 'profile') and request.user.profile.role in ['super_admin', 'admin'])
+        )
+        if not is_admin:
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
+        from django.db.models import Sum, Count, Q
+        from orders.models import Order
+        from accounts.models import FranchiseProfile
+
+        qs = PaymentTransaction.objects.filter(
+            invoice__order__isnull=False,
+            payment_status='SUCCESS'
+        ).select_related('invoice', 'invoice__order', 'received_by')
+
+        # Optional date filters
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+        if start_date_str:
+            try:
+                qs = qs.filter(payment_date__date__gte=start_date_str)
+            except Exception:
+                pass
+        if end_date_str:
+            try:
+                qs = qs.filter(payment_date__date__lte=end_date_str)
+            except Exception:
+                pass
+
+        franchise_id = request.query_params.get('franchise_id')
+        if franchise_id:
+            qs = qs.filter(
+                Q(invoice__order__serving_franchise_id=franchise_id) |
+                Q(invoice__order__registered_franchise_id=franchise_id)
+            )
+
+        total_collected = qs.aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+        cash_collected = qs.filter(payment_method='CASH').aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+        upi_collected = qs.filter(payment_method='UPI').aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+        other_collected = qs.exclude(payment_method__in=['CASH', 'UPI']).aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+
+        # Customer orders outstanding
+        unpaid_orders = Order.objects.filter(payment_status__in=['pending', 'partial']).exclude(status='cancelled')
+        if franchise_id:
+            unpaid_orders = unpaid_orders.filter(serving_franchise_id=franchise_id)
+        
+        total_outstanding = Decimal('0.00')
+        for o in unpaid_orders:
+            inv = Invoice.objects.filter(order=o).first()
+            if inv:
+                total_outstanding += inv.outstanding_balance
+            else:
+                total_outstanding += (o.grand_total or o.amount or Decimal('0.00'))
+
+        # Exceptions / discrepancies:
+        # Delivered orders unpaid for more than 3 days
+        three_days_ago = timezone.now() - datetime.timedelta(days=3)
+        overdue_delivered_count = unpaid_orders.filter(status='delivered', updated_at__lte=three_days_ago).count()
+
+        # Collections by Franchise
+        franchises = FranchiseProfile.objects.all()
+        franchise_breakdown = []
+        for f in franchises:
+            f_qs = qs.filter(
+                Q(invoice__order__serving_franchise=f) | Q(invoice__order__registered_franchise=f)
+            )
+            f_total = f_qs.aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+            if f_total > Decimal('0.00'):
+                f_cash = f_qs.filter(payment_method='CASH').aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+                f_upi = f_qs.filter(payment_method='UPI').aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+                franchise_breakdown.append({
+                    'franchise_id': f.id,
+                    'franchise_name': f.business_name,
+                    'total_collected': float(f_total),
+                    'cash_collected': float(f_cash),
+                    'upi_collected': float(f_upi),
+                    'transaction_count': f_qs.count()
+                })
+
+        # Recent 25 collections
+        recent = []
+        for txn in qs.order_by('-payment_date')[:25]:
+            order = txn.invoice.order if txn.invoice else None
+            f_name = 'Franchise'
+            if order and order.serving_franchise:
+                f_name = order.serving_franchise.business_name
+            elif txn.received_by and hasattr(txn.received_by, 'franchise_profile'):
+                f_name = txn.received_by.franchise_profile.business_name
+
+            recent.append({
+                'id': txn.id,
+                'transaction_number': txn.transaction_number,
+                'order_id': order.id if order else None,
+                'order_code': order.order_code if order else '',
+                'invoice_number': txn.invoice.invoice_number if txn.invoice else '',
+                'customer_name': txn.invoice.billed_to_name if txn.invoice else (order.customer_name if order else ''),
+                'franchise_name': f_name,
+                'amount_paid': float(txn.amount_paid),
+                'payment_method': txn.payment_method,
+                'reference_number': txn.reference_number,
+                'notes': txn.notes,
+                'payment_status': txn.payment_status,
+                'payment_date': txn.payment_date.strftime('%Y-%m-%d %H:%M:%S') if txn.payment_date else '',
+                'received_by_name': txn.received_by.get_full_name() or txn.received_by.username if txn.received_by else '',
+            })
+
+        summary_payload = {
+            'summary': {
+                'total_collected_in_period': float(total_collected),
+                'total_collected': float(total_collected),
+                'total_cash_collected': float(cash_collected),
+                'total_upi_collected': float(upi_collected),
+                'total_other_collected': float(other_collected),
+                'total_customer_outstanding': float(total_outstanding),
+                'total_outstanding': float(total_outstanding),
+                'total_transactions_in_period': qs.count(),
+                'total_transaction_count': qs.count(),
+                'overdue_delivered_unpaid_count': overdue_delivered_count,
+            },
+            'by_mode': {
+                'cash': float(cash_collected),
+                'upi': float(upi_collected),
+                'other': float(other_collected),
+            },
+            'franchise_breakdown': franchise_breakdown,
+            'recent_collections': recent,
+            'recent_transactions': recent,
+        }
+
+        return Response({
+            'success': True,
+            'data': summary_payload,
+            **summary_payload
+        })
 
 
 class PendingPaymentsAPIView(views.APIView):

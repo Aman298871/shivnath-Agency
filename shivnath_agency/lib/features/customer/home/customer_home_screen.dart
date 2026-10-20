@@ -13,7 +13,6 @@ import '../products/category_products_screen.dart';
 import '../products/product_detail_screen.dart';
 import '../products/customer_products_screen.dart';
 import '../orders/customer_orders_screen.dart';
-import '../profile/customer_profile_screen.dart';
 import '../../../core/widgets/support_desk_modal.dart';
 import '../../../core/widgets/product_thumbnail.dart';
 
@@ -36,9 +35,7 @@ class CustomerHomeScreen extends StatefulWidget {
 }
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
-  final int _currentBannerIndex = 0;
   UserModel? _currentUser;
-  bool _isLoading = true;
   String search = '';
   int _unreadNotificationsCount = 0;
 
@@ -53,7 +50,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     if (mounted) {
       setState(() {
         _currentUser = user;
-        _isLoading = false;
       });
     }
 
@@ -91,27 +87,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     }
   }
 
-  void _handleOpenCart() {
-    if (widget.onOpenCart != null) {
-      widget.onOpenCart!();
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const CustomerCartScreen()),
-      );
-    }
-  }
-
-  void _handleOpenProfile() {
-    if (widget.onOpenProfile != null) {
-      widget.onOpenProfile!();
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => CustomerProfileScreen()),
-      );
-    }
-  }
 
   void _handleOpenSupport() {
     SupportDeskModal.show(context);
@@ -418,26 +393,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  Future<void> _loadCurrentUser() async {
-    final user = await AuthRepository().getCachedUser();
-    if (mounted && user != null) {
-      setState(() {
-        _currentUser = user;
-      });
-    }
-  }
-
   String get _userName {
     final name = _currentUser?.name.trim();
     if (name != null && name.isNotEmpty) return name;
     return 'Valued Customer';
-  }
-
-  Future<void> _fetchProducts() async {
-    try {
-      await context.read<ProductProvider>().loadProducts();
-    } catch (_) {}
-    if (mounted) setState(() {});
   }
 
   @override
@@ -1024,7 +983,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final isUltraWide = constraints.maxWidth >= 950;
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

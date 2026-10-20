@@ -280,7 +280,12 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
               },
             ),
           ),
-          if (filtered.isEmpty)
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 60),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (filtered.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 60),
               child: Column(

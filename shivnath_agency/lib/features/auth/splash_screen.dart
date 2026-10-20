@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/notification_service.dart';
-import '../../core/services/session_service.dart';
 import '../../core/theme/brand_colors.dart';
 import '../../core/theme/role_theme.dart';
 import '../../routes/app_routes.dart';
@@ -19,8 +18,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  final SessionService _sessionService = SessionService();
-
   @override
   void initState() {
     super.initState();

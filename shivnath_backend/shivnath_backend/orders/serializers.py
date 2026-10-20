@@ -577,47 +577,6 @@ class OrderSerializer(serializers.ModelSerializer):
         curr = self.get_current_order_amount(obj)
         return round(prev + curr, 2)
 
-    def get_amount_paid(self, obj):
-        if getattr(obj, 'payment_status', '').lower() == 'paid':
-            return float(obj.grand_total or obj.amount or 0.0)
-        if hasattr(obj, 'invoice') and obj.invoice:
-            if obj.invoice.status == 'PAID':
-                return float(obj.invoice.grand_total or obj.invoice.amount_paid)
-            return float(obj.invoice.amount_paid)
-        return 0.0
-
-    def get_outstanding_balance(self, obj):
-        if getattr(obj, 'payment_status', '').lower() == 'paid':
-            return 0.0
-        if hasattr(obj, 'invoice') and obj.invoice:
-            if obj.invoice.status == 'PAID':
-                return 0.0
-            return float(obj.invoice.outstanding_balance)
-        return float(obj.grand_total or obj.amount or 0.0)
-
-    def get_outstanding_amount(self, obj):
-        return self.get_outstanding_balance(obj)
-
-    def get_payment_collected(self, obj):
-        if getattr(obj, 'payment_status', '').lower() == 'paid':
-            return True
-        inv = self._get_invoice(obj)
-        if inv and inv.status == 'PAID':
-            return True
-        return False
-
-    def get_is_pending_verification(self, obj):
-        if getattr(obj, 'payment_status', '').lower() == 'paid':
-            return False
-        inv = self._get_invoice(obj)
-        if inv:
-            if inv.status == 'PAYMENT_PENDING_VERIFICATION':
-                return True
-            from billing.models import PaymentTransaction
-            if PaymentTransaction.objects.filter(invoice=inv, payment_status__in=['PENDING', 'PENDING_VERIFICATION']).exists():
-                return True
-        return getattr(obj, 'payment_status', '').lower() == 'pending_verification'
-
     def get_credit_limit(self, obj):
         if obj.serving_franchise:
             cp = getattr(obj.serving_franchise, 'credit_profile', None)

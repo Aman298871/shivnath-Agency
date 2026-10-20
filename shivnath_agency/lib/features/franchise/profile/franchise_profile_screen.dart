@@ -28,7 +28,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
   final AuthRepository _authRepository = AuthRepository();
   UserModel? _currentUser;
   Map<String, dynamic>? _territoryInfo;
-  bool _isTerritoryAssigned = false;
+  final bool _isTerritoryAssigned = false;
   bool _isLoading = true;
   List<Map<String, dynamic>> _documents = [];
   bool _isLoadingDocs = false;

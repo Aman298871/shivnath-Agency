@@ -250,7 +250,7 @@ class AppStatusBadge extends StatelessWidget {
     final s = (status ?? 'PENDING').toUpperCase();
     Color color;
     Color bg;
-    if (s.contains('PAID') && !s.contains('UNPAID')) {
+    if ((s.contains('PAID') || s.contains('COLLECTED')) && !s.contains('UNPAID') && !s.contains('PENDING')) {
       color = BrandColors.green;
       bg = BrandColors.greenSoft;
     } else if (s.contains('PARTIAL')) {

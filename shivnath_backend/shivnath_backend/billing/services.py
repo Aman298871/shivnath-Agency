@@ -142,12 +142,20 @@ def submit_payment_for_verification(invoice_id, amount_paid, payment_method='UPI
 
 
 @transaction.atomic
-def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', reference_number='', actor=None, receipt_file=None, notes=''):
+def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', reference_number='', actor=None, receipt_file=None, notes='', is_direct_collection=False):
     """
-    Records payment. If actor is a franchise dealer, it is submitted for verification
-    to prevent unilateral marking of unpaid invoices as paid.
-    If actor is admin/staff, it is settled immediately.
+    Records payment against an Invoice.
+    - If this is a Customer Sale / Order Collection (or is_direct_collection=True),
+      the fulfilling Franchise or Admin records customer payment immediately as SUCCESS,
+      updating invoice.amount_paid and order.payment_status.
+    - If this is a Dealer Wholesale Purchase Invoice (DEALER_PURCHASE_INVOICE) submitted
+      by a dealer to clear wholesale credit, it is submitted for Admin verification.
+    - If actor is Admin, it is settled immediately in all cases.
     """
+    from accounts.models import FranchiseProfile, Notification
+    invoice = Invoice.objects.select_for_update().get(id=invoice_id)
+    amount_paid_dec = Decimal(str(amount_paid))
+
     is_admin = False
     if actor:
         is_admin = (
@@ -156,7 +164,9 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
             (hasattr(actor, 'profile') and actor.profile.role in ['super_admin', 'admin'])
         )
 
-    if not is_admin:
+    # Wholesale purchase invoices from dealers require Admin bank verification
+    is_wholesale_transfer = (invoice.invoice_type == 'DEALER_PURCHASE_INVOICE')
+    if not is_admin and is_wholesale_transfer and not is_direct_collection:
         return submit_payment_for_verification(
             invoice_id=invoice_id,
             amount_paid=amount_paid,
@@ -166,11 +176,6 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
             receipt_file=receipt_file,
             notes=notes
         )
-
-    # Actor is Admin: immediate settlement
-    from accounts.models import FranchiseProfile, Notification
-    invoice = Invoice.objects.select_for_update().get(id=invoice_id)
-    amount_paid_dec = Decimal(str(amount_paid))
 
     if amount_paid_dec <= Decimal('0.00'):
         raise ValueError("Payment amount must be greater than zero.")
@@ -195,6 +200,17 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
     count = PaymentTransaction.objects.count() + 1
     txn_number = f"PAY-{timezone.now().strftime('%Y%m%d')}-{count:05d}"
 
+    formatted_notes = str(notes or '')
+    if not is_admin:
+        tags = []
+        if '[FRANCHISE_COLLECTED]' not in formatted_notes:
+            tags.append('[FRANCHISE_COLLECTED]')
+        if actor and getattr(actor, 'username', None) and f'COLLECTED_BY:{actor.username}' not in formatted_notes:
+            tags.append(f'COLLECTED_BY:{actor.username}')
+        if tags:
+            tag_str = " ".join(tags)
+            formatted_notes = f"{tag_str} {formatted_notes}".strip()
+
     txn = PaymentTransaction.objects.create(
         transaction_number=txn_number,
         invoice=invoice,
@@ -204,7 +220,7 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
         payment_status='SUCCESS',
         receipt_file=receipt_file,
         received_by=actor,
-        notes=notes or ''
+        notes=formatted_notes
     )
 
     invoice.amount_paid = Decimal(str(invoice.amount_paid or '0.00')) + amount_paid_dec

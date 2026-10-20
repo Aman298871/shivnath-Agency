@@ -1678,7 +1678,7 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
                                     color: BrandColors.textSecondary),
                               ),
                               Text(
-                                'Req:   Dispatched:   (Tap for details)',
+                                'Req: $reqQty  Dispatched: $dispQty  (Tap for details)',
                                 style: const TextStyle(
                                     fontSize: 11,
                                     color: BrandColors.textMuted),
@@ -1837,10 +1837,10 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
                 const Divider(),
                 const SizedBox(height: 8),
                 _modalRow('Product', req['product_name']?.toString() ?? '-'),
-                _modalRow('Requested Qty', ' units'),
-                _modalRow('Dispatched Qty', ' units'),
+                _modalRow('Requested Qty', '$reqQty units'),
+                _modalRow('Dispatched Qty', '$dispQty units'),
                 _modalRow('Status', req['status']?.toString() ?? '-'),
-                _modalRow('Outstanding Due', 'Rs.'),
+                _modalRow('Outstanding Due', '₹${fmt.format(outstanding)}'),
                 const SizedBox(height: 20),
                 LayoutBuilder(
                   builder: (context, constraints) {

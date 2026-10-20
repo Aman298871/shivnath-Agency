@@ -12,6 +12,7 @@ from billing.views import (
     PendingPaymentsAPIView,
     VerifyPaymentByTxnAPIView,
     RejectPaymentByTxnAPIView,
+    FranchiseCollectionsSummaryAPIView,
 )
 
 urlpatterns = [
@@ -24,6 +25,7 @@ urlpatterns = [
     path('payments/<int:txn_id>/verify/', VerifyPaymentByTxnAPIView.as_view(), name='billing_verify_payment_by_txn'),
     path('payments/<int:txn_id>/reject/', RejectPaymentByTxnAPIView.as_view(), name='billing_reject_payment_by_txn'),
     path('orders/<int:order_id>/payments/', RecordOrderPaymentAPIView.as_view(), name='billing_record_order_payment'),
+    path('franchise-collections/summary/', FranchiseCollectionsSummaryAPIView.as_view(), name='billing_franchise_collections_summary'),
     path('dealers/<int:dealer_id>/credit-profile/', DealerCreditProfileAPIView.as_view(), name='billing_dealer_credit'),
     path('dealers/<int:dealer_id>/aging/', DealerAgingReportAPIView.as_view(), name='billing_dealer_aging'),
     path('company-profile/', CompanyBillingProfileAPIView.as_view(), name='billing_company_profile'),

@@ -20,8 +20,9 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
   bool _isSyncing = false;
   bool _isProcessingPayment = false;
   double _pendingRechargeAmount = 0.0;
-  double _walletBalance = 150.0; // Welcome promotional credit
-  int _rewardPoints = 120;
+  String? _pendingRzpOrderId;
+  double _walletBalance = 0.0;
+  int _rewardPoints = 0;
   List<Map<String, dynamic>> _transactions = [];
 
   @override
@@ -43,117 +44,99 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
   Future<void> _loadWalletData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // 1. Instant local load (paint UI in < 10ms)
-    if (!prefs.containsKey('customer_water_wallet_balance')) {
-      await prefs.setDouble('customer_water_wallet_balance', 150.0);
-    }
-    final balance = prefs.getDouble('customer_water_wallet_balance') ?? 150.0;
-
-    // Load local recharge history first
-    final List<Map<String, dynamic>> txList = [];
-    final rechargeHistory = prefs.getStringList('customer_recharges_list') ?? [];
-    for (final r in rechargeHistory) {
-      final parts = r.split('|');
-      if (parts.length >= 2) {
-        final paymentRef = (parts.length >= 3 && parts[2].isNotEmpty) ? ' • ID: ${parts[2]}' : '';
-        txList.add({
-          'id': 'recharge_${parts[0]}_${parts[1]}',
-          'title': 'Wallet Top-up',
-          'subtitle': 'Razorpay Online Recharge (UPI/Card)$paymentRef',
-          'amount': double.tryParse(parts[1]) ?? 100.0,
-          'is_credit': true,
-          'date': parts[0],
-        });
-      }
-    }
+    // 1. Instant local load (paint UI quickly)
+    final cachedBalance = prefs.getDouble('customer_water_wallet_balance') ?? 0.0;
 
     if (mounted) {
       setState(() {
-        _walletBalance = balance;
-        if (_transactions.isEmpty) {
-          _transactions = List.from(txList);
-        }
+        _walletBalance = cachedBalance;
         _isSyncing = true;
       });
     }
 
-    // 2. Safe background network sync with strict 4s timeout (never hangs UI)
-    int points = 0;
+    // 2. Authoritative backend sync for wallet balance, reward points, and ledger
     try {
-      // First try dedicated server wallet endpoint
       final walletRes = await _orderRepository.getWalletDetails();
-      if (walletRes['success'] == true && walletRes['balance'] != null) {
-        final serverBalance = double.tryParse(walletRes['balance'].toString());
-        if (serverBalance != null && serverBalance > 0) {
-          await prefs.setDouble('customer_water_wallet_balance', serverBalance);
-          if (mounted) setState(() => _walletBalance = serverBalance);
+      if (walletRes['success'] == true) {
+        final serverBalance = double.tryParse(walletRes['balance']?.toString() ?? '0') ?? 0.0;
+        final serverPoints = int.tryParse(walletRes['reward_points']?.toString() ?? '0') ?? 0;
+        await prefs.setDouble('customer_water_wallet_balance', serverBalance);
+        if (mounted) {
+          setState(() {
+            _walletBalance = serverBalance;
+            _rewardPoints = serverPoints;
+          });
         }
       }
 
-      // Then sync customer order history for transaction logs
-      final res = await _orderRepository.getOrders().timeout(
-        const Duration(seconds: 4),
-        onTimeout: () => {'success': false, 'data': {}},
-      );
+      // Fetch official ledger audit trail
+      final txRes = await _orderRepository.getWalletTransactions();
+      final List<Map<String, dynamic>> txList = [];
 
-      if (res['success'] == true && res['data'] is Map) {
-        final rawOrders = res['data']['orders'];
-        if (rawOrders is List) {
-          for (final item in rawOrders) {
-            final map = Map<String, dynamic>.from(item as Map);
-            final amount = double.tryParse(map['amount']?.toString() ?? '0') ?? 0.0;
-            final date = (map['created_at'] ?? '').toString();
-            final orderCode = map['order_code'] ?? 'ORD-${map['id']}';
-            final status = (map['status'] ?? '').toString();
+      if (txRes['success'] == true && txRes['data'] is List) {
+        final rawTx = txRes['data'] as List;
+        for (final item in rawTx) {
+          if (item is Map) {
+            final tx = Map<String, dynamic>.from(item);
+            final type = (tx['transaction_type'] ?? '').toString();
+            final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
+            final points = int.tryParse(tx['points']?.toString() ?? '0') ?? 0;
+            final date = (tx['created_at'] ?? '').toString();
+            final status = (tx['status'] ?? 'COMPLETED').toString().toUpperCase();
+            final orderId = tx['order'];
+            final ref = tx['payment_reference']?.toString() ?? '';
 
-            if (status.toLowerCase() != 'cancelled') {
-              points += (amount / 10).floor();
+            bool isCredit = true;
+            String title = 'Wallet Transaction';
+            String subtitle = tx['description']?.toString() ?? '';
+
+            if (type == 'RECHARGE') {
+              title = 'Wallet Top-up';
+              isCredit = true;
+              subtitle = 'Razorpay Online Recharge${ref.isNotEmpty ? " • Ref: $ref" : ""}';
+            } else if (type == 'ORDER_DEBIT') {
+              title = 'Order Payment ${orderId != null ? "#$orderId" : ""}';
+              isCredit = false;
+              subtitle = 'Water Wala Order • Central Admin Fulfilled';
+            } else if (type == 'ORDER_REFUND') {
+              title = 'Refund for Order ${orderId != null ? "#$orderId" : ""}';
+              isCredit = true;
+              subtitle = 'Order Cancellation Reversal';
+            } else if (type == 'POINTS_REDEEMED') {
+              title = 'Hydration Reward Redeemed';
+              isCredit = false;
+              subtitle = 'Redeemed $points Points for Product';
+            } else if (type == 'POINTS_EARNED') {
+              title = 'Reward Points Earned';
+              isCredit = true;
+              subtitle = '+$points Points from Order #${orderId ?? ""}';
             }
 
+            final formattedDate = date.length >= 10 ? date.substring(0, 10) : 'Recent';
+
             txList.add({
-              'id': map['id'],
-              'title': 'Water Order #$orderCode',
-              'subtitle': '${map['items_count'] ?? 1} item(s) • Status: ${status.replaceAll('_', ' ').toUpperCase()}',
+              'id': tx['id'] ?? 'tx_${DateTime.now().millisecondsSinceEpoch}',
+              'title': title,
+              'subtitle': subtitle,
               'amount': amount,
-              'is_credit': false,
-              'date': date.isNotEmpty ? date.substring(0, date.length > 10 ? 10 : date.length) : 'Recent',
+              'points': points,
+              'is_credit': isCredit,
+              'status': status,
+              'type': type,
+              'date': formattedDate,
             });
           }
         }
       }
-    } catch (_) {}
 
-    if (mounted) {
-      setState(() {
-        _rewardPoints = points > 0 ? points : 120;
-        _transactions = txList;
-        _isSyncing = false;
-      });
-    }
-  }
-
-  Future<void> _handleRecharge(double amount, {String? paymentId}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final newBalance = _walletBalance + amount;
-    await prefs.setDouble('customer_water_wallet_balance', newBalance);
-
-    final rechargeHistory = prefs.getStringList('customer_recharges_list') ?? [];
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    rechargeHistory.add('$today|$amount|${paymentId ?? ''}');
-    await prefs.setStringList('customer_recharges_list', rechargeHistory);
-
-    if (mounted) {
-      setState(() {
-        _walletBalance = newBalance;
-      });
-      _loadWalletData();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('₹${amount.toStringAsFixed(0)} added to Water Wallet successfully! 🎉'),
-          backgroundColor: const Color(0xFF16A34A),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (mounted) {
+        setState(() {
+          _transactions = txList;
+          _isSyncing = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isSyncing = false);
     }
   }
 
@@ -168,14 +151,14 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
     setState(() => _isProcessingPayment = true);
 
     try {
-      // 1. Create Razorpay order through authoritative backend
-      final rzpOrderRes = await _orderRepository.createRazorpayOrder(amount: amount);
+      // 1. Create Razorpay recharge order through authoritative backend endpoint
+      final rzpOrderRes = await _orderRepository.initiateWalletRecharge(amount: amount);
 
       if (!mounted) return;
 
       if (rzpOrderRes['success'] != true) {
         setState(() => _isProcessingPayment = false);
-        final errorMsg = rzpOrderRes['message']?.toString() ?? 'Unable to initialize payment gateway.';
+        final errorMsg = rzpOrderRes['message']?.toString() ?? 'Unable to initialize wallet recharge.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMsg),
@@ -195,6 +178,7 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
       final amountInPaise = rzpData['amount_in_paise'] as int? ?? (amount * 100).round();
 
       _pendingRechargeAmount = amount;
+      _pendingRzpOrderId = rzpOrderId;
 
       // 2. Open Razorpay Checkout Sheet with UPI, PhonePe, Google Pay, Cards, NetBanking
       final localUser = await _authRepository.getCachedUser();
@@ -231,6 +215,7 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
       try {
         _razorpay.open(options);
       } catch (e) {
+        if (!mounted) return;
         setState(() => _isProcessingPayment = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -252,9 +237,73 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
   }
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    setState(() => _isProcessingPayment = false);
-    final credited = _pendingRechargeAmount > 0 ? _pendingRechargeAmount : 100.0;
-    await _handleRecharge(credited, paymentId: response.paymentId);
+    setState(() => _isProcessingPayment = true);
+
+    final rzpOrderId = response.orderId ?? _pendingRzpOrderId ?? '';
+    final rzpPaymentId = response.paymentId ?? '';
+    final rzpSignature = response.signature ?? '';
+
+    if (rzpOrderId.isEmpty || rzpPaymentId.isEmpty) {
+      setState(() => _isProcessingPayment = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment verification failed: Missing transaction identifiers from gateway.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final verifyRes = await _orderRepository.verifyWalletRecharge(
+        razorpayOrderId: rzpOrderId,
+        razorpayPaymentId: rzpPaymentId,
+        razorpaySignature: rzpSignature,
+      );
+
+      if (!mounted) return;
+      setState(() => _isProcessingPayment = false);
+
+      if (verifyRes['success'] == true) {
+        final newBal = (verifyRes['new_balance'] as num?)?.toDouble() ??
+            (verifyRes['balance'] as num?)?.toDouble();
+        if (newBal != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setDouble('customer_water_wallet_balance', newBal);
+          setState(() => _walletBalance = newBal);
+        }
+        await _loadWalletData();
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '₹${(_pendingRechargeAmount > 0 ? _pendingRechargeAmount : (verifyRes['amount'] ?? 100)).toStringAsFixed(0)} added to Water Wallet successfully! 🎉',
+            ),
+            backgroundColor: const Color(0xFF16A34A),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(verifyRes['message']?.toString() ?? 'Recharge verification failed. Wallet not credited.'),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessingPayment = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error verifying payment with server: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
   }
 
   void _handlePaymentError(PaymentFailureResponse response) {
@@ -425,33 +474,17 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
   }
 
   Future<void> _redeemPoints() async {
-    if (_rewardPoints < 100) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You need at least 100 Hydration Points to redeem ₹50 cash discount.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    final newBalance = _walletBalance + 50.0;
-    await prefs.setDouble('customer_water_wallet_balance', newBalance);
-
-    if (mounted) {
-      setState(() {
-        _walletBalance = newBalance;
-        _rewardPoints -= 100;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🎉 100 Points redeemed! ₹50 credited to your Water Wallet.'),
-          backgroundColor: Color(0xFF10B981),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _RedemptionCatalogSheet(
+        currentPoints: _rewardPoints,
+        onRedeemed: () {
+          _loadWalletData();
+        },
+      ),
+    );
   }
 
   @override
@@ -474,9 +507,12 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
         children: [
           RefreshIndicator(
             onRefresh: _loadWalletData,
-            child: ListView(
-              padding: const EdgeInsets.all(18),
-              children: [
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 820),
+                child: ListView(
+                  padding: const EdgeInsets.all(18),
+                  children: [
                 if (_isSyncing)
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
@@ -746,13 +782,41 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
                             '${tx['subtitle'] ?? ''} • ${tx['date'] ?? ''}',
                             style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                           ),
-                          trailing: Text(
-                            '${isCredit ? "+" : "-"}₹${amt.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 14,
-                              color: isCredit ? const Color(0xFF16A34A) : const Color(0xFF0F172A),
-                            ),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                (amt > 0)
+                                    ? '${isCredit ? "+" : "-"}₹${amt.toStringAsFixed(2)}'
+                                    : (tx['points'] != null && (tx['points'] as int) > 0
+                                        ? '${isCredit ? "+" : "-"}${tx['points']} pts'
+                                        : '₹0.00'),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                  color: isCredit ? const Color(0xFF16A34A) : const Color(0xFF0F172A),
+                                ),
+                              ),
+                              if (tx['status'] != null && tx['status'] != 'COMPLETED') ...[
+                                const SizedBox(height: 2),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: tx['status'] == 'FAILED' ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    tx['status'].toString(),
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      color: tx['status'] == 'FAILED' ? const Color(0xFF991B1B) : const Color(0xFF92400E),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       );
@@ -760,6 +824,8 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
                 ],
               ),
             ),
+          ),
+        ),
           if (_isProcessingPayment)
             Container(
               color: Colors.black54,
@@ -780,12 +846,12 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
                       CircularProgressIndicator(color: Color(0xFF0284C7)),
                       SizedBox(height: 18),
                       Text(
-                        'Opening Payment Gateway...',
+                        'Processing Wallet Transaction...',
                         style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                       ),
                       SizedBox(height: 6),
                       Text(
-                        '100% Secure Checkout via Razorpay\nUPI • Google Pay • PhonePe • Cards',
+                        '100% Secure Checkout via Razorpay\nVerifying cryptographic payment signature with server...',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.3),
                       ),
@@ -794,6 +860,307 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RedemptionCatalogSheet extends StatefulWidget {
+  final int currentPoints;
+  final VoidCallback onRedeemed;
+
+  const _RedemptionCatalogSheet({
+    required this.currentPoints,
+    required this.onRedeemed,
+  });
+
+  @override
+  State<_RedemptionCatalogSheet> createState() => _RedemptionCatalogSheetState();
+}
+
+class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
+  final OrderRepository _orderRepository = OrderRepository();
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _products = [];
+  String? _error;
+  int? _redeemingProductId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final res = await _orderRepository.getRedemptionProducts();
+    if (!mounted) return;
+
+    if (res['success'] == true && res['data'] is List) {
+      setState(() {
+        _products = List<Map<String, dynamic>>.from(res['data']);
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _error = res['message']?.toString() ?? 'Unable to load eligible redemption products.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _handleRedeem(Map<String, dynamic> product) async {
+    final prodId = product['id'] as int? ?? int.tryParse(product['id']?.toString() ?? '0') ?? 0;
+    final pointsReq = product['points_required'] as int? ?? int.tryParse(product['points_required']?.toString() ?? '0') ?? 0;
+    final prodName = product['name']?.toString() ?? 'Product';
+
+    if (widget.currentPoints < pointsReq) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You need $pointsReq points for $prodName. You currently have ${widget.currentPoints} points.'),
+          backgroundColor: Colors.orange.shade800,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Point Redemption', style: TextStyle(fontWeight: FontWeight.w800)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Redeem $pointsReq Hydration Points for 1 unit of $prodName?'),
+            const SizedBox(height: 10),
+            const Text(
+              'This order will be placed directly with Shivnath Central Admin for fulfillment.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7), foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Redeem & Place Order'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _redeemingProductId = prodId);
+
+    final res = await _orderRepository.redeemWalletPoints(
+      productId: prodId,
+      quantity: 1,
+      notes: 'Redeemed via Water Wallet screen',
+    );
+
+    if (!mounted) return;
+    setState(() => _redeemingProductId = null);
+
+    if (res['success'] == true) {
+      widget.onRedeemed();
+      Navigator.pop(context);
+
+      final dynamic rawOrder = res['data'] is Map ? res['data']['order'] : null;
+      final orderData = rawOrder is Map ? rawOrder : (res['data'] is Map ? res['data'] : {});
+      final orderCode = orderData['order_code'] ?? 'ORD-${orderData['id'] ?? ''}';
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A)),
+              SizedBox(width: 8),
+              Expanded(child: Text('Redemption Confirmed!')),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Your order #$orderCode has been sent directly to Central Admin.'),
+              const SizedBox(height: 8),
+              Text('Points debited: $pointsReq pts', style: const TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Serving: Shivnath Central Admin (Water Wallet)', style: TextStyle(fontSize: 12, color: Color(0xFF0284C7))),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7), foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message']?.toString() ?? 'Failed to redeem product.'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.stars_rounded, color: Color(0xFF9333EA), size: 24),
+                  SizedBox(width: 8),
+                  Text(
+                    'Hydration Rewards Catalog',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3E8FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFD8B4FE)),
+                ),
+                child: Text(
+                  '${widget.currentPoints} Pts',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF7E22CE),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Redeem your reward points for free drinking water products. Orders are fulfilled directly by Central Admin.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
+          const Divider(height: 24),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(_error!, style: const TextStyle(color: Color(0xFF64748B))),
+                            const SizedBox(height: 10),
+                            OutlinedButton(onPressed: _loadProducts, child: const Text('Retry')),
+                          ],
+                        ),
+                      )
+                    : _products.isEmpty
+                        ? const Center(child: Text('No redemption products currently eligible.'))
+                        : ListView.separated(
+                            itemCount: _products.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 12),
+                            itemBuilder: (ctx, idx) {
+                              final p = _products[idx];
+                              final ptsReq = p['points_required'] as int? ?? int.tryParse(p['points_required']?.toString() ?? '0') ?? 0;
+                              final canRedeem = widget.currentPoints >= ptsReq;
+                              final isRedeemingThis = _redeemingProductId == p['id'];
+
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE0F2FE),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.water_drop_rounded, color: Color(0xFF0284C7)),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            p['name']?.toString() ?? 'Product',
+                                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '$ptsReq Points',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              color: Color(0xFF9333EA),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: canRedeem ? const Color(0xFF9333EA) : Colors.grey.shade300,
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      onPressed: (canRedeem && !isRedeemingThis) ? () => _handleRedeem(p) : null,
+                                      child: isRedeemingThis
+                                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                          : Text(canRedeem ? 'Redeem' : 'Need ${ptsReq - widget.currentPoints} more'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+          ),
         ],
       ),
     );

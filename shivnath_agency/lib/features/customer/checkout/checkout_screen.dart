@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/repositories/app_repositories.dart';
 import '../cart/cart_provider.dart';
+import '../wallet/customer_wallet_screen.dart';
 import 'order_success_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -19,12 +20,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final OrderRepository _orderRepository = OrderRepository();
   final AuthRepository _authRepository = AuthRepository();
 
-  final String paymentMethod = 'RAZORPAY';
+  String selectedPaymentMethod = 'WALLET'; // 'WALLET', 'RAZORPAY', or 'FRANCHISE_COLLECTION'
+  double _walletBalance = 0.0;
+  bool _isLoadingWallet = true;
   bool _isSubmitting = false;
 
   late Razorpay _razorpay;
   Map<String, dynamic>? _gatewayStatus;
-  bool _isLoadingGatewayStatus = true;
   int? _pendingOrderDbId;
   Map<String, dynamic>? _pendingOrderObj;
   String? _pendingRzpOrderId;
@@ -60,11 +62,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _loadCustomerAndFranchises();
+    _loadWalletDetails();
     _checkGatewayStatus();
   }
 
+  Future<void> _loadWalletDetails() async {
+    try {
+      final walletRes = await _orderRepository.getWalletDetails();
+      if (walletRes['success'] == true && mounted) {
+        final bal = double.tryParse(walletRes['balance']?.toString() ?? '0') ?? 0.0;
+        setState(() {
+          _walletBalance = bal;
+          _isLoadingWallet = false;
+          // If customer has zero or negative balance, default selection to alternate method
+          if (_walletBalance <= 0) {
+            selectedPaymentMethod = (orderSource == 'FRANCHISE' && selectedFranchiseId != null)
+                ? 'FRANCHISE_COLLECTION'
+                : 'RAZORPAY';
+          }
+        });
+      } else if (mounted) {
+        setState(() => _isLoadingWallet = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingWallet = false);
+    }
+  }
+
   Future<void> _checkGatewayStatus() async {
-    setState(() => _isLoadingGatewayStatus = true);
     final status = await _orderRepository.getRazorpayStatus();
     if (!mounted) return;
 
@@ -75,7 +100,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     setState(() {
       _gatewayStatus = normalized;
-      _isLoadingGatewayStatus = false;
     });
   }
 
@@ -374,6 +398,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
+    final amount = cart.totalAmount;
+    final totalItems = cart.itemCount;
+
+    final durationDays = isCustomDuration
+        ? (int.tryParse(customDaysController.text.trim()) ?? 30)
+        : selectedDurationDays;
+    final durationChoice = isCustomDuration
+        ? '$durationDays Days (Custom)'
+        : selectedDurationChoice;
+
     final isDirect =
         orderSource == 'DIRECT_COMPANY' ||
         eligibleFranchises.isEmpty ||
@@ -391,8 +425,294 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'Authorized Franchise Partner';
     }
 
-    // Only central direct company orders require Razorpay online payment gateway
-    if (isDirect) {
+    // Water Wallet Payment branch
+    if (selectedPaymentMethod == 'WALLET') {
+      if (_walletBalance < amount) {
+        final shortfall = amount - _walletBalance;
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text('Insufficient Wallet Balance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Your current Water Wallet balance is insufficient to complete this order.',
+                  style: TextStyle(fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Order Total:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                          Text('₹${amount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Available Balance:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                          Text('₹${_walletBalance.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                        ],
+                      ),
+                      const Divider(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Shortfall Required:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB91C1C))),
+                          Text('₹${shortfall.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFFB91C1C))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Please recharge your wallet or choose another payment method to place this order.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Change Method'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.add_card_rounded, size: 16),
+                label: const Text('Recharge Wallet'),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CustomerWalletScreen()),
+                  );
+                  _loadWalletDetails();
+                },
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      final shouldPlaceWallet = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF0284C7)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text('Confirm Wallet Payment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Deduct payment directly from your Water Wallet balance?',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF86EFAC)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Available Balance:', style: TextStyle(fontSize: 12, color: Color(0xFF166534))),
+                            Text('₹${_walletBalance.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF14532D))),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Order Total:', style: TextStyle(fontSize: 12, color: Color(0xFF166534))),
+                            Text('₹${amount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF14532D))),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Wallet Amount to Use:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                            Text('₹${amount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                          ],
+                        ),
+                        const Divider(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Balance After Order:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF166534))),
+                            Text('₹${(_walletBalance - amount).toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF166534))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Row(
+                    children: [
+                      Icon(Icons.verified_rounded, size: 14, color: Color(0xFF0284C7)),
+                      SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Direct Central Admin Fulfillment (No Franchise Assignment)',
+                          style: TextStyle(color: Color(0xFF0284C7), fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text('Pay ₹${amount.toStringAsFixed(0)} & Place Order'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldPlaceWallet != true) return;
+
+      final orderItems = cart.items.map((it) {
+        final pid = int.tryParse(it.id) ?? 1;
+        return {'product_id': pid, 'quantity': it.quantity, 'price': it.price};
+      }).toList();
+
+      setState(() => _isSubmitting = true);
+
+      try {
+        final res = await _orderRepository.createOrder({
+          'franchise': 'Shivnath Central Admin (Water Wallet)',
+          'city': addressController.text.trim(),
+          'customer_name': nameController.text.trim(),
+          'phone': phoneController.text.trim(),
+          'delivery_address': addressController.text.trim(),
+          'items': totalItems,
+          'amount': amount,
+          'status': 'order_placement',
+          'payment': 'paid',
+          'payment_mode': 'WALLET',
+          'duration_choice': durationChoice,
+          'duration_days': durationDays,
+          'order_source': 'WATER_WALLET',
+          'serving_franchise_id': null,
+          'order_items': orderItems,
+          'idempotency_key': 'wallet_order_${DateTime.now().millisecondsSinceEpoch}_$totalItems',
+        });
+
+        if (!mounted) return;
+
+        if (res['success'] == true) {
+          final dynamic rawData = res['data'];
+          final Map<String, dynamic> orderObj = (rawData is Map && rawData['order'] is Map)
+              ? Map<String, dynamic>.from(rawData['order'] as Map)
+              : (rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{});
+
+          final newBal = double.tryParse(rawData['wallet_balance']?.toString() ?? '') ??
+              (_walletBalance - amount).clamp(0.0, double.infinity);
+
+          setState(() {
+            _walletBalance = newBal;
+            _isSubmitting = false;
+          });
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setDouble('customer_water_wallet_balance', newBal);
+
+          if (!mounted) return;
+
+          cart.clearCart();
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => OrderSuccessScreen(
+                amount: amount,
+                orderData: orderObj,
+              ),
+            ),
+          );
+          return;
+        } else {
+          setState(() => _isSubmitting = false);
+          final errorMsg = res['message']?.toString() ?? 'Failed to place order using Water Wallet.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMsg),
+              backgroundColor: Colors.red.shade700,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          return;
+        }
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error processing wallet payment: $e'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+        return;
+      }
+    }
+
+    // Only central direct company orders with Razorpay require online gateway check
+    if (isDirect && selectedPaymentMethod == 'RAZORPAY') {
       final isGatewayAvail = _gatewayStatus != null &&
           (_gatewayStatus!['available'] == true ||
               (_gatewayStatus!['data'] is Map && _gatewayStatus!['data']['available'] == true));
@@ -468,16 +788,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return;
       }
     }
-
-    final amount = cart.totalAmount;
-    final totalItems = cart.itemCount;
-
-    final durationDays = isCustomDuration
-        ? (int.tryParse(customDaysController.text.trim()) ?? 30)
-        : selectedDurationDays;
-    final durationChoice = isCustomDuration
-        ? '$durationDays Days (Custom)'
-        : selectedDurationChoice;
 
     // Explicit confirmation dialog to prevent accidental order placement on back/exit
     final shouldPlace = await showDialog<bool>(
@@ -783,9 +1093,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
         ),
-        body: Form(
-          key: formKey,
-          child: ListView(
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 820),
+            child: Form(
+              key: formKey,
+              child: ListView(
             padding: const EdgeInsets.all(18),
             children: [
               const Text(
@@ -1216,121 +1529,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (orderSource == 'FRANCHISE' && selectedFranchiseId != null) ...[
-                Container(
+              // Option 1: Pay using Water Wallet (Selectable)
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    selectedPaymentMethod = 'WALLET';
+                  });
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF86EFAC)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.handshake_rounded, color: Color(0xFF16A34A), size: 22),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    'Pay on Delivery to Franchise',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14,
-                                      color: Color(0xFF14532D),
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFFDCFCE7),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Color(0xFF86EFAC)),
-                                  ),
-                                  child: Text(
-                                    'FRANCHISE ORDER',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF166534),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(
-                            Icons.radio_button_checked,
-                            color: Color(0xFF16A34A),
-                            size: 20,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Payment will be collected directly upon delivery by ${eligibleFranchises.firstWhere((f) => f['id'] == selectedFranchiseId, orElse: () => {})['business_name'] ?? 'the serving franchise'}.',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF166534),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          _payBadge('Cash on Delivery'),
-                          _payBadge('Franchise UPI / QR'),
-                          _payBadge('Direct Settlement'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ] else if (_isLoadingGatewayStatus) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: const Row(
-                    children: [
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0284C7)),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Checking payment gateway status...',
-                          style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else if (_gatewayStatus != null &&
-                  (_gatewayStatus!['available'] == true ||
-                      (_gatewayStatus!['data'] is Map && _gatewayStatus!['data']['available'] == true))) ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
+                    color: selectedPaymentMethod == 'WALLET'
+                        ? const Color(0xFFF0F9FF)
+                        : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFF86EFAC),
+                      color: selectedPaymentMethod == 'WALLET'
+                          ? const Color(0xFF0284C7)
+                          : const Color(0xFFE2E8F0),
+                      width: selectedPaymentMethod == 'WALLET' ? 2 : 1,
                     ),
                   ),
                   child: Column(
@@ -1338,159 +1556,380 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF16A34A), size: 22),
+                          Icon(
+                            Icons.account_balance_wallet_rounded,
+                            color: selectedPaymentMethod == 'WALLET'
+                                ? const Color(0xFF0284C7)
+                                : const Color(0xFF64748B),
+                            size: 22,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Row(
                               children: [
                                 const Flexible(
                                   child: Text(
-                                    'Online Payment — Razorpay',
+                                    'Pay using Water Wallet',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 14,
-                                      color: Color(0xFF14532D),
+                                      color: Color(0xFF0F172A),
                                     ),
                                     overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
                                   ),
                                 ),
-                                if (_gatewayStatus!['is_test_mode'] == true ||
-                                    (_gatewayStatus!['data'] is Map && _gatewayStatus!['data']['is_test_mode'] == true)) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFEF08A),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: const Color(0xFFEAB308)),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE0F2FE),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFBAE6FD)),
+                                  ),
+                                  child: const Text(
+                                    'CENTRAL ADMIN',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0369A1),
                                     ),
-                                    child: const Text(
-                                      'SANDBOX TEST',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            selectedPaymentMethod == 'WALLET'
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: selectedPaymentMethod == 'WALLET'
+                                ? const Color(0xFF0284C7)
+                                : const Color(0xFF94A3B8),
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Wallet Balance details
+                      _isLoadingWallet
+                          ? const Row(
+                              children: [
+                                SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0284C7)),
+                                ),
+                                SizedBox(width: 8),
+                                Text('Checking wallet balance...', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                              ],
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Available Wallet Balance:',
+                                      style: TextStyle(fontSize: 12, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                                    ),
+                                    Text(
+                                      '₹${_walletBalance.toStringAsFixed(2)}',
                                       style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF854D0E),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: _walletBalance >= cart.totalAmount
+                                            ? const Color(0xFF16A34A)
+                                            : const Color(0xFFDC2626),
                                       ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                if (_walletBalance >= cart.totalAmount) ...[
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 6),
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF0FDF4),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Wallet Amount to Use: ₹${cart.totalAmount.toStringAsFixed(2)}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
+                                        ),
+                                        Text(
+                                          'Balance After: ₹${(_walletBalance - cart.totalAmount).toStringAsFixed(2)}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 6),
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF2F2),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFFFECACA)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.info_outline, size: 14, color: Color(0xFFDC2626)),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'Shortfall of ₹${(cart.totalAmount - _walletBalance).toStringAsFixed(2)}. Please recharge.',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF991B1B)),
+                                          ),
+                                        ),
+                                        InkWell(
+                                          onTap: () async {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(builder: (_) => const CustomerWalletScreen()),
+                                            );
+                                            _loadWalletDetails();
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFDC2626),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: const Text(
+                                              'Recharge',
+                                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ],
                             ),
-                          ),
-                          const Icon(
-                            Icons.radio_button_checked,
-                            color: Color(0xFF16A34A),
-                            size: 20,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'UPI (GPay, PhonePe, Paytm), Debit/Credit Cards, Net Banking & Wallets',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF166534),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: (((_gatewayStatus!['supported_methods'] ?? (_gatewayStatus!['data'] is Map ? _gatewayStatus!['data']['supported_methods'] : null)) as List?)?.map((m) => _payBadge(m.toString())).toList()) ?? [
-                          _payBadge('UPI'),
-                          _payBadge('Cards'),
-                          _payBadge('Net Banking'),
-                          _payBadge('Wallets'),
-                        ],
-                      ),
                     ],
                   ),
                 ),
-              ] else ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFFECACA)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 22),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text(
-                              'Payment Gateway Unavailable',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 14,
-                                color: Color(0xFF991B1B),
-                              ),
+              ),
+              const SizedBox(height: 12),
+              // Option 2: Alternate Payment (Franchise Cash / UPI OR Central Online Razorpay)
+              if (orderSource == 'FRANCHISE' && selectedFranchiseId != null) ...[
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      selectedPaymentMethod = 'FRANCHISE_COLLECTION';
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: selectedPaymentMethod == 'FRANCHISE_COLLECTION'
+                          ? const Color(0xFFF0FDF4)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: selectedPaymentMethod == 'FRANCHISE_COLLECTION'
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFFE2E8F0),
+                        width: selectedPaymentMethod == 'FRANCHISE_COLLECTION' ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.handshake_rounded,
+                              color: selectedPaymentMethod == 'FRANCHISE_COLLECTION'
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF64748B),
+                              size: 22,
                             ),
-                          ),
-                          InkWell(
-                            onTap: _checkGatewayStatus,
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEE2E2),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFFCA5A5)),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Row(
                                 children: [
-                                  Icon(Icons.refresh, size: 12, color: Color(0xFF991B1B)),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Retry',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF991B1B)),
+                                  const Flexible(
+                                    child: Text(
+                                      'Pay on Delivery to Franchise',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14,
+                                        color: Color(0xFF14532D),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDCFCE7),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: const Color(0xFF86EFAC)),
+                                    ),
+                                    child: const Text(
+                                      'FRANCHISE ORDER',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF166534),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        (_gatewayStatus?['diagnostics'] is Map
-                                ? (_gatewayStatus!['diagnostics'] as Map)['message']?.toString()
-                                : null) ??
-                            _gatewayStatus?['message']?.toString() ??
-                            'Razorpay API credentials are not configured on the production server. Mock payment mode is strictly prohibited in production.',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFFB91C1C),
-                          height: 1.4,
+                            Icon(
+                              selectedPaymentMethod == 'FRANCHISE_COLLECTION'
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                              color: selectedPaymentMethod == 'FRANCHISE_COLLECTION'
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF94A3B8),
+                              size: 20,
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFEE2E2)),
-                        ),
-                        child: Text(
-                          'Environment: ${_gatewayStatus?['environment'] ?? 'PRODUCTION'}  |  Code: ${(_gatewayStatus?['diagnostics'] is Map ? (_gatewayStatus!['diagnostics'] as Map)['error_code'] : null) ?? 'GATEWAY_CREDENTIALS_MISSING'}',
+                        const SizedBox(height: 6),
+                        Text(
+                          'Payment will be collected directly upon delivery by ${eligibleFranchises.firstWhere((f) => f['id'] == selectedFranchiseId, orElse: () => {})['business_name'] ?? 'the serving franchise'}.',
                           style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF7F1D1D),
-                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            color: Color(0xFF166534),
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            _payBadge('Cash on Delivery'),
+                            _payBadge('Franchise UPI / QR'),
+                            _payBadge('Direct Settlement'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else ...[
+                // Razorpay Online Payment for Direct Orders
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      selectedPaymentMethod = 'RAZORPAY';
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: selectedPaymentMethod == 'RAZORPAY'
+                          ? const Color(0xFFF0FDF4)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: selectedPaymentMethod == 'RAZORPAY'
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFFE2E8F0),
+                        width: selectedPaymentMethod == 'RAZORPAY' ? 2 : 1,
                       ),
-                    ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.credit_card_rounded,
+                              color: selectedPaymentMethod == 'RAZORPAY'
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF64748B),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  const Flexible(
+                                    child: Text(
+                                      'Online Payment — Razorpay',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14,
+                                        color: Color(0xFF14532D),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                  if (_gatewayStatus?['is_test_mode'] == true ||
+                                      (_gatewayStatus?['data'] is Map && _gatewayStatus!['data']['is_test_mode'] == true)) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEF08A),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: const Color(0xFFEAB308)),
+                                      ),
+                                      child: const Text(
+                                        'SANDBOX TEST',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF854D0E),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              selectedPaymentMethod == 'RAZORPAY'
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                              color: selectedPaymentMethod == 'RAZORPAY'
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF94A3B8),
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'UPI (GPay, PhonePe, Paytm), Debit/Credit Cards, Net Banking & Wallets',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF166534),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: (((_gatewayStatus?['supported_methods'] ?? (_gatewayStatus!['data'] is Map ? _gatewayStatus!['data']['supported_methods'] : null)) as List?)?.map((m) => _payBadge(m.toString())).toList()) ?? [
+                            _payBadge('UPI'),
+                            _payBadge('Cards'),
+                            _payBadge('Net Banking'),
+                            _payBadge('Wallets'),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -1662,14 +2101,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 22),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0284C7),
+                  backgroundColor: selectedPaymentMethod == 'WALLET' && _walletBalance < cart.totalAmount
+                      ? const Color(0xFFDC2626)
+                      : (selectedPaymentMethod == 'FRANCHISE_COLLECTION'
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFF0284C7)),
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: _isSubmitting ? null : placeOrder,
+                onPressed: _isSubmitting
+                    ? null
+                    : (selectedPaymentMethod == 'WALLET' && _walletBalance < cart.totalAmount
+                        ? () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CustomerWalletScreen()),
+                            );
+                            _loadWalletDetails();
+                          }
+                        : placeOrder),
                 child: _isSubmitting
                     ? const SizedBox(
                         width: 22,
@@ -1680,15 +2133,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       )
                     : Text(
-                        'PLACE ORDER / PAY NOW (₹${cart.totalAmount.toStringAsFixed(0)})',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                        selectedPaymentMethod == 'WALLET'
+                            ? (_walletBalance < cart.totalAmount
+                                ? 'RECHARGE WALLET (SHORTFALL: ₹${(cart.totalAmount - _walletBalance).toStringAsFixed(0)})'
+                                : 'PAY WITH WATER WALLET (₹${cart.totalAmount.toStringAsFixed(0)})')
+                            : (selectedPaymentMethod == 'FRANCHISE_COLLECTION'
+                                ? 'CONFIRM FRANCHISE ORDER (₹${cart.totalAmount.toStringAsFixed(0)})'
+                                : 'PAY VIA RAZORPAY (₹${cart.totalAmount.toStringAsFixed(0)})'),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
                       ),
               ),
             ],
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   static Widget _payBadge(String label) {

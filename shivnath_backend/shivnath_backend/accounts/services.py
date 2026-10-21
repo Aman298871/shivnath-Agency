@@ -290,7 +290,7 @@ def send_order_placed_notifications(order, stock_cycle=None):
     """
     cust = order.created_by
     cust_name = cust.get_full_name() if cust else (order.client_name or 'Customer')
-    is_direct = getattr(order, 'order_source', '') == 'DIRECT_COMPANY' or not order.serving_franchise
+    is_direct = getattr(order, 'order_source', '') in ['DIRECT_COMPANY', 'WATER_WALLET', 'WATER_WALLET_REDEMPTION'] or not order.serving_franchise
     serving_f = None if is_direct else order.serving_franchise
     amount = order.amount or order.grand_total or 0.0
     items_count = order.items_count or (order.items.count() if hasattr(order, 'items') else 1)

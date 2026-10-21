@@ -45,13 +45,17 @@ from rest_framework.exceptions import ValidationError
 
 from accounts.models import UserProfile, FranchiseProfile
 from products.models import Product, ProductCategory
-from orders.models import Order, OrderItem, Wallet, WalletTransaction
+from orders.models import Order, OrderItem, Wallet, WalletTransaction, WalletRedemptionRule
 from orders.wallet_services import (
     get_or_create_wallet,
     initiate_wallet_recharge,
     verify_wallet_recharge,
     debit_wallet_for_order,
     refund_order_to_wallet,
+    sync_customer_earned_points,
+    award_points_for_order,
+    get_redemption_eligible_products,
+    redeem_points_for_order,
 )
 from inventory.models import ProductionBatch, DealerStockBatch
 from inventory.services import reserve_order_stock_fefo_atomic, cancel_order_atomic
@@ -492,6 +496,398 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         wallet.refresh_from_db()
         self.assertEqual(wallet.balance, Decimal('500.00'))
 
+    def test_customer_points_sync_and_earning_from_orders(self):
+        """Points are earned from completed orders and can be synced idempotently."""
+        wallet = get_or_create_wallet(self.customer)
+        wallet.reward_points = 0
+        wallet.save()
+
+        # Place a regular order for Rs. 500
+        order = Order.objects.create(
+            created_by=self.customer,
+            franchise_name='Shivnath Agency (Direct)',
+            city='Raipur',
+            amount=Decimal('500.00'),
+            grand_total=Decimal('500.00'),
+            status='order_placement',
+            payment_status='paid',
+            order_source='DIRECT_COMPANY'
+        )
+
+        award_res = award_points_for_order(order)
+        self.assertTrue(award_res['success'])
+        self.assertEqual(award_res['points_awarded'], 50)  # 500 / 10 = 50 pts
+
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.reward_points, 50)
+
+        # Idempotent: re-awarding doesn't double-count
+        dup_award = award_points_for_order(order)
+        self.assertTrue(dup_award['success'])
+        self.assertTrue(dup_award.get('already_awarded', False))
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.reward_points, 50)
+
+    def test_water_wallet_product_redemption_order_creation_and_admin_routing(self):
+        """
+        Customer redeems points for product purchase:
+        - Points deducted from wallet
+        - Order created with order_source='WATER_WALLET_REDEMPTION'
+        - Assigned directly to Central Admin (serving_franchise is None)
+        - Excluded from Franchise queues and counts
+        - Company warehouse stock reserved via FEFO
+        """
+        wallet = get_or_create_wallet(self.customer)
+        wallet.reward_points = 300  # 300 points = Rs. 150 discount value
+        wallet.balance = Decimal('100.00')
+        wallet.save()
+
+        # Product is priced at Rs. 90 (requires 180 points for full 100% redemption)
+        self.client.force_authenticate(user=self.customer)
+
+        # 1. Fetch eligible redemption catalog
+        cat_res = self.client.get('/api/orders/wallet/redemption-products/')
+        self.assertEqual(cat_res.status_code, 200)
+        p_data = cat_res.data['products'][0]
+        self.assertEqual(p_data['points_required'], 180)
+        self.assertTrue(p_data['can_fully_redeem'])
+
+        # 2. Place redemption order
+        redeem_payload = {
+            'product_id': self.product.id,
+            'quantity': 1,
+            'delivery_address': 'Flat 402, Shivnath Enclave, Raipur',
+            'notes': 'Deliver before 5 PM',
+        }
+        resp = self.client.post('/api/orders/wallet/redeem/', redeem_payload, format='json')
+        self.assertEqual(resp.status_code, 201)
+        self.assertTrue(resp.data['success'])
+
+        order_id = resp.data['order']['id']
+        order = Order.objects.get(id=order_id)
+
+        # Mandatory Business Rules Verification:
+        self.assertEqual(order.order_source, 'WATER_WALLET_REDEMPTION')
+        self.assertIsNone(order.serving_franchise)
+        self.assertIsNone(order.registered_franchise)
+        self.assertEqual(order.payment_status, 'paid')
+        self.assertEqual(order.payment_mode, 'WALLET_REDEMPTION')
+        self.assertEqual(order.points_redeemed, 180)
+        self.assertEqual(order.points_discount_amount, Decimal('90.00'))
+        self.assertEqual(order.wallet_amount_debited, Decimal('0.00'))
+        self.assertEqual(order.remaining_payable_amount, Decimal('0.00'))
+
+        # Points ledger verification:
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.reward_points, 120)  # 300 - 180 = 120
+
+        pts_txn = WalletTransaction.objects.filter(
+            wallet=wallet,
+            order=order,
+            transaction_type='POINTS_REDEEMED'
+        ).first()
+        self.assertIsNotNone(pts_txn)
+        self.assertEqual(pts_txn.points, -180)
+        self.assertEqual(pts_txn.points_balance_after, 120)
+        self.assertEqual(pts_txn.status, 'SUCCESS')
+
+        # Central inventory verification:
+        self.company_batch.refresh_from_db()
+        self.assertEqual(self.company_batch.reserved_quantity, 1)
+
+    def test_franchise_cannot_access_or_view_wallet_redemption_order(self):
+        """
+        Franchise users must NEVER see, access, or update wallet redemption orders:
+        - Excluded from franchise order list API
+        - Direct GET on order details returns 403 Forbidden
+        - Direct PATCH on order status returns 403 Forbidden
+        """
+        wallet = get_or_create_wallet(self.customer)
+        wallet.reward_points = 200
+        wallet.save()
+
+        # Create wallet redemption order
+        res = redeem_points_for_order(
+            user=self.customer,
+            product_id=self.product.id,
+            quantity=1,
+            delivery_address='Raipur'
+        )
+        wallet_order = res['order']
+
+        # 1. Franchise A calls GET /api/orders/ -> wallet order must NOT be present
+        self.client.force_authenticate(user=self.user_fran_a)
+        list_res = self.client.get('/api/orders/')
+        self.assertEqual(list_res.status_code, 200)
+        order_ids = [o['id'] for o in list_res.data.get('orders', [])]
+        self.assertNotIn(wallet_order.id, order_ids)
+
+        # 2. Franchise A attempts direct GET /api/orders/<id>/ -> HTTP 403 Forbidden
+        detail_res = self.client.get(f'/api/orders/{wallet_order.id}/')
+        self.assertEqual(detail_res.status_code, 403)
+
+        # 3. Franchise A attempts direct PATCH /api/orders/<id>/status/ -> HTTP 403 Forbidden
+        status_res = self.client.patch(
+            f'/api/orders/{wallet_order.id}/status/',
+            {'status': 'preparing'},
+            format='json'
+        )
+        self.assertEqual(status_res.status_code, 403)
+
+    def test_central_admin_can_filter_and_fulfill_wallet_redemption_order(self):
+        """
+        Central Admin can see wallet redemption orders in queue, filter by order_source,
+        and process order status through authorized lifecycle.
+        """
+        wallet = get_or_create_wallet(self.customer)
+        wallet.reward_points = 200
+        wallet.save()
+
+        res = redeem_points_for_order(
+            user=self.customer,
+            product_id=self.product.id,
+            quantity=1,
+            delivery_address='Raipur'
+        )
+        wallet_order = res['order']
+
+        # Admin client
+        self.client.force_authenticate(user=self.admin)
+
+        # Filter by order_source
+        list_res = self.client.get('/api/orders/?order_source=WATER_WALLET_REDEMPTION')
+        self.assertEqual(list_res.status_code, 200)
+        self.assertTrue(any(o['id'] == wallet_order.id for o in list_res.data.get('orders', [])))
+
+        # Inspect serialized display fields
+        admin_order_data = next(o for o in list_res.data.get('orders', []) if o['id'] == wallet_order.id)
+        self.assertEqual(admin_order_data['franchise_name'], 'Shivnath Central Admin (Water Wallet)')
+        self.assertEqual(admin_order_data['fulfilling_entity'], 'Shivnath Central Admin Plant')
+
+        # Admin processes status: order_placement -> plant_approval -> preparing -> dispatch -> delivered
+        for nxt_st in ['plant_approval', 'preparing', 'dispatch', 'delivered']:
+            st_res = self.client.patch(
+                f'/api/orders/{wallet_order.id}/status/',
+                {'status': nxt_st},
+                format='json'
+            )
+            self.assertEqual(st_res.status_code, 200)
+            self.assertEqual(st_res.data['order']['status'], nxt_st)
+
+    def test_insufficient_points_rejected_and_cancellation_restores_points(self):
+        """
+        Insufficient balance rejected without creating an order.
+        Cancellation of a confirmed wallet redemption order restores points.
+        """
+        wallet = get_or_create_wallet(self.customer)
+        wallet.reward_points = 50  # Less than min 100 points
+        wallet.balance = Decimal('0.00')
+        wallet.save()
+
+        self.client.force_authenticate(user=self.customer)
+
+        # 1. Attempt redemption with insufficient points
+        rej_res = self.client.post('/api/orders/wallet/redeem/', {
+            'product_id': self.product.id,
+            'quantity': 1,
+        }, format='json')
+        self.assertEqual(rej_res.status_code, 400)
+        self.assertFalse(rej_res.data['success'])
+        self.assertIn('minimum', rej_res.data['message'].lower())
+
+        # Confirm no order was created
+        self.assertFalse(Order.objects.filter(created_by=self.customer, order_source='WATER_WALLET_REDEMPTION').exists())
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.reward_points, 50)
+
+        # 2. Grant enough points, place order, and cancel it
+        wallet.reward_points = 200
+        wallet.save()
+
+        res = redeem_points_for_order(
+            user=self.customer,
+            product_id=self.product.id,
+            quantity=1,
+            delivery_address='Raipur'
+        )
+        ord_obj = res['order']
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.reward_points, 20)  # 200 - 180 = 20
+
+        # Cancel order
+        cancel_res = refund_order_to_wallet(ord_obj, reason="Customer cancelled before processing")
+        self.assertTrue(cancel_res['success'])
+        self.assertEqual(cancel_res['points_refunded'], 180)
+
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.reward_points, 200)  # Restored!
+
+    def test_water_wallet_checkout_sufficient_balance_and_direct_admin_routing(self):
+        """
+        Customer places an order using Water Wallet payment:
+        - Customer has Rs. 1000 in wallet.
+        - Places order for product costing Rs. 90 x 2 = Rs. 180.
+        - Order created with order_source='WATER_WALLET', payment_mode='WALLET', payment_status='paid'.
+        - Rs. 180 debited atomically from wallet (remaining Rs. 820).
+        - Order routed directly to Central Admin (serving_franchise is None).
+        - Excluded from franchise queues.
+        - Appears in Central Admin queue with serialized labels.
+        """
+        wallet = get_or_create_wallet(self.customer)
+        wallet.balance = Decimal('1000.00')
+        wallet.save()
+
+        self.client.force_authenticate(user=self.customer)
+
+        checkout_payload = {
+            'order_items': [
+                {'product_id': self.product.id, 'quantity': 2, 'price': 90.0}
+            ],
+            'amount': 180.0,
+            'items_count': 2,
+            'payment_mode': 'WALLET',
+            'delivery_address': 'Sector 4, Devendra Nagar, Raipur',
+            'customer_name': 'Test Customer',
+            'phone': '9876543210',
+        }
+
+        resp = self.client.post('/api/orders/', checkout_payload, format='json')
+        self.assertEqual(resp.status_code, 201)
+        self.assertTrue(resp.data['success'])
+        self.assertEqual(resp.data['wallet_amount_debited'], 180.0)
+        self.assertEqual(resp.data['new_wallet_balance'], 820.0)
+
+        order_id = resp.data['order']['id']
+        order = Order.objects.get(id=order_id)
+
+        # Assert mandatory business rules:
+        self.assertEqual(order.order_source, 'WATER_WALLET')
+        self.assertIsNone(order.serving_franchise)
+        self.assertEqual(order.payment_status, 'paid')
+        self.assertEqual(order.payment_mode, 'WALLET')
+        self.assertEqual(order.wallet_amount_debited, Decimal('180.00'))
+        self.assertEqual(order.remaining_payable_amount, Decimal('0.00'))
+
+        # Assert wallet balance and ledger:
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('820.00'))
+
+        w_txn = WalletTransaction.objects.filter(
+            wallet=wallet,
+            order=order,
+            transaction_type='ORDER_DEBIT'
+        ).first()
+        self.assertIsNotNone(w_txn)
+        self.assertEqual(w_txn.amount, Decimal('180.00'))
+        self.assertEqual(w_txn.balance_after, Decimal('820.00'))
+        self.assertEqual(w_txn.status, 'SUCCESS')
+
+        # Assert Franchise cannot see it:
+        self.client.force_authenticate(user=self.user_fran_a)
+        fran_orders = self.client.get('/api/orders/').data.get('orders', [])
+        self.assertNotIn(order.id, [o['id'] for o in fran_orders])
+
+        fran_detail = self.client.get(f'/api/orders/{order.id}/')
+        self.assertEqual(fran_detail.status_code, 403)
+
+        # Assert Central Admin can view and process it:
+        self.client.force_authenticate(user=self.admin)
+        adm_detail = self.client.get(f'/api/orders/{order.id}/')
+        self.assertEqual(adm_detail.status_code, 200)
+        self.assertEqual(adm_detail.data['order']['franchise_name'], 'Shivnath Central Admin (Water Wallet)')
+
+    def test_water_wallet_checkout_insufficient_balance_rejected(self):
+        """
+        If wallet balance is less than order amount:
+        - HTTP 400 Bad Request
+        - No order created
+        - Wallet balance remains unchanged
+        - Error response includes required amount, available balance, and shortfall
+        """
+        wallet = get_or_create_wallet(self.customer)
+        wallet.balance = Decimal('50.00')
+        wallet.save()
+
+        self.client.force_authenticate(user=self.customer)
+
+        checkout_payload = {
+            'order_items': [
+                {'product_id': self.product.id, 'quantity': 2, 'price': 90.0}
+            ],
+            'amount': 180.0,
+            'items_count': 2,
+            'payment_mode': 'WALLET',
+            'delivery_address': 'Raipur',
+        }
+
+        resp = self.client.post('/api/orders/', checkout_payload, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(resp.data['success'])
+        self.assertEqual(resp.data['error_code'], 'INSUFFICIENT_WALLET_BALANCE')
+        self.assertEqual(resp.data['wallet_balance'], 50.0)
+        self.assertEqual(resp.data['required_amount'], 180.0)
+        self.assertEqual(resp.data['shortfall'], 130.0)
+
+        # No order created
+        self.assertFalse(Order.objects.filter(created_by=self.customer, order_source='WATER_WALLET').exists())
+
+        # Wallet balance preserved
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('50.00'))
+
+    def test_water_wallet_order_cancellation_refunds_balance_atomically(self):
+        """
+        When a wallet-paid order is cancelled:
+        - Debited wallet funds are refunded back to the customer's wallet
+        - Immutable ORDER_REFUND ledger transaction created
+        - Idempotent: repeated calls do not double-refund
+        """
+        wallet = get_or_create_wallet(self.customer)
+        wallet.balance = Decimal('1000.00')
+        wallet.save()
+
+        self.client.force_authenticate(user=self.customer)
+
+        resp = self.client.post('/api/orders/', {
+            'order_items': [{'product_id': self.product.id, 'quantity': 1, 'price': 90.0}],
+            'amount': 90.0,
+            'payment_mode': 'WALLET',
+            'delivery_address': 'Raipur',
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+
+        order_id = resp.data['order']['id']
+        order = Order.objects.get(id=order_id)
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('910.00'))
+
+        # Admin cancels the order
+        self.client.force_authenticate(user=self.admin)
+        cancel_resp = self.client.patch(f'/api/orders/{order.id}/status/', {
+            'status': 'cancelled',
+            'notes': 'Customer requested cancellation',
+        }, format='json')
+        self.assertEqual(cancel_resp.status_code, 200)
+
+        # Balance restored to 1000.00
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('1000.00'))
+
+        ref_txn = WalletTransaction.objects.filter(
+            wallet=wallet,
+            order=order,
+            transaction_type='ORDER_REFUND'
+        ).first()
+        self.assertIsNotNone(ref_txn)
+        self.assertEqual(ref_txn.amount, Decimal('90.00'))
+        self.assertEqual(ref_txn.balance_after, Decimal('1000.00'))
+
+        # Idempotency check: repeated refund call returns already_refunded
+        dup_refund = refund_order_to_wallet(order)
+        self.assertTrue(dup_refund['success'])
+        self.assertTrue(dup_refund.get('already_refunded', False))
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal('1000.00'))  # Not doubled!
 
 
 if __name__ == '__main__':
@@ -499,3 +895,5 @@ if __name__ == '__main__':
     test_runner = DiscoverRunner(verbosity=2)
     failures = test_runner.run_tests(['test_wallet_and_franchise_payment_e2e'])
     sys.exit(bool(failures))
+
+

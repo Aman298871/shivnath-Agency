@@ -20,6 +20,8 @@ class Order(models.Model):
     ORDER_SOURCE_CHOICES = [
         ('FRANCHISE', 'Franchise Fulfilled'),
         ('DIRECT_COMPANY', 'Direct Company Fulfilled (Shivnath Agency Central Plant)'),
+        ('WATER_WALLET_REDEMPTION', 'Water Wallet Redemption (Central Admin Fulfilled)'),
+        ('WATER_WALLET', 'Water Wallet Payment (Central Admin Fulfilled)'),
     ]
 
     PAYMENT_CHOICES = [
@@ -246,6 +248,32 @@ class Order(models.Model):
         null=True,
         blank=True,
         help_text="Timestamp when order reached DELIVERED status (authoritative revenue recognition event)"
+    )
+
+    points_redeemed = models.PositiveIntegerField(
+        default=0,
+        help_text="Reward points redeemed for this order"
+    )
+
+    points_discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Monetary value discount in INR granted by redeemed points"
+    )
+
+    wallet_amount_debited = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Amount debited from customer Water Wallet prepaid balance in INR"
+    )
+
+    remaining_payable_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Remaining cash or online payable amount in INR after redemption"
     )
 
     created_at = models.DateTimeField(
@@ -485,6 +513,7 @@ class Wallet(models.Model):
     """
     Authoritative server-managed prepaid wallet for a customer.
     Balance represents the verified available funds for order payments.
+    reward_points represents verified redeemable reward points earned from orders.
     """
     user = models.OneToOneField(
         User,
@@ -497,6 +526,10 @@ class Wallet(models.Model):
         default=Decimal('0.00'),
         help_text="Authoritative server-managed wallet balance in INR"
     )
+    reward_points = models.PositiveIntegerField(
+        default=0,
+        help_text="Authoritative server-managed reward points balance"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -505,7 +538,7 @@ class Wallet(models.Model):
         verbose_name_plural = 'Water Wallets'
 
     def __str__(self):
-        return f"Wallet ({self.user.username}): ₹{self.balance}"
+        return f"Wallet ({self.user.username}): ₹{self.balance} | {self.reward_points} Pts"
 
     def reconcile_balance(self):
         """
@@ -526,6 +559,25 @@ class Wallet(models.Model):
         computed = credits - debits
         return computed == self.balance, computed
 
+    def reconcile_points(self):
+        """
+        Audit function: Recomputes points directly from immutable ledger transactions.
+        """
+        from django.db.models import Sum
+        credits = self.transactions.filter(
+            status='SUCCESS',
+            transaction_type__in=['POINTS_EARNED', 'POINTS_REFUNDED']
+        ).aggregate(s=Sum('points'))['s'] or 0
+
+        debits = self.transactions.filter(
+            status='SUCCESS',
+            transaction_type='POINTS_REDEEMED'
+        ).aggregate(s=Sum('points'))['s'] or 0
+
+        # debits stored as negative or positive? Handled by abs(debits)
+        computed = credits - abs(debits)
+        return computed == self.reward_points, computed
+
 
 class WalletTransaction(models.Model):
     """
@@ -535,6 +587,9 @@ class WalletTransaction(models.Model):
         ('RECHARGE', 'Wallet Top-up / Recharge'),
         ('ORDER_DEBIT', 'Order Payment Debit'),
         ('ORDER_REFUND', 'Order Cancellation Refund'),
+        ('POINTS_EARNED', 'Reward Points Earned'),
+        ('POINTS_REDEEMED', 'Reward Points Redeemed'),
+        ('POINTS_REFUNDED', 'Reward Points Restored'),
         ('ADMIN_ADJUSTMENT', 'Authorized Admin Adjustment'),
     ]
 
@@ -564,7 +619,12 @@ class WalletTransaction(models.Model):
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        help_text="Transaction amount in INR (always positive)"
+        default=Decimal('0.00'),
+        help_text="Transaction monetary amount in INR"
+    )
+    points = models.IntegerField(
+        default=0,
+        help_text="Reward points credited (+) or debited (-) in this transaction"
     )
     balance_after = models.DecimalField(
         max_digits=12,
@@ -572,6 +632,11 @@ class WalletTransaction(models.Model):
         null=True,
         blank=True,
         help_text="Snapshot of wallet balance after this transaction completed"
+    )
+    points_balance_after = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Snapshot of reward points balance after this transaction completed"
     )
     status = models.CharField(
         max_length=20,
@@ -600,7 +665,7 @@ class WalletTransaction(models.Model):
         default='',
         help_text="Cryptographic HMAC signature from Razorpay"
     )
-    # Order association (used for ORDER_DEBIT and ORDER_REFUND)
+    # Order association (used for ORDER_DEBIT, ORDER_REFUND, POINTS_EARNED, POINTS_REDEEMED)
     order = models.ForeignKey(
         'orders.Order',
         null=True,
@@ -631,4 +696,53 @@ class WalletTransaction(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.transaction_id} ({self.transaction_type}): ₹{self.amount} [{self.status}]"
+        pts_str = f" | {self.points:+d} Pts" if self.points != 0 else ""
+        return f"{self.transaction_id} ({self.transaction_type}): ₹{self.amount}{pts_str} [{self.status}]"
+
+
+class WalletRedemptionRule(models.Model):
+    """
+    Authoritative Admin-configurable rules for Water Wallet reward points & product redemption.
+    """
+    rupees_spent_per_point = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal('10.00'),
+        help_text="Amount in ₹ spent on eligible orders to earn 1 reward point (default: 10.00)"
+    )
+    points_per_rupee_discount = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal('2.00'),
+        help_text="Number of points needed for ₹1.00 discount (e.g. 2.00 points = ₹1.00 discount, meaning 100 points = ₹50.00)"
+    )
+    min_points_to_redeem = models.PositiveIntegerField(
+        default=100,
+        help_text="Minimum points required to initiate product redemption (default: 100)"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this redemption rule is actively applied"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Wallet Redemption Rule'
+        verbose_name_plural = 'Wallet Redemption Rules'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Rule: ₹{self.rupees_spent_per_point} = 1 Pt | {self.points_per_rupee_discount} Pts = ₹1 | Min: {self.min_points_to_redeem} Pts"
+
+    @classmethod
+    def get_active_rule(cls):
+        rule = cls.objects.filter(is_active=True).first()
+        if not rule:
+            rule = cls.objects.create(
+                rupees_spent_per_point=Decimal('10.00'),
+                points_per_rupee_discount=Decimal('2.00'),
+                min_points_to_redeem=100,
+                is_active=True,
+            )
+        return rule

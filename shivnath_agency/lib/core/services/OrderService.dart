@@ -48,7 +48,11 @@ class OrderService {
           decoded is Map<String, dynamic>) {
         return {
           'success': true,
-          'balance': decoded['balance'] ?? decoded['wallet_balance'],
+          'balance': decoded['balance'] ?? decoded['wallet_balance'] ?? 0.0,
+          'reward_points': decoded['reward_points'] ?? 0,
+          'points_value_in_inr': (decoded['points_value_in_inr'] as num?)?.toDouble() ?? 0.0,
+          'conversion_rule': decoded['conversion_rule'] is Map ? Map<String, dynamic>.from(decoded['conversion_rule']) : null,
+          'recent_transactions': decoded['recent_transactions'] ?? [],
           'data': decoded,
         };
       }
@@ -65,6 +69,7 @@ class OrderService {
   Future<Map<String, dynamic>> getOrders({
     String? search,
     String? status,
+    String? orderSource,
   }) async {
     try {
       final queryParameters = <String, String>{};
@@ -77,6 +82,10 @@ class OrderService {
           status.trim().isNotEmpty &&
           status != 'All') {
         queryParameters['status'] = _statusToApi(status);
+      }
+
+      if (orderSource != null && orderSource.trim().isNotEmpty) {
+        queryParameters['order_source'] = orderSource.trim();
       }
 
       final uri = Uri.parse(
@@ -268,11 +277,15 @@ class OrderService {
     if (data.containsKey('order_items')) map['order_items'] = data['order_items'];
     if (data.containsKey('serving_franchise_id')) map['serving_franchise_id'] = data['serving_franchise_id'];
     if (data.containsKey('order_source')) map['order_source'] = data['order_source'];
+    if (data.containsKey('payment_mode')) map['payment_mode'] = data['payment_mode'];
+    if (data.containsKey('payment_method')) map['payment_method'] = data['payment_method'];
     if (data.containsKey('duration_choice')) map['duration_choice'] = data['duration_choice'];
     if (data.containsKey('duration_days')) map['duration_days'] = data['duration_days'];
     if (data.containsKey('customer_name')) map['customer_name'] = data['customer_name'];
     if (data.containsKey('phone')) map['phone'] = data['phone'];
     if (data.containsKey('delivery_address')) map['delivery_address'] = data['delivery_address'];
+    if (data.containsKey('notes')) map['notes'] = data['notes'];
+    if (data.containsKey('idempotency_key')) map['idempotency_key'] = data['idempotency_key'];
 
     return map;
   }
@@ -663,6 +676,9 @@ class OrderService {
         return fn;
       }
     }
+    if (item['order_source'] == 'WATER_WALLET' || item['order_source'] == 'WATER_WALLET_REDEMPTION') {
+      return 'Shivnath Central Admin (Water Wallet)';
+    }
     if (item['order_source'] == 'DIRECT_COMPANY') {
       return 'Shivnath Agency (Direct Company)';
     }
@@ -905,6 +921,151 @@ class OrderService {
         'success': false,
         'message': 'Network error during payment reconciliation.',
       };
+    }
+  }
+
+  // =====================================================
+  // GET REDEMPTION ELIGIBLE PRODUCTS
+  // =====================================================
+  Future<Map<String, dynamic>> getRedemptionProducts() async {
+    try {
+      final response = await ApiClient.get(
+        Uri.parse('$baseUrl/api/orders/wallet/redemption-products/'),
+        headers: await _headers(),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error loading redemption products.'};
+    }
+  }
+
+  // =====================================================
+  // REDEEM POINTS FOR PRODUCT (DIRECT ADMIN ORDER)
+  // =====================================================
+  Future<Map<String, dynamic>> redeemWalletPoints({
+    required int productId,
+    int quantity = 1,
+    int? pointsToRedeem,
+    dynamic deliveryAddress,
+    String? notes,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/wallet/redeem/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'product_id': productId,
+          'quantity': quantity,
+          'points_to_redeem': ?pointsToRedeem,
+          'delivery_address': ?deliveryAddress,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        }),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error while redeeming points.'};
+    }
+  }
+
+  // =====================================================
+  // GET WALLET SETTINGS
+  // =====================================================
+  Future<Map<String, dynamic>> getWalletSettings() async {
+    try {
+      final response = await ApiClient.get(
+        Uri.parse('$baseUrl/api/orders/wallet/settings/'),
+        headers: await _headers(),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error loading wallet settings.'};
+    }
+  }
+
+  // =====================================================
+  // UPDATE WALLET SETTINGS
+  // =====================================================
+  Future<Map<String, dynamic>> updateWalletSettings(Map<String, dynamic> data) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/wallet/settings/'),
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error updating wallet settings.'};
+    }
+  }
+
+  // =====================================================
+  // INITIATE WALLET RECHARGE
+  // =====================================================
+  Future<Map<String, dynamic>> initiateWalletRecharge({required double amount}) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/wallet/recharge/'),
+        headers: await _headers(),
+        body: jsonEncode({'amount': amount}),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error initiating wallet recharge: $e'};
+    }
+  }
+
+  // =====================================================
+  // VERIFY WALLET RECHARGE
+  // =====================================================
+  Future<Map<String, dynamic>> verifyWalletRecharge({
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/wallet/verify-recharge/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'razorpay_order_id': razorpayOrderId,
+          'razorpay_payment_id': razorpayPaymentId,
+          'razorpay_signature': razorpaySignature,
+        }),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error verifying wallet recharge: $e'};
+    }
+  }
+
+  // =====================================================
+  // PAY ORDER WITH WALLET
+  // =====================================================
+  Future<Map<String, dynamic>> payOrderWithWallet({required int orderId}) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/wallet/pay-order/'),
+        headers: await _headers(),
+        body: jsonEncode({'order_id': orderId}),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error paying order with wallet: $e'};
+    }
+  }
+
+  // =====================================================
+  // GET WALLET TRANSACTIONS (LEDGER AUDIT TRAIL)
+  // =====================================================
+  Future<Map<String, dynamic>> getWalletTransactions() async {
+    try {
+      final response = await ApiClient.get(
+        Uri.parse('$baseUrl/api/orders/wallet/transactions/'),
+        headers: await _headers(),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error loading wallet transactions: $e'};
     }
   }
 }

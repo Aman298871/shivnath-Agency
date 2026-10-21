@@ -212,28 +212,33 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 )
               : RefreshIndicator(
                   onRefresh: _fetchLatestOrder,
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                    children: [
-                      _buildHeaderCard(),
-                      if (_isAdminOrStaff) ...[
-                        const SizedBox(height: 16),
-                        _buildAdminActionsCard(),
-                      ],
-                      const SizedBox(height: 16),
-                      _buildFulfillmentCard(),
-                      const SizedBox(height: 16),
-                      _buildDeliveryAddressCard(),
-                      const SizedBox(height: 16),
-                      _buildItemsCard(),
-                      const SizedBox(height: 16),
-                      _buildInvoiceCard(),
-                      const SizedBox(height: 16),
-                      _buildPriceSummaryCard(),
-                      const SizedBox(height: 16),
-                      _buildTimelineCard(),
-                      const SizedBox(height: 24),
-                    ],
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 820),
+                      child: ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                        children: [
+                          _buildHeaderCard(),
+                          if (_isAdminOrStaff) ...[
+                            const SizedBox(height: 16),
+                            _buildAdminActionsCard(),
+                          ],
+                          const SizedBox(height: 16),
+                          _buildFulfillmentCard(),
+                          const SizedBox(height: 16),
+                          _buildDeliveryAddressCard(),
+                          const SizedBox(height: 16),
+                          _buildItemsCard(),
+                          const SizedBox(height: 16),
+                          _buildInvoiceCard(),
+                          const SizedBox(height: 16),
+                          _buildPriceSummaryCard(),
+                          const SizedBox(height: 16),
+                          _buildTimelineCard(),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
     );
@@ -603,16 +608,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Widget _buildFulfillmentCard() {
     final fulfilling = _order?['fulfilling_entity'] as Map<String, dynamic>?;
-    final isFranchise = (_order?['order_source'] != 'DIRECT_COMPANY') &&
+    final orderSource = _order?['order_source']?.toString() ?? _order?['raw']?['order_source']?.toString() ?? '';
+    final isWaterWallet = orderSource == 'WATER_WALLET' ||
+        orderSource == 'WATER_WALLET_REDEMPTION' ||
+        _order?['payment_mode'] == 'WALLET';
+    final isFranchise = !isWaterWallet &&
+        (_order?['order_source'] != 'DIRECT_COMPANY') &&
         (fulfilling?['type'] == 'FRANCHISE' ||
             (_order?['serving_franchise_name'] ?? '').toString().isNotEmpty);
 
-    final title = isFranchise
-        ? (fulfilling?['name'] ?? _order?['serving_franchise_name'] ?? _order?['franchise'] ?? 'Wholesale Dealer')
-        : 'Shivnath Agency (Central Plant)';
-    final subtitle = isFranchise
-        ? 'Wholesale Dealer Fulfilled'
-        : 'Direct Company Fulfilled (Raipur Plant)';
+    final title = isWaterWallet
+        ? 'Shivnath Central Admin (Water Wallet)'
+        : (isFranchise
+            ? (fulfilling?['name'] ?? _order?['serving_franchise_name'] ?? _order?['franchise'] ?? 'Wholesale Dealer')
+            : 'Shivnath Agency (Central Plant)');
+    final subtitle = isWaterWallet
+        ? 'Central Admin Direct Fulfillment — Paid via Water Wallet'
+        : (isFranchise
+            ? 'Wholesale Dealer Fulfilled'
+            : 'Direct Company Fulfilled (Raipur Plant)');
     final phone = fulfilling?['phone']?.toString() ?? '';
     final territory = fulfilling?['territory']?.toString() ?? _order?['raw']?['territory']?.toString() ?? '';
     final address = fulfilling?['address']?.toString() ?? '';

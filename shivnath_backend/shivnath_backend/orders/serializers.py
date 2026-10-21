@@ -306,6 +306,11 @@ class OrderSerializer(serializers.ModelSerializer):
             'order_notes',
             'fulfilling_entity',
 
+            'points_redeemed',
+            'points_discount_amount',
+            'wallet_amount_debited',
+            'remaining_payable_amount',
+
             'status',
             'status_display',
 
@@ -634,6 +639,12 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        # Authoritative franchise name and fulfilling entity for wallet redemption & wallet orders
+        if instance.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
+            data['franchise_name'] = 'Shivnath Central Admin (Water Wallet)'
+            data['fulfilling_entity'] = 'Shivnath Central Admin Plant'
+            return data
+
         # Authoritative franchise name: always show serving/registered franchise business name, never customer name
         if instance.serving_franchise:
             data['franchise_name'] = instance.serving_franchise.business_name

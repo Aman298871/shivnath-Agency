@@ -999,8 +999,11 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
               ),
             ],
           ),
-          content: SizedBox(
-            width: 480,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 480,
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1276,8 +1279,11 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
               ),
             ],
           ),
-          content: SizedBox(
-            width: 440,
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 440,
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,

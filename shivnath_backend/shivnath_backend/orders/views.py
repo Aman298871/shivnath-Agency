@@ -9,6 +9,7 @@ from decimal import Decimal
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Sum, F
 from django.db import transaction
+from django.utils import timezone
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
@@ -18,7 +19,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.permissions import IsAdminRole, IsApprovedFranchise, IsAdminOrApprovedFranchise
 
-from .models import Order, OrderItem, OrderStatusHistory
+from .models import Order, OrderItem, OrderStatusHistory, Wallet, WalletTransaction
 from .serializers import OrderSerializer
 from products.models import Product
 
@@ -63,7 +64,7 @@ class OrderListCreateView(APIView):
                         Q(serving_franchise=fp)
                         | Q(registered_franchise=fp)
                         | Q(created_by=user)
-                    ).prefetch_related('items').distinct()
+                    ).exclude(order_source__in=['WATER_WALLET_REDEMPTION', 'WATER_WALLET']).prefetch_related('items').distinct()
                 else:
                     orders = Order.objects.none()
             else:
@@ -89,6 +90,10 @@ class OrderListCreateView(APIView):
         order_status = request.query_params.get('status', '').strip()
         if order_status:
             orders = orders.filter(status=order_status)
+
+        order_source = request.query_params.get('order_source', '').strip()
+        if order_source:
+            orders = orders.filter(order_source=order_source)
 
         orders = orders.order_by('-created_at')
 
@@ -131,8 +136,13 @@ class OrderListCreateView(APIView):
 
         serving_franchise_id = request.data.get('serving_franchise_id') or request.data.get('serving_franchise')
         order_source_raw = str(request.data.get('order_source', '')).strip().upper()
+        req_pm = str(request.data.get('payment_mode') or request.data.get('payment_method') or request.data.get('payment') or '').strip().upper()
 
-        if creator_fp:
+        if req_pm in ['WALLET', 'WATER_WALLET'] or order_source_raw in ['WATER_WALLET', 'WATER_WALLET_REDEMPTION']:
+            order_source = 'WATER_WALLET' if order_source_raw != 'WATER_WALLET_REDEMPTION' else 'WATER_WALLET_REDEMPTION'
+            serving_franchise = None
+            registered_franchise = None
+        elif creator_fp:
             order_source = 'FRANCHISE'
             serving_franchise = creator_fp
             registered_franchise = creator_fp
@@ -176,24 +186,23 @@ class OrderListCreateView(APIView):
             serving_franchise = None
 
         # Payment mode validation
-        req_pm = str(request.data.get('payment_mode') or request.data.get('payment_method') or request.data.get('payment') or '').strip().upper()
-        if order_source == 'DIRECT_COMPANY':
+        if order_source in ['DIRECT_COMPANY', 'WATER_WALLET', 'WATER_WALLET_REDEMPTION']:
             if is_customer and req_pm in ['COD', 'CASH', 'CASH_ON_DELIVERY', 'PAY_ON_DELIVERY', 'PENDING_COD']:
                 return Response(
                     {
                         'success': False,
-                        'message': 'Cash on Delivery (COD) is disabled for direct company orders. Please complete your payment online securely via Razorpay or Water Wallet.',
+                        'message': 'Cash on Delivery (COD) is disabled for direct company and wallet orders. Please complete your payment online securely via Razorpay or Water Wallet.',
                         'error_code': 'COD_NOT_ALLOWED',
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         else:
             # Franchise order: online Razorpay via company account is prohibited
-            if req_pm in ['RAZORPAY', 'ONLINE', 'GATEWAY']:
+            if req_pm in ['RAZORPAY', 'ONLINE', 'GATEWAY', 'WALLET', 'WATER_WALLET']:
                 return Response(
                     {
                         'success': False,
-                        'message': 'Online central Razorpay payment cannot be used for franchise orders. Please select Pay on Delivery to Franchise.',
+                        'message': 'Online central payments and Water Wallet cannot be used for franchise orders. Please select Pay on Delivery to Franchise.',
                         'error_code': 'FRANCHISE_RAZORPAY_NOT_ALLOWED',
                     },
                     status=status.HTTP_400_BAD_REQUEST,
@@ -276,7 +285,11 @@ class OrderListCreateView(APIView):
                 order_data['payment'] = order_data['payment'].strip().lower()
 
             # Authoritative fulfillment source & franchise name resolution
-            if order_source == 'DIRECT_COMPANY' or not serving_franchise:
+            if order_source in ['WATER_WALLET', 'WATER_WALLET_REDEMPTION']:
+                serving_franchise = None
+                registered_franchise = None
+                resolved_franchise_name = 'Shivnath Central Admin (Water Wallet)'
+            elif order_source == 'DIRECT_COMPANY' or not serving_franchise:
                 order_source = 'DIRECT_COMPANY'
                 serving_franchise = None
                 resolved_franchise_name = 'Shivnath Agency (Direct)'
@@ -319,6 +332,38 @@ class OrderListCreateView(APIView):
             if 'payment' in order_data and not order_data.get('payment_status'):
                 order_data['payment_status'] = 'pending' if str(order_data.get('payment')).lower() == 'pending' else 'paid'
 
+            # Wallet Balance Validation & Pre-deduction check
+            wallet_to_debit = None
+            req_wallet_amt = Decimal('0.00')
+            if req_pm in ['WALLET', 'WATER_WALLET']:
+                if not creator:
+                    return Response({'success': False, 'message': 'Authentication required for Water Wallet payment.'}, status=status.HTTP_401_UNAUTHORIZED)
+                from .wallet_services import get_or_create_wallet
+                wallet_to_debit = Wallet.objects.select_for_update().filter(user=creator).first()
+                if not wallet_to_debit:
+                    wallet_to_debit = get_or_create_wallet(creator)
+                    wallet_to_debit = Wallet.objects.select_for_update().get(id=wallet_to_debit.id)
+
+                req_wallet_amt = Decimal(str(calc_amount)).quantize(Decimal('0.01'))
+                if wallet_to_debit.balance < req_wallet_amt:
+                    return Response(
+                        {
+                            'success': False,
+                            'message': f"Insufficient Water Wallet balance. Required: ₹{req_wallet_amt:.2f}, Available: ₹{wallet_to_debit.balance:.2f}. Please recharge your Water Wallet.",
+                            'error_code': 'INSUFFICIENT_WALLET_BALANCE',
+                            'required_amount': float(req_wallet_amt),
+                            'wallet_balance': float(wallet_to_debit.balance),
+                            'shortfall': float(req_wallet_amt - wallet_to_debit.balance),
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                order_data['payment_mode'] = 'WALLET'
+                order_data['payment_status'] = 'paid'
+                order_data['payment'] = 'paid'
+                order_data['order_source'] = 'WATER_WALLET'
+                order_data['wallet_amount_debited'] = req_wallet_amt
+                order_data['remaining_payable_amount'] = Decimal('0.00')
+
             # Dynamic Stock Duration Calculation with Exact Calendar Months & Custom Days
             from datetime import date
             from accounts.services import calculate_stock_end_date, send_order_placed_notifications
@@ -352,6 +397,34 @@ class OrderListCreateView(APIView):
                 delivery_address=delivery_address_val,
                 payment_mode=order_data.get('payment_mode', 'ONLINE'),
             )
+
+            # Atomically debit wallet and record ledger entry
+            w_txn = None
+            if req_pm in ['WALLET', 'WATER_WALLET'] and wallet_to_debit:
+                wallet_to_debit.balance -= req_wallet_amt
+                wallet_to_debit.save(update_fields=['balance', 'updated_at'])
+
+                order.payment_mode = 'WALLET'
+                order.payment_status = 'paid'
+                order.order_source = 'WATER_WALLET'
+                order.wallet_amount_debited = req_wallet_amt
+                order.remaining_payable_amount = Decimal('0.00')
+                order.save(update_fields=['payment_mode', 'payment_status', 'order_source', 'wallet_amount_debited', 'remaining_payable_amount'])
+
+                today_str = timezone.now().strftime('%Y%m%d')
+                short_uuid = uuid.uuid4().hex[:8].upper()
+                w_txn = WalletTransaction.objects.create(
+                    transaction_id=f"WTX-DEB-{today_str}-{short_uuid}",
+                    wallet=wallet_to_debit,
+                    transaction_type='ORDER_DEBIT',
+                    amount=req_wallet_amt,
+                    balance_after=wallet_to_debit.balance,
+                    points_balance_after=wallet_to_debit.reward_points,
+                    status='SUCCESS',
+                    order=order,
+                    completed_at=timezone.now(),
+                    description=f"Water Wallet payment for order {order.order_code}"
+                )
 
             # Deduct stock and create OrderItems
             for prod, qty, price in validated_order_items:
@@ -458,16 +531,26 @@ class OrderListCreateView(APIView):
 
             transaction.on_commit(_dispatch_order_placed_notifs)
 
-            return Response(
-                {
-                    'success': True,
-                    'message': 'Order created successfully.',
-                    'id': order.id,
-                    'order_id': order.id,
-                    'order': OrderSerializer(order).data,
-                },
-                status=status.HTTP_201_CREATED,
-            )
+            # Authoritatively award reward points for eligible customer order
+            try:
+                from .wallet_services import award_points_for_order
+                award_points_for_order(order)
+            except Exception as pe:
+                logger.warning("Failed to award points for order %s: %s", order.id, pe)
+
+            resp_data = {
+                'success': True,
+                'message': 'Order created and paid successfully using Water Wallet.' if req_pm in ['WALLET', 'WATER_WALLET'] else 'Order created successfully.',
+                'id': order.id,
+                'order_id': order.id,
+                'order': OrderSerializer(order).data,
+            }
+            if req_pm in ['WALLET', 'WATER_WALLET'] and wallet_to_debit:
+                resp_data['wallet_amount_debited'] = float(req_wallet_amt)
+                resp_data['new_wallet_balance'] = float(wallet_to_debit.balance)
+                if w_txn:
+                    resp_data['transaction_id'] = w_txn.transaction_id
+            return Response(resp_data, status=status.HTTP_201_CREATED)
 
 
 # =========================================================
@@ -616,6 +699,16 @@ class OrderDetailView(APIView):
 
     def get(self, request, pk):
         order = get_object_or_404(Order.objects.prefetch_related('items'), pk=pk)
+        user = request.user if request.user and request.user.is_authenticated else None
+        if user:
+            role = getattr(getattr(user, 'profile', None), 'role', '')
+            is_admin = user.is_superuser or user.is_staff or role in ['admin', 'super_admin']
+            is_franchise = role == 'franchise' or bool(getattr(user, 'franchise_profile', None))
+            if not is_admin and is_franchise and order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
+                return Response(
+                    {'success': False, 'message': 'Franchises are not authorized to view Water Wallet orders.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
         return Response(
             {
                 'success': True,
@@ -636,6 +729,12 @@ class OrderDetailView(APIView):
         user = request.user if request.user and request.user.is_authenticated else None
         role = getattr(getattr(user, 'profile', None), 'role', '')
         is_admin = user and (user.is_superuser or user.is_staff or role in ['admin', 'super_admin'])
+
+        if not is_admin and (role == 'franchise' or getattr(user, 'franchise_profile', None)) and order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
+            return Response(
+                {'success': False, 'message': 'Franchises are not authorized to update Water Wallet orders.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         from orders.services import validate_order_status_transition, validate_payment_stage, transition_order_status
         from django.core.exceptions import ValidationError as DjangoValidationError
@@ -823,10 +922,10 @@ class OrderStatusUpdateView(APIView):
                     'message': 'Order not found.'
                 }, status=status.HTTP_404_NOT_FOUND)
 
-            # Franchise must only update orders assigned to them
+            # Franchise must only update orders assigned to them, and NEVER wallet orders
             if role == 'franchise' and not user.is_superuser:
                 fp = getattr(user, 'franchise_profile', None)
-                if not fp or order.serving_franchise_id != fp.id:
+                if not fp or order.serving_franchise_id != fp.id or order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
                     return Response({
                         'success': False,
                         'message': 'You are not authorized to update this order.'
@@ -856,6 +955,14 @@ class OrderStatusUpdateView(APIView):
                 bypass_validation=True,
             )
 
+            # Auto-restore reward points and wallet cash debit if order is cancelled
+            if new_status == 'cancelled':
+                try:
+                    from .wallet_services import refund_order_to_wallet
+                    refund_order_to_wallet(updated_order, reason=notes or 'Order status set to cancelled')
+                except Exception as ex:
+                    logger.warning("Failed to auto-refund order to wallet: %s", ex)
+
             allowed_next = ALLOWED_ORDER_TRANSITIONS.get(new_status, [])
 
             return Response(
@@ -881,6 +988,7 @@ class OrderStatsView(APIView):
         total_orders = orders.count()
         approval_pending = orders.filter(status='plant_approval').count()
         in_dispatch = orders.filter(status='dispatch').count()
+        wallet_orders = orders.filter(order_source__in=['WATER_WALLET_REDEMPTION', 'WATER_WALLET']).count()
         order_value = orders.aggregate(total=Sum('amount'))['total'] or 0
 
         return Response(
@@ -890,6 +998,7 @@ class OrderStatsView(APIView):
                     'total_orders': total_orders,
                     'approval_pending': approval_pending,
                     'in_dispatch': in_dispatch,
+                    'wallet_orders': wallet_orders,
                     'order_value': float(order_value),
                 },
             }

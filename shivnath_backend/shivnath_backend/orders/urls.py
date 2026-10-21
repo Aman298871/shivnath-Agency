@@ -20,6 +20,9 @@ from .wallet_views import (
     WalletRechargeVerifyAPIView,
     WalletPayOrderAPIView,
     WalletTransactionListAPIView,
+    WalletRedemptionProductsAPIView,
+    WalletRedeemPointsAPIView,
+    WalletSettingsAPIView,
 )
 
 urlpatterns = [
@@ -41,4 +44,7 @@ urlpatterns = [
     path('wallet/verify-recharge/', WalletRechargeVerifyAPIView.as_view(), name='wallet-recharge-verify'),
     path('wallet/pay-order/', WalletPayOrderAPIView.as_view(), name='wallet-pay-order'),
     path('wallet/transactions/', WalletTransactionListAPIView.as_view(), name='wallet-transactions'),
+    path('wallet/redemption-products/', WalletRedemptionProductsAPIView.as_view(), name='wallet-redemption-products'),
+    path('wallet/redeem/', WalletRedeemPointsAPIView.as_view(), name='wallet-redeem-points'),
+    path('wallet/settings/', WalletSettingsAPIView.as_view(), name='wallet-settings'),
 ]

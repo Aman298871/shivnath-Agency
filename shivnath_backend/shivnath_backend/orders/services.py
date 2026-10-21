@@ -98,6 +98,11 @@ def transition_order_status(order, new_status, actor=None, notes='', bypass_vali
         _inv_deliver_order_atomic(order, actor=actor)
     elif new_clean == 'cancelled':
         _inv_cancel_order_atomic(order, actor=actor)
+        try:
+            from .wallet_services import refund_order_to_wallet
+            refund_order_to_wallet(order, reason=notes or "Order Cancelled")
+        except Exception as we:
+            logger.warning("Wallet refund warning on order cancellation: %s", we)
     else:
         order.status = new_clean
         order.save(update_fields=['status', 'updated_at'])

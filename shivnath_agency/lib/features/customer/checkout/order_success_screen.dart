@@ -22,9 +22,26 @@ class OrderSuccessScreen extends StatelessWidget {
     final deliveryAddress = orderData?['delivery_address']?.toString() ??
         orderData?['city']?.toString() ??
         'Saved Delivery Address';
-    final fulfillmentSource = orderData?['order_source'] == 'DIRECT_COMPANY'
-        ? 'Shivnath Central Plant (Direct Company)'
-        : (orderData?['franchise']?.toString() ?? 'Franchise Partner Fulfillment');
+    final isWaterWallet = orderData?['order_source'] == 'WATER_WALLET' ||
+        orderData?['payment_mode'] == 'WALLET';
+    final isRedemption = orderData?['order_source'] == 'WATER_WALLET_REDEMPTION';
+    final isFranchise = orderData?['order_source'] == 'FRANCHISE' ||
+        (orderData?['serving_franchise_id'] != null && !isWaterWallet && !isRedemption);
+
+    final fulfillmentSource = (isWaterWallet || isRedemption)
+        ? 'Shivnath Central Admin (Water Wallet)'
+        : (orderData?['order_source'] == 'DIRECT_COMPANY'
+            ? 'Shivnath Central Plant (Direct Company)'
+            : (orderData?['franchise']?.toString() ?? 'Franchise Partner Fulfillment'));
+
+    final paymentModeText = isWaterWallet
+        ? 'Water Wallet (Prepaid)'
+        : (isRedemption
+            ? 'Reward Points Redemption'
+            : (isFranchise
+                ? 'Pay on Delivery (Franchise Collection)'
+                : 'Razorpay Online Payment'));
+
     final rawItems = orderData?['items_list'] ?? orderData?['items'] ?? [];
     final List<dynamic> itemsList = rawItems is List ? rawItems : [];
 
@@ -152,7 +169,7 @@ class OrderSuccessScreen extends StatelessWidget {
                           const Divider(height: 24),
                           _infoRow('Amount Paid', '₹${amount.toStringAsFixed(0)}', isBoldValue: true),
                           const SizedBox(height: 8),
-                          _infoRow('Payment Mode', 'Razorpay Online Payment'),
+                          _infoRow('Payment Mode', paymentModeText),
                           const SizedBox(height: 8),
                           _infoRow('Fulfillment', fulfillmentSource),
                           const SizedBox(height: 8),

@@ -658,7 +658,7 @@ def reserve_order_stock_fefo_atomic(order):
     for item in order.items.select_related('product').all():
         needed_qty = item.quantity
 
-        if order.order_source == 'DIRECT_COMPANY':
+        if order.order_source in ['DIRECT_COMPANY', 'WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
             # Reserve from ProductionBatch FEFO (Company warehouse)
             batches = ProductionBatch.objects.select_for_update().filter(
                 product=item.product,

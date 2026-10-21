@@ -326,14 +326,21 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
       context: context,
       barrierDismissible: true,
       builder: (ctx) => AlertDialog(
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: EdgeInsets.zero,
-        content: Container(
-          width: 440,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: Colors.white,
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 440,
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
           ),
+          child: SingleChildScrollView(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: Colors.white,
+              ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -535,7 +542,9 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildActionablePendingOrdersSection() {

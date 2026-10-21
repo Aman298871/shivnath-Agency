@@ -9,10 +9,12 @@ class OrderRepository {
   Future<Map<String, dynamic>> getOrders({
     String? search,
     String? status,
+    String? orderSource,
   }) async {
     return await _orderService.getOrders(
       search: search,
       status: status,
+      orderSource: orderSource,
     );
   }
 
@@ -88,6 +90,58 @@ class OrderRepository {
 
   Future<Map<String, dynamic>> getRazorpayStatus() async {
     return await _orderService.getRazorpayStatus();
+  }
+
+  Future<Map<String, dynamic>> getRedemptionProducts() async {
+    return await _orderService.getRedemptionProducts();
+  }
+
+  Future<Map<String, dynamic>> redeemWalletPoints({
+    required int productId,
+    int quantity = 1,
+    int? pointsToRedeem,
+    dynamic deliveryAddress,
+    String? notes,
+  }) async {
+    return await _orderService.redeemWalletPoints(
+      productId: productId,
+      quantity: quantity,
+      pointsToRedeem: pointsToRedeem,
+      deliveryAddress: deliveryAddress,
+      notes: notes,
+    );
+  }
+
+  Future<Map<String, dynamic>> getWalletSettings() async {
+    return await _orderService.getWalletSettings();
+  }
+
+  Future<Map<String, dynamic>> updateWalletSettings(Map<String, dynamic> data) async {
+    return await _orderService.updateWalletSettings(data);
+  }
+
+  Future<Map<String, dynamic>> initiateWalletRecharge({required double amount}) async {
+    return await _orderService.initiateWalletRecharge(amount: amount);
+  }
+
+  Future<Map<String, dynamic>> verifyWalletRecharge({
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    return await _orderService.verifyWalletRecharge(
+      razorpayOrderId: razorpayOrderId,
+      razorpayPaymentId: razorpayPaymentId,
+      razorpaySignature: razorpaySignature,
+    );
+  }
+
+  Future<Map<String, dynamic>> payOrderWithWallet({required int orderId}) async {
+    return await _orderService.payOrderWithWallet(orderId: orderId);
+  }
+
+  Future<Map<String, dynamic>> getWalletTransactions() async {
+    return await _orderService.getWalletTransactions();
   }
 
   Map<String, dynamic> mapOrder(Map<String, dynamic> raw) {

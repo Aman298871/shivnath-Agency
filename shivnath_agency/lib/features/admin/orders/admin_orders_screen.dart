@@ -228,7 +228,16 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           fran.contains(q) ||
           city.contains(q);
 
-      final status = filter == 'All' || order['status'] == filter;
+      final bool status;
+      if (filter == 'All') {
+        status = true;
+      } else if (filter == 'Water Wallet Orders') {
+        status = order['order_source'] == 'WATER_WALLET' ||
+            order['order_source'] == 'WATER_WALLET_REDEMPTION' ||
+            order['payment_mode'] == 'WALLET';
+      } else {
+        status = order['status'] == filter;
+      }
 
       return matches && status;
     }).toList();
@@ -388,6 +397,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   Widget _filter() {
     const filterOptions = [
       'All',
+      'Water Wallet Orders',
       'Order Placement',
       'Plant Approval',
       'Preparing',
@@ -437,10 +447,14 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   }
 
   Widget _tableRow(Map<String, dynamic>? order, bool header) {
+    final isWalletOrder = !header && order != null && (order['order_source'] == 'WATER_WALLET' ||
+        order['order_source'] == 'WATER_WALLET_REDEMPTION' ||
+        order['payment_mode'] == 'WALLET');
+
     final cells = header
         ? ['ORDER', 'FRANCHISE', 'DATE', 'ITEMS', 'AMOUNT', 'STATUS', 'PAYMENT']
         : [
-            order!['orderId'],
+            isWalletOrder ? '${order['orderId']}\n[WALLET]' : order!['orderId'],
             '${order['franchise']}\n${order['city']}',
             order['date'],
             '${order['items']} Items',
@@ -530,12 +544,38 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            order['orderId'],
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
+                          child: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                order['orderId'],
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              if (order['order_source'] == 'WATER_WALLET' ||
+                                  order['order_source'] == 'WATER_WALLET_REDEMPTION' ||
+                                  order['payment_mode'] == 'WALLET') ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE0F2FE),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFBAE6FD)),
+                                  ),
+                                  child: const Text(
+                                    'WATER WALLET',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0369A1),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         _statusBadge(order['status']),
@@ -1564,7 +1604,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                           final vRes = await InventoryRepository().verifyPaymentByTxnId(txnId: txnId);
                                           if (!mounted) return;
                                           if (vRes['success'] == true) {
-                                            Navigator.pop(dialogCtx);
+                                            if (dialogCtx.mounted) {
+                                              Navigator.pop(dialogCtx);
+                                            }
                                             await _loadData();
                                             if (mounted) {
                                               AppToast.success(context, 'Payment verified and marked PAID.', title: 'Payment Verified');
@@ -1690,7 +1732,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             final res = await _orderRepository.recordOrderPayment(dbId, payload);
                             if (!mounted) return;
                             if (res['success'] == true) {
-                              Navigator.pop(dialogCtx);
+                              if (dialogCtx.mounted) {
+                                Navigator.pop(dialogCtx);
+                              }
                               await _loadData();
                               if (mounted) {
                                 AppToast.success(context, 'Payment recorded successfully.', title: 'Payment Recorded');

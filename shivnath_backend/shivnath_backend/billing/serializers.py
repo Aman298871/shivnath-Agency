@@ -186,7 +186,11 @@ class InvoiceSerializer(serializers.ModelSerializer):
             is_order_paid = False
             if instance.order and getattr(instance.order, 'payment_status', '').lower() == 'paid':
                 is_order_paid = True
-            if grand_tot > Decimal('0.00') and (amt_paid >= grand_tot or is_order_paid or (grand_tot - amt_paid) <= Decimal('0.05')):
+            if grand_tot > Decimal('0.00') and (
+                amt_paid >= grand_tot or 
+                is_order_paid or 
+                (amt_paid > Decimal('0.00') and (grand_tot - amt_paid) <= Decimal('0.05'))
+            ):
                 ret['status'] = 'PAID'
                 ret['amount_paid'] = str(grand_tot)
                 ret['outstanding_balance'] = '0.00'

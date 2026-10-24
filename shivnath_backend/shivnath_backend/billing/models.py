@@ -232,7 +232,9 @@ class Invoice(models.Model):
 
     @property
     def outstanding_balance(self):
-        if self.status == 'PAID' or (self.grand_total - self.amount_paid) <= Decimal('0.05'):
+        if self.status == 'PAID' or self.amount_paid >= self.grand_total:
+            return Decimal('0.00')
+        if self.amount_paid > Decimal('0.00') and (self.grand_total - self.amount_paid) <= Decimal('0.05'):
             return Decimal('0.00')
         return max(Decimal('0.00'), self.grand_total - self.amount_paid)
 

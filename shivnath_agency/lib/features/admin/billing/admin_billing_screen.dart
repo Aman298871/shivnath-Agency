@@ -46,9 +46,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
             final gst = _asInt(item['cgst_amount'] != null ? (_asInt(item['cgst_amount']) + _asInt(item['sgst_amount'])) : (item['tax_amount'] ?? (total - subtotal)));
             final rawStatus = item['status']?.toString() ?? '';
             String status = 'Unpaid';
-            if ((paid >= total && total > 0) || (total > 0 && (total - paid) <= 1)) {
-              status = 'Paid';
-            } else if (rawStatus == 'PAID' || rawStatus == 'Paid') {
+            if (rawStatus == 'PAID' || rawStatus == 'Paid' || (paid >= total && total > 0)) {
               status = 'Paid';
             } else if (rawStatus == 'PAYMENT_PENDING_VERIFICATION') {
               status = 'Payment Verification Required';

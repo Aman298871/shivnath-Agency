@@ -431,7 +431,10 @@ def record_payment_transaction(invoice_id, amount_paid, payment_method='UPI', re
     )
 
     invoice.amount_paid = Decimal(str(invoice.amount_paid or '0.00')) + amount_paid_dec
-    if invoice.amount_paid >= invoice.grand_total or (invoice.grand_total - invoice.amount_paid) <= Decimal('0.05'):
+    if invoice.grand_total > Decimal('0.00') and (
+        invoice.amount_paid >= invoice.grand_total or
+        (invoice.amount_paid > Decimal('0.00') and (invoice.grand_total - invoice.amount_paid) <= Decimal('0.05'))
+    ):
         invoice.amount_paid = invoice.grand_total
         invoice.status = 'PAID'
     elif invoice.amount_paid > Decimal('0.00'):
@@ -558,7 +561,10 @@ def _process_payment_verification(txn_id, action, admin_user, notes=''):
         invoice = txn.invoice
         amount_paid_dec = txn.amount_paid
         invoice.amount_paid = Decimal(str(invoice.amount_paid or '0.00')) + amount_paid_dec
-        if invoice.amount_paid >= invoice.grand_total or (invoice.grand_total - invoice.amount_paid) <= Decimal('0.05'):
+        if invoice.grand_total > Decimal('0.00') and (
+            invoice.amount_paid >= invoice.grand_total or
+            (invoice.amount_paid > Decimal('0.00') and (invoice.grand_total - invoice.amount_paid) <= Decimal('0.05'))
+        ):
             invoice.amount_paid = invoice.grand_total
             invoice.status = 'PAID'
         elif invoice.amount_paid > Decimal('0.00'):

@@ -50,6 +50,26 @@ class CustomerOrderRazorpayFlowTest(TestCase):
             status='ACTIVE'
         )
 
+        from billing.models import DeliveryOriginSetting, DeliveryDistanceBand
+        DeliveryOriginSetting.objects.all().delete()
+        DeliveryDistanceBand.objects.all().delete()
+        DeliveryOriginSetting.objects.create(
+            name='Shivnath Agency Central Dispatch',
+            address='Ekta Nagar, Pragati Nagar, LIC Colony, near Mowa Thana, Raipur, Chhattisgarh',
+            latitude=Decimal('21.267800'),
+            longitude=Decimal('81.671100'),
+            is_active=True
+        )
+        DeliveryDistanceBand.objects.create(
+            name='Standard Band',
+            min_distance_km=Decimal('0.00'),
+            max_distance_km=Decimal('30.00'),
+            delivery_charge=Decimal('0.00'),
+            is_supported=True,
+            is_active=True,
+            order=1
+        )
+
     def test_customer_cod_order_is_strictly_rejected(self):
         self.client.force_authenticate(user=self.user)
         response = self.client.post('/api/orders/', {

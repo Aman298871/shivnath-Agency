@@ -178,15 +178,15 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
             'customer_name': 'Ravi Kumar',
             'phone': '9876543210',
             'delivery_address': 'Sector 1, Shankar Nagar, Raipur',
-            'items': 2,
-            'amount': 180.0,
+            'items': 5,
+            'amount': 450.0,
             'status': 'order_placement',
             'payment': 'pending',
             'payment_mode': 'RAZORPAY',
             'order_source': 'DIRECT_COMPANY',
             'serving_franchise_id': None,
             'order_items': [
-                {'product_id': self.product.id, 'quantity': 2, 'price': 90.0}
+                {'product_id': self.product.id, 'quantity': 5, 'price': 90.0}
             ],
         }, format='json')
 
@@ -204,7 +204,7 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         }, clear=False):
             tampered_res = self.client.post('/api/orders/razorpay/create-order/', {
                 'order_id': order.id,
-                'amount': 50.0  # Tampered: order is 180.0, client claims 50.0
+                'amount': 50.0  # Tampered: order is 450.0, client claims 50.0
             }, format='json')
 
             self.assertEqual(tampered_res.status_code, 400)
@@ -224,15 +224,15 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
             'customer_name': 'Ravi Kumar',
             'phone': '9876543210',
             'delivery_address': 'Pandri, Raipur',
-            'items': 3,
-            'amount': 270.0,
+            'items': 5,
+            'amount': 450.0,
             'status': 'order_placement',
             'payment': 'pending',
             'payment_mode': 'FRANCHISE_COLLECTION',
             'order_source': 'FRANCHISE',
             'serving_franchise_id': self.franchise_a.id,
             'order_items': [
-                {'product_id': self.product.id, 'quantity': 3, 'price': 90.0}
+                {'product_id': self.product.id, 'quantity': 5, 'price': 90.0}
             ],
         }, format='json')
 
@@ -253,7 +253,7 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         }, clear=False):
             rzp_create_res = self.client.post('/api/orders/razorpay/create-order/', {
                 'order_id': order.id,
-                'amount': 270.0
+                'amount': 450.0
             }, format='json')
 
             self.assertEqual(rzp_create_res.status_code, 400)
@@ -538,24 +538,25 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         - Company warehouse stock reserved via FEFO
         """
         wallet = get_or_create_wallet(self.customer)
-        wallet.reward_points = 300  # 300 points = Rs. 150 discount value
+        wallet.reward_points = 1200  # Enough for 5 jars (5 * 180 = 900 points)
         wallet.balance = Decimal('100.00')
         wallet.save()
 
-        # Product is priced at Rs. 90 (requires 180 points for full 100% redemption)
+        # Product is priced at Rs. 90 (requires 180 points/unit; 5 jars MOQ = 900 points)
         self.client.force_authenticate(user=self.customer)
 
         # 1. Fetch eligible redemption catalog
         cat_res = self.client.get('/api/orders/wallet/redemption-products/')
         self.assertEqual(cat_res.status_code, 200)
         p_data = cat_res.data['products'][0]
-        self.assertEqual(p_data['points_required'], 180)
+        self.assertEqual(p_data['points_required'], 900)
+        self.assertEqual(p_data['moq_units'], 5)
         self.assertTrue(p_data['can_fully_redeem'])
 
         # 2. Place redemption order
         redeem_payload = {
             'product_id': self.product.id,
-            'quantity': 1,
+            'quantity': 5,
             'delivery_address': 'Flat 402, Shivnath Enclave, Raipur',
             'notes': 'Deliver before 5 PM',
         }
@@ -572,14 +573,14 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         self.assertIsNone(order.registered_franchise)
         self.assertEqual(order.payment_status, 'paid')
         self.assertEqual(order.payment_mode, 'WALLET_REDEMPTION')
-        self.assertEqual(order.points_redeemed, 180)
-        self.assertEqual(order.points_discount_amount, Decimal('90.00'))
+        self.assertEqual(order.points_redeemed, 900)
+        self.assertEqual(order.points_discount_amount, Decimal('450.00'))
         self.assertEqual(order.wallet_amount_debited, Decimal('0.00'))
         self.assertEqual(order.remaining_payable_amount, Decimal('0.00'))
 
         # Points ledger verification:
         wallet.refresh_from_db()
-        self.assertEqual(wallet.reward_points, 120)  # 300 - 180 = 120
+        self.assertEqual(wallet.reward_points, 300)  # 1200 - 900 = 300
 
         pts_txn = WalletTransaction.objects.filter(
             wallet=wallet,
@@ -587,13 +588,13 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
             transaction_type='POINTS_REDEEMED'
         ).first()
         self.assertIsNotNone(pts_txn)
-        self.assertEqual(pts_txn.points, -180)
-        self.assertEqual(pts_txn.points_balance_after, 120)
+        self.assertEqual(pts_txn.points, -900)
+        self.assertEqual(pts_txn.points_balance_after, 300)
         self.assertEqual(pts_txn.status, 'SUCCESS')
 
         # Central inventory verification:
         self.company_batch.refresh_from_db()
-        self.assertEqual(self.company_batch.reserved_quantity, 1)
+        self.assertEqual(self.company_batch.reserved_quantity, 5)
 
     def test_franchise_cannot_access_or_view_wallet_redemption_order(self):
         """
@@ -603,14 +604,14 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         - Direct PATCH on order status returns 403 Forbidden
         """
         wallet = get_or_create_wallet(self.customer)
-        wallet.reward_points = 200
+        wallet.reward_points = 1000
         wallet.save()
 
         # Create wallet redemption order
         res = redeem_points_for_order(
             user=self.customer,
             product_id=self.product.id,
-            quantity=1,
+            quantity=5,
             delivery_address='Raipur'
         )
         wallet_order = res['order']
@@ -640,13 +641,13 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         and process order status through authorized lifecycle.
         """
         wallet = get_or_create_wallet(self.customer)
-        wallet.reward_points = 200
+        wallet.reward_points = 1000
         wallet.save()
 
         res = redeem_points_for_order(
             user=self.customer,
             product_id=self.product.id,
-            quantity=1,
+            quantity=5,
             delivery_address='Raipur'
         )
         wallet_order = res['order']
@@ -662,7 +663,9 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         # Inspect serialized display fields
         admin_order_data = next(o for o in list_res.data.get('orders', []) if o['id'] == wallet_order.id)
         self.assertEqual(admin_order_data['franchise_name'], 'Shivnath Central Admin (Water Wallet)')
-        self.assertEqual(admin_order_data['fulfilling_entity'], 'Shivnath Central Admin Plant')
+        fulfilling = admin_order_data['fulfilling_entity']
+        fulfilling_name = fulfilling['name'] if isinstance(fulfilling, dict) else fulfilling
+        self.assertEqual(fulfilling_name, 'Shivnath Central Admin Plant')
 
         # Admin processes status: order_placement -> plant_approval -> preparing -> dispatch -> delivered
         for nxt_st in ['plant_approval', 'preparing', 'dispatch', 'delivered']:
@@ -680,7 +683,7 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         Cancellation of a confirmed wallet redemption order restores points.
         """
         wallet = get_or_create_wallet(self.customer)
-        wallet.reward_points = 50  # Less than min 100 points
+        wallet.reward_points = 50  # Less than required points
         wallet.balance = Decimal('0.00')
         wallet.save()
 
@@ -689,7 +692,7 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         # 1. Attempt redemption with insufficient points
         rej_res = self.client.post('/api/orders/wallet/redeem/', {
             'product_id': self.product.id,
-            'quantity': 1,
+            'quantity': 5,
         }, format='json')
         self.assertEqual(rej_res.status_code, 400)
         self.assertFalse(rej_res.data['success'])
@@ -701,34 +704,34 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         self.assertEqual(wallet.reward_points, 50)
 
         # 2. Grant enough points, place order, and cancel it
-        wallet.reward_points = 200
+        wallet.reward_points = 1000
         wallet.save()
 
         res = redeem_points_for_order(
             user=self.customer,
             product_id=self.product.id,
-            quantity=1,
+            quantity=5,
             delivery_address='Raipur'
         )
         ord_obj = res['order']
         wallet.refresh_from_db()
-        self.assertEqual(wallet.reward_points, 20)  # 200 - 180 = 20
+        self.assertEqual(wallet.reward_points, 100)  # 1000 - 900 = 100
 
         # Cancel order
         cancel_res = refund_order_to_wallet(ord_obj, reason="Customer cancelled before processing")
         self.assertTrue(cancel_res['success'])
-        self.assertEqual(cancel_res['points_refunded'], 180)
+        self.assertEqual(cancel_res['points_refunded'], 900)
 
         wallet.refresh_from_db()
-        self.assertEqual(wallet.reward_points, 200)  # Restored!
+        self.assertEqual(wallet.reward_points, 1000)  # Restored!
 
     def test_water_wallet_checkout_sufficient_balance_and_direct_admin_routing(self):
         """
         Customer places an order using Water Wallet payment:
         - Customer has Rs. 1000 in wallet.
-        - Places order for product costing Rs. 90 x 2 = Rs. 180.
+        - Places order for product costing Rs. 90 x 5 = Rs. 450 (MOQ = 5).
         - Order created with order_source='WATER_WALLET', payment_mode='WALLET', payment_status='paid'.
-        - Rs. 180 debited atomically from wallet (remaining Rs. 820).
+        - Rs. 450 debited atomically from wallet (remaining Rs. 550).
         - Order routed directly to Central Admin (serving_franchise is None).
         - Excluded from franchise queues.
         - Appears in Central Admin queue with serialized labels.
@@ -741,10 +744,10 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
 
         checkout_payload = {
             'order_items': [
-                {'product_id': self.product.id, 'quantity': 2, 'price': 90.0}
+                {'product_id': self.product.id, 'quantity': 5, 'price': 90.0}
             ],
-            'amount': 180.0,
-            'items_count': 2,
+            'amount': 450.0,
+            'items_count': 5,
             'payment_mode': 'WALLET',
             'delivery_address': 'Sector 4, Devendra Nagar, Raipur',
             'customer_name': 'Test Customer',
@@ -754,8 +757,8 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         resp = self.client.post('/api/orders/', checkout_payload, format='json')
         self.assertEqual(resp.status_code, 201)
         self.assertTrue(resp.data['success'])
-        self.assertEqual(resp.data['wallet_amount_debited'], 180.0)
-        self.assertEqual(resp.data['new_wallet_balance'], 820.0)
+        self.assertEqual(resp.data['wallet_amount_debited'], 450.0)
+        self.assertEqual(resp.data['new_wallet_balance'], 550.0)
 
         order_id = resp.data['order']['id']
         order = Order.objects.get(id=order_id)
@@ -765,12 +768,12 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         self.assertIsNone(order.serving_franchise)
         self.assertEqual(order.payment_status, 'paid')
         self.assertEqual(order.payment_mode, 'WALLET')
-        self.assertEqual(order.wallet_amount_debited, Decimal('180.00'))
+        self.assertEqual(order.wallet_amount_debited, Decimal('450.00'))
         self.assertEqual(order.remaining_payable_amount, Decimal('0.00'))
 
         # Assert wallet balance and ledger:
         wallet.refresh_from_db()
-        self.assertEqual(wallet.balance, Decimal('820.00'))
+        self.assertEqual(wallet.balance, Decimal('550.00'))
 
         w_txn = WalletTransaction.objects.filter(
             wallet=wallet,
@@ -778,8 +781,8 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
             transaction_type='ORDER_DEBIT'
         ).first()
         self.assertIsNotNone(w_txn)
-        self.assertEqual(w_txn.amount, Decimal('180.00'))
-        self.assertEqual(w_txn.balance_after, Decimal('820.00'))
+        self.assertEqual(w_txn.amount, Decimal('450.00'))
+        self.assertEqual(w_txn.balance_after, Decimal('550.00'))
         self.assertEqual(w_txn.status, 'SUCCESS')
 
         # Assert Franchise cannot see it:
@@ -812,10 +815,10 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
 
         checkout_payload = {
             'order_items': [
-                {'product_id': self.product.id, 'quantity': 2, 'price': 90.0}
+                {'product_id': self.product.id, 'quantity': 5, 'price': 90.0}
             ],
-            'amount': 180.0,
-            'items_count': 2,
+            'amount': 450.0,
+            'items_count': 5,
             'payment_mode': 'WALLET',
             'delivery_address': 'Raipur',
         }
@@ -825,8 +828,8 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         self.assertFalse(resp.data['success'])
         self.assertEqual(resp.data['error_code'], 'INSUFFICIENT_WALLET_BALANCE')
         self.assertEqual(resp.data['wallet_balance'], 50.0)
-        self.assertEqual(resp.data['required_amount'], 180.0)
-        self.assertEqual(resp.data['shortfall'], 130.0)
+        self.assertEqual(resp.data['required_amount'], 450.0)
+        self.assertEqual(resp.data['shortfall'], 400.0)
 
         # No order created
         self.assertFalse(Order.objects.filter(created_by=self.customer, order_source='WATER_WALLET').exists())
@@ -849,8 +852,8 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         self.client.force_authenticate(user=self.customer)
 
         resp = self.client.post('/api/orders/', {
-            'order_items': [{'product_id': self.product.id, 'quantity': 1, 'price': 90.0}],
-            'amount': 90.0,
+            'order_items': [{'product_id': self.product.id, 'quantity': 5, 'price': 90.0}],
+            'amount': 450.0,
             'payment_mode': 'WALLET',
             'delivery_address': 'Raipur',
         }, format='json')
@@ -859,7 +862,7 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
         order_id = resp.data['order']['id']
         order = Order.objects.get(id=order_id)
         wallet.refresh_from_db()
-        self.assertEqual(wallet.balance, Decimal('910.00'))
+        self.assertEqual(wallet.balance, Decimal('550.00'))
 
         # Admin cancels the order
         self.client.force_authenticate(user=self.admin)
@@ -879,7 +882,7 @@ class WalletAndFranchisePaymentE2ETests(TestCase):
             transaction_type='ORDER_REFUND'
         ).first()
         self.assertIsNotNone(ref_txn)
-        self.assertEqual(ref_txn.amount, Decimal('90.00'))
+        self.assertEqual(ref_txn.amount, Decimal('450.00'))
         self.assertEqual(ref_txn.balance_after, Decimal('1000.00'))
 
         # Idempotency check: repeated refund call returns already_refunded

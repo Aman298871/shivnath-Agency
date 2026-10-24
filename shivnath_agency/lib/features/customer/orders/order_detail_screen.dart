@@ -1,10 +1,18 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/repositories/app_repositories.dart';
+import '../../../core/services/session_service.dart';
 import '../../../core/theme/brand_colors.dart';
 import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/cancel_order_dialog.dart';
 import '../../../core/widgets/product_thumbnail.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -383,6 +391,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _performStatusUpdate(int id, String newStatus) async {
+    if (newStatus.toLowerCase() == 'cancelled') {
+      final confirmed = await CancelOrderDialog.show(
+        context,
+        orderCode: widget.orderId.isNotEmpty ? widget.orderId : 'ORD-$id',
+      );
+      if (confirmed != true) {
+        return;
+      }
+    }
+
     setState(() => _updatingStatus = true);
     try {
       final res = await _orderRepository.updateOrderStatus(id, newStatus);
@@ -607,7 +625,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildFulfillmentCard() {
-    final fulfilling = _order?['fulfilling_entity'] as Map<String, dynamic>?;
+    final dynamic rawFulfilling = _order?['fulfilling_entity'];
+    final Map<String, dynamic>? fulfilling = rawFulfilling is Map
+        ? Map<String, dynamic>.from(rawFulfilling)
+        : (rawFulfilling is String && rawFulfilling.trim().isNotEmpty
+            ? {'type': 'CENTRAL_COMPANY', 'name': rawFulfilling.trim()}
+            : null);
     final orderSource = _order?['order_source']?.toString() ?? _order?['raw']?['order_source']?.toString() ?? '';
     final isWaterWallet = orderSource == 'WATER_WALLET' ||
         orderSource == 'WATER_WALLET_REDEMPTION' ||
@@ -617,17 +640,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         (fulfilling?['type'] == 'FRANCHISE' ||
             (_order?['serving_franchise_name'] ?? '').toString().isNotEmpty);
 
+    final franchiseCode = _order?['serving_franchise_code']?.toString() ??
+        _order?['raw']?['serving_franchise_code']?.toString() ??
+        fulfilling?['code']?.toString() ?? '';
     final title = isWaterWallet
         ? 'Shivnath Central Admin (Water Wallet)'
         : (isFranchise
-            ? (fulfilling?['name'] ?? _order?['serving_franchise_name'] ?? _order?['franchise'] ?? 'Wholesale Dealer')
+            ? (fulfilling?['name'] ?? _order?['serving_franchise_name'] ?? _order?['franchise'] ?? 'Wholesale Franchise')
             : 'Shivnath Agency (Central Plant)');
     final subtitle = isWaterWallet
         ? 'Central Admin Direct Fulfillment — Paid via Water Wallet'
         : (isFranchise
-            ? 'Wholesale Dealer Fulfilled'
-            : 'Direct Company Fulfilled (Raipur Plant)');
-    final phone = fulfilling?['phone']?.toString() ?? '';
+            ? 'Authorized Handling & Delivery Franchise for Shivnath Agency'
+            : 'Direct Company Fulfilled (Raipur Central Plant)');
+    final phone = fulfilling?['phone']?.toString() ??
+        _order?['serving_franchise_phone']?.toString() ??
+        _order?['raw']?['serving_franchise_phone']?.toString() ?? '';
     final territory = fulfilling?['territory']?.toString() ?? _order?['raw']?['territory']?.toString() ?? '';
     final address = fulfilling?['address']?.toString() ?? '';
 
@@ -690,6 +718,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       color: isFranchise ? const Color(0xFF7C3AED) : const Color(0xFF0284C7),
                     ),
                   ),
+                  if (isFranchise && franchiseCode.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.badge_outlined, size: 14, color: Color(0xFF7C3AED)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Franchise Code: $franchiseCode',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF5B21B6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   if (territory.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Row(
@@ -734,6 +779,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       ],
                     ),
                   ],
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Legal Seller: Shivnath Agency',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -812,7 +866,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget _buildItemsCard() {
     final rawItems = _order?['items_list'] ?? _order?['raw']?['items'] ?? [];
     final List<Map<String, dynamic>> items = rawItems is List
-        ? rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList()
+        ? rawItems.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
         : [];
 
     return Card(
@@ -958,6 +1012,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final invStatus = _order?['invoice_status']?.toString() ??
         _order?['raw']?['invoice_status']?.toString() ??
         'UNPAID';
+    final invIdRaw = _order?['invoice_id'] ?? _order?['raw']?['invoice_id'];
+    final int? invId = invIdRaw is int
+        ? invIdRaw
+        : int.tryParse(invIdRaw?.toString() ?? '');
+
+    final hasInvoice = invNumber.isNotEmpty || invId != null;
 
     return Card(
       elevation: 0,
@@ -983,7 +1043,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                 ),
                 const Spacer(),
-                if (invNumber.isNotEmpty)
+                if (hasInvoice)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
@@ -1006,9 +1066,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            if (invNumber.isNotEmpty) ...[
+            if (hasInvoice) ...[
               Text(
-                'Invoice No: $invNumber',
+                invNumber.isNotEmpty ? 'Invoice No: $invNumber' : 'Official Invoice Generated',
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
@@ -1020,21 +1080,71 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 'Official GST compliant invoice issued by Shivnath Agency / Serving Franchise.',
                 style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
               ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  side: const BorderSide(color: Color(0xFF0284C7)),
-                ),
-                icon: const Icon(Icons.visibility_outlined, size: 16, color: Color(0xFF0284C7)),
-                label: const Text('View Tax Breakdown', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w700)),
-                onPressed: _showInvoiceModal,
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                    label: const Text('Download Invoice (PDF)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    onPressed: () {
+                      if (invId != null) {
+                        _downloadInvoicePdf(invId);
+                      } else if (_resolvedDbId != null) {
+                        _downloadOrderInvoicePdf(_resolvedDbId!);
+                      } else {
+                        AppToast.warning(context, 'Order ID resolving, please retry');
+                      }
+                    },
+                  ),
+                  if (invId != null)
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: const BorderSide(color: Color(0xFF0284C7)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.print_rounded, size: 16, color: Color(0xFF0284C7)),
+                      label: const Text('Thermal Bill / Print', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w700, fontSize: 13)),
+                      onPressed: () => _printThermalInvoice(invId),
+                    ),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    ),
+                    icon: const Icon(Icons.visibility_outlined, size: 16, color: Color(0xFF64748B)),
+                    label: const Text('Tax Breakdown', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600, fontSize: 13)),
+                    onPressed: _showInvoiceModal,
+                  ),
+                ],
               ),
             ] else ...[
               const Text(
-                'Invoice will be generated upon Plant Approval / Order Preparation.',
+                'Commercial invoice and bill summary ready for this order.',
                 style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
+              const SizedBox(height: 12),
+              if (_resolvedDbId != null)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                  label: const Text('Download Bill / Invoice (PDF)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  onPressed: () => _downloadOrderInvoicePdf(_resolvedDbId!),
+                ),
             ],
           ],
         ),
@@ -1042,12 +1152,113 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  Future<void> _downloadInvoicePdf(int invId) async {
+    try {
+      if (mounted) {
+        AppToast.info(context, 'Downloading official PDF invoice...', title: 'Invoice');
+      }
+      final token = await SessionService().getAccessToken();
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/invoices/$invId/download/');
+      final res = await http.get(
+        url,
+        headers: {
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      );
+      if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/Invoice_$invId.pdf');
+        await file.writeAsBytes(res.bodyBytes, flush: true);
+        if (mounted) {
+          AppToast.success(context, 'Invoice downloaded successfully.', title: 'PDF Ready');
+        }
+        await OpenFilex.open(file.path);
+      } else {
+        if (mounted) {
+          AppToast.error(context, 'Could not download invoice (Server returned ${res.statusCode}).');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, 'Error downloading invoice: $e');
+      }
+    }
+  }
+
+  Future<void> _downloadOrderInvoicePdf(int orderId) async {
+    try {
+      if (mounted) {
+        AppToast.info(context, 'Downloading order invoice PDF...', title: 'Invoice');
+      }
+      final token = await SessionService().getAccessToken();
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/orders/$orderId/invoice/download/');
+      final res = await http.get(
+        url,
+        headers: {
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      );
+      if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/Order_${orderId}_Invoice.pdf');
+        await file.writeAsBytes(res.bodyBytes, flush: true);
+        if (mounted) {
+          AppToast.success(context, 'Invoice downloaded successfully.', title: 'PDF Ready');
+        }
+        await OpenFilex.open(file.path);
+      } else {
+        if (mounted) {
+          AppToast.error(context, 'Could not download invoice (Server returned ${res.statusCode}).');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, 'Error downloading order invoice: $e');
+      }
+    }
+  }
+
+  Future<void> _printThermalInvoice(int invId) async {
+    try {
+      final token = await SessionService().getAccessToken();
+      final tokenParam = (token != null && token.isNotEmpty) ? '&token=$token' : '';
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/invoices/$invId/thermal/?width=80mm$tokenParam');
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          AppToast.error(context, 'Could not open thermal bill preview');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, 'Error launching thermal preview: $e');
+      }
+    }
+  }
+
   void _showInvoiceModal() {
     final invNumber = _order?['invoice_number']?.toString() ?? '';
-    final subtotal = _order?['invoice_subtotal'] ?? _order?['amount'] ?? 0.0;
-    final tax = _order?['invoice_tax'] ?? 0.0;
-    final grandTotal = _order?['invoice_grand_total'] ?? _order?['amount'] ?? 0.0;
+    final double subtotal = double.tryParse(_order?['invoice_subtotal']?.toString() ?? _order?['amount']?.toString() ?? '0') ?? 0.0;
+    final double tax = double.tryParse(_order?['invoice_tax']?.toString() ?? '0') ?? 0.0;
+    final double grandTotal = double.tryParse(_order?['invoice_grand_total']?.toString() ?? _order?['amount']?.toString() ?? '0') ?? 0.0;
+    final double deliveryCharges = double.tryParse(_order?['delivery_charges']?.toString() ?? '0') ?? 0.0;
+    final double? deliveryDistance = double.tryParse(_order?['delivery_distance_km']?.toString() ?? '');
+    final double discountAmount = double.tryParse(_order?['discount_amount']?.toString() ?? '0') ?? 0.0;
+    final double pointsDiscount = double.tryParse(_order?['points_discount_amount']?.toString() ?? '0') ?? 0.0;
+    final double walletDebited = double.tryParse(_order?['wallet_amount_debited']?.toString() ?? '0') ?? 0.0;
+    final double amountPaid = double.tryParse(_order?['amount_paid']?.toString() ?? '0') ?? 0.0;
+    final double remainingPayable = double.tryParse(_order?['remaining_payable_amount']?.toString() ?? '0') ?? 0.0;
+    final double previousOutstanding = double.tryParse(_order?['previous_outstanding']?.toString() ?? '0') ?? 0.0;
     final customer = _order?['customer_name'] ?? 'Customer';
+    final orderSourceDisplay = _order?['order_source_display']?.toString() ??
+        (_order?['serving_franchise_name'] != null ? 'Franchise-Assisted: ${_order?['serving_franchise_name']}' : 'Direct Shivnath');
+    final distanceLabel = (deliveryDistance != null && deliveryDistance > 0)
+        ? ' (${deliveryDistance.toStringAsFixed(1)} km)'
+        : '';
+    final deliveryStr = deliveryCharges > 0
+        ? '₹${deliveryCharges.toStringAsFixed(2)}$distanceLabel'
+        : 'FREE';
 
     showModalBottomSheet(
       context: context,
@@ -1068,32 +1279,72 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     const Icon(Icons.receipt_rounded, color: Color(0xFF0284C7)),
                     const SizedBox(width: 8),
                     Text(
-                      'Tax Invoice $invNumber',
+                      invNumber.isNotEmpty ? 'Invoice $invNumber' : 'Official Bill Summary',
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
                     ),
                   ],
                 ),
                 const Divider(height: 24),
+                _infoRow('Legal Seller', 'Shivnath Agency (Water Wala)'),
                 _infoRow('Billed To', customer.toString()),
-                _infoRow('Serving Plant/Dealer', _order?['franchise']?.toString() ?? 'Shivnath Agency'),
-                _infoRow('Items Subtotal', '₹$subtotal'),
-                _infoRow('CGST + SGST (18%)', '₹$tax'),
-                _infoRow('Delivery Fee', 'FREE'),
+                _infoRow('Order Source', orderSourceDisplay),
+                _infoRow('Items Subtotal', '₹${subtotal.toStringAsFixed(2)}'),
+                if (tax > 0) _infoRow('Taxes (GST)', '₹${tax.toStringAsFixed(2)}'),
+                _infoRow('Delivery Fee', deliveryStr),
+                if (discountAmount > 0) _infoRow('Discount Applied', '-₹${discountAmount.toStringAsFixed(2)}'),
+                if (pointsDiscount > 0) _infoRow('Points Redeemed', '-₹${pointsDiscount.toStringAsFixed(2)}'),
+                if (walletDebited > 0) _infoRow('Wallet Debited', '-₹${walletDebited.toStringAsFixed(2)}'),
+                if (previousOutstanding > 0) _infoRow('Previous Outstanding', '₹${previousOutstanding.toStringAsFixed(2)}'),
                 const Divider(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Invoice Grand Total', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                    Text('₹$grandTotal', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: BrandColors.redDark)),
+                    Text('₹${grandTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: BrandColors.redDark)),
                   ],
                 ),
+                if (amountPaid > 0) ...[
+                  const SizedBox(height: 6),
+                  _infoRow('Amount Paid', '₹${amountPaid.toStringAsFixed(2)}'),
+                ],
+                if (remainingPayable > 0) ...[
+                  const SizedBox(height: 6),
+                  _infoRow('Balance Payable', '₹${remainingPayable.toStringAsFixed(2)}'),
+                ],
                 const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Close'),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0284C7),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                        label: const Text('Download PDF', style: TextStyle(fontWeight: FontWeight.w700)),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          final parsedInvId = int.tryParse(_order?['invoice_id']?.toString() ?? '');
+                          if (parsedInvId != null) {
+                            _downloadInvoicePdf(parsedInvId);
+                          } else if (_resolvedDbId != null) {
+                            _downloadOrderInvoicePdf(_resolvedDbId!);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Close'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1104,13 +1355,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildPriceSummaryCard() {
-    final subtotal = _order?['invoice_subtotal'] ?? _order?['amount'] ?? 0.0;
-    final tax = _order?['invoice_tax'] ?? 0.0;
-    final grandTotal = _order?['invoice_grand_total'] ?? _order?['amount'] ?? 0.0;
+    final double subtotal = double.tryParse(_order?['invoice_subtotal']?.toString() ?? _order?['amount']?.toString() ?? '0') ?? 0.0;
+    final double tax = double.tryParse(_order?['invoice_tax']?.toString() ?? '0') ?? 0.0;
+    final double grandTotal = double.tryParse(_order?['invoice_grand_total']?.toString() ?? _order?['amount']?.toString() ?? '0') ?? 0.0;
+    final double deliveryCharges = double.tryParse(_order?['delivery_charges']?.toString() ?? '0') ?? 0.0;
+    final double? deliveryDistance = double.tryParse(_order?['delivery_distance_km']?.toString() ?? '');
+    final double discountAmount = double.tryParse(_order?['discount_amount']?.toString() ?? '0') ?? 0.0;
+    final double pointsDiscount = double.tryParse(_order?['points_discount_amount']?.toString() ?? '0') ?? 0.0;
+    final double walletDebited = double.tryParse(_order?['wallet_amount_debited']?.toString() ?? '0') ?? 0.0;
+    final double remainingPayable = double.tryParse(_order?['remaining_payable_amount']?.toString() ?? '0') ?? 0.0;
+    final double amountPaid = double.tryParse(_order?['amount_paid']?.toString() ?? '0') ?? 0.0;
+    final double previousOutstanding = double.tryParse(_order?['previous_outstanding']?.toString() ?? '0') ?? 0.0;
+
     final rawPm = _order?['payment_mode']?.toString() ?? '';
     final paymentMode = (rawPm.isNotEmpty && !rawPm.contains('Cash on Delivery'))
         ? rawPm
         : 'Online Payment (Razorpay)';
+
+    final distanceLabel = (deliveryDistance != null && deliveryDistance > 0)
+        ? ' (${deliveryDistance.toStringAsFixed(1)} km)'
+        : '';
+    final deliveryChargesStr = deliveryCharges > 0
+        ? '₹${deliveryCharges.toStringAsFixed(2)}$distanceLabel'
+        : 'FREE';
 
     return Card(
       elevation: 0,
@@ -1132,10 +1399,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            _priceRow('Item Subtotal', '₹$subtotal'),
-            if (tax > 0) _priceRow('GST (CGST + SGST)', '₹$tax'),
-            _priceRow('Delivery Charges', 'FREE', isHighlight: true),
-            _priceRow('Discount Applied', '₹0.00'),
+            _priceRow('Item Subtotal', '₹${subtotal.toStringAsFixed(2)}'),
+            if (tax > 0) _priceRow('GST (CGST + SGST)', '₹${tax.toStringAsFixed(2)}'),
+            _priceRow(
+              'Delivery Charges',
+              deliveryChargesStr,
+              isHighlight: deliveryCharges == 0,
+            ),
+            if (discountAmount > 0)
+              _priceRow('Discount Applied', '-₹${discountAmount.toStringAsFixed(2)}', isHighlight: true),
+            if (pointsDiscount > 0)
+              _priceRow('Points Discount', '-₹${pointsDiscount.toStringAsFixed(2)}', isHighlight: true),
+            if (walletDebited > 0)
+              _priceRow('Water Wallet Redeemed', '-₹${walletDebited.toStringAsFixed(2)}', isHighlight: true),
+            if (previousOutstanding > 0)
+              _priceRow('Previous Outstanding', '₹${previousOutstanding.toStringAsFixed(2)}'),
             const Divider(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1149,7 +1427,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                 ),
                 Text(
-                  '₹$grandTotal',
+                  '₹${grandTotal.toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 18,
@@ -1158,14 +1436,44 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
               ],
             ),
+            if (amountPaid > 0) ...[
+              const SizedBox(height: 8),
+              _priceRow('Amount Paid', '₹${amountPaid.toStringAsFixed(2)}'),
+            ],
+            if (remainingPayable > 0) ...[
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Balance Payable',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                  Text(
+                    '₹${remainingPayable.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 10),
             Row(
               children: [
                 const Icon(Icons.payment_rounded, size: 14, color: Color(0xFF64748B)),
                 const SizedBox(width: 6),
-                Text(
-                  'Payment Mode: $paymentMode',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                Expanded(
+                  child: Text(
+                    'Payment Mode: $paymentMode',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  ),
                 ),
               ],
             ),
@@ -1178,7 +1486,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget _buildTimelineCard() {
     final rawHistory = _order?['status_history'] ?? _order?['raw']?['status_history'] ?? [];
     final List<Map<String, dynamic>> history = rawHistory is List
-        ? rawHistory.map((e) => Map<String, dynamic>.from(e as Map)).toList()
+        ? rawHistory.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
         : [];
 
     return Card(

@@ -487,6 +487,170 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
     );
   }
 
+  void _showWalletAndRewardsGuide(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.menu_book_rounded, color: Color(0xFF0284C7), size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'How Water Wallet & Rewards Work',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'Detailed guide on balances, points, and redemption',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Expanded(
+              child: ListView(
+                children: [
+                  // Section 1: Water Wallet
+                  _buildGuideCard(
+                    icon: Icons.account_balance_wallet_rounded,
+                    iconBg: const Color(0xFFE0F2FE),
+                    iconColor: const Color(0xFF0284C7),
+                    title: '💧 Prepaid Water Wallet (₹ INR Balance)',
+                    body: '• What is it? A secure, prepaid digital wallet in INR dedicated to ordering drinking water.\n'
+                          '• How to use? Top up anytime using UPI, Debit/Credit Cards, or NetBanking. When your daily or weekly 20L jars or bottles arrive, the payment is instantly settled in 1 click without cash hassles or repeated bank OTPs.\n'
+                          '• Automatic Refunds: If an order is cancelled or modified, your wallet balance is immediately refunded with complete ledger audit records.',
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Section 2: Hydration Rewards
+                  _buildGuideCard(
+                    icon: Icons.stars_rounded,
+                    iconBg: const Color(0xFFF3E8FF),
+                    iconColor: const Color(0xFF9333EA),
+                    title: '⭐ Hydration Rewards (Loyalty Points)',
+                    body: '• How to Earn: Automatically earn 1 Hydration Point for every ₹10 spent on non-cancelled drinking water orders.\n'
+                          '• How to Redeem: Tap "Redeem Products" to claim 100% Free Drinking Water Products from our Rewards Catalog (1L Premium Mineral Bottles, 500ml Bottles, 20L Jars).\n'
+                          '• Conversion Value: 2 Points = ₹1.00 product discount (100 Points = ₹50 value). Minimum redemption is 100 Points (or product equivalent).\n'
+                          '• Direct Central Plant Fulfillment: All reward orders are fulfilled directly by Shivnath Central Admin & Plant with fresh tamper-proof sealed packaging.',
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Section 3: Key Differences
+                  _buildGuideCard(
+                    icon: Icons.compare_arrows_rounded,
+                    iconBg: const Color(0xFFDCFCE7),
+                    iconColor: const Color(0xFF16A34A),
+                    title: '🔄 Difference: Wallet vs Reward Points',
+                    body: '• Water Wallet: Real prepaid money (₹) used to purchase any regular delivery.\n'
+                          '• Reward Points: Complimentary loyalty credits earned from your purchases to claim free bonus water products.\n'
+                          '• Zero False Pending Dues: Orders fully redeemed with points show ₹0.00 payable amount and require no cash at delivery.',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Got It', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuideCard({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String title,
+    required String body,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            body,
+            style: const TextStyle(fontSize: 12, height: 1.5, color: Color(0xFF475569)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -497,6 +661,11 @@ class _CustomerWalletScreenState extends State<CustomerWalletScreen> {
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'Wallet & Rewards Guide',
+            onPressed: () => _showWalletAndRewardsGuide(context),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadWalletData,
@@ -885,6 +1054,7 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
   List<Map<String, dynamic>> _products = [];
   String? _error;
   int? _redeemingProductId;
+  final Map<int, int> _selectedQuantities = {};
 
   @override
   void initState() {
@@ -901,9 +1071,63 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
     final res = await _orderRepository.getRedemptionProducts();
     if (!mounted) return;
 
-    if (res['success'] == true && res['data'] is List) {
+    final rawList = res['data'] is List
+        ? res['data']
+        : (res['products'] is List
+            ? res['products']
+            : (res['data'] is Map && res['data']['products'] is List
+                ? res['data']['products']
+                : null));
+
+    if (res['success'] == true && rawList is List) {
+      final list = List<Map<String, dynamic>>.from(rawList);
+      for (final p in list) {
+        final prodNameUpper = (p['name']?.toString() ?? '').toUpperCase();
+        final pkgType = (p['package_type']?.toString() ?? '').toUpperCase();
+        final isJar = pkgType == 'JAR' || prodNameUpper.contains('JAR') || prodNameUpper.contains('20L') || prodNameUpper.contains('DISPENSER');
+        final isBottle = pkgType == 'BOTTLE' || prodNameUpper.contains('BOTTLE') || prodNameUpper.contains('MINERAL');
+
+        // Apply authoritative business fallbacks if not explicitly provided by backend
+        if (p['moq_units'] == null) {
+          if (isJar) {
+            p['sales_unit'] = 'JAR';
+            p['sales_unit_display'] = 'Jars';
+            p['min_order_quantity'] = 5;
+            p['units_per_carton'] = 1;
+            p['allow_partial_carton'] = true;
+            p['moq_units'] = 5;
+            p['moq_display_text'] = 'Minimum order: 5 water jars';
+          } else if (isBottle) {
+            final int unitsPerCase = p['units_per_case'] as int? ??
+                (p['units_per_carton'] as int? ??
+                    ((prodNameUpper.contains('1 LITRE') || prodNameUpper.contains('1L')) ? 12 : 24));
+            const int minBoxes = 5;
+            final int totalBottles = minBoxes * unitsPerCase;
+            p['sales_unit'] = 'CARTON';
+            p['sales_unit_display'] = 'Boxes';
+            p['min_order_quantity'] = minBoxes;
+            p['units_per_carton'] = unitsPerCase;
+            p['allow_partial_carton'] = false;
+            p['moq_units'] = totalBottles;
+            p['moq_display_text'] = 'Minimum order: $minBoxes bottle boxes ($totalBottles bottles)';
+          } else {
+            final int minQty = p['min_order_quantity'] as int? ?? 1;
+            p['sales_unit'] = p['sales_unit'] ?? 'PIECE';
+            p['sales_unit_display'] = 'Units';
+            p['min_order_quantity'] = minQty;
+            p['units_per_carton'] = 1;
+            p['allow_partial_carton'] = true;
+            p['moq_units'] = minQty;
+            p['moq_display_text'] = 'Minimum order: $minQty units';
+          }
+        }
+
+        final prodId = p['id'] as int? ?? int.tryParse(p['id']?.toString() ?? '0') ?? 0;
+        final moqUnits = p['moq_units'] as int? ?? (p['min_order_quantity'] as int? ?? 1);
+        _selectedQuantities[prodId] = moqUnits;
+      }
       setState(() {
-        _products = List<Map<String, dynamic>>.from(res['data']);
+        _products = list;
         _isLoading = false;
       });
     } else {
@@ -914,15 +1138,96 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
     }
   }
 
+  int _getEffectiveMoq(Map<String, dynamic> product) {
+    int moqUnits = product['moq_units'] as int? ?? (product['min_order_quantity'] as int? ?? 1);
+    final pName = (product['name'] ?? product['product_name'] ?? '').toString().toUpperCase();
+    final pType = (product['package_type'] ?? '').toString().toUpperCase();
+    if (moqUnits <= 1 && (pType == 'JAR' || pName.contains('JAR') || pName.contains('20L'))) {
+      moqUnits = 5;
+    }
+    return moqUnits;
+  }
+
+  int _getSelectedQty(Map<String, dynamic> product) {
+    final prodId = product['id'] as int? ?? int.tryParse(product['id']?.toString() ?? '0') ?? 0;
+    final moqUnits = _getEffectiveMoq(product);
+    return _selectedQuantities[prodId] ?? moqUnits;
+  }
+
+  int _getStep(Map<String, dynamic> product) {
+    final salesUnit = product['sales_unit']?.toString().toUpperCase();
+    final unitsPerCarton = product['units_per_carton'] as int? ?? 1;
+    final allowPartial = product['allow_partial_carton'] == true;
+    if (salesUnit == 'CARTON' || (!allowPartial && unitsPerCarton > 1)) {
+      return unitsPerCarton;
+    }
+    return 1;
+  }
+
+  int _getTotalPointsRequired(Map<String, dynamic> product) {
+    final int? unitPtsExplicit = product['points_per_unit'] as int?;
+    final int? ptsReq = product['points_required'] as int?;
+    final int moqUnits = product['moq_units'] as int? ?? 1;
+
+    final int unitPts;
+    if (unitPtsExplicit != null) {
+      unitPts = unitPtsExplicit;
+    } else if (ptsReq != null) {
+      if (product['has_db_rule'] == true || product['rule_name'] != null) {
+        unitPts = ptsReq ~/ (moqUnits > 0 ? moqUnits : 1);
+      } else {
+        unitPts = ptsReq;
+      }
+    } else {
+      unitPts = 1;
+    }
+
+    final qty = _getSelectedQty(product);
+    return unitPts * qty;
+  }
+
+  void _incrementQty(Map<String, dynamic> product) {
+    final prodId = product['id'] as int? ?? int.tryParse(product['id']?.toString() ?? '0') ?? 0;
+    final step = _getStep(product);
+    final current = _getSelectedQty(product);
+    setState(() {
+      _selectedQuantities[prodId] = current + step;
+    });
+  }
+
+  void _decrementQty(Map<String, dynamic> product) {
+    final prodId = product['id'] as int? ?? int.tryParse(product['id']?.toString() ?? '0') ?? 0;
+    final moqUnits = product['moq_units'] as int? ?? (product['min_order_quantity'] as int? ?? 1);
+    final step = _getStep(product);
+    final current = _getSelectedQty(product);
+    if (current - step >= moqUnits) {
+      setState(() {
+        _selectedQuantities[prodId] = current - step;
+      });
+    }
+  }
+
+  String _formatQtyDisplay(Map<String, dynamic> product, int qty) {
+    final salesUnit = product['sales_unit']?.toString().toUpperCase();
+    final unitsPerCarton = product['units_per_carton'] as int? ?? 1;
+    if (salesUnit == 'CARTON' || unitsPerCarton > 1) {
+      final boxes = qty ~/ unitsPerCarton;
+      return '$boxes ${boxes == 1 ? "box" : "boxes"} ($qty bottles)';
+    }
+    return '$qty ${qty == 1 ? "jar" : "jars"}';
+  }
+
   Future<void> _handleRedeem(Map<String, dynamic> product) async {
     final prodId = product['id'] as int? ?? int.tryParse(product['id']?.toString() ?? '0') ?? 0;
-    final pointsReq = product['points_required'] as int? ?? int.tryParse(product['points_required']?.toString() ?? '0') ?? 0;
     final prodName = product['name']?.toString() ?? 'Product';
+    final selectedQty = _getSelectedQty(product);
+    final pointsReq = _getTotalPointsRequired(product);
+    final qtyDisplay = _formatQtyDisplay(product, selectedQty);
 
     if (widget.currentPoints < pointsReq) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('You need $pointsReq points for $prodName. You currently have ${widget.currentPoints} points.'),
+          content: Text('You need $pointsReq points for $prodName ($qtyDisplay). You currently have ${widget.currentPoints} points.'),
           backgroundColor: Colors.orange.shade800,
         ),
       );
@@ -932,15 +1237,16 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Confirm Point Redemption', style: TextStyle(fontWeight: FontWeight.w800)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Redeem $pointsReq Hydration Points for 1 unit of $prodName?'),
+            Text('Redeem $pointsReq Hydration Points for $qtyDisplay of $prodName?'),
             const SizedBox(height: 10),
             const Text(
-              'This order will be placed directly with Shivnath Central Admin for fulfillment.',
+              'This order will be placed directly with Shivnath Central Admin for fulfillment with strict minimum-order and packaging compliance.',
               style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
             ),
           ],
@@ -962,7 +1268,7 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
 
     final res = await _orderRepository.redeemWalletPoints(
       productId: prodId,
-      quantity: 1,
+      quantity: selectedQty,
       notes: 'Redeemed via Water Wallet screen',
     );
 
@@ -973,9 +1279,9 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
       widget.onRedeemed();
       Navigator.pop(context);
 
-      final dynamic rawOrder = res['data'] is Map ? res['data']['order'] : null;
-      final orderData = rawOrder is Map ? rawOrder : (res['data'] is Map ? res['data'] : {});
-      final orderCode = orderData['order_code'] ?? 'ORD-${orderData['id'] ?? ''}';
+      final dynamic rawOrder = res['order'] ?? (res['data'] is Map ? res['data']['order'] ?? res['data'] : null);
+      final orderData = rawOrder is Map ? rawOrder : res;
+      final orderCode = orderData['order_code'] ?? res['order_code'] ?? 'ORD-${orderData['id'] ?? ''}';
 
       showDialog(
         context: context,
@@ -994,7 +1300,10 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
             children: [
               Text('Your order #$orderCode has been sent directly to Central Admin.'),
               const SizedBox(height: 8),
-              Text('Points debited: $pointsReq pts', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('Quantity: $qtyDisplay', style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text('Points debited: $pointsReq pts', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF9333EA))),
+              const SizedBox(height: 4),
               const Text('Serving: Shivnath Central Admin (Water Wallet)', style: TextStyle(fontSize: 12, color: Color(0xFF0284C7))),
             ],
           ),
@@ -1008,10 +1317,12 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
         ),
       );
     } else {
+      final errMsg = res['message'] ?? res['detail'] ?? res['error'] ?? 'Failed to redeem product.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['message']?.toString() ?? 'Failed to redeem product.'),
+          content: Text(errMsg.toString()),
           backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -1026,7 +1337,7 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
+        maxHeight: MediaQuery.of(context).size.height * 0.8,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1075,7 +1386,7 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Redeem your reward points for free drinking water products. Orders are fulfilled directly by Central Admin.',
+            'Redeem your reward points for free drinking water products. Minimum order quantities apply for delivery economics.',
             style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
           const Divider(height: 24),
@@ -1100,9 +1411,14 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
                             separatorBuilder: (_, _) => const SizedBox(height: 12),
                             itemBuilder: (ctx, idx) {
                               final p = _products[idx];
-                              final ptsReq = p['points_required'] as int? ?? int.tryParse(p['points_required']?.toString() ?? '0') ?? 0;
+                              final moqUnits = _getEffectiveMoq(p);
+                              final moqText = p['moq_display_text']?.toString() ?? 'Minimum order: $moqUnits units';
+                              final currentQty = _getSelectedQty(p);
+                              final ptsReq = _getTotalPointsRequired(p);
                               final canRedeem = widget.currentPoints >= ptsReq;
                               final isRedeemingThis = _redeemingProductId == p['id'];
+                              final unitsPerCarton = p['units_per_carton'] as int? ?? 1;
+                              final isCarton = p['sales_unit']?.toString().toUpperCase() == 'CARTON' || unitsPerCarton > 1;
 
                               return Container(
                                 padding: const EdgeInsets.all(12),
@@ -1111,49 +1427,122 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: const Color(0xFFE2E8F0)),
                                 ),
-                                child: Row(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE0F2FE),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(Icons.water_drop_rounded, color: Color(0xFF0284C7)),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            p['name']?.toString() ?? 'Product',
-                                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFE0F2FE),
+                                            borderRadius: BorderRadius.circular(10),
                                           ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            '$ptsReq Points',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w800,
-                                              color: Color(0xFF9333EA),
-                                              fontSize: 12,
+                                          child: const Icon(Icons.water_drop_rounded, color: Color(0xFF0284C7)),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                p['name']?.toString() ?? 'Product',
+                                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFFEF3C7),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(color: const Color(0xFFFCD34D)),
+                                                ),
+                                                child: Text(
+                                                  moqText,
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Color(0xFF92400E),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        // Quantity Selector
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(Icons.remove, size: 16),
+                                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                                padding: EdgeInsets.zero,
+                                                onPressed: currentQty <= moqUnits ? null : () => _decrementQty(p),
+                                              ),
+                                              Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                                child: Text(
+                                                  isCarton
+                                                      ? '${currentQty ~/ unitsPerCarton} box ($currentQty btl)'
+                                                      : '$currentQty jars',
+                                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                                                ),
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.add, size: 16),
+                                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                                padding: EdgeInsets.zero,
+                                                onPressed: () => _incrementQty(p),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // Points and Action Button
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              '$ptsReq Pts',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                color: Color(0xFF9333EA),
+                                                fontSize: 13,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: canRedeem ? const Color(0xFF9333EA) : Colors.grey.shade300,
-                                        foregroundColor: Colors.white,
-                                        elevation: 0,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                      onPressed: (canRedeem && !isRedeemingThis) ? () => _handleRedeem(p) : null,
-                                      child: isRedeemingThis
-                                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                          : Text(canRedeem ? 'Redeem' : 'Need ${ptsReq - widget.currentPoints} more'),
+                                            const SizedBox(height: 4),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: canRedeem ? const Color(0xFF9333EA) : Colors.grey.shade300,
+                                                foregroundColor: Colors.white,
+                                                elevation: 0,
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                minimumSize: const Size(70, 30),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                              onPressed: (canRedeem && !isRedeemingThis) ? () => _handleRedeem(p) : null,
+                                              child: isRedeemingThis
+                                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                                  : Text(
+                                                      canRedeem ? 'Redeem' : 'Need ${ptsReq - widget.currentPoints} more',
+                                                      style: const TextStyle(fontSize: 11),
+                                                    ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),

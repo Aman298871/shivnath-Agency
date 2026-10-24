@@ -13,6 +13,9 @@ from .views import (
     RazorpayReconcilePaymentAPIView,
     RazorpayStatusAPIView,
     OrderLifecycleRepairView,
+    CustomBrandedOrderRequestView,
+    CustomOrderQuotationManageView,
+    CustomOrderQuotationActionView,
 )
 from .wallet_views import (
     WalletDetailAPIView,
@@ -23,11 +26,16 @@ from .wallet_views import (
     WalletRedemptionProductsAPIView,
     WalletRedeemPointsAPIView,
     WalletSettingsAPIView,
+    AdminWalletReconciliationAPIView,
 )
+
 
 urlpatterns = [
     path('', OrderListCreateView.as_view()),
     path('bulk/', CustomerBulkOrderView.as_view(), name='bulk-orders'),
+    path('custom-requests/', CustomBrandedOrderRequestView.as_view(), name='custom-branded-requests'),
+    path('custom-requests/<int:request_id>/quotations/', CustomOrderQuotationManageView.as_view(), name='custom-order-quotations'),
+    path('custom-quotations/<int:quotation_id>/action/', CustomOrderQuotationActionView.as_view(), name='custom-quotation-action'),
     path('razorpay/status/', RazorpayStatusAPIView.as_view(), name='razorpay-status'),
     path('razorpay/create-order/', RazorpayCreateOrderAPIView.as_view(), name='razorpay-create-order'),
     path('razorpay/verify-payment/', RazorpayVerifyPaymentAPIView.as_view(), name='razorpay-verify-payment'),
@@ -47,4 +55,5 @@ urlpatterns = [
     path('wallet/redemption-products/', WalletRedemptionProductsAPIView.as_view(), name='wallet-redemption-products'),
     path('wallet/redeem/', WalletRedeemPointsAPIView.as_view(), name='wallet-redeem-points'),
     path('wallet/settings/', WalletSettingsAPIView.as_view(), name='wallet-settings'),
-]
+    path('wallet/reconcile/', AdminWalletReconciliationAPIView.as_view(), name='wallet-reconcile'),
+]

@@ -88,7 +88,25 @@ def sync_customer_earned_points(user, wallet=None):
                     description=f"Earned {pts} Hydration Points for order {ord_obj.order_code}"
                 )
 
-        if total_pts_added > 0:
+        from django.db.models import Sum
+        credits = WalletTransaction.objects.filter(
+            wallet=wallet,
+            transaction_type__in=['POINTS_EARNED', 'POINTS_REFUNDED'],
+            status='SUCCESS'
+        ).aggregate(s=Sum('points'))['s'] or 0
+
+        debits = WalletTransaction.objects.filter(
+            wallet=wallet,
+            transaction_type='POINTS_REDEEMED',
+            status='SUCCESS'
+        ).aggregate(s=Sum('points'))['s'] or 0
+
+        expected_pts = max(0, credits - abs(debits))
+        if credits > 0 or debits != 0:
+            if wallet.reward_points != expected_pts:
+                wallet.reward_points = expected_pts
+                wallet.save(update_fields=['reward_points', 'updated_at'])
+        elif total_pts_added > 0:
             wallet.save(update_fields=['reward_points', 'updated_at'])
 
     return wallet.reward_points
@@ -387,13 +405,15 @@ def debit_wallet_for_order(order, user):
 def get_redemption_eligible_products(user=None):
     """
     Returns catalogue products eligible for Water Wallet redemption,
-    including calculated required points, current company stock, and minimum points required.
+    including calculated required points, packaging/MOQ metadata, and company stock.
+    Points required defaults to the points needed for the product's Minimum Order Quantity (MOQ).
     """
     rule = WalletRedemptionRule.get_active_rule()
     pts_per_rupee = rule.points_per_rupee_discount or Decimal('2.00')
     min_pts = rule.min_points_to_redeem or 100
 
     from inventory.models import ProductionBatch
+    from products.packaging_services import get_product_moq_info
     from django.db.models import Sum
     from datetime import date
     today = date.today()
@@ -406,15 +426,20 @@ def get_redemption_eligible_products(user=None):
     available_wallet_balance = float(user_wallet.balance) if user_wallet else 0.0
 
     for p in products:
+        moq_info = get_product_moq_info(p, channel='CUSTOMER')
+        moq_units = moq_info['required_min_units']
+        moq_boxes = moq_info['min_order_quantity']
+
         # Check available company stock
         cp_avail = ProductionBatch.objects.filter(
             product=p, status='ACTIVE', expiry_date__gt=today
         ).aggregate(s=Sum('quantity_remaining_company'))['s'] or 0
         effective_stock = max(p.stock, int(cp_avail))
 
-        full_pts_needed = int(math.ceil(float(p.price) * float(pts_per_rupee)))
-        # User has sufficient points for at least minimum redemption or full price
-        can_redeem_full = available_points >= full_pts_needed
+        unit_pts_needed = int(math.ceil(float(p.price) * float(pts_per_rupee)))
+        moq_pts_needed = int(math.ceil(float(p.price * moq_units) * float(pts_per_rupee)))
+
+        can_redeem_moq = available_points >= moq_pts_needed
         can_redeem_partial = available_points >= min_pts
 
         results.append({
@@ -426,20 +451,31 @@ def get_redemption_eligible_products(user=None):
             'price': float(p.price),
             'mrp': float(getattr(p, 'mrp', p.price)),
             'stock': effective_stock,
-            'in_stock': effective_stock > 0,
-            'points_required': full_pts_needed,
-            'points_required_full': full_pts_needed,
+            'in_stock': effective_stock >= moq_units,
+            'points_required': moq_pts_needed,
+            'points_required_moq': moq_pts_needed,
+            'points_required_unit': unit_pts_needed,
+            'points_required_full': moq_pts_needed,
+            'min_order_quantity': moq_boxes,
+            'moq_units': moq_units,
+            'sales_unit': moq_info['sales_unit'],
+            'sales_unit_display': moq_info['sales_unit_display'],
+            'units_per_carton': moq_info['units_per_carton'],
+            'allow_partial_carton': moq_info['allow_partial_carton'],
+            'moq_display_text': moq_info['moq_display_text'],
             'min_points_required': min_pts,
             'min_points_to_redeem': min_pts,
             'discount_per_100_pts': float(Decimal('100.00') / pts_per_rupee),
-            'can_redeem_full': can_redeem_full,
-            'can_fully_redeem': can_redeem_full,
+            'can_redeem_full': can_redeem_moq,
+            'can_fully_redeem': can_redeem_moq,
             'can_redeem_partial': can_redeem_partial,
             'image': p.image.url if p.image else None,
         })
 
     return {
         'success': True,
+        'data': results,
+        'products': results,
         'rule': {
             'rupees_spent_per_point': float(rule.rupees_spent_per_point),
             'points_per_rupee_discount': float(rule.points_per_rupee_discount),
@@ -451,15 +487,16 @@ def get_redemption_eligible_products(user=None):
             'balance': available_wallet_balance,
         },
         'count': len(results),
-        'products': results,
     }
 
 
 def redeem_points_for_order(
     user,
     product_id,
-    quantity=1,
+    quantity=None,
     points_to_redeem=None,
+    delivery_latitude=None,
+    delivery_longitude=None,
     delivery_address='',
     phone='',
     city='',
@@ -469,26 +506,18 @@ def redeem_points_for_order(
 ):
     """
     Authoritative ACID transaction for purchasing a product using Water Wallet redemption.
-    - Validates points balance, product status, stock, price, and conversion rate server-side.
-    - Recalculates product price and discount; never trusts client-supplied values.
-    - If customer has sufficient points, points are redeemed.
-    - If there is a remaining payable amount and customer has sufficient wallet monetary balance,
-      wallet balance is used to complete payment.
+    - Validates points balance, product status, stock, price, conversion rate, and MOQ/packaging server-side.
+    - Enforces strict product-specific minimum quantities (e.g. 5 jars or 5 boxes of bottles).
+    - Enforces full carton packaging restrictions without partial cartons.
+    - Atomically rolls back on validation failure without leaving partial deductions or orphaned orders.
+    - Evaluates authoritative distance-based delivery charges and preserves delivery economics.
+    - Points discount covers up to product subtotal; delivery fees remain payable or settled via wallet cash.
     - Routes order DIRECTLY to Central Admin fulfilment queue (order_source='WATER_WALLET_REDEMPTION').
-    - Assigns NO franchise; excludes from franchise queues completely.
     - Atomically reserves central company warehouse stock via FEFO.
     - Deducts points and records auditable immutable ledger records.
-    - Dispatches Admin notification.
     """
     if not user or not user.is_authenticated:
         raise ValidationError("Authentication is required to redeem Water Wallet points.")
-
-    try:
-        qty = int(quantity)
-        if qty <= 0:
-            raise ValidationError("Quantity must be at least 1.")
-    except (ValueError, TypeError):
-        raise ValidationError("Invalid quantity specified.")
 
     # Idempotency check: if an order with this idempotency key already completed, return it
     if idempotency_key:
@@ -519,6 +548,8 @@ def redeem_points_for_order(
 
     from inventory.models import ProductionBatch
     from inventory.services import reserve_order_stock_fefo_atomic
+    from products.packaging_services import validate_order_item_packaging, get_product_moq_info
+    from billing.delivery_services import get_authoritative_delivery_charge
     from accounts.services import send_order_placed_notifications
     from django.db.models import Sum
     from datetime import date
@@ -537,6 +568,23 @@ def redeem_points_for_order(
         if product.status != 'Active':
             raise ValidationError(f"Product '{product.name}' is currently unavailable.")
 
+        # Resolve quantity (defaults to product MOQ units if omitted)
+        moq_info = get_product_moq_info(product, channel='CUSTOMER')
+        if quantity is None:
+            qty = moq_info['required_min_units']
+        else:
+            try:
+                qty = int(quantity)
+                if qty <= 0:
+                    raise ValidationError("Quantity must be at least 1.")
+            except (ValueError, TypeError):
+                raise ValidationError("Invalid quantity specified.")
+
+        # MANDATORY ATOMIC BACKEND PACKAGING & MOQ VALIDATION
+        # Rejects below-MOQ and non-carton requests immediately.
+        # Transaction rolls back automatically if ValidationError is raised.
+        validate_order_item_packaging(product, qty, channel='CUSTOMER')
+
         # Check central company stock
         cp_avail = ProductionBatch.objects.filter(
             product=product, status='ACTIVE', expiry_date__gt=today
@@ -551,15 +599,29 @@ def redeem_points_for_order(
 
         # Authoritative server-side price calculation
         unit_price = product.price
-        subtotal = unit_price * qty
-        grand_total = subtotal
+        subtotal = (unit_price * qty).quantize(Decimal('0.01'))
+
+        # Authoritative distance-based delivery fee calculation
+        resolved_address = delivery_address or getattr(getattr(user, 'profile', None), 'address', '') or 'Direct Customer Delivery'
+        deliv_calc = get_authoritative_delivery_charge(
+            dest_latitude=delivery_latitude,
+            dest_longitude=delivery_longitude,
+            dest_address=resolved_address,
+            channel='CUSTOMER'
+        )
+        if not deliv_calc.get('is_supported', True):
+            raise ValidationError(deliv_calc.get('message', 'Delivery is unsupported for this location.'))
+        delivery_charge = deliv_calc.get('delivery_charge') or Decimal('0.00')
+        distance_km = deliv_calc.get('distance_km')
+        grand_total = (subtotal + delivery_charge).quantize(Decimal('0.01'))
 
         # Validate points
-        max_points_needed = int(math.ceil(float(grand_total) * float(pts_per_rupee)))
+        # Points discount covers product subtotal
+        max_points_needed = int(math.ceil(float(subtotal) * float(pts_per_rupee)))
         req_pts = points_to_redeem
 
         if req_pts is None or req_pts <= 0:
-            # Default to full points or whatever points the user has
+            # Default to points needed for subtotal or whatever points the user has
             req_pts = min(wallet.reward_points, max_points_needed)
         else:
             try:
@@ -577,15 +639,14 @@ def redeem_points_for_order(
                 f"A minimum of {min_pts_required} Hydration Points is required to redeem products. You currently have {wallet.reward_points} Pts."
             )
 
-        # Cap points at maximum needed
+        # Cap points at maximum needed for product subtotal
         if req_pts > max_points_needed:
             req_pts = max_points_needed
 
-        # Calculate discount from points
-        pts_discount = (Decimal(str(req_pts)) / pts_per_rupee).quantize(Decimal('0.01'))
-        if pts_discount > grand_total:
-            pts_discount = grand_total
+        # Calculate discount from points (protects delivery economics)
+        pts_discount = min((Decimal(str(req_pts)) / pts_per_rupee).quantize(Decimal('0.01')), subtotal)
 
+        # Remaining cash includes delivery charge and any unredeemed product balance
         remaining_cash = max(Decimal('0.00'), grand_total - pts_discount)
 
         wallet_cash_debited = Decimal('0.00')
@@ -606,7 +667,6 @@ def redeem_points_for_order(
         # Fallback address & city
         user_prof = getattr(user, 'profile', None)
         resolved_city = city or getattr(user_prof, 'city', '') or 'Raipur'
-        resolved_address = delivery_address or getattr(user_prof, 'address', '') or 'Direct Customer Delivery'
         resolved_phone = phone or getattr(user_prof, 'phone', '') or ''
 
         # Create authoritative Order routed DIRECTLY to Admin
@@ -618,6 +678,10 @@ def redeem_points_for_order(
             city=resolved_city,
             territory='Central Admin Fulfilment',
             delivery_address=resolved_address,
+            delivery_latitude=delivery_latitude,
+            delivery_longitude=delivery_longitude,
+            delivery_charges=delivery_charge,
+            delivery_distance_km=distance_km,
             client_name=user.get_full_name() or user.username,
             created_by=user,
             items_count=qty,
@@ -712,6 +776,13 @@ def redeem_points_for_order(
         # Notify Central Admin only (Franchise is NEVER notified for wallet orders)
         try:
             send_order_placed_notifications(order)
+        except Exception:
+            pass
+
+        # Generate and settle authoritative invoice in Central Admin Billing
+        try:
+            from billing.services import generate_invoice_for_order
+            generate_invoice_for_order(order)
         except Exception:
             pass
 

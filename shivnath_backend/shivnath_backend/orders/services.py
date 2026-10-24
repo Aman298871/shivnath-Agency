@@ -86,6 +86,9 @@ def transition_order_status(order, new_status, actor=None, notes='', bypass_vali
     old_status = order.status or 'order_placement'
     new_clean = new_status.lower().strip()
 
+    if old_status == new_clean:
+        return order
+
     if not bypass_validation:
         validate_order_status_transition(old_status, new_clean)
 
@@ -103,6 +106,11 @@ def transition_order_status(order, new_status, actor=None, notes='', bypass_vali
             refund_order_to_wallet(order, reason=notes or "Order Cancelled")
         except Exception as we:
             logger.warning("Wallet refund warning on order cancellation: %s", we)
+        try:
+            from billing.models import Invoice
+            Invoice.objects.filter(order=order).update(status='CANCELLED')
+        except Exception as ie:
+            logger.warning("Invoice status cancellation warning: %s", ie)
     else:
         order.status = new_clean
         order.save(update_fields=['status', 'updated_at'])

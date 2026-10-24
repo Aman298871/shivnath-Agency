@@ -5,6 +5,7 @@ import '../../../core/services/session_service.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/contact_action_helper.dart';
 import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/cancel_order_dialog.dart';
 
 class FranchiseOrdersScreen extends StatefulWidget {
   const FranchiseOrdersScreen({super.key});
@@ -51,7 +52,8 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
           final rawItems = item['items'];
           final List<Map<String, dynamic>> itemsList = rawItems is List
               ? rawItems
-                    .map((e) => Map<String, dynamic>.from(e as Map))
+                    .whereType<Map>()
+                    .map((e) => Map<String, dynamic>.from(e))
                     .toList()
               : (mappedItem['items_list'] is List
                     ? List<Map<String, dynamic>>.from(mappedItem['items_list'])
@@ -1011,13 +1013,60 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
   // =========================================================
 
   Future<void> _newOrder() async {
-    String selectedProduct = '500ml Water Bottle';
+    final List<Map<String, dynamic>> productOptions = [
+      {
+        'id': '1',
+        'name': 'Shivnath 200ml Event Bottle',
+        'sku': 'SHV-200',
+        'is_bottle': true,
+        'units_per_case': 24,
+        'rate': 3.50,
+        'label': '200ml Bottle (24 btls/box) — ₹3.50/btl (₹84/box)',
+      },
+      {
+        'id': '2',
+        'name': 'Shivnath 250ml Mini Bottle',
+        'sku': 'SHV-250',
+        'is_bottle': true,
+        'units_per_case': 24,
+        'rate': 4.00,
+        'label': '250ml Bottle (24 btls/box) — ₹4.00/btl (₹96/box)',
+      },
+      {
+        'id': '3',
+        'name': 'Shivnath 500ml Travel Bottle',
+        'sku': 'SHV-500',
+        'is_bottle': true,
+        'units_per_case': 24,
+        'rate': 7.00,
+        'label': '500ml Bottle (24 btls/box) — ₹7.00/btl (₹168/box)',
+      },
+      {
+        'id': '4',
+        'name': 'Shivnath 1 Litre Premium Mineral Bottle',
+        'sku': 'SHV-1L',
+        'is_bottle': true,
+        'units_per_case': 12,
+        'rate': 14.00,
+        'label': '1 Litre Bottle (12 btls/box) — ₹14.00/btl (₹168/box)',
+      },
+      {
+        'id': '5',
+        'name': 'Shivnath 20 Litre Dispenser Jar',
+        'sku': 'SHV-20L',
+        'is_bottle': false,
+        'units_per_case': 1,
+        'rate': 40.00,
+        'label': '20 Litre Water Jar — ₹40.00/jar',
+      },
+    ];
 
-    final quantityController = TextEditingController(text: '10');
+    Map<String, dynamic> selectedOption = productOptions[2]; // 500ml default
+    final quantityController = TextEditingController(text: '5');
     final notesController = TextEditingController();
     bool isSubmitting = false;
     bool orderPlaced = false;
-    int placedQuantity = 0;
+    int placedUnits = 0;
     String placedProduct = '';
 
     await showDialog(
@@ -1025,10 +1074,25 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (dialogInnerContext, setDialogState) {
+            final isBottle = selectedOption['is_bottle'] == true;
+            final unitsPerCase = (selectedOption['units_per_case'] as int?) ?? 1;
+            final double rate = (selectedOption['rate'] as num?)?.toDouble() ?? 20.0;
+            final enteredBoxesOrJars = int.tryParse(quantityController.text.trim()) ?? 0;
+            final bool meetsMoq = enteredBoxesOrJars >= 5;
+            final int totalBottlesOrJars = isBottle ? (enteredBoxesOrJars * unitsPerCase) : enteredBoxesOrJars;
+            final double subtotal = totalBottlesOrJars * rate;
+
             return AlertDialog(
               actionsOverflowDirection: VerticalDirection.down,
               actionsOverflowButtonSpacing: 8,
-              title: const Text('Place New Order'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF0284C7)),
+                  SizedBox(width: 8),
+                  Text('Place Plant Order', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                ],
+              ),
               content: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.9,
@@ -1037,42 +1101,33 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       DropdownButtonFormField<String>(
-                        initialValue: selectedProduct,
+                        initialValue: selectedOption['sku'] as String,
                         isExpanded: true,
-                        decoration: const InputDecoration(labelText: 'Product'),
-                        items: const [
-                          DropdownMenuItem(
-                            value: '250ml Water Bottle',
-                            child: Text('250ml Water Bottle', overflow: TextOverflow.ellipsis, maxLines: 1),
-                          ),
-                          DropdownMenuItem(
-                            value: '500ml Water Bottle',
-                            child: Text('500ml Water Bottle', overflow: TextOverflow.ellipsis, maxLines: 1),
-                          ),
-                          DropdownMenuItem(
-                            value: '1 Litre Water Bottle',
-                            child: Text('1 Litre Water Bottle', overflow: TextOverflow.ellipsis, maxLines: 1),
-                          ),
-                          DropdownMenuItem(
-                            value: '2 Litre Water Bottle',
-                            child: Text('2 Litre Water Bottle', overflow: TextOverflow.ellipsis, maxLines: 1),
-                          ),
-                          DropdownMenuItem(
-                            value: '5 Litre Water Jar',
-                            child: Text('5 Litre Water Jar', overflow: TextOverflow.ellipsis, maxLines: 1),
-                          ),
-                          DropdownMenuItem(
-                            value: '20 Litre Water Jar',
-                            child: Text('20 Litre Water Jar', overflow: TextOverflow.ellipsis, maxLines: 1),
-                          ),
-                        ],
+                        decoration: const InputDecoration(
+                          labelText: 'Select Product',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                        items: productOptions.map((opt) {
+                          return DropdownMenuItem<String>(
+                            value: opt['sku'] as String,
+                            child: Text(
+                              opt['label'] as String,
+                              style: const TextStyle(fontSize: 12.5),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
                         onChanged: (value) {
                           if (value == null) return;
-
                           setDialogState(() {
-                            selectedProduct = value;
+                            selectedOption = productOptions.firstWhere(
+                              (opt) => opt['sku'] == value,
+                              orElse: () => productOptions.first,
+                            );
                           });
                         },
                       ),
@@ -1082,8 +1137,92 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                       TextField(
                         controller: quantityController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Quantity',
+                        decoration: InputDecoration(
+                          labelText: isBottle ? 'Order Quantity (in Boxes / Cartons)' : 'Order Quantity (in Jars)',
+                          hintText: 'Minimum 5 ${isBottle ? 'boxes' : 'jars'}',
+                          border: const OutlineInputBorder(),
+                          helperText: isBottle
+                              ? '1 Box = $unitsPerCase bottles (Min 5 boxes = ${5 * unitsPerCase} bottles)'
+                              : '1 Unit = 1 Water Jar (Min 5 jars)',
+                          helperStyle: const TextStyle(fontSize: 11, color: Color(0xFF0284C7)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        onChanged: (_) => setDialogState(() {}),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      if (!meetsMoq)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFECACA)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Minimum order is 5 ${isBottle ? 'boxes (${5 * unitsPerCase} bottles)' : 'jars'}. Franchise protection requires economical batch deliveries.',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF991B1B), fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      const SizedBox(height: 12),
+
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFBBF7D0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Total Units:', style: TextStyle(fontSize: 12, color: Color(0xFF166534))),
+                                Text(
+                                  isBottle
+                                      ? '$enteredBoxesOrJars Boxes ($totalBottlesOrJars Bottles)'
+                                      : '$enteredBoxesOrJars Jars',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF14532D)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Dealer Transfer Rate:', style: TextStyle(fontSize: 12, color: Color(0xFF166534))),
+                                Text(
+                                  isBottle ? '₹${rate.toStringAsFixed(2)} / bottle' : '₹${rate.toStringAsFixed(2)} / jar',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF14532D)),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 14),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Estimated Order Total:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                                Text(
+                                  '₹${subtotal.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF15803D)),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
 
@@ -1091,27 +1230,11 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
 
                       TextField(
                         controller: notesController,
-                        maxLines: 3,
+                        maxLines: 2,
                         decoration: const InputDecoration(
-                          labelText: 'Delivery Notes',
-                        ),
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE0F2FE),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          'Order will be sent for Plant Approval after placement.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF0284C7),
-                          ),
+                          labelText: 'Delivery Notes (Optional)',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
                       ),
                     ],
@@ -1119,102 +1242,83 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                 ),
               ),
               actions: [
-                SizedBox(
-                  width: 90,
-                  height: 44,
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(0, 44),
-                      maximumSize: const Size(90, 44),
-                    ),
-                    onPressed: isSubmitting
-                        ? null
-                        : () {
-                            Navigator.pop(dialogContext);
-                          },
-                    child: const Text('Cancel'),
-                  ),
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
                 ),
-
-                SizedBox(
-                  width: 130,
-                  height: 44,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0284C7),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 44),
-                      maximumSize: const Size(130, 44),
-                    ),
-                    onPressed: isSubmitting
-                        ? null
-                        : () async {
-                            final quantity =
-                                int.tryParse(quantityController.text) ?? 0;
-
-                            if (quantity <= 0) {
-                              return;
-                            }
-
-                            setDialogState(() => isSubmitting = true);
-
-                            final user = await SessionService()
-                                .getCurrentUser();
-                            final franchiseName =
-                                user?.businessName.isNotEmpty == true
-                                ? user!.businessName
-                                : (user?.name.isNotEmpty == true
-                                      ? user!.name
-                                      : 'Franchise Partner');
-                            final city = user?.city.isNotEmpty == true
-                                ? user!.city
-                                : 'Raipur';
-                            final double totalAmount = (quantity * 20)
-                                .toDouble();
-
-                            final res = await _orderRepository.createOrder({
-                              'franchise': franchiseName,
-                              'city': city,
-                              'items': quantity,
-                              'amount': totalAmount,
-                              'status': 'Plant Approval',
-                              'payment': 'Pending',
-                            });
-
-                            if (!dialogContext.mounted) return;
-
-                            if (res['success'] == true) {
-                              orderPlaced = true;
-                              placedQuantity = quantity;
-                              placedProduct = selectedProduct;
-                              if (dialogContext.mounted) {
-                                Navigator.pop(dialogContext);
-                              }
-                            } else {
-                              setDialogState(() => isSubmitting = false);
-                              final msg =
-                                  res['message'] ?? 'Failed to place order';
-                              if (dialogContext.mounted) {
-                                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                                  SnackBar(
-                                    content: Text(msg.toString()),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                    child: isSubmitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Place Order'),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: meetsMoq ? const Color(0xFF0284C7) : Colors.grey.shade400,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
+                  onPressed: (!meetsMoq || isSubmitting)
+                      ? null
+                      : () async {
+                          final count = int.tryParse(quantityController.text.trim()) ?? 0;
+                          if (count < 5) return;
+
+                          setDialogState(() => isSubmitting = true);
+
+                          final user = await SessionService().getCurrentUser();
+                          final franchiseName = user?.businessName.isNotEmpty == true
+                              ? user!.businessName
+                              : (user?.name.isNotEmpty == true ? user!.name : 'Franchise Partner');
+                          final city = user?.city.isNotEmpty == true ? user!.city : 'Raipur';
+
+                          final int totalUnits = isBottle ? (count * unitsPerCase) : count;
+                          final double totalAmount = totalUnits * rate;
+                          final prodId = int.tryParse(selectedOption['id']?.toString() ?? '1') ?? 1;
+
+                          final res = await _orderRepository.createOrder({
+                            'franchise': franchiseName,
+                            'city': city,
+                            'items': totalUnits,
+                            'amount': totalAmount,
+                            'order_source': 'FRANCHISE',
+                            'product_id': prodId,
+                            'order_items': [
+                              {
+                                'product_id': prodId,
+                                'quantity': totalUnits,
+                                'price': rate,
+                              }
+                            ],
+                            'order_notes': notesController.text.trim(),
+                            'status': 'Plant Approval',
+                            'payment': 'Pending',
+                            'payment_mode': 'PAY_ON_DELIVERY',
+                          });
+
+                          if (!dialogContext.mounted) return;
+
+                          if (res['success'] == true) {
+                            orderPlaced = true;
+                            placedUnits = totalUnits;
+                            placedProduct = selectedOption['name'] as String;
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                          } else {
+                            setDialogState(() => isSubmitting = false);
+                            final msg = res['message'] ?? 'Failed to place order';
+                            if (dialogContext.mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                SnackBar(
+                                  content: Text(msg.toString()),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(meetsMoq ? 'Place Order (₹${subtotal.toStringAsFixed(0)})' : 'Min 5 Required'),
                 ),
               ],
             );
@@ -1233,7 +1337,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
       if (!mounted) return;
       AppToast.success(
         context,
-        'Order of $placedQuantity x $placedProduct placed successfully!',
+        'Order of $placedUnits units ($placedProduct) placed successfully!',
       );
     }
   }
@@ -1961,6 +2065,17 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
 
                         // 1. Update order fulfillment status if transition is needed
                         if (selectedNewStatus != currentCanonical) {
+                          if (selectedNewStatus.toLowerCase() == 'cancelled') {
+                            final confirmed = await CancelOrderDialog.show(
+                              context,
+                              orderCode: (order['orderId'] ?? order['id']).toString(),
+                            );
+                            if (confirmed != true) {
+                              setDlgState(() => isSubmitting = false);
+                              return;
+                            }
+                          }
+
                           final statusRes = await _orderRepository.updateOrderStatus(
                             dbId,
                             selectedNewStatus,

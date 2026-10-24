@@ -3,9 +3,11 @@ from django.db import models
 from django.utils import timezone
 import datetime
 from decimal import Decimal
+from django.http import HttpResponse
 from rest_framework import generics, status, views, permissions
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from accounts.permissions import IsAdminRole, DenyStockManager
 
 from billing.models import CompanyBillingProfile, DealerCreditProfile, Invoice, PaymentTransaction
 from billing.serializers import (
@@ -21,18 +23,25 @@ from billing.services import (
     reject_payment_transaction,
     _process_payment_verification,
     get_dealer_aging_report,
+    get_dealer_account_statement,
+    get_dealer_stock_payment_reconciliation,
 )
 
 
 class InvoiceListAPIView(generics.ListAPIView):
     serializer_class = InvoiceSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, DenyStockManager]
 
     def get_queryset(self):
         user = self.request.user
+        if hasattr(user, 'profile') and user.profile.role == 'stock_manager':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Stock managers are forbidden from accessing financial invoices and billing.")
+
         qs = Invoice.objects.all()
 
         # Role / Data Scoping
+
         if hasattr(user, 'profile') and user.profile.role == 'franchise':
             # Dealers see their purchase invoices and customer invoices they fulfilled
             dealer = getattr(user, 'franchise_profile', None)
@@ -61,13 +70,24 @@ class InvoiceListAPIView(generics.ListAPIView):
 class InvoiceDetailAPIView(generics.RetrieveAPIView):
     queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, DenyStockManager]
+
+    def get_object(self):
+        user = self.request.user
+        if hasattr(user, 'profile') and user.profile.role == 'stock_manager':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Stock managers are forbidden from accessing financial invoices and billing.")
+        return super().get_object()
 
 
 class RecordPaymentAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, invoice_id):
+        user = request.user
+        if hasattr(user, 'profile') and user.profile.role == 'stock_manager':
+            return Response({'success': False, 'message': 'Stock managers cannot record invoice payments.'}, status=status.HTTP_403_FORBIDDEN)
+
         amount = request.data.get('amount')
         payment_method = request.data.get('payment_method', 'UPI')
         reference_number = request.data.get('reference_number', '')
@@ -202,6 +222,16 @@ class DealerCreditProfileAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, dealer_id):
+        user = request.user
+        is_admin = (
+            user.is_staff or 
+            user.is_superuser or 
+            (hasattr(user, 'profile') and user.profile.role in ['super_admin', 'admin'])
+        )
+        is_dealer = hasattr(user, 'profile') and user.profile.role == 'franchise'
+        if not (is_admin or is_dealer):
+            return Response({'error': 'Unauthorized to view dealer credit profile.'}, status=status.HTTP_403_FORBIDDEN)
+
         dealer = _resolve_dealer(request.user, dealer_id)
         if not dealer:
             return Response({'error': 'Dealer not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -241,14 +271,87 @@ class DealerAgingReportAPIView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, dealer_id):
+        user = request.user
+        is_admin = (
+            user.is_staff or 
+            user.is_superuser or 
+            (hasattr(user, 'profile') and user.profile.role in ['super_admin', 'admin'])
+        )
+        is_dealer = hasattr(user, 'profile') and user.profile.role == 'franchise'
+        if not (is_admin or is_dealer):
+            return Response({'error': 'Unauthorized to view dealer aging reports.'}, status=status.HTTP_403_FORBIDDEN)
+
         dealer = _resolve_dealer(request.user, dealer_id)
         d_id = dealer.id if dealer else dealer_id
         aging = get_dealer_aging_report(d_id)
         return Response(aging)
 
 
-class CompanyBillingProfileAPIView(views.APIView):
+class DealerAccountStatementAPIView(views.APIView):
+    """
+    Franchise Account Statement:
+    Returns chronological ledger of wholesale purchase invoices (debits) and
+    payment instalments (credits) with running balance and payment status.
+    """
     permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, dealer_id):
+        user = request.user
+        is_admin = (
+            user.is_staff or 
+            user.is_superuser or 
+            (hasattr(user, 'profile') and user.profile.role in ['super_admin', 'admin'])
+        )
+        is_dealer = hasattr(user, 'profile') and user.profile.role == 'franchise'
+        if not (is_admin or is_dealer):
+            return Response({'error': 'Unauthorized to view dealer account statements.'}, status=status.HTTP_403_FORBIDDEN)
+
+        dealer = _resolve_dealer(request.user, dealer_id)
+        if not dealer:
+            return Response({'error': 'Dealer not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        try:
+            statement = get_dealer_account_statement(dealer.id, start_date=start_date, end_date=end_date)
+            return Response({'success': True, 'data': statement, **statement})
+        except Exception as e:
+            return Response({'success': False, 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DealerStockPaymentReconciliationAPIView(views.APIView):
+    """
+    Stock-versus-Payment Reconciliation:
+    Audits physical and batch stock in dealer warehouse against wholesale purchase
+    invoicing and approved payment transactions to detect discrepancies.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, dealer_id):
+        user = request.user
+        is_admin = (
+            user.is_staff or 
+            user.is_superuser or 
+            (hasattr(user, 'profile') and user.profile.role in ['super_admin', 'admin'])
+        )
+        is_dealer = hasattr(user, 'profile') and user.profile.role == 'franchise'
+        if not (is_admin or is_dealer):
+            return Response({'error': 'Unauthorized to view dealer stock-payment reconciliation.'}, status=status.HTTP_403_FORBIDDEN)
+
+        dealer = _resolve_dealer(request.user, dealer_id)
+        if not dealer:
+            return Response({'error': 'Dealer not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            reconciliation = get_dealer_stock_payment_reconciliation(dealer.id)
+            return Response({'success': True, 'data': reconciliation, **reconciliation})
+        except Exception as e:
+            return Response({'success': False, 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CompanyBillingProfileAPIView(views.APIView):
+    permission_classes = [IsAdminRole]
 
     def get(self, request):
         profile = CompanyBillingProfile.objects.first()
@@ -533,17 +636,30 @@ class FranchiseCollectionsSummaryAPIView(views.APIView):
         other_collected = qs.exclude(payment_method__in=['CASH', 'UPI']).aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
 
         # Customer orders outstanding
-        unpaid_orders = Order.objects.filter(payment_status__in=['pending', 'partial']).exclude(status='cancelled')
+        unpaid_orders = Order.objects.filter(
+            payment_status__in=['pending', 'partial']
+        ).exclude(
+            status='cancelled'
+        ).exclude(
+            order_source='WATER_WALLET_REDEMPTION'
+        )
         if franchise_id:
             unpaid_orders = unpaid_orders.filter(serving_franchise_id=franchise_id)
         
         total_outstanding = Decimal('0.00')
         for o in unpaid_orders:
+            # If order has no remaining payable amount, skip
+            if getattr(o, 'remaining_payable_amount', None) is not None and o.remaining_payable_amount <= Decimal('0.00') and ((getattr(o, 'points_discount_amount', 0) or 0) > 0 or (getattr(o, 'wallet_amount_debited', 0) or 0) > 0):
+                continue
             inv = Invoice.objects.filter(order=o).first()
             if inv:
                 total_outstanding += inv.outstanding_balance
             else:
-                total_outstanding += (o.grand_total or o.amount or Decimal('0.00'))
+                rem = getattr(o, 'remaining_payable_amount', None)
+                if rem is not None and (getattr(o, 'points_discount_amount', 0) > 0 or getattr(o, 'wallet_amount_debited', 0) > 0):
+                    total_outstanding += rem
+                else:
+                    total_outstanding += (o.grand_total or o.amount or Decimal('0.00'))
 
         # Exceptions / discrepancies:
         # Delivered orders unpaid for more than 3 days
@@ -734,4 +850,422 @@ class RejectPaymentByTxnAPIView(views.APIView):
             })
         except Exception as e:
             return Response({'success': False, 'message': str(e), 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# =========================================================
+# THERMAL RECEIPT & VECTOR PDF DOWNLOAD ENDPOINTS
+# =========================================================
+
+def _check_invoice_access(user, invoice):
+    """
+    Strict ownership and authorization check for invoices.
+    Admins/staff have full access.
+    Customers can only access invoices for orders they created.
+    Franchises can only access invoices for orders they served or stock requests they made.
+    """
+    if user.is_staff or user.is_superuser:
+        return True
+    user_role = getattr(getattr(user, 'profile', None), 'role', 'customer')
+    if user_role in ['admin', 'super_admin']:
+        return True
+
+    if user_role == 'customer':
+        if invoice.order and invoice.order.created_by_id == user.id:
+            return True
+        return False
+
+    if user_role == 'franchise':
+        fp = getattr(user, 'franchise_profile', None)
+        if not fp:
+            return False
+        if invoice.order and invoice.order.serving_franchise_id == fp.id:
+            return True
+        if invoice.stock_request and invoice.stock_request.dealer_id == fp.id:
+            return True
+        return False
+
+    return False
+
+
+class InvoiceThermalPrintView(views.APIView):
+    """
+    Print-ready thermal invoice preview (58mm or 80mm).
+    Returns self-contained HTML with @media print CSS for thermal POS printers.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        from billing.invoice_pdf_services import generate_thermal_invoice_html
+        invoice = get_object_or_404(Invoice, pk=pk)
+
+        user = request.user
+        if not user or not user.is_authenticated:
+            token = request.query_params.get('token')
+            if token:
+                try:
+                    from rest_framework_simplejwt.tokens import AccessToken
+                    from django.contrib.auth import get_user_model
+                    validated_token = AccessToken(token)
+                    user_id = validated_token['user_id']
+                    user = get_user_model().objects.get(id=user_id)
+                except Exception:
+                    user = None
+
+        if not user or not user.is_authenticated:
+            return Response({'error': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not _check_invoice_access(user, invoice):
+            return Response({'error': 'You do not have permission to view this invoice.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            width_param = int(request.query_params.get('width', 80))
+            if width_param not in [58, 80]:
+                width_param = 80
+        except (ValueError, TypeError):
+            width_param = 80
+
+        html_content = generate_thermal_invoice_html(invoice, paper_width_mm=width_param)
+        return HttpResponse(html_content, content_type='text/html; charset=utf-8')
+
+
+class InvoicePDFDownloadView(views.APIView):
+    """
+    Vector PDF generation and download for invoices.
+    Uses pure-python standard-library PDF generator (zero external C/pypi dependency).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        from billing.invoice_pdf_services import generate_pure_pdf_document
+        invoice = get_object_or_404(Invoice, pk=pk)
+
+        user = request.user
+        if not user or not user.is_authenticated:
+            token = request.query_params.get('token')
+            if token:
+                try:
+                    from rest_framework_simplejwt.tokens import AccessToken
+                    from django.contrib.auth import get_user_model
+                    validated_token = AccessToken(token)
+                    user_id = validated_token['user_id']
+                    user = get_user_model().objects.get(id=user_id)
+                except Exception:
+                    user = None
+
+        if not user or not user.is_authenticated:
+            return Response({'error': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not _check_invoice_access(user, invoice):
+            return Response({'error': 'You do not have permission to download this invoice.'}, status=status.HTTP_403_FORBIDDEN)
+
+        pdf_bytes = generate_pure_pdf_document(invoice)
+        safe_filename = invoice.invoice_number.replace('/', '_').replace('\\', '_')
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        disposition = request.query_params.get('disposition', 'attachment')
+        if disposition not in ['inline', 'attachment']:
+            disposition = 'attachment'
+        response['Content-Disposition'] = f'{disposition}; filename="Invoice_{safe_filename}.pdf"'
+        return response
+
+
+class OrderInvoicePDFDownloadView(views.APIView):
+    """
+    Direct invoice download for an Order by order ID.
+    Ensures invoice exists (generates if missing) and returns vector PDF.
+    Enforces strict access control: Customer can only download their own order's invoice.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, order_id):
+        from orders.models import Order
+        from billing.models import Invoice
+        from billing.services import generate_invoice_for_order
+        from billing.invoice_pdf_services import generate_pure_pdf_document
+
+        order = get_object_or_404(Order, pk=order_id)
+
+        user = request.user
+        if not user or not user.is_authenticated:
+            token = request.query_params.get('token')
+            if token:
+                try:
+                    from rest_framework_simplejwt.tokens import AccessToken
+                    from django.contrib.auth import get_user_model
+                    validated_token = AccessToken(token)
+                    user_id = validated_token['user_id']
+                    user = get_user_model().objects.get(id=user_id)
+                except Exception:
+                    user = None
+
+        if not user or not user.is_authenticated:
+            return Response({'error': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        invoice = Invoice.objects.filter(order=order).first()
+        if not invoice:
+            try:
+                invoice = generate_invoice_for_order(order)
+            except Exception as e:
+                return Response({'error': f'Failed to generate invoice: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not _check_invoice_access(user, invoice):
+            return Response({'error': 'You do not have permission to download this invoice.'}, status=status.HTTP_403_FORBIDDEN)
+
+        pdf_bytes = generate_pure_pdf_document(invoice)
+        safe_filename = invoice.invoice_number.replace('/', '_').replace('\\', '_')
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        disposition = request.query_params.get('disposition', 'attachment')
+        if disposition not in ['inline', 'attachment']:
+            disposition = 'attachment'
+        response['Content-Disposition'] = f'{disposition}; filename="Invoice_{safe_filename}.pdf"'
+        return response
+
+
+
+# =========================================================
+# DISTANCE-BASED DELIVERY CALCULATION & ADMIN SETTINGS
+# =========================================================
+
+class DeliveryCalculateAPIView(views.APIView):
+    """
+    Authoritative distance-based delivery fee calculation endpoint.
+    Client supplies destination coordinates or address to preview delivery charges.
+    Backend recalculates distance via Haversine and looks up active distance bands.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from billing.delivery_services import get_authoritative_delivery_charge
+        lat = request.data.get('latitude') or request.data.get('lat')
+        lng = request.data.get('longitude') or request.data.get('lng')
+        address = request.data.get('address', '')
+        channel = request.data.get('channel', 'CUSTOMER')
+
+        result = get_authoritative_delivery_charge(
+            dest_latitude=lat,
+            dest_longitude=lng,
+            dest_address=address,
+            channel=channel,
+        )
+        is_success = bool(result.get('is_supported', True) and not result.get('is_blocked', False))
+        return Response({
+            'success': is_success,
+            'data': result,
+            **result,
+        })
+
+
+class DeliveryOriginSettingsAPIView(views.APIView):
+    """
+    Admin configuration for the authoritative dispatch origin (latitude, longitude, address).
+    """
+    def get_permissions(self):
+        if self.request.method in ['POST', 'PATCH', 'PUT']:
+            from accounts.permissions import IsAdminRole
+            return [IsAdminRole()]
+        return [permissions.IsAuthenticated()]
+
+    def get(self, request):
+        from billing.models import DeliveryOriginSetting
+        from billing.serializers import DeliveryOriginSettingSerializer
+        origin = DeliveryOriginSetting.get_active_origin()
+        return Response({
+            'success': True,
+            'origin': DeliveryOriginSettingSerializer(origin).data,
+        })
+
+    def _update_origin(self, request):
+        from billing.models import DeliveryOriginSetting
+        from billing.serializers import DeliveryOriginSettingSerializer
+        origin = DeliveryOriginSetting.get_active_origin()
+
+        data = dict(request.data)
+        if 'depot_name' in data and 'name' not in data:
+            data['name'] = data['depot_name']
+        if 'lat' in data and 'latitude' not in data:
+            data['latitude'] = data['lat']
+        if 'lng' in data and 'longitude' not in data:
+            data['longitude'] = data['lng']
+
+        if 'latitude' in data:
+            try:
+                lat_f = float(data['latitude'])
+                if not (-90.0 <= lat_f <= 90.0):
+                    return Response({'success': False, 'message': 'Latitude must be between -90 and 90 degrees.'}, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, TypeError):
+                return Response({'success': False, 'message': 'Invalid latitude numeric value.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if 'longitude' in data:
+            try:
+                lng_f = float(data['longitude'])
+                if not (-180.0 <= lng_f <= 180.0):
+                    return Response({'success': False, 'message': 'Longitude must be between -180 and 180 degrees.'}, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, TypeError):
+                return Response({'success': False, 'message': 'Invalid longitude numeric value.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = DeliveryOriginSettingSerializer(origin, data=data, partial=True)
+        if not serializer.is_valid():
+            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response({
+            'success': True,
+            'message': 'Delivery origin updated successfully.',
+            'origin': serializer.data,
+        })
+
+    def patch(self, request):
+        return self._update_origin(request)
+
+    def post(self, request):
+        return self._update_origin(request)
+
+    def put(self, request):
+        return self._update_origin(request)
+
+
+class DeliveryDistanceBandListCreateView(views.APIView):
+    """
+    List active delivery distance bands (public/authenticated) or create a new band (Admin).
+    Enforces strict slab validation, non-negative fees, and overlap detection.
+    """
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            from accounts.permissions import IsAdminRole
+            return [IsAdminRole()]
+        return [permissions.AllowAny()]
+
+    def get(self, request):
+        from billing.models import DeliveryDistanceBand
+        from billing.serializers import DeliveryDistanceBandSerializer
+        from billing.delivery_services import seed_default_distance_bands_if_empty
+        from django.db import models
+        seed_default_distance_bands_if_empty()
+
+        qs = DeliveryDistanceBand.objects.all().order_by('order', 'min_distance_km')
+        channel = request.query_params.get('channel')
+        if channel:
+            qs = qs.filter(models.Q(applies_to=channel) | models.Q(applies_to='ALL'))
+        is_active = request.query_params.get('is_active')
+        if is_active is not None and is_active != '':
+            qs = qs.filter(is_active=str(is_active).lower() in ['true', '1'])
+
+        serializer = DeliveryDistanceBandSerializer(qs, many=True)
+        return Response({
+            'success': True,
+            'count': qs.count(),
+            'bands': serializer.data,
+        })
+
+    def post(self, request):
+        from billing.models import DeliveryDistanceBand
+        from billing.serializers import DeliveryDistanceBandSerializer
+        from decimal import Decimal
+
+        data = dict(request.data)
+        if 'label' in data and 'name' not in data:
+            data['name'] = data['label']
+
+        try:
+            min_k = Decimal(str(data.get('min_distance_km', '0')))
+            if min_k < 0:
+                return Response({'success': False, 'message': 'Minimum distance cannot be negative.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({'success': False, 'message': 'Invalid minimum distance.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        max_k_val = data.get('max_distance_km')
+        max_k = None
+        if max_k_val is not None and str(max_k_val).strip() != '':
+            try:
+                max_k = Decimal(str(max_k_val))
+                if max_k <= min_k:
+                    return Response({'success': False, 'message': f'Maximum distance ({max_k} km) must be strictly greater than minimum distance ({min_k} km).'}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception:
+                return Response({'success': False, 'message': 'Invalid maximum distance.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            charge = Decimal(str(data.get('delivery_charge', '0')))
+            if charge < 0:
+                return Response({'success': False, 'message': 'Delivery charge cannot be negative.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({'success': False, 'message': 'Invalid delivery charge.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        applies_to_val = data.get('applies_to', 'ALL')
+        existing_bands = DeliveryDistanceBand.objects.filter(is_active=True)
+        if applies_to_val != 'ALL':
+            from django.db import models
+            existing_bands = existing_bands.filter(models.Q(applies_to=applies_to_val) | models.Q(applies_to='ALL'))
+
+        for ex in existing_bands:
+            ex_min = ex.min_distance_km
+            ex_max = ex.max_distance_km
+            overlap = False
+            if max_k is not None and ex_max is not None:
+                if not (max_k <= ex_min or min_k >= ex_max):
+                    overlap = True
+            elif max_k is None and ex_max is None:
+                overlap = True
+            elif max_k is None and ex_max is not None:
+                if min_k < ex_max:
+                    overlap = True
+            elif max_k is not None and ex_max is None:
+                if max_k > ex_min:
+                    overlap = True
+
+            if overlap:
+                upper_str = f"{ex_max} km" if ex_max is not None else "Above"
+                return Response({
+                    'success': False,
+                    'message': f"Overlapping distance band detected with '{ex.name}' ({ex_min} to {upper_str}). Please adjust band boundaries to prevent overlap."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = DeliveryDistanceBandSerializer(data=data)
+        if not serializer.is_valid():
+            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        band = serializer.save()
+        return Response({
+            'success': True,
+            'message': f"Distance band '{band.name}' created successfully.",
+            'band': serializer.data,
+        }, status=status.HTTP_201_CREATED)
+
+
+class DeliveryDistanceBandDetailView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self, pk):
+        from billing.models import DeliveryDistanceBand
+        return get_object_or_404(DeliveryDistanceBand, pk=pk)
+
+    def get(self, request, pk):
+        from billing.serializers import DeliveryDistanceBandSerializer
+        band = self.get_object(pk)
+        return Response({'success': True, 'band': DeliveryDistanceBandSerializer(band).data})
+
+    def patch(self, request, pk):
+        from accounts.permissions import IsAdminRole
+        if not IsAdminRole().has_permission(request, self):
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+        from billing.serializers import DeliveryDistanceBandSerializer
+        band = self.get_object(pk)
+        serializer = DeliveryDistanceBandSerializer(band, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response({
+            'success': True,
+            'message': f"Distance band '{band.name}' updated successfully.",
+            'band': serializer.data,
+        })
+
+    def delete(self, request, pk):
+        from accounts.permissions import IsAdminRole
+        if not IsAdminRole().has_permission(request, self):
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+        band = self.get_object(pk)
+        name = band.name
+        band.delete()
+        return Response({
+            'success': True,
+            'message': f"Distance band '{name}' deleted successfully.",
+        })
+
 

@@ -11,7 +11,7 @@ from pathlib import Path
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Max
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 from rest_framework.permissions import (
@@ -22,7 +22,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import FranchiseProfile, UserProfile
-from .permissions import IsAdminRole, IsApprovedFranchise
+from .permissions import IsAdminRole, IsApprovedFranchise, IsAdminOrFranchiseUser
 
 from .serializers import (
     CustomerRegisterSerializer,
@@ -313,49 +313,22 @@ class ApproveFranchiseView(APIView):
             )
 
         # Regulatory FSSAI Verification Enforcement
-        fssai_status = franchise.fssai_verification_status or 'PENDING_VERIFICATION'
-
-        if fssai_status == 'FAILED':
+        from .fssai_services import validate_franchise_fssai_for_activation
+        override_reason = str(request.data.get('override_reason', '')).strip()
+        is_eligible, err_msg, err_code = validate_franchise_fssai_for_activation(
+            franchise, actor=request.user, override_reason=override_reason
+        )
+        if not is_eligible:
             return Response(
                 {
                     'success': False,
-                    'message': f"Cannot approve Franchise: FSSAI verification has FAILED ({franchise.fssai_rejection_reason or 'Invalid or unverified certificate'}). Regulatory compliance requires a valid verified FSSAI license."
+                    'message': err_msg,
+                    'error_code': err_code,
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if fssai_status == 'EXPIRED':
-            return Response(
-                {
-                    'success': False,
-                    'message': f"Cannot approve Franchise: FSSAI registration is EXPIRED (Validity ended: {franchise.fssai_expiry_date}). An active FSSAI registration is required for commercial operations."
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if fssai_status != 'VERIFIED':
-            override_reason = str(request.data.get('override_reason', '')).strip()
-            user_prof = getattr(request.user, 'profile', None)
-            is_super = request.user.is_superuser or (user_prof and user_prof.role == 'super_admin')
-
-            if not is_super:
-                return Response(
-                    {
-                        'success': False,
-                        'message': f"Cannot approve Franchise: FSSAI status is '{fssai_status}'. The FSSAI license must be VERIFIED before approval."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            if not override_reason:
-                return Response(
-                    {
-                        'success': False,
-                        'message': f"FSSAI status is '{fssai_status}'. Super Admin approval override requires a mandatory 'override_reason'."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
+        if override_reason and franchise.fssai_verification_status != 'VERIFIED':
             from .models import AdminAuditLog
             AdminAuditLog.objects.create(
                 actor=request.user,
@@ -364,7 +337,7 @@ class ApproveFranchiseView(APIView):
                 resource_id=str(franchise.id),
                 changes={
                     'fssai_number': franchise.fssai_number,
-                    'fssai_status': fssai_status,
+                    'fssai_status': franchise.fssai_verification_status,
                     'override_reason': override_reason
                 }
             )
@@ -398,7 +371,7 @@ class ApproveFranchiseView(APIView):
                 'status': 'approved',
                 'reviewer_id': request.user.id,
                 'reviewer_username': request.user.username,
-                'fssai_status': fssai_status,
+                'fssai_status': franchise.fssai_verification_status,
                 'approved_at': franchise.approved_at.isoformat() if franchise.approved_at else None,
             }
         )
@@ -1145,6 +1118,22 @@ class UpdateFranchiseView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        if franchise_status == 'approved' and franchise.status != 'approved':
+            from .fssai_services import validate_franchise_fssai_for_activation
+            override_reason = str(request.data.get('override_reason', '')).strip()
+            is_eligible, err_msg, err_code = validate_franchise_fssai_for_activation(
+                franchise, actor=request.user, override_reason=override_reason
+            )
+            if not is_eligible:
+                return Response(
+                    {
+                        'success': False,
+                        'message': err_msg,
+                        'error_code': err_code,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         # ---------------------------------
         # UPDATE USER
         # ---------------------------------
@@ -1707,6 +1696,18 @@ class CurrentUserView(APIView):
             if zone_obj:
                 prof.zone = zone_obj
                 prof.territory = zone_obj.name
+            if 'is_gst_requested' in data:
+                prof.is_gst_requested = bool(data.get('is_gst_requested'))
+            if 'gstin' in data:
+                prof.gstin = str(data.get('gstin', '')).strip().upper()
+            if 'gst_legal_name' in data:
+                prof.gst_legal_name = str(data.get('gst_legal_name', '')).strip()
+            if 'gst_billing_address' in data:
+                prof.gst_billing_address = str(data.get('gst_billing_address', '')).strip()
+            if 'gst_state_name' in data:
+                prof.gst_state_name = str(data.get('gst_state_name', '')).strip()
+            if 'gst_pincode' in data:
+                prof.gst_pincode = str(data.get('gst_pincode', '')).strip()
 
             prof.save()
 
@@ -3566,7 +3567,7 @@ class SuperAdminAdminManagementView(APIView):
         if not self._check_super_admin(request):
             return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
 
-        admins = User.objects.filter(profile__role__in=['admin', 'super_admin', 'sales_executive']).select_related('profile')
+        admins = User.objects.filter(profile__role__in=['admin', 'super_admin', 'sales_executive', 'stock_manager']).select_related('profile')
         data = [
             {
                 'id': u.id,
@@ -3793,7 +3794,7 @@ class SuperAdminAdminDetailView(APIView):
 
             if 'role' in request.data and profile:
                 new_role = request.data['role'].strip().lower()
-                if new_role in ['admin', 'sales_executive', 'super_admin']:
+                if new_role in ['admin', 'sales_executive', 'super_admin', 'stock_manager']:
                     profile.role = new_role
                     changes['role'] = new_role
 
@@ -4117,6 +4118,14 @@ class DealerOnboardingApprovalView(APIView):
 
         with transaction.atomic():
             if action == 'approve':
+                from .fssai_services import validate_franchise_fssai_for_activation
+                override_reason = str(request.data.get('override_reason', '')).strip()
+                is_eligible, err_msg, err_code = validate_franchise_fssai_for_activation(
+                    dealer, actor=request.user, override_reason=override_reason
+                )
+                if not is_eligible:
+                    return Response({'error': err_msg, 'message': err_msg, 'error_code': err_code, 'success': False}, status=status.HTTP_400_BAD_REQUEST)
+
                 dealer.status = 'approved'
                 dealer.approved_at = timezone.now()
                 if 'commission' in request.data:
@@ -4549,8 +4558,7 @@ class SupportContactListView(APIView):
 class DealerKYCDocumentView(APIView):
     authentication_classes = [JWTAuthentication]
 
-    def get_permissions(self):
-        return [IsAdminOrApprovedFranchise()]
+    permission_classes = [IsAdminOrFranchiseUser]
 
     def _get_franchise(self, request, dealer_id=None):
         if dealer_id:
@@ -4570,19 +4578,34 @@ class DealerKYCDocumentView(APIView):
             if getattr(request.user, 'franchise_profile', None) != franchise:
                 return Response({'success': False, 'message': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
 
-        docs = franchise.kyc_documents.all().order_by('-uploaded_at')
+        docs = franchise.kyc_documents.all().order_by('-version', '-uploaded_at')
         data = [
             {
                 'id': d.id,
+                'version': d.version,
                 'document_type': d.document_type,
                 'document_type_display': d.get_document_type_display(),
                 'document_number': d.document_number,
                 'document_url': _build_public_doc_url(request, f'/api/accounts/dealers/documents/{d.id}/view/') if d.document_file else '',
+                'download_url': _build_public_doc_url(request, f'/api/accounts/dealers/documents/{d.id}/download/') if d.document_file else '',
                 'verification_status': d.verification_status,
                 'rejection_reason': d.rejection_reason,
                 'uploaded_at': d.uploaded_at.isoformat(),
                 'verified_at': d.verified_at.isoformat() if d.verified_at else None,
                 'verified_by': d.verified_by.username if d.verified_by else None,
+                'verification_logs': [
+                    {
+                        'id': log.id,
+                        'version': log.version,
+                        'decision': log.decision,
+                        'reviewed_by': log.reviewed_by.username if log.reviewed_by else 'Admin',
+                        'reviewed_at': log.reviewed_at.isoformat(),
+                        'rejection_reason': log.rejection_reason,
+                        'verification_method': log.verification_method,
+                        'notes': log.notes,
+                    }
+                    for log in d.verification_logs.all().order_by('-reviewed_at')
+                ],
             }
             for d in docs
         ]
@@ -4605,21 +4628,45 @@ class DealerKYCDocumentView(APIView):
         if not doc_type or not doc_file:
             return Response({'success': False, 'message': 'document_type and document_file are required.'}, status=400)
 
+        # Calculate incremental version for this document type
+        existing_docs = DealerDocument.objects.filter(dealer=franchise, document_type=doc_type)
+        max_version = existing_docs.aggregate(Max('version'))['version__max'] or 0
+        new_version = max_version + 1
+
         doc = DealerDocument.objects.create(
             dealer=franchise,
             document_type=doc_type,
             document_number=doc_number,
             document_file=doc_file,
+            version=new_version,
             verification_status='PENDING',
             uploaded_by=request.user,
         )
 
+        # Sync franchise regulatory status on FSSAI upload
+        if doc_type == 'FSSAI_CERTIFICATE':
+            franchise.fssai_verification_status = 'PENDING'
+            franchise.save(update_fields=['fssai_verification_status'])
+
+        doc_view_url = _build_public_doc_url(request, f'/api/accounts/dealers/documents/{doc.id}/view/') if doc.document_file else ''
+        doc_download_url = _build_public_doc_url(request, f'/api/accounts/dealers/documents/{doc.id}/download/') if doc.document_file else ''
+        doc_info = {
+            'id': doc.id,
+            'version': doc.version,
+            'document_type': doc.document_type,
+            'verification_status': doc.verification_status,
+            'document_url': doc_view_url,
+            'download_url': doc_download_url,
+        }
         return Response({
             'success': True,
             'message': 'Document uploaded successfully.',
             'document_id': doc.id,
+            'version': doc.version,
             'verification_status': doc.verification_status,
-            'document_url': _build_public_doc_url(request, f'/api/accounts/dealers/documents/{doc.id}/view/') if doc.document_file else '',
+            'document_url': doc_view_url,
+            'download_url': doc_download_url,
+            'data': doc_info,
         }, status=status.HTTP_201_CREATED)
 
     def delete(self, request, dealer_id=None):
@@ -4631,6 +4678,13 @@ class DealerKYCDocumentView(APIView):
         if not (request.user.is_superuser or getattr(request.user, 'profile', None).role in ['admin', 'super_admin']):
             if doc.dealer != getattr(request.user, 'franchise_profile', None):
                 return Response({'success': False, 'message': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+            # Franchise users cannot delete documents that have been reviewed or have audit records
+            if doc.verification_status in ['VERIFIED', 'REJECTED'] or doc.verification_logs.exists():
+                return Response({
+                    'success': False,
+                    'message': 'Audited or reviewed documents cannot be deleted. Please upload a new version.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
         if doc.document_file:
             try:
                 doc.document_file.delete(save=False)
@@ -4644,31 +4698,92 @@ class DealerKYCVerifyView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAdminRole]
 
+    def post(self, request, pk):
+        return self.patch(request, pk)
+
     def patch(self, request, pk):
         doc = get_object_or_404(DealerDocument, pk=pk)
-        new_status = request.data.get('status', '').upper()
+        new_status = (request.data.get('status') or request.data.get('action') or '').upper()
         rejection_reason = request.data.get('rejection_reason', '').strip()
+        verification_method = request.data.get('verification_method', 'MANUAL_ADMIN_REVIEW').strip()
+        notes = request.data.get('notes', '').strip()
 
         if new_status not in ['VERIFIED', 'REJECTED']:
             return Response({'success': False, 'message': 'status must be VERIFIED or REJECTED.'}, status=400)
 
-        doc.verification_status = new_status
-        if new_status == 'VERIFIED':
-            doc.verified_by = request.user
-            doc.verified_at = timezone.now()
-            doc.rejection_reason = ''
-        else:
-            doc.verified_by = request.user
-            doc.verified_at = timezone.now()
-            doc.rejection_reason = rejection_reason
+        if new_status == 'REJECTED' and not rejection_reason:
+            return Response({
+                'success': False,
+                'message': 'A meaningful rejection_reason is mandatory when rejecting a document.'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
+        now = timezone.now()
+        doc.verification_status = new_status
+        doc.verified_by = request.user
+        doc.verified_at = now
+        doc.rejection_reason = rejection_reason if new_status == 'REJECTED' else ''
         doc.save(update_fields=['verification_status', 'verified_by', 'verified_at', 'rejection_reason'])
+
+        # Persist audit record in DealerDocumentVerificationLog
+        from .models import DealerDocumentVerificationLog, AdminAuditLog
+        log_entry = DealerDocumentVerificationLog.objects.create(
+            document=doc,
+            document_id_persisted=doc.id,
+            document_version=doc.version,
+            franchise=doc.dealer,
+            document_type=doc.document_type,
+            decision=new_status,
+            reviewer=request.user,
+            reviewer_username=request.user.username,
+            rejection_reason=rejection_reason if new_status == 'REJECTED' else '',
+            verification_method=verification_method,
+            notes=notes,
+        )
+
+        # Also persist in central AdminAuditLog
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            action=f'DOCUMENT_{new_status}',
+            resource_type='DealerDocument',
+            resource_id=str(doc.id),
+            changes={
+                'decision': new_status,
+                'version': doc.version,
+                'document_type': doc.document_type,
+                'franchise_id': doc.dealer.id,
+                'franchise_name': doc.dealer.business_name,
+                'rejection_reason': rejection_reason,
+            }
+        )
+
+        # Synchronize franchise FSSAI status if applicable
+        if doc.document_type == 'FSSAI_CERTIFICATE':
+            franchise = doc.dealer
+            if new_status == 'VERIFIED':
+                franchise.fssai_verification_status = 'VERIFIED'
+                franchise.fssai_verified_at = now
+                franchise.fssai_verified_by = request.user
+                franchise.fssai_rejection_reason = ''
+            else:
+                franchise.fssai_verification_status = 'REJECTED'
+                franchise.fssai_verified_at = now
+                franchise.fssai_verified_by = request.user
+                franchise.fssai_rejection_reason = rejection_reason
+            franchise.save(update_fields=[
+                'fssai_verification_status', 'fssai_verified_at',
+                'fssai_verified_by', 'fssai_rejection_reason'
+            ])
 
         return Response({
             'success': True,
             'message': f'Document marked as {new_status}.',
             'document_id': doc.id,
+            'version': doc.version,
             'status': doc.verification_status,
+            'verified_at': doc.verified_at.isoformat(),
+            'verified_by': doc.verified_by.username,
+            'rejection_reason': doc.rejection_reason,
+            'log_id': log_entry.id,
         })
 
 
@@ -4677,13 +4792,14 @@ class ProtectedDealerDocumentView(APIView):
     Securely serves private dealer KYC and FSSAI documents.
     Enforces authentication and authorization: Admin, Super Admin, or the owning Franchise.
     Supports Bearer header and '?token=' query parameter for in-app and browser document viewing.
+    Also handles direct /media/dealer_documents/<filename> lookups to prevent path traversal or bypass.
     """
     authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
 
-    def get(self, request, pk):
+    def get(self, request, pk=None, filename=None, filepath=None):
         import mimetypes
-        from django.http import FileResponse, Http404
+        from django.http import FileResponse
 
         user = request.user
         if not user or not user.is_authenticated:
@@ -4700,25 +4816,46 @@ class ProtectedDealerDocumentView(APIView):
         if not user or not user.is_authenticated:
             return Response({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        doc = get_object_or_404(DealerDocument, pk=pk)
-        franchise = doc.dealer
+        # Lookup document by pk, filepath, or filename
+        doc = None
+        if pk is not None:
+            doc = DealerDocument.objects.filter(pk=pk).first()
+        elif filepath:
+            clean_path = filepath.replace('\\', '/')
+            doc = DealerDocument.objects.filter(document_file=clean_path).first()
+            if not doc:
+                filename_only = clean_path.split('/')[-1]
+                doc = DealerDocument.objects.filter(document_file__icontains=filename_only).first()
+        elif filename:
+            clean_filename = filename.replace('\\', '/').split('/')[-1]
+            doc = DealerDocument.objects.filter(document_file__icontains=clean_filename).first()
 
+        if not doc:
+            return Response({'detail': 'Document not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        franchise = doc.dealer
         profile = getattr(user, 'profile', None)
         is_admin = user.is_superuser or (profile and profile.role in ['admin', 'super_admin'])
-        is_owner = (franchise.user_id == user.id)
+        is_owner = (franchise.user_id == user.id) or (getattr(user, 'franchise_profile', None) == franchise)
 
         if not (is_admin or is_owner):
             return Response({'detail': 'You do not have permission to view this document.'}, status=status.HTTP_403_FORBIDDEN)
 
         if not doc.document_file or not doc.document_file.storage.exists(doc.document_file.name):
-            raise Http404("Document file does not exist on storage.")
+            return Response({'detail': 'Document file does not exist on storage.'}, status=status.HTTP_404_NOT_FOUND)
 
         content_type, _ = mimetypes.guess_type(doc.document_file.name)
         if not content_type:
             content_type = 'application/pdf' if doc.document_file.name.lower().endswith('.pdf') else 'application/octet-stream'
 
+        as_download = request.path.endswith('/download/') or request.query_params.get('download') == '1'
+
         try:
-            return FileResponse(doc.document_file.open('rb'), content_type=content_type)
+            response = FileResponse(doc.document_file.open('rb'), content_type=content_type)
+            if as_download:
+                actual_name = doc.document_file.name.split('/')[-1]
+                response['Content-Disposition'] = f'attachment; filename="{actual_name}"'
+            return response
         except Exception as e:
             return Response({'detail': f'Error opening document file: {str(e)}'}, status=500)
 
@@ -5020,6 +5157,9 @@ class RegisterDeviceTokenView(APIView):
             )
 
         from accounts.models import DeviceToken
+        # Security Guard: Deactivate this token for any previous user to prevent wrong-role notifications
+        DeviceToken.objects.filter(token=token).exclude(user=request.user).update(is_active=False)
+
         device_token, created = DeviceToken.objects.update_or_create(
             token=token,
             defaults={
@@ -5047,25 +5187,29 @@ class RegisterDeviceTokenView(APIView):
 
 
 class UnregisterDeviceTokenView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         token = request.data.get('token', '').strip()
         from accounts.models import DeviceToken
+        count = 0
         if token:
-            count = DeviceToken.objects.filter(token=token).update(is_active=False)
-        else:
-            count = DeviceToken.objects.filter(user=request.user).update(is_active=False)
+            count += DeviceToken.objects.filter(token=token).update(is_active=False)
+        if request.user and request.user.is_authenticated:
+            count += DeviceToken.objects.filter(user=request.user).update(is_active=False)
 
+        username = request.user.username if (request.user and request.user.is_authenticated) else 'Anonymous/TokenOnly'
         logger.info(
-            "FCM: [TOKEN_UNREGISTERED] User '%s' unregistered device token (deactivated count: %d)",
-            request.user.username,
-            count
+            "FCM: [TOKEN_UNREGISTERED] User '%s' unregistered device token (deactivated count: %d, token: %s...)",
+            username,
+            count,
+            token[:12] if token else 'N/A'
         )
 
         return Response({
             'success': True,
-            'message': 'Device token unregistered successfully.'
+            'message': 'Device token unregistered successfully.',
+            'deactivated_count': count
         })
 
 

@@ -29,6 +29,41 @@ class IsAdminRole(BasePermission):
         )
 
 
+class IsStockManagerOrAdmin(BasePermission):
+    """
+    Permits access to Super Admin, Admin, and Stock Manager roles.
+    Requires active user account and active profile status.
+    """
+    message = "Stock management or Administrator privileges are required for this action."
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser:
+            return True
+        if not request.user.is_active:
+            return False
+        profile = getattr(request.user, 'profile', None)
+        if not profile or profile.status != 'active':
+            return False
+        return profile.role in ['admin', 'super_admin', 'stock_manager']
+
+
+class DenyStockManager(BasePermission):
+    """
+    Explicitly denies access to stock_manager role for financial, billing, customer, and administrative endpoints.
+    """
+    message = "Stock managers are strictly forbidden from financial, billing, customer, and administrative functions."
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.role == 'stock_manager':
+            return False
+        return True
+
+
 class IsSuperAdminRole(BasePermission):
     """
     Strictly restricted to super_admin role or Django superuser.
@@ -102,6 +137,22 @@ class IsAdminOrApprovedFranchise(BasePermission):
             return franchise_profile is not None and franchise_profile.status == 'approved'
 
         return False
+
+
+class IsAdminOrFranchiseUser(BasePermission):
+    """
+    Allows Super Admins, Admins, and any Franchise user (including pending onboarding) to view/upload KYC.
+    """
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser:
+            return True
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return False
+        return profile.role in ['admin', 'super_admin', 'franchise']
+
 
 
 class IsAdminOrSalesExecutiveRole(BasePermission):

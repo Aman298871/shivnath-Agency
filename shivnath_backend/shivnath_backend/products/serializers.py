@@ -1,6 +1,9 @@
 from rest_framework import serializers
 
-from .models import Product, ProductCategory, ProductionRecipeBOM, ProductionRecipeBOMItem, ProductStockThreshold
+from .models import (
+    Product, ProductCategory, ProductionRecipeBOM, ProductionRecipeBOMItem,
+    ProductStockThreshold, MinimumOrderPackagingRule
+)
 from inventory.models import RawMaterial
 
 
@@ -47,7 +50,15 @@ class ProductCategorySerializer(serializers.ModelSerializer):
         return self.get_children(obj)
 
     def get_product_count(self, obj):
-        return obj.products.count()
+        from django.db.models import Q
+        descendant_ids = obj.get_descendant_ids()
+        return Product.objects.filter(
+            status="Active"
+        ).filter(
+            Q(category_ref_id__in=descendant_ids)
+            | Q(category__iexact=obj.name)
+            | Q(category_ref__slug=obj.slug)
+        ).distinct().count()
 
     def validate_name(self, value):
         value = value.strip()
@@ -275,6 +286,22 @@ class ProductSerializer(serializers.ModelSerializer):
             img_path = ret['image'] if str(ret['image']).startswith('/') else f"/{ret['image']}"
             ret['image'] = f"{base_url}{img_path}"
 
+        # Standard business rule margins
+        from decimal import Decimal
+        price = Decimal(str(instance.price or '0.00'))
+        transfer_price = Decimal(str(instance.dealer_transfer_price or '0.00'))
+        prod_cost = Decimal(str(ret.get('production_cost_per_unit') or '0.00'))
+
+        franchise_margin = max(Decimal('0.00'), price - transfer_price)
+        franchise_margin_pct = round((franchise_margin / price * Decimal('100.00')), 2) if price > Decimal('0.00') else Decimal('0.00')
+        company_margin = max(Decimal('0.00'), transfer_price - prod_cost)
+        company_margin_pct = round((company_margin / transfer_price * Decimal('100.00')), 2) if transfer_price > Decimal('0.00') else Decimal('0.00')
+
+        ret['franchise_margin'] = float(franchise_margin)
+        ret['franchise_margin_pct'] = float(franchise_margin_pct)
+        ret['company_gross_margin'] = float(company_margin)
+        ret['company_gross_margin_pct'] = float(company_margin_pct)
+
         return ret
 
     def validate_name(self, value):
@@ -320,3 +347,30 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         return attrs
+
+
+class MinimumOrderPackagingRuleSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(required=False, allow_blank=True, default='')
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
+    class Meta:
+        model = MinimumOrderPackagingRule
+        fields = [
+            'id',
+            'name',
+            'product',
+            'product_name',
+            'category',
+            'category_name',
+            'sales_unit',
+            'min_order_quantity',
+            'units_per_carton',
+            'allow_partial_carton',
+            'applies_to',
+            'is_active',
+            'priority',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

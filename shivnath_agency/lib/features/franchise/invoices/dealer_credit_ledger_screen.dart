@@ -50,14 +50,14 @@ class _DealerCreditLedgerScreenState extends State<DealerCreditLedgerScreen> {
         final cpRes = await _invService.getDealerCreditProfile(dealerId);
         if (cpRes['success'] == true) {
           final data = cpRes['data'] is Map ? cpRes['data'] : cpRes;
-          _creditProfile = Map<String, dynamic>.from(data as Map);
+          _creditProfile = data is Map ? Map<String, dynamic>.from(data) : {};
         }
 
         // 2. Fetch aging report
         final arRes = await _invService.getDealerAgingReport(dealerId);
         if (arRes['success'] == true) {
           final data = arRes['data'] is Map ? arRes['data'] : arRes;
-          _agingReport = Map<String, dynamic>.from(data as Map);
+          _agingReport = data is Map ? Map<String, dynamic>.from(data) : {};
         }
       }
 

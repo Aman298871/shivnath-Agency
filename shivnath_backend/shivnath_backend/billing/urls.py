@@ -8,16 +8,28 @@ from billing.views import (
     RecordOrderPaymentAPIView,
     DealerCreditProfileAPIView,
     DealerAgingReportAPIView,
+    DealerAccountStatementAPIView,
+    DealerStockPaymentReconciliationAPIView,
     CompanyBillingProfileAPIView,
     PendingPaymentsAPIView,
     VerifyPaymentByTxnAPIView,
     RejectPaymentByTxnAPIView,
     FranchiseCollectionsSummaryAPIView,
+    InvoiceThermalPrintView,
+    InvoicePDFDownloadView,
+    OrderInvoicePDFDownloadView,
+    DeliveryCalculateAPIView,
+    DeliveryOriginSettingsAPIView,
+    DeliveryDistanceBandListCreateView,
+    DeliveryDistanceBandDetailView,
 )
 
 urlpatterns = [
     path('invoices/', InvoiceListAPIView.as_view(), name='billing_invoices_list'),
     path('invoices/<int:pk>/', InvoiceDetailAPIView.as_view(), name='billing_invoice_detail'),
+    path('invoices/<int:pk>/thermal/', InvoiceThermalPrintView.as_view(), name='billing_invoice_thermal_print'),
+    path('invoices/<int:pk>/download/', InvoicePDFDownloadView.as_view(), name='billing_invoice_pdf_download'),
+    path('orders/<int:order_id>/invoice/download/', OrderInvoicePDFDownloadView.as_view(), name='billing_order_invoice_download'),
     path('invoices/<int:invoice_id>/payments/', RecordPaymentAPIView.as_view(), name='billing_record_payment'),
     path('invoices/<int:invoice_id>/verify-payment/', VerifyPaymentAPIView.as_view(), name='billing_verify_payment'),
     path('invoices/<int:invoice_id>/reject-payment/', RejectPaymentAPIView.as_view(), name='billing_reject_payment'),
@@ -28,5 +40,13 @@ urlpatterns = [
     path('franchise-collections/summary/', FranchiseCollectionsSummaryAPIView.as_view(), name='billing_franchise_collections_summary'),
     path('dealers/<int:dealer_id>/credit-profile/', DealerCreditProfileAPIView.as_view(), name='billing_dealer_credit'),
     path('dealers/<int:dealer_id>/aging/', DealerAgingReportAPIView.as_view(), name='billing_dealer_aging'),
+    path('dealers/<int:dealer_id>/statement/', DealerAccountStatementAPIView.as_view(), name='billing_dealer_statement'),
+    path('dealers/<int:dealer_id>/reconciliation/', DealerStockPaymentReconciliationAPIView.as_view(), name='billing_dealer_reconciliation'),
     path('company-profile/', CompanyBillingProfileAPIView.as_view(), name='billing_company_profile'),
+    # Distance-based delivery endpoints
+    path('delivery/calculate/', DeliveryCalculateAPIView.as_view(), name='billing_delivery_calculate'),
+    path('delivery/origin/', DeliveryOriginSettingsAPIView.as_view(), name='billing_delivery_origin'),
+    path('delivery/bands/', DeliveryDistanceBandListCreateView.as_view(), name='billing_delivery_bands_list_create'),
+    path('delivery/bands/<int:pk>/', DeliveryDistanceBandDetailView.as_view(), name='billing_delivery_bands_detail'),
 ]
+

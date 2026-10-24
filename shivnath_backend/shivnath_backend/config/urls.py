@@ -139,6 +139,14 @@ urlpatterns = [
     ),
 ]
 
+from django.urls import re_path
+from accounts.views import ProtectedDealerDocumentView
+
+# Intercept private KYC / FSSAI media requests with server-side auth & tenant checks
+urlpatterns += [
+    re_path(r'^media/dealer_documents/(?P<filename>.+)$', ProtectedDealerDocumentView.as_view(), name='protected_media_dealer_document'),
+]
+
 if settings.MEDIA_ROOT:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

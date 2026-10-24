@@ -143,7 +143,7 @@ class CustomerCartScreen extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => _checkout(context),
+                    onPressed: () => _checkout(context, cart),
                     child: const Text('Proceed to Checkout'),
                   ),
                 ),
@@ -155,7 +155,42 @@ class CustomerCartScreen extends StatelessWidget {
     );
   }
 
-  void _checkout(BuildContext context) {
+  void _checkout(BuildContext context, CartProvider cart) {
+    final moqError = cart.validateCartMoq();
+    if (moqError != null) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Minimum Order Required', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ],
+          ),
+          content: Text(
+            moqError,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -207,9 +242,31 @@ class _MobileCartItem extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (item.minOrderQuantity > 1) ...[
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: item.meetsMoq ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      item.isBottle
+                          ? 'Min: 5 boxes (${item.minOrderQuantity} btls)'
+                          : 'Min: ${item.minOrderQuantity} ${item.moqUnitLabel}',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        color: item.meetsMoq ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 2),
                 Text(
-                  '₹${item.unitPrice.toStringAsFixed(0)} × ${item.quantity}',
+                  item.isBottle
+                      ? '₹${item.unitPrice.toStringAsFixed(0)}/btl × ${item.quantity} (${item.boxCount} boxes)'
+                      : '₹${item.unitPrice.toStringAsFixed(0)} × ${item.quantity}',
                   style: const TextStyle(
                     fontSize: 11,
                     color: Color(0xFF64748B),
@@ -239,10 +296,13 @@ class _MobileCartItem extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Text(
-                  '${item.quantity}',
+                  item.isBottle
+                      ? '${item.boxCount} bxs\n(${item.quantity})'
+                      : '${item.quantity}',
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 13,
+                    fontSize: 11,
                   ),
                 ),
               ),
@@ -334,7 +394,9 @@ class _DesktopCartItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '₹${item.unitPrice.toStringAsFixed(0)} / unit',
+                  item.isBottle
+                      ? '₹${item.unitPrice.toStringAsFixed(0)}/bottle (₹${(item.unitPrice * item.unitsPerCase).toStringAsFixed(0)} / box of ${item.unitsPerCase})'
+                      : '₹${item.unitPrice.toStringAsFixed(0)} / jar',
                   style: const TextStyle(
                     fontSize: 13,
                     color: Color(0xFF64748B),
@@ -352,9 +414,11 @@ class _DesktopCartItem extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       child: Text(
-                        '${item.quantity}',
+                        item.isBottle
+                            ? '${item.boxCount} boxes (${item.quantity} bottles)'
+                            : '${item.quantity} jars',
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -458,6 +522,41 @@ class _DesktopSummary extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
+                final moqError = cart.validateCartMoq();
+                if (moqError != null) {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      title: const Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626)),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text('Minimum Order Required', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          ),
+                        ],
+                      ),
+                      content: Text(
+                        moqError,
+                        style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
+                      ),
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0284C7),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+
                 Navigator.push(
                   context,
                   MaterialPageRoute(

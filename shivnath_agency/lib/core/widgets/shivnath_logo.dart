@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/app_constants.dart';
 import '../theme/brand_colors.dart';
 
 /// The official Shivnath Agency Logo & Brand Mark widget.
@@ -8,6 +9,7 @@ import '../theme/brand_colors.dart';
 class ShivnathLogo extends StatelessWidget {
   final double size;
   final bool showSubtitle;
+  final String? subtitle;
   final bool isHorizontal;
   final bool isIconOnly;
   final Color? textColor;
@@ -18,16 +20,18 @@ class ShivnathLogo extends StatelessWidget {
     super.key,
     this.size = 56.0,
     this.showSubtitle = true,
+    this.subtitle,
     this.isHorizontal = false,
     this.isIconOnly = false,
     this.textColor,
-    this.useAssetImage = true,
+    this.useAssetImage = false,
   });
 
   const ShivnathLogo.horizontal({
     super.key,
     this.size = 36.0,
     this.showSubtitle = false,
+    this.subtitle,
     this.textColor,
     this.useAssetImage = false,
   }) : isHorizontal = true,
@@ -37,32 +41,24 @@ class ShivnathLogo extends StatelessWidget {
     super.key,
     this.size = 28.0,
     this.showSubtitle = false,
+    this.subtitle,
     this.textColor,
   }) : isHorizontal = true,
        isIconOnly = false,
-       useAssetImage = true;
+       useAssetImage = false;
 
   const ShivnathLogo.icon({
     super.key,
     this.size = 40.0,
     this.useAssetImage = false,
   }) : showSubtitle = false,
+       subtitle = null,
        isHorizontal = false,
        isIconOnly = true,
        textColor = null;
 
   @override
   Widget build(BuildContext context) {
-    if (useAssetImage && !isIconOnly && !isHorizontal) {
-      return Image.asset(
-        'assets/images/logo.png',
-        width: size * 2.2,
-        height: size * 2.2,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => _buildFallbackVertical(),
-      );
-    }
-
     if (isIconOnly) {
       return _buildWaterDropletMark(size);
     }
@@ -89,27 +85,27 @@ class ShivnathLogo extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Water Wala',
+                  AppConstants.appName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: size * 0.58,
+                    fontSize: size * 0.44,
                     fontWeight: FontWeight.w800,
                     color: textColor ?? BrandColors.textPrimary,
-                    letterSpacing: -0.3,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 if (showSubtitle) ...[
                   const SizedBox(height: 1),
                   Text(
-                    'Water Business Management',
+                    subtitle ?? AppConstants.appTagline,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: size * 0.28,
                       fontWeight: FontWeight.w600,
                       color: textColor ?? BrandColors.textSecondary,
-                      letterSpacing: 0.2,
+                      letterSpacing: 0.1,
                     ),
                   ),
                 ],
@@ -120,55 +116,51 @@ class ShivnathLogo extends StatelessWidget {
       );
     }
 
-    return _buildFallbackVertical();
+    return _buildVerticalBranding();
   }
 
-  Widget _buildFallbackVertical() {
+  Widget _buildVerticalBranding() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _buildWaterDropletMark(size),
-        SizedBox(height: size * 0.22),
-        _buildBrandText(fontSize: size * 0.38),
+        if (useAssetImage)
+          Image.asset(
+            'assets/images/logo.png',
+            width: size * 1.6,
+            height: size * 1.6,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => _buildWaterDropletMark(size),
+          )
+        else
+          _buildWaterDropletMark(size),
+        SizedBox(height: size * 0.2),
+        _buildBrandText(fontSize: size * 0.36),
         if (showSubtitle) ...[
-          SizedBox(height: size * 0.1),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 18,
-                height: 1.5,
-                color: BrandColors.primaryBlue.withValues(alpha: 0.5),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Water Business Management',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: textColor ?? BrandColors.textSecondary,
-                  letterSpacing: 0.4,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                width: 18,
-                height: 1.5,
-                color: BrandColors.primaryBlue.withValues(alpha: 0.5),
-              ),
-            ],
+          const SizedBox(height: 6),
+          Text(
+            subtitle ?? AppConstants.appTagline,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: size * 0.22,
+              fontWeight: FontWeight.w600,
+              color: textColor ?? BrandColors.primaryBlue,
+              letterSpacing: 0.1,
+            ),
           ),
         ],
       ],
     );
   }
 
-  /// Multi-color brand typography: "Water Wala"
+  /// Multi-color brand typography: "WATER WALA"
   Widget _buildBrandText({required double fontSize}) {
     if (textColor != null) {
       return Text(
-        'Water Wala',
+        AppConstants.appName,
+        textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: fontSize,
           fontWeight: FontWeight.w900,
@@ -179,6 +171,7 @@ class ShivnathLogo extends StatelessWidget {
     }
 
     return RichText(
+      textAlign: TextAlign.center,
       text: TextSpan(
         style: TextStyle(
           fontFamily: 'Roboto',
@@ -188,11 +181,11 @@ class ShivnathLogo extends StatelessWidget {
         ),
         children: const [
           TextSpan(
-            text: 'Water',
+            text: 'WATER ',
             style: TextStyle(color: BrandColors.primaryBlue),
           ),
           TextSpan(
-            text: 'Wala',
+            text: 'WALA',
             style: TextStyle(color: BrandColors.greenDark),
           ),
         ],

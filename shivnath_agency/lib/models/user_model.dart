@@ -54,14 +54,16 @@ class UserModel {
   // Role Helpers
   bool get isSuperAdmin => role.toLowerCase() == 'super_admin';
   bool get isAdmin => role.toLowerCase() == 'admin';
+  bool get isStockManager => role.toLowerCase() == 'stock_manager';
   bool get isSalesExecutive => role.toLowerCase() == 'sales_executive';
-  bool get isStaffOrAdmin => isSuperAdmin || isAdmin || isSalesExecutive;
+  bool get isStaffOrAdmin => isSuperAdmin || isAdmin || isSalesExecutive || isStockManager;
   bool get isDealer => role.toLowerCase() == 'franchise';
   bool get isCustomer => role.toLowerCase() == 'customer';
 
   String get roleDisplay {
     if (isSuperAdmin) return 'Super Admin';
     if (isAdmin) return 'Plant Admin';
+    if (isStockManager) return 'Stock Manager';
     if (isSalesExecutive) return 'Sales Executive';
     if (isDealer) return 'Franchise';
     if (isCustomer) return 'Customer';

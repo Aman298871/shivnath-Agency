@@ -1,6 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/repositories/inventory_repository.dart';
+import '../../../core/services/session_service.dart';
 import '../../../core/widgets/app_toast.dart';
+import 'delivery_pricing_dialog.dart';
 
 int _asInt(dynamic val) {
   if (val == null) return 0;
@@ -39,23 +46,40 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
             final gst = _asInt(item['cgst_amount'] != null ? (_asInt(item['cgst_amount']) + _asInt(item['sgst_amount'])) : (item['tax_amount'] ?? (total - subtotal)));
             final rawStatus = item['status']?.toString() ?? '';
             String status = 'Unpaid';
-            if (rawStatus == 'PAID' || rawStatus == 'Paid') {
+            if ((paid >= total && total > 0) || (total > 0 && (total - paid) <= 1)) {
               status = 'Paid';
-            } else if (rawStatus == 'PARTIALLY_PAID' || rawStatus == 'Partial') {
-              status = 'Partial';
+            } else if (rawStatus == 'PAID' || rawStatus == 'Paid') {
+              status = 'Paid';
             } else if (rawStatus == 'PAYMENT_PENDING_VERIFICATION') {
               status = 'Payment Verification Required';
-            } else if (paid >= total && total > 0) {
-              status = 'Paid';
-            } else if (paid > 0) {
+            } else if (paid > 0 || rawStatus == 'PARTIALLY_PAID' || rawStatus == 'Partial') {
               status = 'Partial';
+            } else {
+              status = 'Unpaid';
             }
+
+            final orderSource = item['order_source']?.toString();
+            final invoiceType = item['invoice_type']?.toString();
+            String franchiseDisplay;
+            if (orderSource == 'DIRECT_COMPANY' || invoiceType == 'DIRECT_COMPANY_SALE_INVOICE') {
+              franchiseDisplay = 'Direct (Shivnath)';
+            } else if (item['franchise_name'] != null && item['franchise_name'].toString().trim().isNotEmpty) {
+              franchiseDisplay = item['franchise_name'].toString().trim();
+            } else if (item['dealer_name'] != null && item['dealer_name'].toString().trim().isNotEmpty) {
+              franchiseDisplay = item['dealer_name'].toString().trim();
+            } else {
+              franchiseDisplay = 'Direct (Shivnath)';
+            }
+
+            final rawCust = (item['customer_name'] ?? item['billed_to_name'] ?? item['client_name'] ?? '').toString().trim();
+            final customerDisplay = rawCust.isNotEmpty ? rawCust : 'Direct Customer';
 
             return {
               'id': item['id'],
               'invoice': item['invoice_number'] ?? 'INV-${item['id']}',
               'order': item['order_number'] ?? (item['order'] != null ? 'ORD-${item['order']}' : 'WHL-STOCK-TRANSFER'),
-              'franchise': item['dealer_name'] ?? item['franchise_name'] ?? item['billed_to_name'] ?? item['customer_name'] ?? 'Authorized Dealer',
+              'customer_name': customerDisplay,
+              'franchise': franchiseDisplay,
               'date': item['issue_date'] ?? item['invoice_date'] ?? item['issued_at']?.toString().split('T').first ?? 'Today',
               'subtotal': subtotal,
               'gst': gst,
@@ -85,7 +109,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
     {
       'invoice': 'INV-2026-101',
       'order': 'ORD-1001',
-      'franchise': 'Rahul Sharma',
+      'franchise': 'Sangam Franchise',
       'date': '07 Sep 2026',
       'subtotal': 48500,
       'gst': 8730,
@@ -134,6 +158,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
           q.isEmpty ||
           invoice['invoice'].toString().toLowerCase().contains(q) ||
           invoice['order'].toString().toLowerCase().contains(q) ||
+          (invoice['customer_name'] ?? '').toString().toLowerCase().contains(q) ||
           invoice['franchise'].toString().toLowerCase().contains(q);
 
       final matchesStatus =
@@ -227,15 +252,32 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
             style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
-              onPressed: _createInvoice,
-              icon: const Icon(Icons.add),
-              label: const Text('New Invoice'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
+                    onPressed: _createInvoice,
+                    icon: const Icon(Icons.add),
+                    label: const Text('New Invoice'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+                    onPressed: () => DeliveryPricingDialog.show(context),
+                    icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                    label: const Text('Delivery Pricing'),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       );
@@ -260,6 +302,15 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
           ),
         ),
 
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 44),
+          ),
+          onPressed: () => DeliveryPricingDialog.show(context),
+          icon: const Icon(Icons.local_shipping_outlined),
+          label: const Text('Delivery Pricing'),
+        ),
+        const SizedBox(width: 10),
         SizedBox(
           width: 155,
           height: 44,
@@ -420,7 +471,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
         children: [
           Expanded(child: Text('INVOICE', style: _billingHeader)),
           Expanded(child: Text('ORDER', style: _billingHeader)),
-          Expanded(flex: 2, child: Text('FRANCHISE', style: _billingHeader)),
+          Expanded(flex: 2, child: Text('CUSTOMER', style: _billingHeader)),
+          Expanded(flex: 2, child: Text('FULFILLED BY', style: _billingHeader)),
           Expanded(child: Text('TOTAL', style: _billingHeader)),
           Expanded(child: Text('PAID', style: _billingHeader)),
           Expanded(child: Text('BALANCE', style: _billingHeader)),
@@ -438,6 +490,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
     final paid = _asInt(invoice['paid']);
 
     final balance = total - paid;
+    final statusStr = invoice['status']?.toString().toUpperCase() ?? '';
+    final isFullyPaid = statusStr == 'PAID' || balance <= 0;
+    final isPendingVerification = statusStr.contains('VERIF') || invoice['status'] == 'Payment Verification Required';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -452,6 +507,10 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
           ),
           Expanded(
             child: Text(invoice['order'].toString(), style: _billingCell),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(invoice['customer_name']?.toString() ?? 'Direct Customer', style: _billingCell),
           ),
           Expanded(
             flex: 2,
@@ -491,7 +550,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                   icon: const Icon(Icons.visibility_outlined, size: 18),
                 ),
 
-                if (invoice['status'] == 'Payment Verification Required')
+                if (isPendingVerification)
                   IconButton(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(4),
@@ -507,7 +566,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                     ),
                   ),
 
-                if (invoice['status'] != 'Paid' && invoice['status'] != 'Payment Verification Required')
+                if (!isFullyPaid && !isPendingVerification)
                   IconButton(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(4),
@@ -523,7 +582,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                     ),
                   ),
 
-                if (invoice['status'] != 'Paid')
+                if (!isFullyPaid)
                   IconButton(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(4),
@@ -569,6 +628,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
         final paid = _asInt(invoice['paid']);
 
         final balance = total - paid;
+        final statusStr = invoice['status']?.toString().toUpperCase() ?? '';
+        final isFullyPaid = statusStr == 'PAID' || balance <= 0;
+        final isPendingVerification = statusStr.contains('VERIF') || invoice['status'] == 'Payment Verification Required';
 
         return Container(
           width: double.infinity,
@@ -596,7 +658,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
               const Divider(height: 24),
 
               _info('Order', invoice['order']),
-              _info('Franchise', invoice['franchise']),
+              _info('Customer', invoice['customer_name'] ?? 'Direct Customer'),
+              _info('Fulfilled By', invoice['franchise']),
               _info('Invoice Date', invoice['date']),
               _info('Due Date', invoice['dueDate']),
               _info('Total', _currency(total)),
@@ -617,7 +680,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                     label: const Text('View'),
                   ),
 
-                  if (invoice['status'] == 'Payment Verification Required')
+                  if (isPendingVerification)
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFD97706),
@@ -631,7 +694,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                       label: const Text('Verify Payment'),
                     ),
 
-                  if (invoice['status'] != 'Paid' && invoice['status'] != 'Payment Verification Required')
+                  if (!isFullyPaid && !isPendingVerification)
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 40),
@@ -643,7 +706,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                       label: const Text('Payment'),
                     ),
 
-                  if (invoice['status'] != 'Paid')
+                  if (!isFullyPaid)
                     OutlinedButton.icon(
                       onPressed: () {
                         _sendReminder(invoice);
@@ -1400,38 +1463,47 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
     );
   }
 
+  bool _isOpeningPaymentDialog = false;
+
   Future<void> _recordPayment(Map<String, dynamic> invoice) async {
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return _AdminRecordPaymentDialog(
-          invoice: invoice,
-          onPaymentRecorded: (amount) {
-            final total = _asInt(invoice['total']);
-            final paid = _asInt(invoice['paid']);
-            final newPaid = paid + amount;
+    if (_isOpeningPaymentDialog) return;
+    _isOpeningPaymentDialog = true;
 
-            setState(() {
-              invoice['paid'] = newPaid;
-              if (newPaid >= total) {
-                invoice['status'] = 'Paid';
-              } else {
-                invoice['status'] = 'Partial';
-              }
-            });
-          },
-        );
-      },
-    );
+    try {
+      final result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return _AdminRecordPaymentDialog(
+            invoice: invoice,
+            onPaymentRecorded: (amount) {
+              final total = _asInt(invoice['total']);
+              final paid = _asInt(invoice['paid']);
+              final newPaid = paid + amount;
 
-    if (result == true && mounted) {
-      AppToast.success(
-        context,
-        'Payment recorded successfully.',
-        title: 'Payment Recorded',
+              setState(() {
+                invoice['paid'] = newPaid;
+                if (newPaid >= total) {
+                  invoice['status'] = 'Paid';
+                } else {
+                  invoice['status'] = 'Partial';
+                }
+              });
+            },
+          );
+        },
       );
-      _loadBackendInvoices();
+
+      if (result == true && mounted) {
+        AppToast.success(
+          context,
+          'Payment recorded successfully.',
+          title: 'Payment Recorded',
+        );
+        _loadBackendInvoices();
+      }
+    } finally {
+      _isOpeningPaymentDialog = false;
     }
   }
 
@@ -1658,6 +1730,21 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
             ),
           ),
           actions: [
+            if (invoice['id'] != null)
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  final invId = int.tryParse(invoice['id'].toString());
+                  if (invId != null) {
+                    _downloadInvoicePdf(invId, invoice['invoice']?.toString() ?? 'Invoice');
+                  }
+                },
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: const Text('Download PDF'),
+              ),
             TextButton(
               onPressed: () {
                 Navigator.pop(dialogContext);
@@ -1668,6 +1755,38 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
         );
       },
     );
+  }
+
+  Future<void> _downloadInvoicePdf(int invId, String invoiceNumber) async {
+    try {
+      AppToast.info(context, 'Downloading official PDF invoice...', title: 'Invoice Download');
+      final token = await SessionService().getAccessToken();
+      final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/invoices/$invId/download/');
+      final res = await http.get(
+        uri,
+        headers: {
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      );
+      if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+        final dir = await getTemporaryDirectory();
+        final safeName = invoiceNumber.replaceAll(RegExp(r'[\\/*?:"<>|]'), '_');
+        final file = File('${dir.path}/Invoice_$safeName.pdf');
+        await file.writeAsBytes(res.bodyBytes, flush: true);
+        if (mounted) {
+          AppToast.success(context, 'Invoice downloaded successfully.', title: 'PDF Ready');
+        }
+        await OpenFilex.open(file.path);
+      } else {
+        if (mounted) {
+          AppToast.error(context, 'Failed to download invoice (HTTP ${res.statusCode}).', title: 'Download Failed');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, 'Error opening invoice PDF: $e', title: 'Error');
+      }
+    }
   }
 
   void _collectionReport() {
@@ -2095,6 +2214,16 @@ class _AdminRecordPaymentDialogState extends State<_AdminRecordPaymentDialog> {
   }
 
   Future<void> _submitPayment() async {
+    if (_balance <= 0) {
+      AppToast.error(
+        context,
+        'This invoice is already fully paid.',
+        title: 'Invoice Paid',
+      );
+      Navigator.of(context).pop(false);
+      return;
+    }
+
     final text = _amountController.text.trim();
     final amount = int.tryParse(text);
 
@@ -2107,22 +2236,41 @@ class _AdminRecordPaymentDialogState extends State<_AdminRecordPaymentDialog> {
       return;
     }
 
+    final invId = widget.invoice['id'] ?? widget.invoice['invoice_id'];
+    final parsedId = invId != null ? int.tryParse(invId.toString()) : null;
+    if (parsedId == null || parsedId <= 0) {
+      AppToast.error(
+        context,
+        'Invoice ID is missing or invalid. Please refresh the billing list.',
+        title: 'Invalid Invoice',
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
-      final invId = widget.invoice['id'] ?? widget.invoice['invoice_id'];
-      if (invId != null) {
-        final parsedId = int.tryParse(invId.toString());
-        if (parsedId != null && parsedId > 0) {
-          await InventoryRepository().recordPayment(parsedId, {
-            'amount': amount,
-            'payment_method': _paymentMethod,
-            'reference_number': _refController.text.trim(),
-            'notes': _notesController.text.trim(),
-          });
+      final res = await InventoryRepository().recordPayment(parsedId, {
+        'amount': amount,
+        'payment_method': _paymentMethod,
+        'reference_number': _refController.text.trim(),
+        'notes': _notesController.text.trim(),
+      });
+      if (res['success'] != true) {
+        final errMsg = res['message'] ?? res['error'] ?? 'Failed to record payment.';
+        if (mounted) {
+          setState(() => _isSubmitting = false);
+          AppToast.error(context, errMsg, title: 'Payment Failed');
         }
+        return;
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        AppToast.error(context, 'Error submitting payment: $e', title: 'Payment Error');
+      }
+      return;
+    }
 
     if (!mounted) return;
     widget.onPaymentRecorded(amount);

@@ -407,18 +407,18 @@ class _AiChatbotModalState extends State<AiChatbotModal> {
         inquiryType: 'customer',
         children: [
           _ChatOptionItem(
-            title: '2 Litre Family Pack',
+            title: '200ml Event Bottle',
             inquiryType: 'customer',
             children: [
               _ChatOptionItem(
                 title: 'Price & Availability',
                 answerText:
-                    '💧 *Shivnath 2 Litre Packaged Drinking Water*:\n• Single Bottle: ₹30\n• Family Crate (9 Bottles): ₹260\n• Availability: In Stock\n• 7-Stage RO + UV + Ozonation purified.',
+                    '💧 *Shivnath 200ml Event Bottle*:\n• Single Bottle: ₹5\n• Carton (30 Bottles): ₹140\n• Availability: In Stock\n• 7-Stage RO + UV + Ozonation purified.',
               ),
               _ChatOptionItem(
                 title: 'Product Details & Quality',
                 answerText:
-                    '✨ *2 Litre Family Pack Details*:\n• BIS IS:14543 Certified & FSSAI Licensed\n• Natural minerals with balanced 7.2 pH\n• Heavy-duty tamper-evident seal and convenient carry handle.',
+                    '✨ *200ml Event Bottle Details*:\n• BIS IS:14543 Certified & FSSAI Licensed\n• Compact single-serve bottle ideal for weddings, events, catering, and meetings.',
               ),
             ],
           ),

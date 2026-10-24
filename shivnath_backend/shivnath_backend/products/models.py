@@ -280,3 +280,91 @@ class ProductStockThreshold(models.Model):
 
     def __str__(self):
         return f"{self.product.name} Thresholds: Co={self.company_low_stock_threshold} / Dlr={self.dealer_low_stock_threshold}"
+
+
+class MinimumOrderPackagingRule(models.Model):
+    """
+    Authoritative Admin-configurable rules for Minimum Order Quantities (MOQ),
+    packaging conversions (units per carton/peti), and partial-carton permissions.
+    """
+    SALES_UNIT_CHOICES = [
+        ('BOTTLE', 'Individual Bottle'),
+        ('JAR', '20L Jar'),
+        ('CARTON', 'Carton / Peti Box'),
+        ('PACK', 'Pack'),
+        ('PIECE', 'Piece'),
+    ]
+
+    CHANNEL_CHOICES = [
+        ('ALL', 'All Channels (Customer, Franchise, Admin)'),
+        ('CUSTOMER', 'Customer Direct Orders Only'),
+        ('FRANCHISE', 'Franchise Orders Only'),
+        ('ADMIN', 'Admin Direct Orders Only'),
+    ]
+
+    name = models.CharField(max_length=150, blank=True, default='', help_text="Rule description e.g. '20L Jar Minimum 5 Units' or '500ml 6 Peti Minimum'")
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="packaging_rules",
+        help_text="Specific product this rule applies to, or leave blank for category-wide rule."
+    )
+    category = models.ForeignKey(
+        ProductCategory,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="packaging_rules",
+        help_text="Product category this rule applies to, or leave blank if product-specific."
+    )
+    sales_unit = models.CharField(
+        max_length=20,
+        choices=SALES_UNIT_CHOICES,
+        default='BOTTLE',
+        help_text="Sales unit used for this rule."
+    )
+    min_order_quantity = models.PositiveIntegerField(
+        default=1,
+        help_text="Minimum required order quantity in sales units."
+    )
+    units_per_carton = models.PositiveIntegerField(
+        default=24,
+        help_text="Packaging conversion factor: number of base units per carton/peti box."
+    )
+    allow_partial_carton = models.BooleanField(
+        default=True,
+        help_text="Whether fractional/partial cartons are permitted (e.g. 30 bottles instead of multiple of 24)."
+    )
+    applies_to = models.CharField(
+        max_length=20,
+        choices=CHANNEL_CHOICES,
+        default='ALL',
+        help_text="Order channel this rule governs."
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this rule is currently enforced."
+    )
+    priority = models.PositiveIntegerField(
+        default=0,
+        help_text="Higher priority rules take precedence when multiple rules match."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-priority', '-created_at']
+        verbose_name = 'Minimum Order & Packaging Rule'
+        verbose_name_plural = 'Minimum Order & Packaging Rules'
+
+    def save(self, *args, **kwargs):
+        if not self.name:
+            target = self.product.name if self.product else (self.category.name if self.category else 'Global')
+            self.name = f"{target} Min {self.min_order_quantity} {self.sales_unit}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        target = self.product.name if self.product else (self.category.name if self.category else 'Global')
+        return f"{self.name} [{target}] - Min: {self.min_order_quantity} {self.sales_unit} ({self.applies_to})"

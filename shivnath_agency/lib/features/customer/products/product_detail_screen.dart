@@ -79,16 +79,43 @@ class ProductDetailScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Description',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              product.description.isEmpty
-                  ? 'No description available for this product.'
-                  : product.description,
-              style: TextStyle(color: Colors.grey.shade700, height: 1.4),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBAE6FD)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: Color(0xFF0284C7), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Minimum Order Quantity Policy',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0369A1),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          product.isJar
+                              ? 'Minimum order: 5 water jars per delivery.'
+                              : (product.isBottle
+                                  ? 'Minimum order: 5 boxes (${product.unitsPerCase * 5} bottles). Sold in full cartons.'
+                                  : 'Minimum order: ${product.minOrderQuantity} ${product.unit}.'),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(

@@ -118,8 +118,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      // Check for Order Fulfillment section header
-      expect(find.text('Order Fulfillment'), findsOneWidget);
+      // Check for Delivery Address section header
+      expect(find.text('Delivery Address'), findsWidgets);
       expect(find.byType(ElevatedButton), findsWidgets);
     });
   });

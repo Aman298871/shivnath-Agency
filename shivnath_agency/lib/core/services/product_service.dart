@@ -43,10 +43,11 @@ class ProductService {
         query['search'] = search.trim();
       }
 
+      if (category != null && category.trim().isNotEmpty && category != 'All') {
+        query['category'] = category.trim();
+      }
       if (categoryId != null) {
         query['category_id'] = categoryId.toString();
-      } else if (category != null && category != 'All') {
-        query['category'] = category;
       }
 
       if (activeOnly == true) {
@@ -224,11 +225,13 @@ return result;
   Future<Map<String, dynamic>> getCategories({
     bool treeOnly = false,
     bool activeOnly = false,
+    bool hasActiveProducts = false,
   }) async {
     try {
       final query = <String, String>{};
       if (treeOnly) query['tree'] = 'true';
       if (activeOnly) query['active_only'] = 'true';
+      if (hasActiveProducts) query['has_active_products'] = 'true';
 
       final uri = Uri.parse('$baseUrl/api/products/categories/').replace(
         queryParameters: query.isEmpty ? null : query,

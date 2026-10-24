@@ -199,22 +199,26 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
         rawList = res['data'] as List;
       }
       _reports = rawList
-          .map((e) => Map<String, dynamic>.from(e as Map))
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
           .toList();
 
       // ── 3. Product-wise breakdown (from payload or first report) ──
       if (payload['product_wise'] is List) {
         _productWise = (payload['product_wise'] as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
             .toList();
       } else if (res['product_wise'] is List) {
         _productWise = (res['product_wise'] as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
             .toList();
       } else if (_reports.isNotEmpty &&
           _reports.first['product_wise'] is List) {
         _productWise = (_reports.first['product_wise'] as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
             .toList();
       } else {
         _productWise = [];
@@ -224,7 +228,8 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
       final custRaw = payload['customer_activity'] ?? payload['customer_orders'] ?? res['customer_activity'];
       if (custRaw is List) {
         _customerActivity = custRaw
-            .map((e) => Map<String, dynamic>.from(e as Map))
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
             .toList();
       } else {
         _customerActivity = [];
@@ -232,7 +237,8 @@ class _DailyPlReportScreenState extends State<DailyPlReportScreen>
       final franRaw = payload['franchise_activity'] ?? res['franchise_activity'];
       if (franRaw is List) {
         _franchiseActivity = franRaw
-            .map((e) => Map<String, dynamic>.from(e as Map))
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
             .toList();
       } else {
         _franchiseActivity = [];

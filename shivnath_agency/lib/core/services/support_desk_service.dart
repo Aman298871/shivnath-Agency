@@ -153,9 +153,10 @@ class SupportDeskService {
         final list = res['data']['contacts'];
         if (list is List && list.isNotEmpty) {
           final contacts = list
+              .whereType<Map>()
               .map(
                 (item) => SupportContactInfo.fromJson(
-                  Map<String, dynamic>.from(item as Map),
+                  Map<String, dynamic>.from(item),
                 ),
               )
               .toList();

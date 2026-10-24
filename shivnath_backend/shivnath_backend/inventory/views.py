@@ -10,7 +10,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminRole, IsProductMasterAdmin
+from accounts.permissions import IsAdminRole, IsProductMasterAdmin, IsStockManagerOrAdmin
 
 from .models import InventoryItem, StockRequest
 from .serializers import InventoryItemSerializer, StockRequestSerializer
@@ -22,7 +22,7 @@ from .serializers import InventoryItemSerializer, StockRequestSerializer
 
 class InventoryItemListCreateView(APIView):
 
-    permission_classes = [IsAdminRole]
+    permission_classes = [IsStockManagerOrAdmin]
 
     def get(self, request):
 
@@ -96,7 +96,7 @@ class InventoryItemListCreateView(APIView):
 
 class InventoryItemDetailView(APIView):
 
-    permission_classes = [IsAdminRole]
+    permission_classes = [IsStockManagerOrAdmin]
 
     def get(self, request, pk):
         item = get_object_or_404(InventoryItem, pk=pk)
@@ -162,7 +162,7 @@ class InventoryItemDetailView(APIView):
 
 class StockRequestListCreateView(APIView):
 
-    permission_classes = [IsAdminRole]
+    permission_classes = [IsStockManagerOrAdmin]
 
     def get(self, request):
 
@@ -268,7 +268,7 @@ class StockRequestListCreateView(APIView):
 
 class StockRequestApproveView(APIView):
 
-    permission_classes = [IsAdminRole]
+    permission_classes = [IsStockManagerOrAdmin]
 
     def patch(self, request, pk):
 
@@ -359,7 +359,7 @@ class StockRequestApproveView(APIView):
 
 class StockRequestRejectView(APIView):
 
-    permission_classes = [IsAdminRole]
+    permission_classes = [IsStockManagerOrAdmin]
 
     def patch(self, request, pk):
 
@@ -408,7 +408,7 @@ class StockRequestRejectView(APIView):
 
 class InventoryStatsView(APIView):
 
-    permission_classes = [IsAdminRole]
+    permission_classes = [IsStockManagerOrAdmin]
 
     def get(self, request):
 
@@ -670,7 +670,7 @@ class RawMaterialListCreateAPIView(generics.ListCreateAPIView):
     def get_permissions(self):
         if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
             return [permissions.IsAuthenticated()]
-        return [IsProductMasterAdmin()]
+        return [IsStockManagerOrAdmin()]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -684,7 +684,7 @@ class ProductionBatchListCreateAPIView(views.APIView):
     def get_permissions(self):
         if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
             return [permissions.IsAuthenticated()]
-        return [IsProductMasterAdmin()]
+        return [IsStockManagerOrAdmin()]
 
     def get(self, request):
         batches = ProductionBatch.objects.select_related('product', 'linked_order').all()
@@ -694,7 +694,7 @@ class ProductionBatchListCreateAPIView(views.APIView):
         order_id = request.query_params.get('order_id')
         if order_id:
             batches = batches.filter(linked_order_id=order_id)
-        serializer = ProductionBatchSerializer(batches, many=True)
+        serializer = ProductionBatchSerializer(batches, many=True, context={'request': request})
         return Response(serializer.data)
 
     def post(self, request):
@@ -729,7 +729,7 @@ class ProductionBatchListCreateAPIView(views.APIView):
                 actor=request.user
             )
             batch.refresh_from_db()
-            data = ProductionBatchSerializer(batch).data
+            data = ProductionBatchSerializer(batch, context={'request': request}).data
             return Response({'success': True, 'message': 'Production batch created successfully.', 'data': data, **data}, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({'success': False, 'message': str(e), 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -742,7 +742,7 @@ class ProductionBatchCollectionAPIView(views.APIView):
     customer collects 2,000 units. The remaining 3,000 units STAY as pending company stock.
     """
     def get_permissions(self):
-        return [IsProductMasterAdmin()]
+        return [IsStockManagerOrAdmin()]
 
     def post(self, request, pk):
         qty = request.data.get('quantity_collected') or request.data.get('quantity')
@@ -1102,7 +1102,7 @@ class DealerStockRequestListCreateAPIView(views.APIView):
 
 
 class DealerStockRequestDispatchAPIView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsStockManagerOrAdmin]
 
     def post(self, request, pk):
         stock_req = get_object_or_404(DealerStockRequest, pk=pk)
@@ -1238,7 +1238,7 @@ class DealerStockRequestFulfillmentTrackerAPIView(views.APIView):
 
 
 class DealerStockRequestFulfillSingleAPIView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsStockManagerOrAdmin]
 
     def post(self, request, pk):
         user = request.user
@@ -1268,7 +1268,7 @@ class DealerStockRequestFulfillSingleAPIView(views.APIView):
 
 
 class DealerStockRequestFulfillAllAPIView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsStockManagerOrAdmin]
 
     def post(self, request):
         user = request.user
@@ -1321,7 +1321,7 @@ class InventoryLedgerListAPIView(generics.ListAPIView):
 class ExpenseListCreateAPIView(generics.ListCreateAPIView):
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminRole]
 
     def perform_create(self, serializer):
         count = Expense.objects.count() + 1
@@ -1330,7 +1330,7 @@ class ExpenseListCreateAPIView(generics.ListCreateAPIView):
 
 
 class DailyBusinessReportAPIView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminRole]
 
     def get(self, request):
         from datetime import date, timedelta
@@ -1957,16 +1957,19 @@ class StockAdjustmentAPIView(views.APIView):
     def post(self, request):
         user = request.user
         role = getattr(getattr(user, 'profile', None), 'role', '')
-        if not (user.is_superuser or role in ['admin', 'super_admin', 'franchise']):
+        if not (user.is_superuser or role in ['admin', 'super_admin', 'franchise', 'stock_manager']):
             return Response({'error': 'Unauthorized to record stock adjustments.'}, status=status.HTTP_403_FORBIDDEN)
 
         entity_type = request.data.get('entity_type')
         entity_id = request.data.get('entity_id')
         adjusted_quantity = request.data.get('adjusted_quantity')
-        reason = request.data.get('reason', 'Manual Stock Correction')
+        reason = (request.data.get('reason') or '').strip()
 
         if not entity_type or not entity_id or adjusted_quantity is None:
             return Response({'error': 'entity_type, entity_id, and adjusted_quantity are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not reason:
+            return Response({'error': 'Reason is mandatory for stock adjustments.'}, status=status.HTTP_400_BAD_REQUEST)
 
         from .services import adjust_stock_atomic
         try:
@@ -1992,7 +1995,7 @@ class StockAdjustmentAPIView(views.APIView):
 class PendingStockExpiryAlertView(APIView):
     """
     Returns real DB-backed pending/uncollected stock approaching expiry.
-    Audience: SUPER_ADMIN (unrestricted) and ADMIN (scoped by apply_data_scope).
+    Audience: SUPER_ADMIN (unrestricted), ADMIN, and STOCK_MANAGER.
     Calculates current pending quantity dynamically from actual database records.
     """
     permission_classes = [permissions.IsAuthenticated]
@@ -2000,7 +2003,7 @@ class PendingStockExpiryAlertView(APIView):
     def get(self, request):
         user = request.user
         role = getattr(getattr(user, 'profile', None), 'role', '')
-        if not user.is_superuser and role not in ['super_admin', 'admin']:
+        if not user.is_superuser and role not in ['super_admin', 'admin', 'stock_manager']:
             return Response({'success': False, 'message': 'Forbidden: Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
 
         from .services import get_pending_stock_expiry_alerts
@@ -2026,7 +2029,7 @@ class PendingStockExpiryAlertActionView(APIView):
     def post(self, request):
         user = request.user
         role = getattr(getattr(user, 'profile', None), 'role', '')
-        if not user.is_superuser and role not in ['super_admin', 'admin']:
+        if not user.is_superuser and role not in ['super_admin', 'admin', 'stock_manager']:
             return Response({'success': False, 'message': 'Forbidden: Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
 
         alert_id = request.data.get('alert_id') or request.data.get('id')

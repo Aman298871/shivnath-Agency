@@ -717,15 +717,15 @@ class LoginSerializer(serializers.Serializer):
 
         # Role validation & permission hierarchy
         if selected_role:
-            is_admin_portal = selected_role in ['admin', 'super_admin', 'sales_executive']
-            is_admin_user = user.is_superuser or user.is_staff or profile.role in ['admin', 'super_admin', 'sales_executive']
+            is_admin_portal = selected_role in ['admin', 'super_admin', 'sales_executive', 'stock_manager']
+            is_admin_user = user.is_superuser or user.is_staff or profile.role in ['admin', 'super_admin', 'sales_executive', 'stock_manager']
 
             if is_admin_portal and is_admin_user:
                 pass  # Permitted
             elif profile.role.lower() == selected_role:
                 pass  # Exact match
-            elif selected_role == 'admin' and profile.role == 'super_admin':
-                pass  # Super admin accessing admin portal
+            elif selected_role == 'admin' and profile.role in ['super_admin', 'stock_manager']:
+                pass  # Super admin or stock manager accessing admin portal
             else:
                 raise serializers.ValidationError({
                     'role': f'This account is registered as {profile.get_role_display()}. Please login via the correct portal.'
@@ -1049,6 +1049,13 @@ class CurrentUserSerializer(
     territory_info = serializers.SerializerMethodField()
     must_change_password = serializers.SerializerMethodField()
 
+    is_gst_requested = serializers.SerializerMethodField()
+    gstin = serializers.SerializerMethodField()
+    gst_legal_name = serializers.SerializerMethodField()
+    gst_billing_address = serializers.SerializerMethodField()
+    gst_state_name = serializers.SerializerMethodField()
+    gst_pincode = serializers.SerializerMethodField()
+
     class Meta:
         model = User
 
@@ -1076,7 +1083,37 @@ class CurrentUserSerializer(
             'service_status',
             'active_stock_cycle',
             'must_change_password',
+            'is_gst_requested',
+            'gstin',
+            'gst_legal_name',
+            'gst_billing_address',
+            'gst_state_name',
+            'gst_pincode',
         ]
+
+    def get_is_gst_requested(self, obj):
+        prof = getattr(obj, 'profile', None)
+        return getattr(prof, 'is_gst_requested', False) if prof else False
+
+    def get_gstin(self, obj):
+        prof = getattr(obj, 'profile', None)
+        return getattr(prof, 'gstin', '') if prof else ''
+
+    def get_gst_legal_name(self, obj):
+        prof = getattr(obj, 'profile', None)
+        return getattr(prof, 'gst_legal_name', '') if prof else ''
+
+    def get_gst_billing_address(self, obj):
+        prof = getattr(obj, 'profile', None)
+        return getattr(prof, 'gst_billing_address', '') if prof else ''
+
+    def get_gst_state_name(self, obj):
+        prof = getattr(obj, 'profile', None)
+        return getattr(prof, 'gst_state_name', '') if prof else ''
+
+    def get_gst_pincode(self, obj):
+        prof = getattr(obj, 'profile', None)
+        return getattr(prof, 'gst_pincode', '') if prof else ''
 
     def get_must_change_password(self, obj):
         return getattr(getattr(obj, 'profile', None), 'must_change_password', False)

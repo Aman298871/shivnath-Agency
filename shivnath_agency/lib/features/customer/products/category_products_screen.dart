@@ -47,7 +47,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     try {
       final res = await _productRepository.getProducts(
         categoryId: widget.categoryId,
-        category: widget.categoryId == null ? widget.categoryName : null,
+        category: widget.categoryName,
         status: 'Active',
       );
       if (res['parsed_products'] is List<ProductModel>) {

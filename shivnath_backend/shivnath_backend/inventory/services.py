@@ -886,6 +886,9 @@ def cancel_order_atomic(order, actor=None):
     - If post-delivery: restocks inventory and writes RETURN ledger entry.
     - Atomically restores product catalog stock counters.
     """
+    if order.status == 'cancelled':
+        return order
+
     has_dispatched = order.items.filter(batch_reservations__consumed_quantity__gt=0).exists() or order.status in ['dispatch', 'delivered']
 
     if not has_dispatched:
@@ -965,7 +968,10 @@ def adjust_stock_atomic(entity_type, entity_id, adjusted_quantity, reason='Manua
     qty = Decimal(str(adjusted_quantity))
     if entity_type == 'PRODUCTION_BATCH':
         batch = ProductionBatch.objects.select_for_update().get(id=entity_id)
-        batch.quantity_remaining_company = max(0, int(batch.quantity_remaining_company + qty))
+        new_qty = int(batch.quantity_remaining_company + qty)
+        if new_qty < 0:
+            raise ValidationError(f"Cannot adjust stock below zero. Current available: {batch.quantity_remaining_company}, adjustment: {qty}")
+        batch.quantity_remaining_company = new_qty
         batch.save()
         return InventoryTransactionLedger.objects.create(
             transaction_type='ADJUSTMENT',
@@ -983,7 +989,10 @@ def adjust_stock_atomic(entity_type, entity_id, adjusted_quantity, reason='Manua
         )
     elif entity_type == 'DEALER_STOCK_BATCH':
         batch = DealerStockBatch.objects.select_for_update().get(id=entity_id)
-        batch.remaining_quantity = max(0, int(batch.remaining_quantity + qty))
+        new_qty = int(batch.remaining_quantity + qty)
+        if new_qty < 0:
+            raise ValidationError(f"Cannot adjust dealer stock below zero. Current available: {batch.remaining_quantity}, adjustment: {qty}")
+        batch.remaining_quantity = new_qty
         batch.save()
         return InventoryTransactionLedger.objects.create(
             transaction_type='ADJUSTMENT',
@@ -1002,7 +1011,10 @@ def adjust_stock_atomic(entity_type, entity_id, adjusted_quantity, reason='Manua
         )
     elif entity_type == 'RAW_MATERIAL':
         rm = RawMaterial.objects.select_for_update().get(id=entity_id)
-        rm.current_stock = max(Decimal('0.00'), rm.current_stock + qty)
+        new_qty = rm.current_stock + qty
+        if new_qty < Decimal('0.00'):
+            raise ValidationError(f"Cannot adjust raw material stock below zero. Current available: {rm.current_stock}, adjustment: {qty}")
+        rm.current_stock = new_qty
         rm.save()
         return InventoryTransactionLedger.objects.create(
             transaction_type='ADJUSTMENT',

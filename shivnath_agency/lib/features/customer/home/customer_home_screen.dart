@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/product_provider.dart';
 import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
@@ -15,6 +16,8 @@ import '../products/customer_products_screen.dart';
 import '../orders/customer_orders_screen.dart';
 import '../../../core/widgets/support_desk_modal.dart';
 import '../../../core/widgets/product_thumbnail.dart';
+import '../../../core/providers/wallet_provider.dart';
+import '../wallet/customer_wallet_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   final VoidCallback? onOpenProducts;
@@ -63,6 +66,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         });
       }
     } catch (_) {}
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<WalletProvider>().loadWallet();
+      }
+    });
   }
 
   void _handleOpenProducts() {
@@ -204,194 +213,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  void _showWalletDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        actionsOverflowDirection: VerticalDirection.down,
-        actionsOverflowButtonSpacing: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(
-              Icons.account_balance_wallet_rounded,
-              color: Color(0xFF0284C7),
-              size: 24,
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Customer Water Wallet',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0284C7), Color(0xFF0EA5E9)],
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    'Available Balance',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    '₹1,250.00',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Auto-applied on next water order checkout',
-                    style: TextStyle(color: Colors.white70, fontSize: 10),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFFDCFCE7),
-                child: Icon(Icons.add_card_rounded, color: Color(0xFF16A34A)),
-              ),
-              title: const Text(
-                'Instant Cashback',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-              ),
-              subtitle: const Text(
-                'Get 5% extra on recharges above ₹1,000',
-                style: TextStyle(fontSize: 11),
-              ),
-            ),
-          ],
-        ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _handleOpenProducts();
-            },
-            child: const Text('Order with Wallet'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showRewardsDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        actionsOverflowDirection: VerticalDirection.down,
-        actionsOverflowButtonSpacing: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.stars_rounded, color: Color(0xFF9333EA), size: 24),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Shivnath Hydration Rewards',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3E8FF),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFD8B4FE)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.military_tech_rounded,
-                    color: Color(0xFF9333EA),
-                    size: 36,
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Silver Member',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            color: Color(0xFF6B21A8),
-                          ),
-                        ),
-                        Text(
-                          '320 Hydration Points available',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF7E22CE),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              '• Earn 1 point for every ₹10 spent on drinking water.\n• Redeem 100 points for ₹50 off on 20L water jars.\n• Free doorstep priority delivery on orders with Gold Tier.',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.5,
-                color: Color(0xFF475569),
-              ),
-            ),
-          ],
-        ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _handleOpenProducts();
-            },
-            child: const Text('Earn More Points'),
-          ),
-        ],
-      ),
-    );
-  }
 
   String get _userName {
     final name = _currentUser?.name.trim();
@@ -454,14 +275,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: const [
                   Text(
-                    'Water Wala',
+                    AppConstants.brandShortName,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
                   Text(
-                    'Pure Water. Delivered.',
-                    style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                    AppConstants.appTagline,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0284C7),
+                    ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
@@ -547,22 +372,32 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     ),
                     borderRadius: BorderRadius.circular(22),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Pure Water,\nHealthy Life',
+                            const Text(
+                              AppConstants.appName,
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 24,
-                                height: 1.15,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
                               ),
                             ),
-                            SizedBox(height: 9),
+                            const SizedBox(height: 8),
+                            const Text(
+                              AppConstants.appTagline,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                height: 1.25,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            SizedBox(height: 8),
                             Text(
                               'Fresh packaged drinking water delivered directly to you.',
                               style: TextStyle(
@@ -581,7 +416,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                 SizedBox(width: 7),
                                 Flexible(
                                   child: Text(
-                                    'Fast Delivery',
+                                    'Fast Delivery • Water Wala',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,
@@ -623,13 +458,23 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _MobileQuickStatusCard(
-                    title: 'Water Wallet',
-                    subtitle: '₹1,250.00',
-                    icon: Icons.account_balance_wallet_outlined,
-                    iconColor: const Color(0xFFD97706),
-                    bgColor: const Color(0xFFFEF3C7),
-                    onTap: _showWalletDialog,
+                  child: Builder(
+                    builder: (ctx) {
+                      final wallet = ctx.watch<WalletProvider>();
+                      return _MobileQuickStatusCard(
+                        title: 'Water Wallet',
+                        subtitle: '₹${wallet.balance.toStringAsFixed(2)}',
+                        icon: Icons.account_balance_wallet_outlined,
+                        iconColor: const Color(0xFFD97706),
+                        bgColor: const Color(0xFFFEF3C7),
+                        onTap: () {
+                          Navigator.push(
+                            ctx,
+                            MaterialPageRoute(builder: (_) => const CustomerWalletScreen()),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
               ],
@@ -638,13 +483,23 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _MobileQuickStatusCard(
-                    title: 'Rewards',
-                    subtitle: '320 Pts (Silver)',
-                    icon: Icons.stars_outlined,
-                    iconColor: const Color(0xFF9333EA),
-                    bgColor: const Color(0xFFF3E8FF),
-                    onTap: _showRewardsDialog,
+                  child: Builder(
+                    builder: (ctx) {
+                      final wallet = ctx.watch<WalletProvider>();
+                      return _MobileQuickStatusCard(
+                        title: 'Rewards',
+                        subtitle: '${wallet.rewardPoints} Pts',
+                        icon: Icons.stars_outlined,
+                        iconColor: const Color(0xFF9333EA),
+                        bgColor: const Color(0xFFF3E8FF),
+                        onTap: () {
+                          Navigator.push(
+                            ctx,
+                            MaterialPageRoute(builder: (_) => const CustomerWalletScreen()),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -672,7 +527,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 Expanded(
                   child: _MobileCategoryCard(
                     title: 'Water Bottles',
-                    subtitle: '250 ML - 2 Litre',
+                    subtitle: '200 ML - 1 Litre',
                     icon: Icons.local_drink_outlined,
                     onTap: () {
                       Navigator.push(
@@ -690,7 +545,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 Expanded(
                   child: _MobileCategoryCard(
                     title: 'Water Jars',
-                    subtitle: '5L & 20L',
+                    subtitle: '20 Litre',
                     icon: Icons.water_drop_outlined,
                     onTap: () {
                       Navigator.push(
@@ -832,21 +687,32 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       iconColor: const Color(0xFF16A34A),
                       onTap: _handleOpenOrders,
                     );
+                    final wallet = context.watch<WalletProvider>();
                     final card3 = _DesktopStatCard(
                       title: 'Wallet Balance',
-                      value: '₹1,250',
+                      value: '₹${wallet.balance.toStringAsFixed(2)}',
                       icon: Icons.account_balance_wallet_outlined,
                       background: const Color(0xFFFEF3C7),
                       iconColor: const Color(0xFFD97706),
-                      onTap: _showWalletDialog,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CustomerWalletScreen()),
+                        );
+                      },
                     );
                     final card4 = _DesktopStatCard(
                       title: 'Reward Points',
-                      value: '320',
+                      value: '${wallet.rewardPoints}',
                       icon: Icons.stars_outlined,
                       background: const Color(0xFFF3E8FF),
                       iconColor: const Color(0xFF9333EA),
-                      onTap: _showRewardsDialog,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CustomerWalletScreen()),
+                        );
+                      },
                     );
 
                     if (constraints.maxWidth < 950) {
@@ -907,20 +773,37 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Pure Water. Better Life.',
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white24,
+                                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                                  ),
+                                  child: const Text(
+                                    AppConstants.brandShortName,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  AppConstants.appTagline,
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 28,
+                                    fontSize: 26,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                SizedBox(height: 8),
-                                Text(
+                                const SizedBox(height: 8),
+                                const Text(
                                   'Order fresh packaged drinking water for your home, office or event.',
                                   style: TextStyle(
                                     color: Colors.white70,

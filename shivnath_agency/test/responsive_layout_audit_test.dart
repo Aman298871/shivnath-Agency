@@ -11,6 +11,7 @@ import 'package:shivnath_agency/core/providers/auth_provider.dart';
 import 'package:shivnath_agency/core/providers/product_provider.dart';
 import 'package:shivnath_agency/features/customer/home/customer_home_screen.dart';
 import 'package:shivnath_agency/features/customer/wallet/customer_wallet_screen.dart';
+import 'package:shivnath_agency/core/providers/wallet_provider.dart';
 
 void main() {
   group('Comprehensive Screen Size Responsiveness and Pixel Overflow Audit', () {
@@ -47,6 +48,7 @@ void main() {
           MultiProvider(
             providers: [
               ChangeNotifierProvider.value(value: cartProvider),
+              ChangeNotifierProvider(create: (_) => WalletProvider()),
             ],
             child: const MaterialApp(
               home: CheckoutScreen(),
@@ -81,6 +83,9 @@ void main() {
             debugPrint(ex.toStringDeep());
           } else {
             debugPrint('=== CHECKOUT SCREEN ERROR on $sizeName: $ex ===');
+            try {
+              debugPrint('=== STACK TRACE: ${(ex as dynamic).stackTrace} ===');
+            } catch (_) {}
           }
         }
         expect(ex, isNull, reason: 'Layout overflow detected on $sizeName');
@@ -130,6 +135,7 @@ void main() {
               ChangeNotifierProvider.value(value: cartProvider),
               ChangeNotifierProvider(create: (_) => ProductProvider()),
               ChangeNotifierProvider(create: (_) => AuthProvider()),
+              ChangeNotifierProvider(create: (_) => WalletProvider()),
             ],
             child: const MaterialApp(
               home: CustomerHomeScreen(),

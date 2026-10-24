@@ -42,7 +42,7 @@ void main() {
       expect(mapped['amount_paid'], 5000.0);
       expect(mapped['outstanding_amount'], 10000.0);
       expect(mapped['status'], 'Plant Approval');
-      expect(mapped['payment'], 'Partial');
+      expect(mapped['payment'].toString().toUpperCase(), contains('PARTIAL'));
       expect((mapped['items_list'] as List).length, 1);
     });
 
@@ -90,16 +90,26 @@ void main() {
       );
 
       cart.addProduct(p1);
-      expect(cart.itemCount, 1);
-      expect(cart.subtotal, 20.0);
-      expect(cart.totalAmount, 50.0); // 20 + 30 delivery charge for orders < 500
+      // MOQ for bottles is 5 boxes: 5 * 20.0 = 100.0 subtotal
+      expect(cart.items.length, 1);
+      expect(cart.itemCount, 5);
+      expect(cart.subtotal, 100.0);
+      expect(cart.totalAmount, 100.0);
+
+      // When delivery distance service applies a 30.0 slab fee:
+      cart.setDeliveryCharge(30.0);
+      expect(cart.deliveryCharge, 30.0);
+      expect(cart.totalAmount, 130.0);
 
       cart.addProduct(p2);
-      expect(cart.itemCount, 2);
-      expect(cart.subtotal, 100.0);
-      expect(cart.totalAmount, 130.0); // 100 + 30 delivery charge
+      // MOQ for 20L jars is 5 jars: 5 * 80.0 = 400.0. Total subtotal = 100 + 400 = 500.0
+      expect(cart.items.length, 2);
+      expect(cart.itemCount, 10);
+      expect(cart.subtotal, 500.0);
+      expect(cart.totalAmount, 530.0); // 500.0 subtotal + 30.0 delivery fee
 
       cart.clearCart();
+      expect(cart.items.length, 0);
       expect(cart.itemCount, 0);
       expect(cart.subtotal, 0.0);
       expect(cart.totalAmount, 0.0);

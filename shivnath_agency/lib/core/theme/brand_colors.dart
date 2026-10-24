@@ -61,6 +61,11 @@ class BrandColors {
   static const Color errorDark = redDark;
   static const Color errorSoft = redSoft;
 
+  static const Color danger = red;
+  static const Color dangerDark = redDark;
+  static const Color dangerLight = redSoft;
+  static const Color dangerSoft = redSoft;
+
   static const Color info = primaryBlue;
   static const Color infoSoft = blueSoft;
 

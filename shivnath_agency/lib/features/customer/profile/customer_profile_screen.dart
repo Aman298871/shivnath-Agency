@@ -949,17 +949,25 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.water_drop, color: Color(0xFF0284C7), size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Delivery Territory & Location',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                  ),
-                ],
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.water_drop, color: Color(0xFF0284C7), size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Delivery Territory & Location',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               if (cycleStatus == 'active')
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -1180,6 +1188,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   _isUpdatingStatus
                       ? const SizedBox(
                           width: 20,
@@ -1374,7 +1383,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: const Text(
-                                '💧 Pure Water Customer',
+                                '💧 Water Wala Customer',
                                 style: TextStyle(
                                   color: Color(0xFF0284C7),
                                   fontSize: 11,

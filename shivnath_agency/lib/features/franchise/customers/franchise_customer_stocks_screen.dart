@@ -402,7 +402,7 @@ class _FranchiseCustomerStocksScreenState
     final daysRemaining = stock['days_remaining'] ?? 0;
     final isLowStock = stock['is_low_stock'] == true;
     final status = stock['service_status'] ?? 'active';
-    final territory = stock['territory'] as Map<String, dynamic>?;
+    final territory = stock['territory'] is Map ? Map<String, dynamic>.from(stock['territory'] as Map) : null;
 
     final statusColor = _getStatusColor(status, isLowStock);
 

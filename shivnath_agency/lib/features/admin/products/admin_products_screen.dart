@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/product_thumbnail.dart';
 import '../../../core/repositories/product_repository.dart';
+import 'packaging_rules_dialog.dart';
 
 class AdminProductsScreen extends StatefulWidget {
   const AdminProductsScreen({super.key});
@@ -210,22 +211,40 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
             ],
           ),
         ),
-        if (desktop)
-          SizedBox(
-            width: 150,
-            height: 44,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(150, 44),
-                maximumSize: const Size(150, 44),
-                backgroundColor: const Color(0xFF0284C7),
-                foregroundColor: Colors.white,
+        Wrap(
+          spacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF0284C7)),
+                foregroundColor: const Color(0xFF0284C7),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              onPressed: _openProductForm,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Add Product', maxLines: 1, softWrap: false),
+              onPressed: () => PackagingRulesDialog.show(context, products: products),
+              icon: const Icon(Icons.inventory_rounded, size: 18),
+              label: const Text('Packaging & MOQ Rules', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
-          ),
+            if (desktop)
+              SizedBox(
+                width: 150,
+                height: 44,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(150, 44),
+                    maximumSize: const Size(150, 44),
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: _openProductForm,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add Product', maxLines: 1, softWrap: false),
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -1271,8 +1290,9 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
         children: [
           Expanded(flex: 3, child: Text('PRODUCT', style: _headerStyle)),
           Expanded(child: Text('SIZE', style: _headerStyle)),
-          Expanded(child: Text('CATEGORY', style: _headerStyle)),
-          Expanded(child: Text('PRICE', style: _headerStyle)),
+          Expanded(child: Text('RETAIL PRICE', style: _headerStyle)),
+          Expanded(child: Text('WHOLESALE RATE', style: _headerStyle)),
+          Expanded(child: Text('FRANCHISE MARGIN', style: _headerStyle)),
           Expanded(child: Text('GST', style: _headerStyle)),
           Expanded(child: Text('STOCK', style: _headerStyle)),
           Expanded(child: Text('STATUS', style: _headerStyle)),
@@ -1332,8 +1352,43 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
             ),
           ),
           Expanded(child: _cell(product['size']?.toString() ?? '')),
-          Expanded(child: _cell(product['category']?.toString() ?? '')),
           Expanded(child: _cell(_formatPrice(product['price']), bold: true)),
+          Expanded(
+            child: _cell(
+              _formatPrice(
+                product['dealer_wholesale_price'] ??
+                product['dealer_transfer_price'] ??
+                product['price'],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Builder(
+              builder: (_) {
+                final retail = (product['price'] is num
+                    ? (product['price'] as num).toDouble()
+                    : double.tryParse(product['price'].toString()) ?? 0.0);
+                final wholesale = (product['dealer_transfer_price'] is num
+                    ? (product['dealer_transfer_price'] as num).toDouble()
+                    : double.tryParse((product['dealer_transfer_price'] ?? product['dealer_wholesale_price'] ?? product['price']).toString()) ?? retail);
+                final margin = product['franchise_margin'] is num
+                    ? (product['franchise_margin'] as num).toDouble()
+                    : (retail - wholesale);
+                final marginPct = retail > 0 ? (margin / retail) * 100 : 0.0;
+                final isPositive = margin >= 0;
+
+                return Text(
+                  '${_formatPrice(margin)} (${marginPct.toStringAsFixed(0)}%)',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: isPositive ? const Color(0xFF16A34A) : Colors.red,
+                  ),
+                );
+              },
+            ),
+          ),
           Expanded(child: _cell('${product['gst']}%')),
           Expanded(
             child: Text(
@@ -1466,7 +1521,42 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
               const SizedBox(height: 14),
               _mobileInfo('Size', product['size']?.toString() ?? ''),
               _mobileInfo('Category', product['category']?.toString() ?? ''),
-              _mobileInfo('Price', _formatPrice(product['price'])),
+              _mobileInfo('Retail Price', _formatPrice(product['price'])),
+              _mobileInfo(
+                'Wholesale',
+                _formatPrice(
+                  product['dealer_wholesale_price'] ??
+                  product['dealer_transfer_price'] ??
+                  product['price'],
+                ),
+              ),
+              _mobileInfo(
+                'Franchise Margin',
+                Builder(
+                  builder: (_) {
+                    final retail = (product['price'] is num
+                        ? (product['price'] as num).toDouble()
+                        : double.tryParse(product['price'].toString()) ?? 0.0);
+                    final wholesale = (product['dealer_transfer_price'] is num
+                        ? (product['dealer_transfer_price'] as num).toDouble()
+                        : double.tryParse((product['dealer_transfer_price'] ?? product['dealer_wholesale_price'] ?? product['price']).toString()) ?? retail);
+                    final margin = product['franchise_margin'] is num
+                        ? (product['franchise_margin'] as num).toDouble()
+                        : (retail - wholesale);
+                    final marginPct = retail > 0 ? (margin / retail) * 100 : 0.0;
+                    final isPositive = margin >= 0;
+
+                    return Text(
+                      '${_formatPrice(margin)} (${marginPct.toStringAsFixed(1)}%)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isPositive ? const Color(0xFF16A34A) : Colors.red,
+                      ),
+                    );
+                  },
+                ),
+              ),
               _mobileInfo('GST', '${product['gst']}%'),
               _mobileInfo('Stock', product['stock']),
               Row(
@@ -1495,17 +1585,19 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
       child: Row(
         children: [
           SizedBox(
-            width: 90,
+            width: 105,
             child: Text(
               label,
               style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ),
           Expanded(
-            child: Text(
-              value.toString(),
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
+            child: value is Widget
+                ? value
+                : Text(
+                    value.toString(),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
           ),
         ],
       ),
@@ -1518,8 +1610,11 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
     final nameController = TextEditingController(text: product?['name'] ?? '');
     final skuController = TextEditingController(text: product?['sku'] ?? '');
     final sizeController = TextEditingController(text: product?['size'] ?? '');
-    final priceController = TextEditingController(
-      text: (product?['dealer_wholesale_price'] ?? product?['dealer_transfer_price'] ?? product?['price'])?.toString() ?? '',
+    final customerPriceController = TextEditingController(
+      text: product?['price']?.toString() ?? '',
+    );
+    final dealerPriceController = TextEditingController(
+      text: (product?['dealer_wholesale_price'] ?? product?['dealer_transfer_price'])?.toString() ?? '',
     );
     final mrpController = TextEditingController(
       text: (product?['retail_mrp'] ?? product?['mrp'])?.toString() ?? '',
@@ -1661,37 +1756,86 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                               ),
                               const SizedBox(height: 18),
                               _formSection(
-                                title: 'Pricing & Tax',
-                                subtitle: 'Configure dealer price, retail MRP and GST',
+                                title: 'Pricing & Margins',
+                                subtitle: 'Separate Customer Retail Price and Franchise Wholesale Transfer Rate',
                                 icon: Icons.payments_outlined,
-                                child: _formGrid(desktop, [
-                                  _professionalInput(
-                                    controller: priceController,
-                                    label: 'Dealer / Transfer Price *',
-                                    hint: 'Wholesale franchise rate',
-                                    icon: Icons.currency_rupee,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                  ),
-                                  _professionalInput(
-                                    controller: mrpController,
-                                    label: 'Retail MRP',
-                                    hint: 'Customer retail maximum price',
-                                    icon: Icons.price_change_outlined,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                  ),
-                                  _professionalInput(
-                                    controller: gstController,
-                                    label: 'GST %',
-                                    icon: Icons.percent_rounded,
-                                    keyboardType: TextInputType.number,
-                                  ),
-                                ]),
+                                child: Column(
+                                  children: [
+                                    _formGrid(desktop, [
+                                      _professionalInput(
+                                        controller: customerPriceController,
+                                        label: 'Customer Retail Price *',
+                                        hint: 'Selling price to end customer',
+                                        icon: Icons.storefront_outlined,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        onChanged: (_) => updateDialog(() {}),
+                                      ),
+                                      _professionalInput(
+                                        controller: dealerPriceController,
+                                        label: 'Franchise Wholesale Rate *',
+                                        hint: 'Transfer price charged to dealer',
+                                        icon: Icons.handshake_outlined,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        onChanged: (_) => updateDialog(() {}),
+                                      ),
+                                      _professionalInput(
+                                        controller: mrpController,
+                                        label: 'Retail MRP (Label Printed)',
+                                        hint: 'Maximum Retail Price on packaging',
+                                        icon: Icons.price_change_outlined,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      ),
+                                      _professionalInput(
+                                        controller: gstController,
+                                        label: 'GST %',
+                                        icon: Icons.percent_rounded,
+                                        keyboardType: TextInputType.number,
+                                      ),
+                                    ]),
+                                    const SizedBox(height: 14),
+                                    Builder(
+                                      builder: (_) {
+                                        final cust = double.tryParse(customerPriceController.text.trim()) ?? 0.0;
+                                        final dealer = double.tryParse(dealerPriceController.text.trim()) ?? 0.0;
+                                        final margin = cust - dealer;
+                                        final marginPct = cust > 0 ? (margin / cust) * 100 : 0.0;
+                                        final isPositive = margin >= 0;
+
+                                        return Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: isPositive ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(
+                                              color: isPositive ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                isPositive ? Icons.trending_up_rounded : Icons.warning_amber_rounded,
+                                                color: isPositive ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                                size: 22,
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Text(
+                                                  'Franchise Profit Margin: ${_formatPrice(margin)} (${marginPct.toStringAsFixed(1)}%) per unit'
+                                                  '${dealer > cust && cust > 0 ? " — WARNING: Wholesale rate exceeds retail price!" : ""}',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: isPositive ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
                               ),
                               const SizedBox(height: 18),
                               _formSection(
@@ -1730,8 +1874,11 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                           final name = nameController.text.trim();
                           final sku = skuController.text.trim();
                           final size = sizeController.text.trim();
-                          final price = double.tryParse(
-                            priceController.text.trim(),
+                          final customerPrice = double.tryParse(
+                            customerPriceController.text.trim(),
+                          );
+                          final dealerPrice = double.tryParse(
+                            dealerPriceController.text.trim(),
                           );
                           final mrp = double.tryParse(
                             mrpController.text.trim(),
@@ -1759,8 +1906,13 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                             return;
                           }
 
-                          if (price == null || price < 0) {
-                            AppToast.error(context, "Enter valid price.");
+                          if (customerPrice == null || customerPrice < 0) {
+                            AppToast.error(context, "Enter valid customer retail price.");
+                            return;
+                          }
+
+                          if (dealerPrice == null || dealerPrice < 0) {
+                            AppToast.error(context, "Enter valid franchise wholesale rate.");
                             return;
                           }
 
@@ -1775,9 +1927,9 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                             "size": size,
                             "category": category,
                             "category_ref_id": ?categoryRefId,
-                            "price": price,
-                            "dealer_wholesale_price": price,
-                            "dealer_transfer_price": price,
+                            "price": customerPrice,
+                            "dealer_wholesale_price": dealerPrice,
+                            "dealer_transfer_price": dealerPrice,
                             "retail_mrp": ?mrp,
                             "mrp": ?mrp,
                             "gst": gst,
@@ -1837,7 +1989,8 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
       nameController.dispose();
       skuController.dispose();
       sizeController.dispose();
-      priceController.dispose();
+      customerPriceController.dispose();
+      dealerPriceController.dispose();
       mrpController.dispose();
       gstController.dispose();
       stockController.dispose();
@@ -2032,10 +2185,12 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
     required IconData icon,
     String? hint,
     TextInputType? keyboardType,
+    ValueChanged<String>? onChanged,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      onChanged: onChanged,
       decoration: _formDecoration(label, icon, hint: hint),
     );
   }

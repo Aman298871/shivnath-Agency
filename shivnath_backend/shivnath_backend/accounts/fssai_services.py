@@ -313,3 +313,52 @@ def record_fssai_verification(franchise: FranchiseProfile,
             )
     except Exception:
         pass
+
+
+def validate_franchise_fssai_for_activation(franchise, actor=None, override_reason=''):
+    """
+    Authoritative regulatory validation for franchise approval / activation.
+    Returns: (is_eligible: bool, error_message: str, error_code: str)
+    Rules:
+    - Missing required FSSAI document blocks activation.
+    - Pending verification blocks activation.
+    - Rejected/Failed document blocks activation until corrected.
+    - Expired document blocks activation.
+    - Only a verified and valid document (or authorized Super Admin override with logged reason) satisfies activation.
+    """
+    from datetime import date
+    from .models import DealerDocument
+
+    # 1. Check if FSSAI document exists
+    fssai_doc = DealerDocument.objects.filter(
+        dealer=franchise,
+        document_type='FSSAI_CERTIFICATE'
+    ).order_by('-version', '-uploaded_at').first()
+
+    if not fssai_doc or not fssai_doc.document_file:
+        return False, "Cannot approve Franchise: Missing required FSSAI registration document. Franchise must upload a valid FSSAI license certificate.", "FSSAI_DOCUMENT_MISSING"
+
+    fssai_status = (franchise.fssai_verification_status or fssai_doc.verification_status or 'PENDING_VERIFICATION').upper()
+
+    if fssai_status in ['FAILED', 'REJECTED']:
+        reason = franchise.fssai_rejection_reason or fssai_doc.rejection_reason or "Invalid or unverified certificate"
+        return False, f"Cannot approve Franchise: FSSAI document is REJECTED ({reason}). A valid, approved FSSAI certificate is required.", "FSSAI_VERIFICATION_REJECTED"
+
+    # Check expiry date
+    if franchise.fssai_expiry_date and franchise.fssai_expiry_date < date.today():
+        return False, f"Cannot approve Franchise: FSSAI registration is EXPIRED (Validity ended: {franchise.fssai_expiry_date}). An active FSSAI registration is required for commercial operations.", "FSSAI_REGISTRATION_EXPIRED"
+
+    if fssai_status == 'EXPIRED':
+        return False, f"Cannot approve Franchise: FSSAI registration is marked EXPIRED. An active FSSAI registration is required for commercial operations.", "FSSAI_REGISTRATION_EXPIRED"
+
+    if fssai_status != 'VERIFIED':
+        # Super Admin override check
+        user_prof = getattr(actor, 'profile', None) if actor else None
+        is_super = actor and (actor.is_superuser or (user_prof and user_prof.role == 'super_admin'))
+        if not is_super:
+            return False, f"Cannot approve Franchise: FSSAI verification status is '{fssai_status}'. The FSSAI license must be VERIFIED before activation.", "FSSAI_VERIFICATION_PENDING"
+
+        if not override_reason or len(override_reason.strip()) < 5:
+            return False, f"FSSAI status is '{fssai_status}'. Super Admin approval override requires a mandatory detailed 'override_reason'.", "FSSAI_OVERRIDE_REASON_REQUIRED"
+
+    return True, "", ""

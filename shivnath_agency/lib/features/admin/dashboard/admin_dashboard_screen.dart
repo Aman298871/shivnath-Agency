@@ -10,6 +10,7 @@ import '../inventory/dealer_stock_request_fulfillment_screen.dart';
 import '../../customer/orders/order_detail_screen.dart';
 import '../orders/pending_orders_picker_dialog.dart';
 import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/cancel_order_dialog.dart';
 import '../../../core/utils/app_toast.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -938,7 +939,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           if (o is Map) {
             final oMap = Map<String, dynamic>.from(o);
             final oId = oMap['id'] is int ? oMap['id'] as int : int.tryParse('${oMap['id']}') ?? 0;
-            if (oId > 0 && !_dismissedRequestIds.contains(oId)) {
+            final oStatus = (oMap['status'] ?? '').toString().toLowerCase();
+            if (oId > 0 &&
+                !_dismissedRequestIds.contains(oId) &&
+                oStatus != 'delivered' &&
+                oStatus != 'cancelled') {
               seenOrderIds.add(oId);
               orderAlertList.add(oMap);
             }
@@ -946,23 +951,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
       }
 
-      if (notifRes['success'] == true && notifRes['data'] is Map) {
-        final List notifs = notifRes['data']['notifications'] ?? [];
-        for (var n in notifs) {
-          if (n is Map) {
-            final type = (n['notification_type'] ?? '').toString();
-            final isRead = n['is_read'] == true;
-            final notifId = n['id'] is int ? n['id'] as int : int.tryParse('${n['id']}') ?? 0;
-            final refId = n['reference_id'] is int ? n['reference_id'] as int : int.tryParse('${n['reference_id']}') ?? 0;
-            if ((type == 'order_placed' || type == 'bulk_order') &&
-                !isRead &&
-                !_dismissedNotificationIds.contains(notifId) &&
-                !seenOrderIds.contains(refId)) {
-              final nMap = Map<String, dynamic>.from(n);
-              nMap['id'] = refId > 0 ? refId : notifId;
-              nMap['notif_id'] = notifId;
-              nMap['customer_name'] = nMap['title'] ?? 'Customer';
-              orderAlertList.add(nMap);
+      // Also include orders awaiting plant approval if not already present
+      final approvalRes = await _orderRepository.getOrders(status: 'plant_approval');
+      if (!mounted) return;
+      if (approvalRes['success'] == true && approvalRes['data'] != null) {
+        final List rawApproval = approvalRes['data']['orders'] ?? (approvalRes['data'] is List ? approvalRes['data'] : []);
+        for (var o in rawApproval) {
+          if (o is Map) {
+            final oMap = Map<String, dynamic>.from(o);
+            final oId = oMap['id'] is int ? oMap['id'] as int : int.tryParse('${oMap['id']}') ?? 0;
+            final oStatus = (oMap['status'] ?? '').toString().toLowerCase();
+            if (oId > 0 &&
+                !_dismissedRequestIds.contains(oId) &&
+                !seenOrderIds.contains(oId) &&
+                oStatus != 'delivered' &&
+                oStatus != 'cancelled') {
+              seenOrderIds.add(oId);
+              orderAlertList.add(oMap);
             }
           }
         }
@@ -1558,19 +1563,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final ordId = ord['id'] is int ? ord['id'] as int : int.tryParse('${ord['id']}') ?? 0;
     final notifId = ord['notif_id'] is int ? ord['notif_id'] as int : ordId;
     final ordCode = ord['order_id']?.toString() ?? ord['orderId']?.toString() ?? ord['order_code']?.toString() ?? '#ORD-$ordId';
+    final currentStatus = (ord['status']?.toString() ?? 'order_placement').toLowerCase().trim();
 
-    String selectedStatus = 'dispatch';
-    final targetStatuses = [
-      {'label': 'Dispatch for Delivery', 'value': 'dispatch'},
-      {'label': 'Mark Delivered', 'value': 'delivered'},
-      {'label': 'Plant Approval', 'value': 'plant_approval'},
-      {'label': 'Preparing / Packaging', 'value': 'preparing'},
-      {'label': 'Invoice Generated', 'value': 'invoice_generated'},
-      {'label': 'Cancel Order', 'value': 'cancelled'},
-    ];
+    final allowedTransitionsMap = {
+      'order_placement': ['plant_approval', 'cancelled'],
+      'pending': ['plant_approval', 'cancelled'],
+      'created': ['plant_approval', 'cancelled'],
+      'plant_approval': ['invoice_generated', 'preparing', 'cancelled'],
+      'invoice_generated': ['preparing', 'dispatch', 'cancelled'],
+      'preparing': ['invoice_generated', 'dispatch', 'cancelled'],
+      'dispatch': ['delivered', 'cancelled'],
+      'in_transit': ['delivered', 'cancelled'],
+      'delivered': <String>[],
+      'cancelled': <String>[],
+    };
 
-    final updated = await showDialog<bool>(
+    final allStatusOptions = {
+      'plant_approval': 'Plant Approval / Admin Approved',
+      'invoice_generated': 'Invoice Generated',
+      'preparing': 'Preparing / Packaging',
+      'dispatch': 'Dispatch for Delivery',
+      'delivered': 'Mark Delivered',
+      'cancelled': 'Cancel Order',
+    };
+
+    final allowedTargets = allowedTransitionsMap[currentStatus] ?? <String>[];
+    final targetStatuses = allowedTargets.map((val) => {
+      'label': allStatusOptions[val] ?? val,
+      'value': val,
+    }).toList();
+
+    String selectedStatus = targetStatuses.isNotEmpty ? targetStatuses.first['value']! : currentStatus;
+    bool isUpdating = false;
+    String? dialogErrorMessage;
+
+    await showDialog<bool>(
       context: context,
+      barrierDismissible: !isUpdating,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
@@ -1595,39 +1624,91 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ],
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Select new fulfillment status for this customer order. The customer will immediately receive an in-app status update and notification.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedStatus,
-                    decoration: InputDecoration(
-                      labelText: 'Fulfillment Status',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text('Current: ', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            currentStatus.toUpperCase(),
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: Color(0xFF0F172A)),
+                          ),
+                        ),
+                      ],
                     ),
-                    items: targetStatuses.map((s) {
-                      return DropdownMenuItem<String>(
-                        value: s['value'],
-                        child: Text(s['label']!),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() => selectedStatus = val);
-                      }
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    if (targetStatuses.isEmpty) ...[
+                      const Text(
+                        'This order is in a terminal status. No further state transitions are permitted.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+                      ),
+                    ] else ...[
+                      DropdownButtonFormField<String>(
+                        initialValue: targetStatuses.any((s) => s['value'] == selectedStatus)
+                            ? selectedStatus
+                            : targetStatuses.first['value'],
+                        decoration: InputDecoration(
+                          labelText: 'Next Fulfillment Status *',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        items: targetStatuses.map((s) {
+                          return DropdownMenuItem<String>(
+                            value: s['value'],
+                            child: Text(s['label']!),
+                          );
+                        }).toList(),
+                        onChanged: isUpdating
+                            ? null
+                            : (val) {
+                                if (val != null) {
+                                  setDialogState(() {
+                                    selectedStatus = val;
+                                    dialogErrorMessage = null;
+                                  });
+                                }
+                              },
+                      ),
+                    ],
+                    if (dialogErrorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                dialogErrorMessage!,
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w600, height: 1.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx, false),
+                  onPressed: isUpdating ? null : () => Navigator.pop(dialogCtx, false),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
@@ -1636,8 +1717,52 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () => Navigator.pop(dialogCtx, true),
-                  child: const Text('Confirm & Update'),
+                  onPressed: (isUpdating || targetStatuses.isEmpty)
+                      ? null
+                      : () async {
+                          if (selectedStatus.toLowerCase() == 'cancelled') {
+                            final confirmed = await CancelOrderDialog.show(
+                              context,
+                              orderCode: ordCode,
+                            );
+                            if (confirmed != true) {
+                              return;
+                            }
+                          }
+
+                          setDialogState(() {
+                            isUpdating = true;
+                            dialogErrorMessage = null;
+                          });
+
+                          final res = await _orderRepository.updateOrderStatus(ordId, selectedStatus);
+                          if (res['success'] == true) {
+                            if (mounted) {
+                              Navigator.pop(dialogCtx, true);
+                              setState(() {
+                                _dismissedRequestIds.add(ordId);
+                                _dismissedNotificationIds.add(notifId);
+                                _pendingCustomerOrders.removeWhere((o) => o['id'] == ordId);
+                              });
+                              _notificationService.markAdminNotificationRead(notifId);
+                              await _loadDashboardData();
+                              if (!mounted) return;
+                              AppToast.success(context, 'Order $ordCode status updated to $selectedStatus successfully!');
+                            }
+                          } else {
+                            setDialogState(() {
+                              isUpdating = false;
+                              dialogErrorMessage = res['message']?.toString() ?? 'Failed to update order status.';
+                            });
+                          }
+                        },
+                  child: isUpdating
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('Confirm & Update'),
                 ),
               ],
             );
@@ -1645,25 +1770,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         );
       },
     );
-
-    if (updated != true) return;
-
-    final res = await _orderRepository.updateOrderStatus(ordId, selectedStatus);
-    if (!mounted) return;
-
-    if (res['success'] == true) {
-      setState(() {
-        _dismissedRequestIds.add(ordId);
-        _dismissedNotificationIds.add(notifId);
-        _pendingCustomerOrders.removeWhere((o) => o['id'] == ordId);
-      });
-      _notificationService.markAdminNotificationRead(notifId);
-      await _loadDashboardData();
-      if (!mounted) return;
-      AppToast.success(context, 'Order $ordCode status updated to $selectedStatus successfully!');
-    } else {
-      AppToast.error(context, res['message'] ?? 'Failed to update order status.');
-    }
   }
 
   Future<void> _handleApprovePayment(Map<String, dynamic> notif) async {

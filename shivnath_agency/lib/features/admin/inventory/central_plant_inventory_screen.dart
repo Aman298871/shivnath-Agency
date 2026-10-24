@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/repositories/app_repositories.dart';
 import '../../../models/product_model.dart';
+import '../../../core/widgets/cancel_order_dialog.dart';
 import 'dealer_stock_request_fulfillment_screen.dart';
 
 /// Central Plant Inventory & Production Batch Operations Screen
@@ -330,7 +331,7 @@ class _CentralPlantInventoryScreenState
         final sku = b['product_sku'] ?? b['sku'] ?? '';
         final clientName = (b['client_name'] ?? '').toString().trim();
         final rawLinkedOrder = b['linked_order'];
-        final orderDetails = b['order_details'] as Map<String, dynamic>?;
+        final orderDetails = b['order_details'] is Map ? Map<String, dynamic>.from(b['order_details'] as Map) : null;
 
         String rawOrdNum = (b['order_number'] ??
                 b['linked_order_code'] ??
@@ -3048,24 +3049,41 @@ class _CentralPlantInventoryScreenState
     required String orderCode,
     required String clientName,
   }) {
-    String selectedStatus = currentStatus.toLowerCase();
-    final validStatuses = [
-      {'val': 'order_placement', 'label': 'Order Placement (New Order)'},
-      {'val': 'plant_approval', 'label': 'Plant Approval / Admin Approved'},
-      {'val': 'invoice_generated', 'label': 'Invoice Generated'},
-      {'val': 'preparing', 'label': 'Preparing / Bottling'},
-      {'val': 'dispatch', 'label': 'Dispatch / In Transit'},
-      {'val': 'delivered', 'label': 'Delivered (Complete Handover)'},
-      {'val': 'cancelled', 'label': 'Cancelled'},
-    ];
-    if (!validStatuses.any((s) => s['val'] == selectedStatus)) {
-      selectedStatus = 'dispatch';
-    }
+    final cleanCurrent = currentStatus.toLowerCase().trim();
+    final allStatusLabels = {
+      'order_placement': 'Order Placement (New Order)',
+      'plant_approval': 'Plant Approval / Admin Approved',
+      'invoice_generated': 'Invoice Generated',
+      'preparing': 'Preparing / Bottling',
+      'dispatch': 'Dispatch / In Transit',
+      'delivered': 'Delivered (Complete Handover)',
+      'cancelled': 'Cancelled',
+    };
 
+    final allowedTransitionsMap = {
+      'order_placement': ['plant_approval', 'cancelled'],
+      'plant_approval': ['invoice_generated', 'preparing', 'cancelled'],
+      'invoice_generated': ['preparing', 'dispatch', 'cancelled'],
+      'preparing': ['invoice_generated', 'dispatch', 'cancelled'],
+      'dispatch': ['delivered', 'cancelled'],
+      'delivered': <String>[],
+      'cancelled': <String>[],
+    };
+
+    final allowedTargets = allowedTransitionsMap[cleanCurrent] ?? <String>[];
+    // Candidate statuses include current status plus allowed next transitions
+    final candidateVals = <String>{cleanCurrent, ...allowedTargets}.toList();
+    final validStatuses = candidateVals.map((val) {
+      return {'val': val, 'label': allStatusLabels[val] ?? val};
+    }).toList();
+
+    String selectedStatus = cleanCurrent;
     bool isUpdating = false;
+    String? dialogErrorMessage;
 
     showDialog(
       context: context,
+      barrierDismissible: !isUpdating,
       builder: (dlgCtx) => StatefulBuilder(
         builder: (context, setDlgState) {
           return AlertDialog(
@@ -3082,35 +3100,87 @@ class _CentralPlantInventoryScreenState
                 ),
               ],
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (clientName.isNotEmpty) ...[
-                  Text(
-                    'Order Name: $clientName',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF334155)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (clientName.isNotEmpty) ...[
+                    Text(
+                      'Order Name: $clientName',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF334155)),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  Row(
+                    children: [
+                      const Text('Current Status: ', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          cleanCurrent.toUpperCase(),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: Color(0xFF0F172A)),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
-                ],
-                DropdownButtonFormField<String>(
-                  initialValue: selectedStatus,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Order Status *',
-                    border: OutlineInputBorder(),
+                  DropdownButtonFormField<String>(
+                    initialValue: validStatuses.any((s) => s['val'] == selectedStatus)
+                        ? selectedStatus
+                        : validStatuses.first['val'],
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Next Target Status *',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: validStatuses.map((s) {
+                      return DropdownMenuItem(
+                        value: s['val']!,
+                        child: Text(s['label']!, overflow: TextOverflow.ellipsis),
+                      );
+                    }).toList(),
+                    onChanged: isUpdating
+                        ? null
+                        : (v) {
+                            if (v != null) {
+                              setDlgState(() {
+                                selectedStatus = v;
+                                dialogErrorMessage = null;
+                              });
+                            }
+                          },
                   ),
-                  items: validStatuses.map((s) {
-                    return DropdownMenuItem(
-                      value: s['val']!,
-                      child: Text(s['label']!, overflow: TextOverflow.ellipsis),
-                    );
-                  }).toList(),
-                  onChanged: (v) {
-                    if (v != null) setDlgState(() => selectedStatus = v);
-                  },
-                ),
-              ],
+                  if (dialogErrorMessage != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              dialogErrorMessage!,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w600, height: 1.4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -3122,32 +3192,40 @@ class _CentralPlantInventoryScreenState
                   backgroundColor: const Color(0xFF7C3AED),
                   foregroundColor: Colors.white,
                 ),
-                onPressed: isUpdating
+                onPressed: (isUpdating || selectedStatus == cleanCurrent)
                     ? null
                     : () async {
-                        setDlgState(() => isUpdating = true);
+                        if (selectedStatus.toLowerCase() == 'cancelled') {
+                          final confirmed = await CancelOrderDialog.show(
+                            context,
+                            orderCode: orderCode.isNotEmpty ? orderCode : 'ORD-$orderId',
+                          );
+                          if (confirmed != true) {
+                            return;
+                          }
+                        }
+
+                        setDlgState(() {
+                          isUpdating = true;
+                          dialogErrorMessage = null;
+                        });
                         final res = await OrderRepository().updateOrderStatus(orderId, selectedStatus);
-                        setDlgState(() => isUpdating = false);
                         if (res['success'] == true) {
                           if (mounted) {
                             Navigator.pop(dlgCtx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Order status updated to ${selectedStatus.toUpperCase()}!'),
-                                backgroundColor: Colors.green,
+                                backgroundColor: const Color(0xFF16A34A),
                               ),
                             );
                             _loadData();
                           }
                         } else {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res['message'] ?? 'Failed to update order status.'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
+                          setDlgState(() {
+                            isUpdating = false;
+                            dialogErrorMessage = res['message']?.toString() ?? 'Failed to update order status. Please verify transition rules.';
+                          });
                         }
                       },
                 child: isUpdating

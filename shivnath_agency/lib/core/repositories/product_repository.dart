@@ -33,10 +33,12 @@ class ProductRepository {
   Future<Map<String, dynamic>> getCategories({
     bool treeOnly = false,
     bool activeOnly = false,
+    bool hasActiveProducts = false,
   }) async {
     return await _productService.getCategories(
       treeOnly: treeOnly,
       activeOnly: activeOnly,
+      hasActiveProducts: hasActiveProducts,
     );
   }
 

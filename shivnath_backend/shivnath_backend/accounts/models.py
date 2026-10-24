@@ -11,6 +11,7 @@ class UserProfile(models.Model):
         ('customer', 'Customer'),
         ('franchise', 'Franchise'),
         ('staff', 'Staff'),
+        ('stock_manager', 'Stock Manager'),
     ]
 
     STATUS_CHOICES = [
@@ -78,6 +79,36 @@ class UserProfile(models.Model):
         default=''
     )
 
+    # Customer Optional GST Billing Profile
+    gstin = models.CharField(
+        max_length=30,
+        blank=True,
+        default='',
+        help_text="Customer 15-character GSTIN for B2B billing"
+    )
+    gst_legal_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Registered legal business name for GST"
+    )
+    gst_billing_address = models.TextField(
+        blank=True,
+        default='',
+        help_text="Registered billing address for GST"
+    )
+    gst_state_name = models.CharField(
+        max_length=100,
+        blank=True,
+        default='Chhattisgarh',
+        help_text="State name for place of supply"
+    )
+    gst_pincode = models.CharField(
+        max_length=10,
+        blank=True,
+        default=''
+    )
+
     zone = models.ForeignKey(
         'ServiceZone',
         null=True,
@@ -124,6 +155,14 @@ class UserProfile(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def is_stock_manager(self):
+        return self.role == 'stock_manager'
+
+    @property
+    def is_admin_or_stock_manager(self):
+        return self.role in ['admin', 'super_admin', 'stock_manager']
 
     def __str__(self):
         return f'{self.user.email} - {self.role}'
@@ -931,6 +970,7 @@ class DealerDocument(models.Model):
         blank=True,
         related_name='verified_dealer_documents'
     )
+    version = models.PositiveIntegerField(default=1)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     verified_at = models.DateTimeField(null=True, blank=True)
 
@@ -940,7 +980,45 @@ class DealerDocument(models.Model):
         verbose_name_plural = 'Dealer KYC Documents'
 
     def __str__(self):
-        return f"{self.dealer.business_name} - {self.get_document_type_display()} [{self.verification_status}]"
+        return f"{self.dealer.business_name} - {self.get_document_type_display()} [v{self.version}] [{self.verification_status}]"
+
+
+class DealerDocumentVerificationLog(models.Model):
+    document = models.ForeignKey(
+        DealerDocument,
+        on_delete=models.CASCADE,
+        related_name='audit_trail'
+    )
+    document_id_persisted = models.PositiveIntegerField()
+    document_version = models.PositiveIntegerField(default=1)
+    franchise = models.ForeignKey(
+        FranchiseProfile,
+        on_delete=models.CASCADE,
+        related_name='document_audit_logs'
+    )
+    document_type = models.CharField(max_length=30)
+    decision = models.CharField(max_length=30)
+    rejection_reason = models.TextField(blank=True, default='')
+    reviewer = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='reviewed_document_audits'
+    )
+    reviewer_username = models.CharField(max_length=150, blank=True, default='')
+    verification_method = models.CharField(max_length=100, default='MANUAL_DOCUMENT_REVIEW')
+    notes = models.TextField(blank=True, default='')
+    official_reference = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Dealer Document Verification Audit'
+        verbose_name_plural = 'Dealer Document Verification Audits'
+
+    def __str__(self):
+        return f"Doc #{self.document_id_persisted} (v{self.document_version}) -> {self.decision} by {self.reviewer_username} at {self.created_at}"
 
 
 class FSSAIVerificationLog(models.Model):

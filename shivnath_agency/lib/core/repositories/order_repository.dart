@@ -92,6 +92,20 @@ class OrderRepository {
     return await _orderService.getRazorpayStatus();
   }
 
+  Future<Map<String, dynamic>> calculateDelivery({
+    double? latitude,
+    double? longitude,
+    String? address,
+    String channel = 'CUSTOMER',
+  }) async {
+    return await _orderService.calculateDelivery(
+      latitude: latitude,
+      longitude: longitude,
+      address: address,
+      channel: channel,
+    );
+  }
+
   Future<Map<String, dynamic>> getRedemptionProducts() async {
     return await _orderService.getRedemptionProducts();
   }

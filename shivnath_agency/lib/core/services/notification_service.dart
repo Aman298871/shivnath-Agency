@@ -5,9 +5,11 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import 'api_client.dart';
 import 'session_service.dart';
+import '../widgets/app_toast.dart';
 import '../../routes/app_routes.dart';
 
 /// Top-level background message handler for FCM
@@ -21,6 +23,29 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint(
     'FCM [Background]: Message received ID: ${message.messageId}, Title: ${message.notification?.title}',
   );
+
+  // Security Guard: Check stored role in SharedPreferences to prevent admin notifications to customer
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final role = (prefs.getString(AppConstants.selectedRoleKey) ?? '').toLowerCase();
+
+    final screen = (message.data['screen'] ?? '').toString().toLowerCase();
+    final notifType = (message.data['notification_type'] ?? message.data['event_type'] ?? '').toString().toLowerCase();
+    final targetRole = (message.data['recipient_role'] ?? message.data['role'] ?? '').toString().toLowerCase();
+
+    final isAdminAlert = screen.contains('admin') ||
+        notifType.contains('admin') ||
+        targetRole.contains('admin') ||
+        (notifType == 'customer_order' && screen.contains('admin')) ||
+        (message.data['event_type'] == 'customer_order');
+
+    if (isAdminAlert && role != 'admin' && role != 'super_admin') {
+      debugPrint('FCM [Background]: Suppressing admin alert for non-admin role ($role).');
+      return;
+    }
+  } catch (e) {
+    debugPrint('FCM [Background]: Role check error: $e');
+  }
 
   // If payload does not contain system notification block, display via local notifications
   if (message.notification == null && message.data.isNotEmpty) {
@@ -231,10 +256,39 @@ class NotificationService {
 
   /// Show notification banner via FlutterLocalNotifications when in foreground
   Future<void> _showForegroundNotification(RemoteMessage message) async {
+    // Security Guard: Role-check against current authenticated session
+    final session = SessionService();
+    final user = await session.getUser();
+    final userRole = (user?.role ?? '').toLowerCase();
+
+    final screen = (message.data['screen'] ?? '').toString().toLowerCase();
+    final notifType = (message.data['notification_type'] ?? message.data['event_type'] ?? '').toString().toLowerCase();
+    final targetRole = (message.data['recipient_role'] ?? message.data['role'] ?? '').toString().toLowerCase();
+
+    final isAdminAlert = screen.contains('admin') ||
+        notifType.contains('admin') ||
+        targetRole.contains('admin') ||
+        (notifType == 'customer_order' && screen.contains('admin')) ||
+        (message.data['event_type'] == 'customer_order');
+
+    if (isAdminAlert && userRole != 'admin' && userRole != 'super_admin') {
+      debugPrint('FCM: Suppressing Admin alert for non-admin user (role: $userRole, event: $notifType).');
+      return;
+    }
+
+    final isFranchiseAlert = screen.contains('franchise') ||
+        notifType.contains('franchise') ||
+        targetRole.contains('franchise');
+
+    if (isFranchiseAlert && userRole != 'franchise' && userRole != 'dealer') {
+      debugPrint('FCM: Suppressing Franchise alert for non-franchise user (role: $userRole, event: $notifType).');
+      return;
+    }
+
     final title =
         message.notification?.title ??
         message.data['title'] ??
-        'Water Wala';
+        AppConstants.appName;
     final body =
         message.notification?.body ??
         message.data['body'] ??
@@ -246,13 +300,16 @@ class NotificationService {
         channelName,
         channelDescription: channelDescription,
         importance: Importance.max,
-        priority: Priority.high,
+        priority: Priority.max,
+        ticker: title,
+        category: AndroidNotificationCategory.status,
         playSound: true,
         enableVibration: true,
         icon: '@mipmap/ic_launcher',
         styleInformation: BigTextStyleInformation(body, contentTitle: title),
         channelShowBadge: true,
         visibility: NotificationVisibility.public,
+        fullScreenIntent: false,
       ),
       iOS: const DarwinNotificationDetails(
         presentAlert: true,
@@ -278,16 +335,19 @@ class NotificationService {
 
   void _showForegroundInAppAlert(String title, String body, Map<String, dynamic> data) {
     final ctx = navigatorKey?.currentContext;
-    if (ctx == null) return;
+    final messenger = rootScaffoldMessengerKey.currentState ??
+        (ctx != null ? ScaffoldMessenger.maybeOf(ctx) : null);
+    if (messenger == null) return;
 
     final rawOrderId = data['order_id'] ?? data['orderId'] ?? data['reference_id'] ?? data['id'];
     final notifType = (data['notification_type'] ?? data['event_type'] ?? '').toString().toLowerCase();
     final isOrderEvent = rawOrderId != null && (notifType.contains('order') || data.containsKey('order_code') || data.containsKey('order_id'));
 
-    ScaffoldMessenger.maybeOf(ctx)?.showMaterialBanner(
+    messenger.hideCurrentMaterialBanner();
+    messenger.showMaterialBanner(
       MaterialBanner(
         backgroundColor: const Color(0xFF0F172A),
-        elevation: 6,
+        elevation: 8,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         leading: CircleAvatar(
           backgroundColor: isOrderEvent ? const Color(0xFF0284C7) : const Color(0xFF10B981),
@@ -319,7 +379,7 @@ class NotificationService {
           if (isOrderEvent)
             TextButton(
               onPressed: () {
-                ScaffoldMessenger.maybeOf(ctx)?.hideCurrentMaterialBanner();
+                messenger.hideCurrentMaterialBanner();
                 handleNotificationNavigation(data);
               },
               child: const Text(
@@ -329,7 +389,7 @@ class NotificationService {
             ),
           TextButton(
             onPressed: () {
-              ScaffoldMessenger.maybeOf(ctx)?.hideCurrentMaterialBanner();
+              messenger.hideCurrentMaterialBanner();
             },
             child: const Text(
               'DISMISS',
@@ -343,9 +403,7 @@ class NotificationService {
     // Auto-dismiss banner after 6 seconds
     Future.delayed(const Duration(seconds: 6), () {
       try {
-        if (ctx.mounted) {
-          ScaffoldMessenger.maybeOf(ctx)?.hideCurrentMaterialBanner();
-        }
+        messenger.hideCurrentMaterialBanner();
       } catch (_) {}
     });
   }
@@ -437,44 +495,57 @@ class NotificationService {
   Future<void> unregisterDeviceTokenWithBackend() async {
     resetRegistrationCache();
 
-    if (_currentFcmToken == null || _currentFcmToken!.isEmpty) return;
+    final fcmTokenToUnregister = _currentFcmToken ?? await _fcm.getToken();
+    if (fcmTokenToUnregister == null || fcmTokenToUnregister.isEmpty) return;
 
     final session = SessionService();
     final token = await session.getAccessToken();
-    if (token == null || token.isEmpty) return;
 
     final candidates = [
       '${AppConstants.apiBaseUrl}/api/auth/notifications/unregister-device/',
       '${AppConstants.apiBaseUrl}/api/notifications/unregister-device/',
     ];
 
+    final Map<String, String> headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
     for (final endpoint in candidates) {
       try {
         final url = Uri.parse(endpoint);
         final response = await ApiClient.post(
           url,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode({'token': _currentFcmToken}),
+          headers: headers,
+          body: jsonEncode({'token': fcmTokenToUnregister}),
         );
         if (response.statusCode >= 200 && response.statusCode < 300) {
-          debugPrint('FCM: Device token unregistered successfully.');
+          debugPrint('FCM: Device token unregistered successfully via $endpoint.');
           break;
         }
       } catch (_) {}
     }
+
+    try {
+      await _fcm.deleteToken();
+    } catch (_) {}
+    _currentFcmToken = null;
   }
 
-  /// Smart deep-linking / navigation based on push payload
-  void handleNotificationNavigation(Map<String, dynamic> data) {
+  /// Smart deep-linking / navigation based on push payload with strict role authorization
+  Future<void> handleNotificationNavigation(Map<String, dynamic> data) async {
     final nav = navigatorKey?.currentState;
     if (nav == null) {
       debugPrint('FCM: Navigator state is not ready.');
       return;
     }
+
+    final session = SessionService();
+    final user = await session.getUser();
+    final userRole = (user?.role ?? '').toLowerCase();
 
     final screen = (data['screen'] ?? '').toString().toLowerCase();
     final notifType = (data['notification_type'] ?? '')
@@ -482,7 +553,7 @@ class NotificationService {
         .toLowerCase();
     final rawOrderId = data['order_id'] ?? data['orderId'] ?? data['reference_id'] ?? data['id'];
 
-    debugPrint('FCM: Navigating for screen: $screen, type: $notifType, order: $rawOrderId');
+    debugPrint('FCM: Navigating for userRole: $userRole, screen: $screen, type: $notifType, order: $rawOrderId');
 
     // 1. Direct deep-link to Order Details if payload is an order event with ID
     if (rawOrderId != null &&
@@ -505,9 +576,17 @@ class NotificationService {
     }
 
     if (screen.contains('admin') || notifType.contains('order_placed')) {
-      nav.pushNamed(AppRoutes.adminDashboard);
+      if (userRole == 'admin' || userRole == 'super_admin') {
+        nav.pushNamed(AppRoutes.adminDashboard);
+      } else {
+        nav.pushNamed(AppRoutes.customerDashboard);
+      }
     } else if (screen.contains('franchise') || notifType.contains('stock')) {
-      nav.pushNamed(AppRoutes.franchiseDashboard);
+      if (userRole == 'franchise' || userRole == 'dealer') {
+        nav.pushNamed(AppRoutes.franchiseDashboard);
+      } else {
+        nav.pushNamed(AppRoutes.customerDashboard);
+      }
     } else if (screen.contains('customer') ||
         notifType.contains('order_status')) {
       nav.pushNamed(AppRoutes.customerDashboard);

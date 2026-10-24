@@ -262,6 +262,13 @@ class Order(models.Model):
         help_text="Monetary value discount in INR granted by redeemed points"
     )
 
+    discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Promotional or approved discount amount in INR"
+    )
+
     wallet_amount_debited = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -274,6 +281,76 @@ class Order(models.Model):
         decimal_places=2,
         default=Decimal('0.00'),
         help_text="Remaining cash or online payable amount in INR after redemption"
+    )
+
+    delivery_charges = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Authoritative delivery fee snapshot in INR"
+    )
+
+    delivery_distance_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Calculated delivery distance from origin in kilometers"
+    )
+
+    delivery_latitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Delivery destination latitude"
+    )
+
+    delivery_longitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Delivery destination longitude"
+    )
+
+    is_gst_requested = models.BooleanField(
+        default=False,
+        help_text="Whether customer requested a formal GST Tax Invoice"
+    )
+
+    gstin = models.CharField(
+        max_length=30,
+        blank=True,
+        default='',
+        help_text="Customer's business GSTIN snapshot"
+    )
+
+    gst_legal_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Customer legal business name for GST"
+    )
+
+    gst_billing_address = models.TextField(
+        blank=True,
+        default='',
+        help_text="Customer legal billing address for GST"
+    )
+
+    gst_state_name = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        help_text="Place of supply / customer state name"
+    )
+
+    gst_pincode = models.CharField(
+        max_length=10,
+        blank=True,
+        default='',
+        help_text="Customer billing PIN code"
     )
 
     created_at = models.DateTimeField(
@@ -540,7 +617,7 @@ class Wallet(models.Model):
     def __str__(self):
         return f"Wallet ({self.user.username}): ₹{self.balance} | {self.reward_points} Pts"
 
-    def reconcile_balance(self):
+    def reconcile_balance(self, auto_fix=False):
         """
         Audit function: Recomputes balance directly from the immutable transaction ledger.
         Ensures consistency between cached balance and ledger history.
@@ -556,10 +633,14 @@ class Wallet(models.Model):
             transaction_type='ORDER_DEBIT'
         ).aggregate(s=Sum('amount'))['s'] or Decimal('0.00')
 
-        computed = credits - debits
-        return computed == self.balance, computed
+        computed = max(Decimal('0.00'), credits - debits)
+        matches = (computed == self.balance)
+        if not matches and auto_fix:
+            self.balance = computed
+            self.save(update_fields=['balance', 'updated_at'])
+        return matches, computed
 
-    def reconcile_points(self):
+    def reconcile_points(self, auto_fix=False):
         """
         Audit function: Recomputes points directly from immutable ledger transactions.
         """
@@ -575,8 +656,12 @@ class Wallet(models.Model):
         ).aggregate(s=Sum('points'))['s'] or 0
 
         # debits stored as negative or positive? Handled by abs(debits)
-        computed = credits - abs(debits)
-        return computed == self.reward_points, computed
+        computed = max(0, credits - abs(debits))
+        matches = (computed == self.reward_points)
+        if not matches and auto_fix:
+            self.reward_points = computed
+            self.save(update_fields=['reward_points', 'updated_at'])
+        return matches, computed
 
 
 class WalletTransaction(models.Model):
@@ -746,3 +831,221 @@ class WalletRedemptionRule(models.Model):
                 is_active=True,
             )
         return rule
+
+
+class CustomBrandedOrderRequest(models.Model):
+    """
+    Customer custom branded drinking water request:
+    Allows customers to submit bottle specifications, customized brand/sticker requirements,
+    and artwork uploads.
+    """
+    STATUS_CHOICES = [
+        ('submitted', 'Submitted'),
+        ('under_review', 'Under Review'),
+        ('quoted', 'Quoted'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+        ('converted', 'Converted to Order'),
+    ]
+
+    customer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='custom_branded_requests'
+    )
+    client_name = models.CharField(
+        max_length=255,
+        help_text="Customer's business or personal brand name (e.g. Acme Tech Solutions, Wedding of Ravi & Priya)"
+    )
+    bottle_size = models.CharField(
+        max_length=100,
+        default='500ml',
+        help_text="Bottle or Jar size (e.g. 250ml, 500ml, 1000ml, 20L)"
+    )
+    package_type = models.CharField(
+        max_length=50,
+        default='BOTTLE',
+        help_text="BOTTLE or JAR"
+    )
+    quantity = models.PositiveIntegerField(
+        help_text="Requested quantity (minimum 1)"
+    )
+    label_requirement = models.TextField(
+        blank=True,
+        default='',
+        help_text="Sticker/label design requirements, branding guidelines, colors"
+    )
+    printing_requirement = models.TextField(
+        blank=True,
+        default='',
+        help_text="Printing specifications (e.g. Metallic sticker, Glossy finish, UV printing)"
+    )
+    artwork_file = models.FileField(
+        upload_to='custom_orders/artwork/',
+        null=True,
+        blank=True,
+        help_text="Uploaded logo, label artwork, or reference design (PDF, PNG, JPG)"
+    )
+    delivery_address = models.TextField(
+        help_text="Target delivery address"
+    )
+    delivery_city = models.CharField(
+        max_length=100,
+        default='Raipur'
+    )
+    requested_delivery_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Target delivery deadline"
+    )
+    additional_notes = models.TextField(
+        blank=True,
+        default='',
+        help_text="Special requirements, packing instructions"
+    )
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default='submitted'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"CustomReq #{self.id}: {self.quantity}x {self.bottle_size} for {self.client_name} ({self.customer.username})"
+
+
+class CustomOrderQuotation(models.Model):
+    """
+    Cost-based Quotation with Margin vs Markup calculation and audit snapshots:
+    Admin inputs itemized costs (bottle, sticker, printing, packaging, labour, transport, setup, wastage),
+    selects margin on selling price [C / (1 - M%)] or markup on cost [C * (1 + M%)],
+    previews and sends quotation to customer.
+    """
+    CALC_CHOICES = [
+        ('MARGIN', 'Margin on Selling Price [Selling = Cost / (1 - M%)]'),
+        ('MARKUP', 'Markup on Cost [Selling = Cost * (1 + M%)]'),
+    ]
+
+    STATUS_CHOICES = [
+        ('DRAFT', 'Draft'),
+        ('SENT', 'Sent to Customer'),
+        ('ACCEPTED', 'Accepted by Customer'),
+        ('REJECTED', 'Rejected'),
+        ('SUPERSEDED', 'Superseded by Revision'),
+    ]
+
+    request = models.ForeignKey(
+        CustomBrandedOrderRequest,
+        on_delete=models.CASCADE,
+        related_name='quotations'
+    )
+    version = models.PositiveIntegerField(default=1)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_custom_quotations'
+    )
+    
+    # Cost Breakdown Components (Admin Internal)
+    bottle_water_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Total bottle & water production cost")
+    sticker_material_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Sticker label material stock cost")
+    printing_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Printing, plate/cylinder, ink charges")
+    packaging_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Carton, corrugated box, shrink wrap packaging")
+    labour_production_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Labour, machine running & bottling")
+    transport_delivery_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Freight, loading & delivery cost")
+    setup_design_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="One-time design/setup/die charge")
+    wastage_allowance_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Wastage & contingency allowance")
+    other_charges = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Separate customer-facing charges (F)")
+
+    # Calculation logic
+    calculation_type = models.CharField(max_length=20, choices=CALC_CHOICES, default='MARGIN')
+    target_percentage = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('20.00'), help_text="Target Margin % or Markup %")
+    
+    # Computed Totals
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Total direct & indirect cost (C)")
+    selling_price_before_charges = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Selling price before separate charges")
+    final_quotation_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Final quotation grand total")
+    unit_quotation_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), help_text="Per-unit quotation rate")
+
+    # Safeguards & Customer View
+    include_breakdown_to_customer = models.BooleanField(default=False, help_text="Whether to show itemized internal cost breakdown to customer")
+    quotation_validity_days = models.PositiveIntegerField(default=30)
+    valid_until = models.DateField(null=True, blank=True)
+    payment_terms = models.CharField(max_length=255, default='50% advance, balance on dispatch')
+    delivery_estimate_days = models.PositiveIntegerField(default=7)
+    admin_notes = models.TextField(blank=True, default='', help_text="Internal Admin notes (never shown to customer)")
+    customer_notes = models.TextField(blank=True, default='', help_text="Customer-facing terms & conditions")
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    converted_order = models.ForeignKey(
+        Order,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='custom_quotation_origin'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['request', '-version']
+
+    def calculate_totals(self, quantity=None):
+        """
+        Calculates authoritative totals:
+        C = direct & indirect costs
+        Margin: selling_before = C / (1 - M / 100)
+        Markup: selling_before = C * (1 + M / 100)
+        final_total = selling_before + F (other_charges)
+        unit_price = final_total / Q
+        """
+        if quantity is None:
+            quantity = self.request.quantity
+        if quantity <= 0:
+            raise ValueError("Quantity must be greater than zero.")
+
+        # Total Cost C
+        c = (
+            self.bottle_water_cost +
+            self.sticker_material_cost +
+            self.printing_cost +
+            self.packaging_cost +
+            self.labour_production_cost +
+            self.transport_delivery_cost +
+            self.setup_design_cost +
+            self.wastage_allowance_cost
+        )
+        self.total_cost = c.quantize(Decimal('0.01'))
+
+        # Selling price before separate charges
+        p = self.target_percentage
+        if self.calculation_type == 'MARGIN':
+            if p >= Decimal('100.00'):
+                raise ValueError("Margin percentage must be less than 100%.")
+            if p < Decimal('0.00'):
+                raise ValueError("Margin percentage cannot be negative.")
+            # selling = C / (1 - M / 100)
+            denominator = Decimal('1.00') - (p / Decimal('100.00'))
+            selling_before = c / denominator
+        else:  # MARKUP
+            if p < Decimal('0.00'):
+                raise ValueError("Markup percentage cannot be negative.")
+            # selling = C * (1 + M / 100)
+            selling_before = c * (Decimal('1.00') + (p / Decimal('100.00')))
+
+        self.selling_price_before_charges = selling_before.quantize(Decimal('0.01'))
+        
+        # Final quotation total = selling_before + F
+        final_total = self.selling_price_before_charges + self.other_charges
+        self.final_quotation_total = final_total.quantize(Decimal('0.01'))
+        
+        # Per unit = Final total / Q
+        self.unit_quotation_price = (self.final_quotation_total / Decimal(str(quantity))).quantize(Decimal('0.01'))
+        return self.final_quotation_total

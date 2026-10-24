@@ -20,8 +20,9 @@ def run_fcm_real_business_trace():
     print("REAL BUSINESS EVENT -> FCM PUSH NOTIFICATION AUDIT & TRACE")
     print("=" * 70)
 
-    # Physical Samsung A14 token registered on device
-    PHYSICAL_DEVICE_FCM_TOKEN = "cufULmzKQBiYx23ds6gGGf:APA91bE_0gSj2wjHCBUANPOAGha0uG1ynYHR_umh1XTniFRbimAtVpG9LyOayxv3leirdcpgjxBr4kNN_MyXfHLjxZnbWR_9h3ZEtEZW4uJgaXqPZgFyLmA"
+    # Dynamically find the active physical device token from database or fall back to connected device
+    active_dt = DeviceToken.objects.filter(is_active=True).exclude(token__startswith='test_').first()
+    PHYSICAL_DEVICE_FCM_TOKEN = active_dt.token if active_dt else "eFLxY-5tQbCGTvKxsKtfJV:APA91bFPYGnd8_rNOcR9zgv4oZjYNOfBHsAZ22DNUVcAicA_yA2aaSf0BDATiT_6Q8967TidQIPHT9AzVwuEOH-L98eZMSVCHBdcGzQfxAzaxJUyH3b7Nik"
     
     # Setup / Ensure Users
     admin_user = User.objects.filter(is_superuser=True).first()
@@ -112,7 +113,9 @@ def run_fcm_real_business_trace():
         token=PHYSICAL_DEVICE_FCM_TOKEN,
         defaults={"user": admin_user, "device_type": "android", "is_active": True}
     )
+    import uuid
     stock_req = DealerStockRequest.objects.create(
+        request_number=f"SR-{uuid.uuid4().hex[:6].upper()}",
         dealer=franchise_profile,
         product=prod,
         requested_quantity=100,
@@ -132,9 +135,9 @@ def run_fcm_real_business_trace():
         phone="9806247194",
         city="Raipur",
         territory="East Raipur",
-        inquiry_type="franchise",
-        lead_source="chatbot",
-        status="new"
+        lead_type="FRANCHISE",
+        source="PUBLIC_CHATBOT",
+        status="NEW"
     )
     print(f"Created Real Lead #{lead.id} ({lead.name}, Phone: {lead.phone})")
     notify_lead_created(lead)

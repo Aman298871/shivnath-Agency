@@ -121,10 +121,12 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           // Check for active unfulfilled customer orders waiting for admin fulfillment
           final pendingOrders = items.where((it) {
             final st = (it['status'] ?? '').toString().toLowerCase();
-            return st == 'order_placement' ||
-                st == 'pending' ||
-                st == 'created' ||
-                st == 'plant_approval';
+            return (st == 'order_placement' ||
+                    st == 'pending' ||
+                    st == 'created' ||
+                    st == 'plant_approval') &&
+                st != 'delivered' &&
+                st != 'cancelled';
           }).toList();
           if (pendingOrders.isNotEmpty) {
             final ordersMapped = pendingOrders
@@ -426,7 +428,12 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   Future<void> _loadUser() async {
     final u = await _authRepository.getSessionUser();
     if (mounted && u != null) {
-      setState(() => _currentUser = u);
+      setState(() {
+        _currentUser = u;
+        if (u.isStockManager && currentIndex == 0) {
+          currentIndex = 4;
+        }
+      });
     }
   }
 
@@ -435,6 +442,37 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   // =========================================================
 
   List<_AdminMenuItem> get menuItems {
+    final isStockManager = _currentUser?.isStockManager == true;
+    if (isStockManager) {
+      return const [
+        _AdminMenuItem(
+          index: 4,
+          title: 'Plant Batches & Stock',
+          icon: Icons.inventory_2_outlined,
+        ),
+        _AdminMenuItem(
+          index: 21,
+          title: 'Central Stock Requests',
+          icon: Icons.move_to_inbox_outlined,
+        ),
+        _AdminMenuItem(
+          index: 5,
+          title: 'BOM Recipes',
+          icon: Icons.science_outlined,
+        ),
+        _AdminMenuItem(
+          index: 15,
+          title: 'Notifications',
+          icon: Icons.notifications_none_outlined,
+        ),
+        _AdminMenuItem(
+          index: 16,
+          title: 'Settings',
+          icon: Icons.settings_outlined,
+        ),
+      ];
+    }
+
     final isSuperAdmin = _currentUser?.isSuperAdmin == true;
     return [
       const _AdminMenuItem(
@@ -549,6 +587,10 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   // =========================================================
 
   Widget _currentScreen() {
+    final isStockManager = _currentUser?.isStockManager == true;
+    if (isStockManager && ![4, 21, 5, 15, 16].contains(currentIndex)) {
+      return CentralPlantInventoryScreen(highlightBatchNumber: _targetBatchNumber);
+    }
     switch (currentIndex) {
       case 0:
         return AdminDashboardScreen(

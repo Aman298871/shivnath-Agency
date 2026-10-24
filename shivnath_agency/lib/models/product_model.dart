@@ -13,6 +13,9 @@ class ProductModel {
   final String description;
   final int shelfLifeDays;
   final String status;
+  final String packageType;
+  final int unitsPerCase;
+  final double dealerTransferPrice;
 
   final int? categoryRefId;
   final String? categoryHierarchy;
@@ -32,6 +35,9 @@ class ProductModel {
     required this.description,
     this.shelfLifeDays = 180,
     this.status = 'Active',
+    this.packageType = 'BOTTLE',
+    this.unitsPerCase = 1,
+    this.dealerTransferPrice = 0.0,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -64,21 +70,55 @@ class ProductModel {
       }
     }
 
+    final rawPkgType = json["package_type"]?.toString();
+    final parsedSku = json["sku"]?.toString() ?? "";
+    final parsedName = json["name"]?.toString() ?? "";
+    final parsedSize = json["size"]?.toString() ?? "";
+    final parsedCat = parsedCategory.toLowerCase();
+
+    final bool detectedJar = (rawPkgType?.toUpperCase() == 'JAR') ||
+        parsedSku.toUpperCase().contains('20L') ||
+        parsedSku.toUpperCase().contains('JAR') ||
+        parsedSize.toLowerCase().contains('20l') ||
+        parsedName.toLowerCase().contains('jar') ||
+        parsedCat.contains('jar');
+
+    final String resolvedPkgType = rawPkgType?.toUpperCase() ?? (detectedJar ? 'JAR' : 'BOTTLE');
+
+    int defaultUpc = 1;
+    if (!detectedJar) {
+      final sLower = parsedSize.toLowerCase();
+      final nLower = parsedName.toLowerCase();
+      if (sLower.contains('1l') || sLower.contains('1 l') || sLower.contains('1000') || nLower.contains('1 litre') || nLower.contains('1l')) {
+        defaultUpc = 12;
+      } else if (sLower.contains('2l') || sLower.contains('2 l') || nLower.contains('2 litre')) {
+        defaultUpc = 9;
+      } else {
+        defaultUpc = 24;
+      }
+    }
+
+    final parsedUpc = int.tryParse(json["units_per_case"]?.toString() ?? "") ?? defaultUpc;
+
     return ProductModel(
       id: json["id"]?.toString() ?? "",
-      name: json["name"]?.toString() ?? "",
-      sku: json["sku"]?.toString() ?? "",
+      name: parsedName,
+      sku: parsedSku,
       category: parsedCategory,
       categoryRefId: parsedCatRefId,
       categoryHierarchy: json["category_hierarchy"]?.toString(),
-      size: json["size"]?.toString() ?? "",
+      size: parsedSize,
       price: double.tryParse(json["price"]?.toString() ?? "0") ?? 0.0,
-      unit: json["unit"]?.toString() ?? json["size"]?.toString() ?? "Bottle",
+      unit: json["unit"]?.toString() ?? json["size"]?.toString() ?? (detectedJar ? "Jar" : "Bottle"),
       image: json["image"]?.toString() ?? "",
       stock: int.tryParse(json["stock"]?.toString() ?? "0") ?? 0,
       description: json["description"]?.toString() ?? "",
       shelfLifeDays: int.tryParse(json["shelf_life_days"]?.toString() ?? "180") ?? 180,
       status: json["status"]?.toString() ?? "Active",
+      packageType: resolvedPkgType,
+      unitsPerCase: parsedUpc > 0 ? parsedUpc : 1,
+      dealerTransferPrice: double.tryParse(json["dealer_transfer_price"]?.toString() ?? "") ??
+          (double.tryParse(json["price"]?.toString() ?? "0") ?? 0.0),
     );
   }
 
@@ -95,6 +135,9 @@ class ProductModel {
       "stock": stock,
       "description": description,
       "status": status,
+      "package_type": packageType,
+      "units_per_case": unitsPerCase,
+      "dealer_transfer_price": dealerTransferPrice,
     };
   }
 
@@ -181,6 +224,75 @@ class ProductModel {
         : AppConstants.apiBaseUrl;
     final path = image.startsWith('/') ? image : '/$image';
     return '$base$path';
+  }
+
+  bool get isJar {
+    if (packageType.toUpperCase() == 'JAR') return true;
+    final s = sku.toUpperCase();
+    final sz = size.toLowerCase();
+    final nm = name.toLowerCase();
+    final cat = category.toLowerCase();
+    return s.contains('SHV-20L') ||
+        s.contains('JAR') ||
+        sz.contains('20l') ||
+        sz.contains('20 l') ||
+        sz.contains('20000') ||
+        nm.contains('20 litre') ||
+        nm.contains('20l') ||
+        nm.contains('jar') ||
+        cat.contains('jar');
+  }
+
+  bool get isBottle {
+    if (isJar) return false;
+    if (packageType.toUpperCase() == 'BOTTLE') return true;
+    final s = sku.toUpperCase();
+    final sz = size.toLowerCase();
+    final nm = name.toLowerCase();
+    final cat = category.toLowerCase();
+    final u = unit.toLowerCase();
+    return s.contains('BOT') ||
+        s.contains('SHV-') ||
+        sz.contains('ml') ||
+        sz.contains('1l') ||
+        sz.contains('2l') ||
+        nm.contains('bottle') ||
+        nm.contains('box') ||
+        nm.contains('carton') ||
+        cat.contains('bottle') ||
+        cat.contains('water') ||
+        u.contains('bottle') ||
+        u.contains('box') ||
+        u.contains('case');
+  }
+
+  int get minOrderBoxes {
+    if (isJar) return 5;
+    if (isBottle) return 5;
+    return 1;
+  }
+
+  int get minOrderQuantity {
+    if (isJar) return 5;
+    if (isBottle) return 5 * (unitsPerCase > 0 ? unitsPerCase : 24);
+    return 1;
+  }
+
+  int get stepQuantity {
+    if (isBottle) return unitsPerCase > 0 ? unitsPerCase : 24;
+    return 1;
+  }
+
+  String get moqUnitLabel {
+    if (isJar) return 'jars';
+    if (isBottle) return 'boxes ($unitsPerCase btls/box)';
+    return 'units';
+  }
+
+  String get moqDisplayText {
+    if (isJar) return 'Min order: 5 water jars';
+    if (isBottle) return 'Min order: 5 boxes ($minOrderQuantity bottles)';
+    return 'Min order: 1 unit';
   }
 
   @override

@@ -186,7 +186,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                             size: 19,
                           ),
                           label: const Text(
-                            'Need help? Ask Pure Water AI Assistant',
+                            'Need help? Ask Water Wala AI Assistant',
                             style: TextStyle(
                               color: BrandColors.primaryBlue,
                               fontWeight: FontWeight.w700,

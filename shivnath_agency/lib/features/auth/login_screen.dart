@@ -334,7 +334,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
 
                 // Email
                 TextFormField(
@@ -570,7 +570,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String _getInfoText() {
     if (role == AppConstants.customerRole) {
-      return 'Customer Portal: Sign in with your registered email or create a new account to order packaged drinking water.';
+      return '${AppConstants.brandShortName}: ${AppConstants.appTagline}. Sign in with your registered email or create a new account.';
     }
     if (role == AppConstants.franchiseRole) {
       return 'Franchise Portal: Authorized partners can manage inventory, place bulk orders, and review billing.';

@@ -1,6 +1,10 @@
+import 'dart:io' show File;
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/app_constants.dart';
@@ -167,6 +171,29 @@ class _DocumentPreviewDialogState extends State<DocumentPreviewDialog> {
     }
   }
 
+  Future<void> _openNativePdf() async {
+    if (_fileBytes == null) {
+      await _openInExternalBrowser();
+      return;
+    }
+    try {
+      if (!kIsWeb) {
+        final tempDir = await getTemporaryDirectory();
+        final sanitizedTitle = widget.title.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
+        final tempPath = '${tempDir.path}/Shivnath_${sanitizedTitle}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        final file = File(tempPath);
+        await file.writeAsBytes(_fileBytes!, flush: true);
+        final result = await OpenFilex.open(tempPath);
+        if (result.type == ResultType.done) {
+          return;
+        }
+      }
+      await _openInExternalBrowser();
+    } catch (e) {
+      await _openInExternalBrowser();
+    }
+  }
+
   Future<void> _downloadFile() async {
     if (_fileBytes == null) return;
     try {
@@ -282,16 +309,26 @@ class _DocumentPreviewDialogState extends State<DocumentPreviewDialog> {
                         OutlinedButton.icon(
                           onPressed: _downloadFile,
                           icon: const Icon(Icons.download_rounded, size: 16),
-                          label: const Text('Download'),
+                          label: const Text('Download Original'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF0284C7),
                             side: const BorderSide(color: Color(0xFF0284C7)),
                           ),
                         ),
+                      if (_isPdf)
+                        ElevatedButton.icon(
+                          onPressed: _openNativePdf,
+                          icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                          label: const Text('Open PDF Viewer'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFDC2626),
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
                       ElevatedButton.icon(
                         onPressed: _openInExternalBrowser,
                         icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                        label: const Text('Open External'),
+                        label: const Text('Open in Browser'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0284C7),
                           foregroundColor: Colors.white,
@@ -409,10 +446,21 @@ class _DocumentPreviewDialogState extends State<DocumentPreviewDialog> {
               ),
             ),
             const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _openNativePdf,
+              icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+              label: const Text('View Full PDF (Native Viewer)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
             const Text(
-              'This is an official FSSAI / KYC PDF certificate.\nClick "Open External" to view and verify the full multi-page document in your browser/PDF viewer, or click "Download".',
+              'This is an official FSSAI / KYC PDF certificate.\nTap above to view in your device PDF viewer, or use "Open in Browser" / "Download Original" below.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.5),
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
             ),
           ],
         ),

@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
-from accounts.permissions import IsAdminRole, IsSuperAdminRole, IsProductMasterAdmin
+from accounts.permissions import IsAdminRole, IsSuperAdminRole, IsProductMasterAdmin, IsStockManagerOrAdmin
 
 from .models import Product, ProductCategory, ProductionRecipeBOM, ProductionRecipeBOMItem, ProductStockThreshold
 from .serializers import (
@@ -31,6 +31,7 @@ class CategoryListCreateView(APIView):
         tree_only = request.query_params.get("tree", "").lower() in ["true", "1"]
         active_only = request.query_params.get("active_only", "").lower() in ["true", "1"]
         include_inactive = request.query_params.get("include_inactive", "").lower() in ["true", "1"]
+        has_active_products = request.query_params.get("has_active_products", "").lower() in ["true", "1"]
 
         queryset = ProductCategory.objects.all().order_by("order", "name")
         if active_only or not include_inactive:
@@ -40,13 +41,19 @@ class CategoryListCreateView(APIView):
             # Return top-level categories which nest their children
             root_categories = queryset.filter(parent__isnull=True)
             serializer = ProductCategorySerializer(root_categories, many=True, context={"request": request})
+            data = serializer.data
+            if has_active_products:
+                data = [c for c in data if (c.get('product_count', 0) > 0)]
         else:
             serializer = ProductCategorySerializer(queryset, many=True, context={"request": request})
+            data = serializer.data
+            if has_active_products:
+                data = [c for c in data if (c.get('product_count', 0) > 0)]
 
         return Response({
             "success": True,
-            "count": queryset.count(),
-            "categories": serializer.data,
+            "count": len(data),
+            "categories": data,
         })
 
     def post(self, request):
@@ -142,29 +149,72 @@ class ProductListCreateView(APIView):
             cat_id = int(category_id)
             try:
                 cat = ProductCategory.objects.get(pk=cat_id)
-                all_cat_ids = cat.get_descendant_ids()
+                all_cat_ids = set(cat.get_descendant_ids())
+                if cat.slug:
+                    same_slug_ids = ProductCategory.objects.filter(slug=cat.slug).values_list("id", flat=True)
+                    all_cat_ids.update(same_slug_ids)
+
+                c_low = cat.name.lower()
+                if "bottle" in c_low:
+                    bottle_cat_ids = ProductCategory.objects.filter(
+                        Q(name__icontains="bottle") | Q(slug__icontains="bottle")
+                    ).values_list("id", flat=True)
+                    all_cat_ids.update(bottle_cat_ids)
+                    queryset = queryset.filter(
+                        Q(category_ref_id__in=all_cat_ids)
+                        | Q(package_type="BOTTLE")
+                        | Q(category__icontains="bottle")
+                        | Q(category_ref__name__icontains="bottle")
+                    )
+                elif "jar" in c_low:
+                    jar_cat_ids = ProductCategory.objects.filter(
+                        Q(name__icontains="jar") | Q(slug__icontains="jar")
+                    ).values_list("id", flat=True)
+                    all_cat_ids.update(jar_cat_ids)
+                    queryset = queryset.filter(
+                        Q(category_ref_id__in=all_cat_ids)
+                        | Q(package_type="JAR")
+                        | Q(category__icontains="jar")
+                        | Q(category_ref__name__icontains="jar")
+                    )
+                else:
+                    same_name_ids = ProductCategory.objects.filter(
+                        Q(name__iexact=cat.name) | Q(name__icontains=cat.name)
+                    ).values_list("id", flat=True)
+                    all_cat_ids.update(same_name_ids)
+                    queryset = queryset.filter(
+                        Q(category_ref_id__in=all_cat_ids)
+                        | Q(category__iexact=cat.name)
+                        | Q(category__icontains=cat.name)
+                    )
             except ProductCategory.DoesNotExist:
-                all_cat_ids = [cat_id]
-            queryset = queryset.filter(category_ref_id__in=all_cat_ids)
+                queryset = queryset.filter(category_ref_id=cat_id)
         elif category and category.lower() != "all":
             c_low = category.lower()
+            matched_cat_ids = set(ProductCategory.objects.filter(
+                Q(name__icontains=c_low) | Q(slug__icontains=c_low)
+            ).values_list("id", flat=True))
+
             if "bottle" in c_low:
                 queryset = queryset.filter(
-                    Q(category__icontains="bottle")
+                    Q(category_ref_id__in=matched_cat_ids)
+                    | Q(category__icontains="bottle")
                     | Q(package_type="BOTTLE")
                     | Q(category_ref__name__icontains="bottle")
                     | Q(category_ref__parent__name__icontains="bottle")
                 )
             elif "jar" in c_low:
                 queryset = queryset.filter(
-                    Q(category__icontains="jar")
+                    Q(category_ref_id__in=matched_cat_ids)
+                    | Q(category__icontains="jar")
                     | Q(package_type="JAR")
                     | Q(category_ref__name__icontains="jar")
                     | Q(category_ref__parent__name__icontains="jar")
                 )
             else:
                 queryset = queryset.filter(
-                    Q(category__iexact=category)
+                    Q(category_ref_id__in=matched_cat_ids)
+                    | Q(category__iexact=category)
                     | Q(category__icontains=category)
                     | Q(category_ref__name__iexact=category)
                     | Q(category_ref__parent__name__iexact=category)
@@ -307,7 +357,7 @@ class ProductStatsView(APIView):
 class ProductBOMDetailView(APIView):
     def get_permissions(self):
         if self.request.method == "GET":
-            return [IsAdminRole()]
+            return [IsStockManagerOrAdmin()]
         return [IsSuperAdminRole()]
 
     def get(self, request, pk):
@@ -548,4 +598,196 @@ class ProductStockThresholdView(APIView):
             "success": True,
             "message": "Stock threshold updated successfully.",
             "threshold": serializer.data,
-        })
+        })
+
+
+# =====================================================
+# MINIMUM ORDER & PACKAGING RULES (ADMIN + PREVIEW)
+# =====================================================
+
+class MinimumOrderPackagingRuleListCreateView(APIView):
+    """
+    List active packaging rules (public/authenticated) or create a new packaging rule (Admin only).
+    """
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminRole()]
+        return [AllowAny()]
+
+    def get(self, request):
+        from .models import MinimumOrderPackagingRule
+        from .serializers import MinimumOrderPackagingRuleSerializer
+
+        qs = MinimumOrderPackagingRule.objects.all()
+        product_id = request.query_params.get('product_id')
+        category_id = request.query_params.get('category_id')
+        channel = request.query_params.get('channel')
+        is_active = request.query_params.get('is_active')
+
+        if product_id:
+            qs = qs.filter(product_id=product_id)
+        if category_id:
+            qs = qs.filter(category_id=category_id)
+        if channel:
+            qs = qs.filter(Q(applies_to=channel) | Q(applies_to='ALL'))
+        if is_active is not None and is_active != '':
+            qs = qs.filter(is_active=str(is_active).lower() in ['true', '1'])
+
+        serializer = MinimumOrderPackagingRuleSerializer(qs, many=True)
+        return Response({
+            'success': True,
+            'count': qs.count(),
+            'rules': serializer.data,
+        })
+
+    def post(self, request):
+        from .serializers import MinimumOrderPackagingRuleSerializer
+        serializer = MinimumOrderPackagingRuleSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        rule = serializer.save()
+        return Response({
+            'success': True,
+            'message': f"Packaging rule '{rule.name}' created successfully.",
+            'rule': serializer.data,
+        }, status=status.HTTP_201_CREATED)
+
+
+class MinimumOrderPackagingRuleDetailView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get_object(self, pk):
+        from .models import MinimumOrderPackagingRule
+        return get_object_or_404(MinimumOrderPackagingRule, pk=pk)
+
+    def get(self, request, pk):
+        from .serializers import MinimumOrderPackagingRuleSerializer
+        rule = self.get_object(pk)
+        return Response({'success': True, 'rule': MinimumOrderPackagingRuleSerializer(rule).data})
+
+    def put(self, request, pk):
+        return self.patch(request, pk)
+
+    def patch(self, request, pk):
+        from .serializers import MinimumOrderPackagingRuleSerializer
+        rule = self.get_object(pk)
+        serializer = MinimumOrderPackagingRuleSerializer(rule, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        rule = serializer.save()
+        return Response({
+            'success': True,
+            'message': f"Packaging rule '{rule.name}' updated successfully.",
+            'rule': serializer.data,
+        })
+
+    def delete(self, request, pk):
+        rule = self.get_object(pk)
+        name = rule.name
+        rule.delete()
+        return Response({
+            'success': True,
+            'message': f"Packaging rule '{name}' deleted successfully.",
+        })
+
+
+class PackagingRuleCheckView(APIView):
+    """
+    Public/Client endpoint to validate a cart's items against minimum order and carton packaging rules.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from .packaging_services import validate_order_item_packaging
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        p_id = request.query_params.get('product_id')
+        qty = request.query_params.get('quantity', 1)
+        channel = request.query_params.get('channel', 'CUSTOMER')
+
+        if not p_id:
+            return Response({'is_valid': False, 'error': 'product_id query param is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            prod = Product.objects.get(id=p_id)
+        except Product.DoesNotExist:
+            return Response({'is_valid': False, 'error': f"Product {p_id} not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            rule_info = validate_order_item_packaging(prod, int(qty), channel=channel)
+            return Response({
+                'is_valid': True,
+                'product_id': prod.id,
+                'quantity': int(qty),
+                'carton_count': float(rule_info.get('carton_count', 0)),
+                'rule': rule_info,
+            }, status=status.HTTP_200_OK)
+        except (DjangoValidationError, DRFValidationError) as ve:
+            msg = ve.message if hasattr(ve, 'message') else (ve.detail if hasattr(ve, 'detail') else str(ve))
+            if isinstance(msg, list):
+                msg = msg[0]
+            return Response({
+                'is_valid': False,
+                'error': str(msg),
+                'product_id': prod.id,
+                'quantity': int(qty),
+            }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        from .packaging_services import validate_order_item_packaging
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        items = request.data.get('items', [])
+        channel = request.data.get('channel', 'CUSTOMER')
+
+        if not items or not isinstance(items, list):
+            return Response({'success': False, 'message': 'items list is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        results = []
+        overall_valid = True
+
+        for item in items:
+            p_id = item.get('product_id') or item.get('id')
+            qty = int(item.get('quantity', 1))
+            try:
+                prod = Product.objects.get(id=p_id)
+            except Product.DoesNotExist:
+                results.append({
+                    'product_id': p_id,
+                    'is_valid': False,
+                    'message': f"Product {p_id} not found.",
+                })
+                overall_valid = False
+                continue
+
+            try:
+                rule_info = validate_order_item_packaging(prod, qty, channel=channel)
+                results.append({
+                    'product_id': prod.id,
+                    'product_name': prod.name,
+                    'quantity': qty,
+                    'is_valid': True,
+                    'carton_count': float(rule_info.get('carton_count', 0)),
+                    'rule': rule_info,
+                })
+            except (DjangoValidationError, DRFValidationError) as ve:
+                overall_valid = False
+                msg = ve.message if hasattr(ve, 'message') else (ve.detail if hasattr(ve, 'detail') else str(ve))
+                if isinstance(msg, list):
+                    msg = msg[0]
+                results.append({
+                    'product_id': prod.id,
+                    'product_name': prod.name,
+                    'quantity': qty,
+                    'is_valid': False,
+                    'message': str(msg),
+                })
+
+        return Response({
+            'success': True,
+            'overall_valid': overall_valid,
+            'items': results,
+        })
+

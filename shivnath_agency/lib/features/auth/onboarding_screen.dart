@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/brand_colors.dart';
 import '../../routes/app_routes.dart';
 
@@ -19,9 +20,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<_OnboardingData> _pages = const [
     _OnboardingData(
-      title: 'Welcome to Water Wala',
-      subtitle:
-          'Order pure packaged water and manage deliveries from one powerful platform.',
+      title: AppConstants.brandShortName,
+      subtitle: AppConstants.appTagline,
       color: BrandColors.primaryBlue,
       bgColor: BrandColors.blueSoft,
       badgeText: 'Pure Water Platform',

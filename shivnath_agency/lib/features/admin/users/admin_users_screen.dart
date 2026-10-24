@@ -72,9 +72,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final dateJoined = (u['date_joined'] ?? '').toString();
     final status = (u['status'] ?? (u['is_active'] == true ? 'active' : 'inactive')).toString();
     final orderCount = u['order_count'] ?? 0;
-    final franchiseDetails = u['franchise_details'] as Map<String, dynamic>?;
-    final territory = u['territory'] as Map<String, dynamic>?;
-    final activeStockCycle = u['active_stock_cycle'] as Map<String, dynamic>?;
+    final franchiseDetails = u['franchise_details'] is Map ? Map<String, dynamic>.from(u['franchise_details'] as Map) : null;
+    final territory = u['territory'] is Map ? Map<String, dynamic>.from(u['territory'] as Map) : null;
+    final activeStockCycle = u['active_stock_cycle'] is Map ? Map<String, dynamic>.from(u['active_stock_cycle'] as Map) : null;
 
     showModalBottomSheet(
       context: context,

@@ -44,12 +44,34 @@ class _CustomerProductsScreenState
       final productProvider = context.read<ProductProvider>();
       await productProvider.loadProducts(
         categoryId: selectedCategoryId,
-        category: selectedCategoryId == null && selectedCategoryName != 'All' ? selectedCategoryName : null,
+        category: selectedCategoryName != 'All' ? selectedCategoryName : null,
         forceRefresh: true,
       );
       if (mounted) {
+        var list = productProvider.products;
+        if (list.isEmpty && ProductRepository.cachedProducts.isNotEmpty && selectedCategoryName != 'All') {
+          final catLower = selectedCategoryName.toLowerCase();
+          final isBottle = catLower.contains('bottle');
+          final isJar = catLower.contains('jar');
+          list = ProductRepository.cachedProducts.where((p) {
+            if (isBottle) {
+              return p.category.toLowerCase().contains('bottle') ||
+                  p.unit.toLowerCase().contains('bottle') ||
+                  p.name.toLowerCase().contains('bottle') ||
+                  (p.size.toLowerCase().contains('ml') &&
+                      !p.size.toLowerCase().contains('20'));
+            } else if (isJar) {
+              return p.category.toLowerCase().contains('jar') ||
+                  p.unit.toLowerCase().contains('jar') ||
+                  p.name.toLowerCase().contains('jar') ||
+                  p.size.toLowerCase().contains('20');
+            }
+            return p.category.toLowerCase().contains(catLower) ||
+                p.name.toLowerCase().contains(catLower);
+          }).toList();
+        }
         setState(() {
-          _loadedProducts = productProvider.products;
+          _loadedProducts = list;
           _loadingProducts = false;
         });
       }
@@ -60,35 +82,45 @@ class _CustomerProductsScreenState
 
   Future<void> _fetchCategories() async {
     try {
-      final res = await _productRepository.getCategories(activeOnly: true);
-      if (res['success'] == true && res['data'] is Map) {
-        final list = res['data']['categories'];
-        if (list is List) {
-          final items = <Map<String, dynamic>>[
-            {'id': null, 'name': 'All', 'full_path': 'All'}
-          ];
-          void extract(List<dynamic> nodes) {
-            for (var item in nodes) {
-              if (item is Map) {
-                final map = Map<String, dynamic>.from(item);
+      final res = await _productRepository.getCategories(activeOnly: true, hasActiveProducts: true);
+      final raw = res['data'] ?? res;
+      final dynamic list = (raw is Map) ? (raw['categories'] ?? raw['data']) : (raw is List ? raw : null);
+      if (res['success'] == true && list is List) {
+        final items = <Map<String, dynamic>>[
+          {'id': null, 'name': 'All', 'full_path': 'All'}
+        ];
+        final seenIds = <dynamic>{null};
+        void extract(List<dynamic> nodes) {
+          for (var item in nodes) {
+            if (item is Map) {
+              final map = Map<String, dynamic>.from(item);
+              final id = map['id'];
+              final pCount = (map['product_count'] is int)
+                  ? map['product_count'] as int
+                  : int.tryParse('${map['product_count'] ?? ''}') ?? 1;
+
+              // Only include categories that have at least one active product
+              if (!seenIds.contains(id) && pCount > 0) {
+                seenIds.add(id);
                 items.add({
-                  'id': map['id'],
+                  'id': id,
                   'name': map['name'] ?? '',
                   'full_path': map['full_path'] ?? map['name'] ?? '',
+                  'product_count': pCount,
                 });
-                final children = map['children'] ?? map['subcategories'];
-                if (children is List && children.isNotEmpty) {
-                  extract(children);
-                }
+              }
+              final children = map['children'] ?? map['subcategories'];
+              if (children is List && children.isNotEmpty) {
+                extract(children);
               }
             }
           }
-          extract(list);
-          if (mounted) {
-            setState(() {
-              _categoryItems = items;
-            });
-          }
+        }
+        extract(list);
+        if (mounted) {
+          setState(() {
+            _categoryItems = items;
+          });
         }
       }
     } catch (_) {
@@ -267,13 +299,45 @@ class _CustomerProductsScreenState
             child: _loadingProducts
                 ? const Center(child: CircularProgressIndicator())
                 : products.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No products found',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w600,
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.inventory_2_outlined, size: 48, color: Color(0xFF94A3B8)),
+                              const SizedBox(height: 12),
+                              Text(
+                                selectedCategoryName != 'All'
+                                    ? 'No products available under "$selectedCategoryName"'
+                                    : 'No products currently available',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (selectedCategoryName != 'All' || search.isNotEmpty) ...[
+                                const SizedBox(height: 14),
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    setState(() {
+                                      selectedCategoryId = null;
+                                      selectedCategoryName = 'All';
+                                      search = '';
+                                    });
+                                    _fetchProducts();
+                                  },
+                                  icon: const Icon(Icons.refresh, size: 16),
+                                  label: const Text('View All Available Products'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF0284C7),
+                                    side: const BorderSide(color: Color(0xFF0284C7)),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       )

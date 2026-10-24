@@ -1,6 +1,10 @@
 
 class AppConstants {
   static const String appName = 'Water Wala';
+  static const String brandShortName = 'Water Wala';
+  static const String brandMainTitle = 'WATER WALA — मुख्य ब्रांड';
+  static const String brandSubtitle = 'ऐप, ऑनलाइन ऑर्डर और होम डिलीवरी';
+  static const String appTagline = 'पानी चाहिए? Water Wala बुलाइए!';
 
   static const String customerRole = 'customer';
   static const String franchiseRole = 'franchise';

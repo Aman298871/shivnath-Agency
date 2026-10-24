@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/cancel_order_dialog.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
   final String? initialOrderCode;
@@ -228,18 +229,45 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           fran.contains(q) ||
           city.contains(q);
 
-      final bool status;
-      if (filter == 'All') {
-        status = true;
-      } else if (filter == 'Water Wallet Orders') {
-        status = order['order_source'] == 'WATER_WALLET' ||
+      final bool statusMatch;
+      final ordStatus = (order['status'] ?? '').toString().toLowerCase().trim();
+      final rawStatus = (order['raw_status'] ?? '').toString().toLowerCase().trim();
+      final filt = filter.toLowerCase().trim();
+
+      if (filt == 'all') {
+        statusMatch = true;
+      } else if (filt == 'water wallet orders') {
+        statusMatch = order['order_source'] == 'WATER_WALLET' ||
             order['order_source'] == 'WATER_WALLET_REDEMPTION' ||
             order['payment_mode'] == 'WALLET';
+      } else if (filt == 'pending' || filt.contains('pending')) {
+        statusMatch = (rawStatus == 'order_placement' ||
+                rawStatus == 'plant_approval' ||
+                rawStatus == 'pending' ||
+                rawStatus == 'created' ||
+                ordStatus.contains('placement') ||
+                ordStatus.contains('approval')) &&
+            rawStatus != 'delivered' &&
+            rawStatus != 'cancelled' &&
+            !ordStatus.contains('delivered') &&
+            !ordStatus.contains('cancelled');
+      } else if (filt.contains('dispatch')) {
+        statusMatch = rawStatus == 'dispatch' || ordStatus.contains('dispatch');
+      } else if (filt.contains('deliver')) {
+        statusMatch = rawStatus == 'delivered' || ordStatus.contains('deliver');
+      } else if (filt.contains('cancel')) {
+        statusMatch = rawStatus == 'cancelled' || ordStatus.contains('cancel');
+      } else if (filt.contains('prepar')) {
+        statusMatch = rawStatus == 'preparing' || ordStatus.contains('prepar');
+      } else if (filt.contains('invoice')) {
+        statusMatch = rawStatus == 'invoice_generated' || ordStatus.contains('invoice');
+      } else if (filt.contains('payment')) {
+        statusMatch = rawStatus == 'payment_collection' || ordStatus.contains('payment');
       } else {
-        status = order['status'] == filter;
+        statusMatch = ordStatus == filt || rawStatus == filt;
       }
 
-      return matches && status;
+      return matches && statusMatch;
     }).toList();
   }
 
@@ -397,12 +425,13 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   Widget _filter() {
     const filterOptions = [
       'All',
+      'Pending',
       'Water Wallet Orders',
       'Order Placement',
       'Plant Approval',
       'Preparing',
       'Invoice Generated',
-      'Dispatch',
+      'Dispatch / In Transit',
       'Delivered',
       'Payment Collection',
       'Cancelled',
@@ -451,10 +480,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         order['order_source'] == 'WATER_WALLET_REDEMPTION' ||
         order['payment_mode'] == 'WALLET');
 
+    final custName = (order?['customer_name'] ?? '').toString().trim();
     final cells = header
-        ? ['ORDER', 'FRANCHISE', 'DATE', 'ITEMS', 'AMOUNT', 'STATUS', 'PAYMENT']
+        ? ['ORDER', 'CUSTOMER', 'FULFILLED BY', 'DATE', 'ITEMS', 'AMOUNT', 'STATUS', 'PAYMENT']
         : [
-            isWalletOrder ? '${order['orderId']}\n[WALLET]' : order!['orderId'],
+            isWalletOrder ? '${order!['orderId']}\n[WALLET]' : order!['orderId'],
+            custName.isNotEmpty ? custName : 'Customer',
             '${order['franchise']}\n${order['city']}',
             order['date'],
             '${order['items']} Items',
@@ -471,7 +502,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       ),
       child: Row(
         children: List.generate(cells.length, (i) {
-          if (!header && i == 5) {
+          if (!header && i == 6) {
             return Expanded(
               flex: 2,
               child: InkWell(
@@ -482,7 +513,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           }
 
           return Expanded(
-            flex: i == 1 || i == 5 ? 2 : 1,
+            flex: i == 1 || i == 2 || i == 6 ? 2 : 1,
             child: Text(
               cells[i].toString(),
               style: TextStyle(
@@ -1350,8 +1381,29 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       selected = rawStatus;
     }
 
+    final cleanLower = lowerStatus.replaceAll(' ', '_');
+    final allowedTransitionsMap = {
+      'order_placement': ['plant_approval', 'cancelled'],
+      'pending': ['plant_approval', 'cancelled'],
+      'created': ['plant_approval', 'cancelled'],
+      'plant_approval': ['invoice_generated', 'preparing', 'cancelled'],
+      'invoice_generated': ['preparing', 'dispatch', 'cancelled'],
+      'preparing': ['invoice_generated', 'dispatch', 'cancelled'],
+      'dispatch': ['delivered', 'cancelled'],
+      'in_transit': ['delivered', 'cancelled'],
+      'delivered': <String>[],
+      'cancelled': <String>[],
+    };
+
+    final allowedTargets = allowedTransitionsMap[cleanLower] ?? <String>[];
+    final displayStatuses = <String>{selected, ...allowedTargets.map((t) => t.replaceAll('_', ' ').split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' '))}.toList();
+
+    bool isUpdating = false;
+    String? dialogErrorMessage;
+
     await showDialog(
       context: context,
+      barrierDismissible: !isUpdating,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (_, update) => AlertDialog(
@@ -1362,28 +1414,67 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.9,
               ),
-              child: DropdownButtonFormField<String>(
-                initialValue: statuses.contains(selected)
-                    ? selected
-                    : statuses.first,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Order Status'),
-                items: statuses
-                    .map(
-                      (status) => DropdownMenuItem(
-                        value: status,
-                        child: Text(status, overflow: TextOverflow.ellipsis, maxLines: 1),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: displayStatuses.contains(selected)
+                          ? selected
+                          : displayStatuses.first,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Next Target Status *'),
+                      items: displayStatuses
+                          .map(
+                            (status) => DropdownMenuItem(
+                              value: status,
+                              child: Text(status, overflow: TextOverflow.ellipsis, maxLines: 1),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: isUpdating
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                update(() {
+                                  selected = value;
+                                  dialogErrorMessage = null;
+                                });
+                              }
+                            },
+                    ),
+                    if (dialogErrorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                dialogErrorMessage!,
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w600, height: 1.4),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) update(() => selected = value);
-                },
+                    ],
+                  ],
+                ),
               ),
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
+                onPressed: isUpdating ? null : () => Navigator.pop(dialogContext),
                 child: const Text('Cancel'),
               ),
               SizedBox(
@@ -1394,36 +1485,56 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     minimumSize: const Size(0, 44),
                     maximumSize: const Size(100, 44),
                   ),
-                  onPressed: () async {
-                    final result = await _orderRepository.updateOrderStatus(
-                      order['id'] as int,
-                      selected,
-                    );
+                  onPressed: isUpdating
+                      ? null
+                      : () async {
+                          if (selected.toLowerCase() == 'cancelled') {
+                            final confirmed = await CancelOrderDialog.show(
+                              context,
+                              orderCode: order['orderId'].toString(),
+                            );
+                            if (confirmed != true) {
+                              return;
+                            }
+                          }
 
-                    if (result['success'] == true) {
-                      if (dialogContext.mounted) {
-                        Navigator.pop(dialogContext);
-                      }
+                          update(() {
+                            isUpdating = true;
+                            dialogErrorMessage = null;
+                          });
+                          final result = await _orderRepository.updateOrderStatus(
+                            order['id'] as int,
+                            selected,
+                          );
 
-                      await _loadData();
+                          if (result['success'] == true) {
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
 
-                      if (!mounted) return;
+                            await _loadData();
 
-                      AppToast.success(
-                        context,
-                        '${order['orderId']} status changed to $selected.',
-                        title: 'Order Status Updated',
-                      );
-                    } else {
-                      if (!mounted) return;
-                      AppToast.error(
-                        context,
-                        result['message'] ?? 'Unable to update order status.',
-                        title: 'Update Failed',
-                      );
-                    }
-                  },
-                  child: const Text('Update'),
+                            if (!mounted) return;
+
+                            AppToast.success(
+                              context,
+                              '${order['orderId']} status changed to $selected.',
+                              title: 'Order Status Updated',
+                            );
+                          } else {
+                            update(() {
+                              isUpdating = false;
+                              dialogErrorMessage = result['message']?.toString() ?? 'Unable to update order status. Please verify allowed transitions.';
+                            });
+                          }
+                        },
+                  child: isUpdating
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('Update'),
                 ),
               ),
             ],

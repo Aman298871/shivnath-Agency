@@ -1,6 +1,10 @@
+from decimal import Decimal
 from rest_framework import serializers
 
-from .models import Order, OrderItem, OrderStatusHistory
+from .models import (
+    Order, OrderItem, OrderStatusHistory,
+    CustomBrandedOrderRequest, CustomOrderQuotation,
+)
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -8,6 +12,10 @@ class OrderItemSerializer(serializers.ModelSerializer):
     product_sku = serializers.CharField(source='product.sku', read_only=True)
     product_image = serializers.SerializerMethodField()
     gst_percent = serializers.SerializerMethodField()
+    package_type = serializers.SerializerMethodField()
+    sales_unit = serializers.SerializerMethodField()
+    sales_unit_display = serializers.SerializerMethodField()
+    uom_display = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
@@ -23,6 +31,10 @@ class OrderItemSerializer(serializers.ModelSerializer):
             'unit_price',
             'total_price',
             'gst_percent',
+            'package_type',
+            'sales_unit',
+            'sales_unit_display',
+            'uom_display',
         ]
 
     def get_product_image(self, obj):
@@ -40,6 +52,37 @@ class OrderItemSerializer(serializers.ModelSerializer):
         if obj.product and hasattr(obj.product, 'gst'):
             return float(obj.product.gst)
         return 18.0
+
+    def get_package_type(self, obj):
+        if obj.product and hasattr(obj.product, 'package_type'):
+            return obj.product.package_type
+        if '20' in str(obj.size or '') or 'JAR' in str(obj.product_name or '').upper():
+            return 'JAR'
+        return 'BOTTLE'
+
+    def get_sales_unit(self, obj):
+        if obj.product:
+            from products.packaging_services import get_product_moq_info
+            moq = get_product_moq_info(obj.product)
+            if moq and 'sales_unit' in moq:
+                return moq['sales_unit']
+        return 'JAR' if self.get_package_type(obj) == 'JAR' else 'CARTON'
+
+    def get_sales_unit_display(self, obj):
+        unit = self.get_sales_unit(obj)
+        qty = obj.quantity or 1
+        if unit == 'JAR':
+            return 'Jars' if qty > 1 else 'Jar'
+        elif unit in ['CARTON', 'BOX']:
+            return 'Boxes' if qty > 1 else 'Box'
+        elif unit == 'BOTTLE':
+            return 'Bottles' if qty > 1 else 'Bottle'
+        return 'Units' if qty > 1 else 'Unit'
+
+    def get_uom_display(self, obj):
+        unit_disp = self.get_sales_unit_display(obj)
+        return f"{obj.quantity} {unit_disp}"
+
 
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):
@@ -211,8 +254,10 @@ class OrderSerializer(serializers.ModelSerializer):
     customer_phone = serializers.SerializerMethodField()
     customer_email = serializers.SerializerMethodField()
     serving_franchise_name = serializers.SerializerMethodField()
+    serving_franchise_code = serializers.SerializerMethodField()
     registered_franchise_name = serializers.SerializerMethodField()
     zone_name = serializers.SerializerMethodField()
+    order_source_display = serializers.SerializerMethodField()
     items = OrderItemSerializer(many=True, read_only=True)
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
 
@@ -239,6 +284,7 @@ class OrderSerializer(serializers.ModelSerializer):
     discount_amount = serializers.SerializerMethodField()
     payment_mode = serializers.SerializerMethodField()
     order_notes = serializers.SerializerMethodField()
+    subtotal = serializers.DecimalField(source='amount', max_digits=12, decimal_places=2, read_only=True)
     fulfilling_entity = serializers.SerializerMethodField()
 
     class Meta:
@@ -256,6 +302,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'franchise_name',
             'serving_franchise',
             'serving_franchise_name',
+            'serving_franchise_code',
             'registered_franchise',
             'registered_franchise_name',
             'zone',
@@ -264,6 +311,8 @@ class OrderSerializer(serializers.ModelSerializer):
             'territory',
             'delivery_address',
             'order_source',
+            'order_source_display',
+
 
             'client_name',
             'customer_name',
@@ -284,6 +333,9 @@ class OrderSerializer(serializers.ModelSerializer):
 
             'items_count',
             'amount',
+            'subtotal',
+            'tax_amount',
+            'grand_total',
 
             'previous_outstanding',
             'current_order_amount',
@@ -299,6 +351,15 @@ class OrderSerializer(serializers.ModelSerializer):
             'invoice_tax',
             'invoice_grand_total',
             'delivery_charges',
+            'delivery_distance_km',
+            'delivery_latitude',
+            'delivery_longitude',
+            'is_gst_requested',
+            'gstin',
+            'gst_legal_name',
+            'gst_billing_address',
+            'gst_state_name',
+            'gst_pincode',
             'discount_amount',
             'payment_mode',
             'razorpay_order_id',
@@ -348,6 +409,15 @@ class OrderSerializer(serializers.ModelSerializer):
             'invoice_tax',
             'invoice_grand_total',
             'delivery_charges',
+            'delivery_distance_km',
+            'delivery_latitude',
+            'delivery_longitude',
+            'is_gst_requested',
+            'gstin',
+            'gst_legal_name',
+            'gst_billing_address',
+            'gst_state_name',
+            'gst_pincode',
             'discount_amount',
             'payment_mode',
             'order_notes',
@@ -368,6 +438,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+
     def _get_invoice(self, obj):
         try:
             from billing.models import Invoice
@@ -386,20 +457,32 @@ class OrderSerializer(serializers.ModelSerializer):
         return 0.0
 
     def get_outstanding_balance(self, obj):
-        if getattr(obj, 'payment_status', '').lower() == 'paid':
+        if getattr(obj, 'payment_status', '').lower() == 'paid' or getattr(obj, 'order_source', '') == 'WATER_WALLET_REDEMPTION':
+            return 0.0
+        if getattr(obj, 'status', '').lower() in ['cancelled', 'order_placement', 'created']:
+            return 0.0
+        rem = getattr(obj, 'remaining_payable_amount', None)
+        if rem is not None and rem <= Decimal('0.00') and ((getattr(obj, 'points_discount_amount', 0) or 0) > 0 or (getattr(obj, 'wallet_amount_debited', 0) or 0) > 0):
             return 0.0
         inv = self._get_invoice(obj)
         if inv:
             if inv.status == 'PAID':
                 return 0.0
             return float(inv.outstanding_balance)
-        return float(obj.grand_total or obj.amount or 0.0)
+        if rem is not None and ((getattr(obj, 'points_discount_amount', 0) or 0) > 0 or (getattr(obj, 'wallet_amount_debited', 0) or 0) > 0):
+            return float(rem)
+        if getattr(obj, 'status', '').lower() == 'delivered':
+            return float(obj.grand_total or obj.amount or 0.0)
+        return 0.0
 
     def get_outstanding_amount(self, obj):
         return self.get_outstanding_balance(obj)
 
     def get_payment_collected(self, obj):
-        if getattr(obj, 'payment_status', '').lower() == 'paid':
+        if getattr(obj, 'payment_status', '').lower() == 'paid' or getattr(obj, 'order_source', '') == 'WATER_WALLET_REDEMPTION':
+            return True
+        rem = getattr(obj, 'remaining_payable_amount', None)
+        if rem is not None and rem <= Decimal('0.00') and ((getattr(obj, 'points_discount_amount', 0) or 0) > 0 or (getattr(obj, 'wallet_amount_debited', 0) or 0) > 0):
             return True
         inv = self._get_invoice(obj)
         if inv and inv.status == 'PAID':
@@ -451,9 +534,21 @@ class OrderSerializer(serializers.ModelSerializer):
         return float(obj.grand_total or obj.amount or 0.0)
 
     def get_delivery_charges(self, obj):
+        dc = getattr(obj, 'delivery_charges', None)
+        if dc is not None:
+            return float(dc)
+        inv = self._get_invoice(obj)
+        if inv and getattr(inv, 'delivery_charges', None) is not None:
+            return float(inv.delivery_charges)
         return 0.0
 
     def get_discount_amount(self, obj):
+        disc = getattr(obj, 'discount_amount', None)
+        if disc is not None:
+            return float(disc)
+        inv = self._get_invoice(obj)
+        if inv and getattr(inv, 'discount_amount', None) is not None:
+            return float(inv.discount_amount)
         return 0.0
 
     def get_payment_mode(self, obj):
@@ -501,22 +596,43 @@ class OrderSerializer(serializers.ModelSerializer):
                 'territory': getattr(fp, 'territory', '') or (fp.zone.name if hasattr(fp, 'zone') and fp.zone else ''),
                 'contact_info': f"{fp.business_name} ({phone})" if phone else fp.business_name,
             }
+
+        # Authoritative Company Billing Profile (Never hardcode fake phone or address)
+        company_name = 'Shivnath Agency (Direct Company)'
+        company_phone = ''
+        company_address = 'Raipur, Chhattisgarh'
+        company_city = 'Raipur'
+        try:
+            from billing.models import CompanyBillingProfile
+            profile = CompanyBillingProfile.objects.first()
+            if profile:
+                company_name = profile.trade_name or profile.legal_name or company_name
+                company_phone = profile.phone or ''
+                company_address = profile.registered_address or company_address
+                company_city = profile.state_name or company_city
+        except Exception:
+            pass
+
+        contact_info = f"{company_name} ({company_phone})" if company_phone else company_name
         return {
             'type': 'CENTRAL_COMPANY',
-            'name': 'Shivnath Agency (Direct Company)',
-            'phone': '+91 98765 43210',
-            'address': 'Shivnath Agency Industrial Area, Raipur, Chhattisgarh',
-            'city': 'Raipur',
+            'name': company_name,
+            'phone': company_phone,
+            'address': company_address,
+            'city': company_city,
             'territory': 'Central Plant Dispatch',
-            'contact_info': 'Shivnath Agency Central Plant (Raipur)',
+            'contact_info': contact_info,
         }
 
+
     def get_customer_name(self, obj):
+        if obj.client_name and obj.client_name.strip():
+            return obj.client_name.strip()
         if obj.created_by:
             name = obj.created_by.get_full_name() or obj.created_by.username
-            if name:
-                return name
-        return obj.client_name or obj.franchise_name or 'Customer'
+            if name and name.strip():
+                return name.strip()
+        return 'Customer'
 
     def get_customer_phone(self, obj):
         if obj.created_by:
@@ -557,16 +673,40 @@ class OrderSerializer(serializers.ModelSerializer):
             or obj.created_by.username
         )
 
+    def get_serving_franchise_code(self, obj):
+        if obj.serving_franchise:
+            return f"FRN-{obj.serving_franchise.id:04d}"
+        if obj.snapshot_serving_dealer_id:
+            return f"FRN-{obj.snapshot_serving_dealer_id:04d}"
+        return ''
+
+    def get_order_source_display(self, obj):
+        src = getattr(obj, 'order_source', '')
+        if src == 'DIRECT_COMPANY':
+            return 'Direct Shivnath (Central Plant Dispatch)'
+        elif src == 'FRANCHISE':
+            fname = obj.snapshot_serving_dealer_name or (obj.serving_franchise.business_name if obj.serving_franchise else '')
+            fcode = self.get_serving_franchise_code(obj)
+            return f"Franchise-Assisted: {fname} ({fcode})" if fname else 'Franchise-Assisted'
+        elif src in ['WATER_WALLET', 'WATER_WALLET_REDEMPTION']:
+            return 'Direct Shivnath (Water Wallet Redemption)'
+        return src or 'Direct Shivnath'
+
     def get_previous_outstanding(self, obj):
         try:
             from billing.models import Invoice
-            if obj.serving_franchise:
-                cp = getattr(obj.serving_franchise, 'credit_profile', None)
+            # Dealer credit profile is strictly for wholesale dealer orders
+            is_dealer_order = bool(obj.created_by and hasattr(obj.created_by, 'franchise_profile'))
+            if is_dealer_order:
+                cp = getattr(obj.created_by.franchise_profile, 'credit_profile', None)
                 if cp:
                     return float(cp.current_outstanding)
+
+            # For customer orders, only genuine verified unpaid customer invoices apply
             if obj.created_by:
                 invs = Invoice.objects.filter(
-                    order__created_by=obj.created_by
+                    order__created_by=obj.created_by,
+                    invoice_type__in=['CUSTOMER_SALE_INVOICE', 'DIRECT_COMPANY_SALE_INVOICE']
                 ).exclude(order_id=obj.id).exclude(status__in=['PAID', 'CANCELLED'])
                 total_prev = sum(float(inv.outstanding_balance) for inv in invs)
                 return round(total_prev, 2)
@@ -642,8 +782,31 @@ class OrderSerializer(serializers.ModelSerializer):
         # Authoritative franchise name and fulfilling entity for wallet redemption & wallet orders
         if instance.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
             data['franchise_name'] = 'Shivnath Central Admin (Water Wallet)'
-            data['fulfilling_entity'] = 'Shivnath Central Admin Plant'
+            c_name = 'Shivnath Central Admin Plant'
+            c_phone = ''
+            c_address = 'Raipur, Chhattisgarh'
+            c_city = 'Raipur'
+            try:
+                from billing.models import CompanyBillingProfile
+                profile = CompanyBillingProfile.objects.first()
+                if profile:
+                    c_name = profile.trade_name or profile.legal_name or c_name
+                    c_phone = profile.phone or ''
+                    c_address = profile.registered_address or c_address
+                    c_city = profile.state_name or c_city
+            except Exception:
+                pass
+            data['fulfilling_entity'] = {
+                'type': 'CENTRAL_COMPANY',
+                'name': c_name,
+                'phone': c_phone,
+                'address': c_address,
+                'city': c_city,
+                'territory': 'Central Admin Fulfilment',
+                'contact_info': f"{c_name} ({c_phone})" if c_phone else c_name,
+            }
             return data
+
 
         # Authoritative franchise name: always show serving/registered franchise business name, never customer name
         if instance.serving_franchise:
@@ -657,4 +820,176 @@ class OrderSerializer(serializers.ModelSerializer):
             cust = str(data.get('customer_name') or '').strip()
             if not fn or fn.lower() == cust.lower() or fn.lower() == 'customer order':
                 data['franchise_name'] = 'Shivnath Agency (Direct)'
-        return data
+        return data
+
+
+class CustomOrderQuotationSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    request_details = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomOrderQuotation
+        fields = [
+            'id',
+            'request',
+            'request_details',
+            'version',
+            'created_by',
+            'created_by_name',
+            # Itemized Cost Breakdown (Admin internal by default)
+            'bottle_water_cost',
+            'sticker_material_cost',
+            'printing_cost',
+            'packaging_cost',
+            'labour_production_cost',
+            'transport_delivery_cost',
+            'setup_design_cost',
+            'wastage_allowance_cost',
+            'other_charges',
+            # Calculation
+            'calculation_type',
+            'target_percentage',
+            'total_cost',
+            'selling_price_before_charges',
+            'final_quotation_total',
+            'unit_quotation_price',
+            # Terms & Settings
+            'include_breakdown_to_customer',
+            'quotation_validity_days',
+            'valid_until',
+            'payment_terms',
+            'delivery_estimate_days',
+            'admin_notes',
+            'customer_notes',
+            'status',
+            'accepted_at',
+            'converted_order',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'version',
+            'total_cost',
+            'selling_price_before_charges',
+            'final_quotation_total',
+            'unit_quotation_price',
+            'created_by',
+            'created_at',
+            'updated_at',
+            'converted_order',
+        ]
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            return obj.created_by.get_full_name() or obj.created_by.username
+        return 'Admin'
+
+    def get_request_details(self, obj):
+        r = obj.request
+        return {
+            'id': r.id,
+            'client_name': r.client_name,
+            'bottle_size': r.bottle_size,
+            'package_type': r.package_type,
+            'quantity': r.quantity,
+            'delivery_city': r.delivery_city,
+            'customer_username': r.customer.username,
+        }
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        is_admin_or_staff = user and (user.is_staff or user.is_superuser or getattr(getattr(user, 'profile', None), 'role', '') in ['admin', 'staff'])
+
+        # Cost and pricing safeguards: Do not expose internal supplier/production costs or internal margin to customers unless explicitly intended
+        if not is_admin_or_staff and not instance.include_breakdown_to_customer:
+            hidden_fields = [
+                'bottle_water_cost',
+                'sticker_material_cost',
+                'printing_cost',
+                'packaging_cost',
+                'labour_production_cost',
+                'transport_delivery_cost',
+                'setup_design_cost',
+                'wastage_allowance_cost',
+                'calculation_type',
+                'target_percentage',
+                'total_cost',
+                'selling_price_before_charges',
+                'admin_notes',
+            ]
+            for hf in hidden_fields:
+                data.pop(hf, None)
+        return data
+
+
+class CustomBrandedOrderRequestSerializer(serializers.ModelSerializer):
+    customer_name = serializers.SerializerMethodField()
+    customer_phone = serializers.SerializerMethodField()
+    artwork_url = serializers.SerializerMethodField()
+    active_quotation = serializers.SerializerMethodField()
+    quotations = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomBrandedOrderRequest
+        fields = [
+            'id',
+            'customer',
+            'customer_name',
+            'customer_phone',
+            'client_name',
+            'bottle_size',
+            'package_type',
+            'quantity',
+            'label_requirement',
+            'printing_requirement',
+            'artwork_file',
+            'artwork_url',
+            'delivery_address',
+            'delivery_city',
+            'requested_delivery_date',
+            'additional_notes',
+            'status',
+            'active_quotation',
+            'quotations',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'customer', 'status', 'created_at', 'updated_at']
+
+    def get_customer_name(self, obj):
+        return obj.customer.get_full_name() or obj.customer.username
+
+    def get_customer_phone(self, obj):
+        profile = getattr(obj.customer, 'profile', None)
+        return getattr(profile, 'phone', '') or ''
+
+    def get_artwork_url(self, obj):
+        if obj.artwork_file:
+            try:
+                url = obj.artwork_file.url
+                request = self.context.get('request')
+                if request and not url.startswith('http'):
+                    return request.build_absolute_uri(url)
+                return url
+            except Exception:
+                return ''
+        return ''
+
+    def get_active_quotation(self, obj):
+        # Latest active / sent / accepted quotation
+        quote = obj.quotations.order_by('-version').first()
+        if quote:
+            return CustomOrderQuotationSerializer(quote, context=self.context).data
+        return None
+
+    def get_quotations(self, obj):
+        quotes = obj.quotations.order_by('-version').all()
+        return CustomOrderQuotationSerializer(quotes, many=True, context=self.context).data
+
+    def validate_quantity(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError("Quantity must be greater than zero.")
+        return value

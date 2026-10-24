@@ -416,10 +416,10 @@ class _CustomerStockScreenState extends State<CustomerStockScreen> {
     final isLowStock = stock['is_low_stock'] == true;
     final status = stock['service_status'] ?? 'active';
     final servingFranchise =
-        stock['serving_franchise'] as Map<String, dynamic>?;
+        stock['serving_franchise'] is Map ? Map<String, dynamic>.from(stock['serving_franchise'] as Map) : null;
     final registeredFranchise =
-        stock['registered_franchise'] as Map<String, dynamic>?;
-    final territory = stock['territory'] as Map<String, dynamic>?;
+        stock['registered_franchise'] is Map ? Map<String, dynamic>.from(stock['registered_franchise'] as Map) : null;
+    final territory = stock['territory'] is Map ? Map<String, dynamic>.from(stock['territory'] as Map) : null;
 
     final progress = (durationDays > 0)
         ? (daysRemaining / durationDays).clamp(0.0, 1.0)

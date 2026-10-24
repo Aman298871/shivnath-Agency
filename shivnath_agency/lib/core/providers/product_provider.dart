@@ -31,8 +31,22 @@ class ProductProvider extends ChangeNotifier {
       final matchesSearch = _searchQuery.isEmpty ||
           p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           p.category.toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesCategory = _selectedCategory == 'All' ||
-          p.category.toLowerCase() == _selectedCategory.toLowerCase();
+      final bool matchesCategory;
+      if (_selectedCategory == 'All') {
+        matchesCategory = true;
+      } else {
+        final selLower = _selectedCategory.toLowerCase();
+        final prodCatLower = p.category.toLowerCase();
+        if (selLower.contains('bottle') && (prodCatLower.contains('bottle') || p.unit.toLowerCase().contains('bottle') || p.name.toLowerCase().contains('bottle') || (p.size.toLowerCase().contains('ml') && !p.size.toLowerCase().contains('20')))) {
+          matchesCategory = true;
+        } else if (selLower.contains('jar') && (prodCatLower.contains('jar') || p.unit.toLowerCase().contains('jar') || p.name.toLowerCase().contains('jar') || p.size.toLowerCase().contains('20'))) {
+          matchesCategory = true;
+        } else {
+          matchesCategory = prodCatLower == selLower ||
+              prodCatLower.contains(selLower) ||
+              selLower.contains(prodCatLower);
+        }
+      }
       return matchesSearch && matchesCategory;
     }).toList();
   }
@@ -43,8 +57,12 @@ class ProductProvider extends ChangeNotifier {
     String? search,
     bool forceRefresh = false,
   }) async {
-    if (category != null) _selectedCategory = category;
-    if (categoryId != null) _selectedCategoryId = categoryId;
+    if (category != null) {
+      _selectedCategory = category;
+    } else if (categoryId == null) {
+      _selectedCategory = 'All';
+    }
+    _selectedCategoryId = categoryId;
     if (search != null) _searchQuery = search;
 
     if (_products.isNotEmpty && !forceRefresh && category == null && categoryId == null && search == null) return;

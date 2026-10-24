@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from .models import Order, WalletRedemptionRule
 from .serializers import OrderSerializer
@@ -31,8 +32,6 @@ class WalletDetailAPIView(APIView):
 
     def get(self, request):
         wallet = get_or_create_wallet(request.user)
-        # Idempotently sync points earned from past non-cancelled customer orders
-        sync_customer_earned_points(request.user, wallet)
 
         rule = WalletRedemptionRule.get_active_rule()
         conversion_ratio = float(rule.points_per_rupee_discount)
@@ -90,7 +89,6 @@ class WalletRedemptionProductsAPIView(APIView):
 
     def get(self, request):
         wallet = get_or_create_wallet(request.user)
-        sync_customer_earned_points(request.user, wallet)
         result = get_redemption_eligible_products(request.user)
         return Response(result, status=status.HTTP_200_OK)
 
@@ -105,10 +103,13 @@ class WalletRedeemPointsAPIView(APIView):
 
     def post(self, request):
         product_id = request.data.get('product_id')
-        quantity = request.data.get('quantity', 1)
+        quantity = request.data.get('quantity', None)
         points_to_redeem = request.data.get('points_to_redeem', None)
         delivery_address = request.data.get('delivery_address', None)
+        delivery_latitude = request.data.get('delivery_latitude') or request.data.get('latitude')
+        delivery_longitude = request.data.get('delivery_longitude') or request.data.get('longitude')
         notes = request.data.get('notes', '')
+        idempotency_key = request.data.get('idempotency_key') or request.headers.get('X-Idempotency-Key')
 
         if not product_id:
             return Response(
@@ -116,18 +117,19 @@ class WalletRedeemPointsAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            quantity = int(quantity)
-            if quantity < 1:
+        if quantity is not None:
+            try:
+                quantity = int(quantity)
+                if quantity < 1:
+                    return Response(
+                        {'success': False, 'message': 'Quantity must be at least 1.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except (ValueError, TypeError):
                 return Response(
-                    {'success': False, 'message': 'Quantity must be at least 1.'},
+                    {'success': False, 'message': 'Invalid quantity value.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-        except (ValueError, TypeError):
-            return Response(
-                {'success': False, 'message': 'Invalid quantity value.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
 
         if points_to_redeem is not None:
             try:
@@ -149,19 +151,39 @@ class WalletRedeemPointsAPIView(APIView):
                 product_id=product_id,
                 quantity=quantity,
                 points_to_redeem=points_to_redeem,
+                delivery_latitude=delivery_latitude,
+                delivery_longitude=delivery_longitude,
                 delivery_address=delivery_address,
                 notes=notes,
+                idempotency_key=idempotency_key,
             )
             # Re-serialize order with full serializer
             order_obj = result.get('order')
             if order_obj:
-                result['order'] = OrderSerializer(order_obj).data
+                serialized_order = OrderSerializer(order_obj).data
+                result['order'] = serialized_order
+                result['data'] = {'order': serialized_order}
+            else:
+                result['data'] = dict(result)
 
             return Response(result, status=status.HTTP_201_CREATED)
 
-        except ValidationError as e:
-            msg = e.detail[0] if isinstance(e.detail, list) else str(e.detail)
-            return Response({'success': False, 'message': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, DjangoValidationError) as e:
+            msg = e.detail if hasattr(e, 'detail') else (e.messages if hasattr(e, 'messages') else str(e))
+            if isinstance(msg, list):
+                msg = msg[0]
+            elif isinstance(msg, dict):
+                msg = next(iter(msg.values()))
+                if isinstance(msg, list):
+                    msg = msg[0]
+            return Response(
+                {
+                    'success': False,
+                    'message': str(msg),
+                    'error_code': 'PACKAGING_RULE_VIOLATION' if 'Minimum order' in str(msg) or 'carton' in str(msg) else 'VALIDATION_ERROR'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             err_msg = str(e)
             if any(term in err_msg for term in ['Minimum', 'Insufficient', 'unavailable', 'not exist', 'required', 'Quantity', 'points']):
@@ -339,7 +361,6 @@ class WalletTransactionListAPIView(APIView):
 
     def get(self, request):
         wallet = get_or_create_wallet(request.user)
-        sync_customer_earned_points(request.user, wallet)
         txns = wallet.transactions.order_by('-created_at')
 
         results = [
@@ -368,3 +389,106 @@ class WalletTransactionListAPIView(APIView):
             'count': len(results),
             'transactions': results,
         })
+
+
+class AdminWalletReconciliationAPIView(APIView):
+    """
+    Controlled Admin reconciliation procedure for customer Water Wallets.
+    GET: Previews ledger calculations, discrepancies, and un-backfilled orders without altering records.
+    POST: Explicitly applies authorized corrections with immutable AdminAuditLog entry.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _check_admin(self, request):
+        user = request.user
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        return user.is_superuser or user.is_staff or role == 'admin'
+
+    def get(self, request):
+        if not self._check_admin(request):
+            return Response({'success': False, 'message': 'Admin authorization required.'}, status=status.HTTP_403_FORBIDDEN)
+
+        user_id = request.query_params.get('user_id')
+        wallets = Wallet.objects.select_related('user').all()
+        if user_id:
+            wallets = wallets.filter(user_id=user_id)
+
+        discrepancies = []
+        for w in wallets:
+            matches_pts, computed_pts = w.reconcile_points(auto_fix=False)
+            matches_bal, computed_bal = w.reconcile_balance(auto_fix=False)
+            if not matches_pts or not matches_bal:
+                discrepancies.append({
+                    'wallet_id': w.id,
+                    'user_id': w.user_id,
+                    'username': w.user.username,
+                    'current_points': w.reward_points,
+                    'ledger_points': computed_pts,
+                    'points_discrepancy': computed_pts - w.reward_points,
+                    'current_balance': float(w.balance),
+                    'ledger_balance': float(computed_bal),
+                    'balance_discrepancy': float(computed_bal - w.balance),
+                })
+
+        return Response({
+            'success': True,
+            'total_wallets_audited': wallets.count(),
+            'discrepancy_count': len(discrepancies),
+            'discrepancies': discrepancies,
+            'mode': 'PREVIEW_ONLY',
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        if not self._check_admin(request):
+            return Response({'success': False, 'message': 'Admin authorization required.'}, status=status.HTTP_403_FORBIDDEN)
+
+        user_id = request.data.get('user_id')
+        apply_backfill = request.data.get('backfill_points', False)
+        reason = request.data.get('reason', '').strip()
+
+        if not reason:
+            return Response({'success': False, 'message': 'Explicit audit reason is required for wallet corrections.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        wallets = Wallet.objects.select_related('user').all()
+        if user_id:
+            wallets = wallets.filter(user_id=user_id)
+
+        from accounts.models import AdminAuditLog
+        fixed = []
+        with transaction.atomic():
+            for w in wallets:
+                if apply_backfill:
+                    sync_customer_earned_points(w.user, w)
+
+                matches_pts, comp_pts = w.reconcile_points(auto_fix=True)
+                matches_bal, comp_bal = w.reconcile_balance(auto_fix=True)
+
+                if not matches_pts or not matches_bal or apply_backfill:
+                    fixed.append({
+                        'wallet_id': w.id,
+                        'user_id': w.user_id,
+                        'username': w.user.username,
+                        'new_points': w.reward_points,
+                        'new_balance': float(w.balance),
+                    })
+
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                action='WALLET_LEDGER_RECONCILIATION',
+                resource_type='WaterWallet',
+                resource_id=str(user_id or 'ALL'),
+                changes={
+                    'reason': reason,
+                    'wallets_corrected': len(fixed),
+                    'corrections': fixed,
+                }
+            )
+
+        return Response({
+            'success': True,
+            'message': f"Reconciliation executed successfully. Corrected {len(fixed)} wallet(s).",
+            'audit_logged': True,
+            'corrected_count': len(fixed),
+            'corrected_wallets': fixed,
+        }, status=status.HTTP_200_OK)
+

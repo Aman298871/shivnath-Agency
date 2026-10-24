@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/repositories/app_repositories.dart';
 import '../../core/widgets/support_desk_modal.dart';
 
 class CustomerSettingsScreen extends StatefulWidget {
@@ -16,7 +18,13 @@ class _CustomerSettingsScreenState
   bool offerNotifications = false;
   bool emailNotifications = true;
 
-  String selectedLanguage = 'English';
+  void _showComingSoon(String feature) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature is coming soon.')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,74 +186,6 @@ class _CustomerSettingsScreenState
             ),
           ],
         ),
-
-        const SizedBox(height: 18),
-
-        // =====================================================
-        // LANGUAGE
-        // =====================================================
-
-        _SettingsSection(
-          icon: Icons.language_rounded,
-          title: 'Language',
-          subtitle: 'Choose your preferred application language.',
-          children: [
-            RadioListTile<String>(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'English',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              subtitle: const Text(
-                'Use application in English',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              value: 'English',
-              groupValue: selectedLanguage,
-              onChanged: (value) {
-                if (value == null) return;
-
-                setState(() {
-                  selectedLanguage = value;
-                });
-              },
-            ),
-
-            const Divider(height: 1),
-
-            RadioListTile<String>(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'हिन्दी',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              subtitle: const Text(
-                'ऐप को हिन्दी में उपयोग करें',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              value: 'Hindi',
-              groupValue: selectedLanguage,
-              onChanged: (value) {
-                if (value == null) return;
-
-                setState(() {
-                  selectedLanguage = value;
-                });
-              },
-            ),
-          ],
-        ),
-
         const SizedBox(height: 18),
 
         // =====================================================
@@ -328,6 +268,16 @@ class _CustomerSettingsScreenState
                 SupportDeskModal.show(context);
               },
             ),
+
+            const Divider(height: 1),
+
+            _SettingsTile(
+              icon: Icons.receipt_long_rounded,
+              title: 'GST Billing Profile (Optional)',
+              subtitle:
+                  'Saved business GSTIN and billing address for tax invoices',
+              onTap: _showGstProfileDialog,
+            ),
           ],
         ),
 
@@ -344,7 +294,12 @@ class _CustomerSettingsScreenState
           children: [
             const _InfoRow(
               title: 'Application',
-              value: 'Water Wala',
+              value: AppConstants.appName,
+            ),
+            const Divider(height: 1),
+            const _InfoRow(
+              title: 'Tagline',
+              value: AppConstants.appTagline,
             ),
 
             const Divider(height: 1),
@@ -525,20 +480,201 @@ class _CustomerSettingsScreenState
   // COMING SOON
   // =========================================================
 
-  void _showComingSoon(
-    String title,
-  ) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            '$title will be available soon',
-          ),
-          duration:
-              const Duration(seconds: 2),
-        ),
-      );
+  void _showGstProfileDialog() async {
+    final authRepo = AuthRepository();
+    final gstinController = TextEditingController();
+    final legalNameController = TextEditingController();
+    final addressController = TextEditingController();
+    final stateController = TextEditingController();
+    final pincodeController = TextEditingController();
+    bool isGstRequested = false;
+    bool isLoading = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            if (isLoading) {
+              authRepo.getCurrentUser().then((res) {
+                if (res['success'] == true && res['data'] is Map) {
+                  final data = res['data'] as Map<String, dynamic>;
+                  gstinController.text = data['gstin']?.toString() ?? '';
+                  legalNameController.text = data['gst_legal_name']?.toString() ?? '';
+                  addressController.text = data['gst_billing_address']?.toString() ?? '';
+                  stateController.text = data['gst_state_name']?.toString() ?? '';
+                  pincodeController.text = data['gst_pincode']?.toString() ?? '';
+                  isGstRequested = data['is_gst_requested'] == true || gstinController.text.isNotEmpty;
+                }
+                setDialogState(() => isLoading = false);
+              }).catchError((_) {
+                setDialogState(() => isLoading = false);
+              });
+
+              return AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: const Row(
+                  children: [
+                    Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7)),
+                    SizedBox(width: 8),
+                    Text('GST Billing Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                content: const SizedBox(
+                  height: 100,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              );
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('GST Billing Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Save business GST details for tax-compliant invoices and Input Tax Credit.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 14),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Enable GST Invoices', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      subtitle: const Text('Include GST details in future orders by default', style: TextStyle(fontSize: 11)),
+                      value: isGstRequested,
+                      activeColor: const Color(0xFF16A34A),
+                      onChanged: (val) {
+                        setDialogState(() => isGstRequested = val);
+                      },
+                    ),
+                    const Divider(height: 16),
+                    TextField(
+                      controller: gstinController,
+                      textCapitalization: TextCapitalization.characters,
+                      maxLength: 15,
+                      decoration: const InputDecoration(
+                        labelText: 'GSTIN (15 Characters)',
+                        hintText: 'e.g. 22AAAAA0000A1Z5',
+                        counterText: '',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: legalNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Legal / Business Name',
+                        hintText: 'Registered business name',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: addressController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'GST Registered Address',
+                        hintText: 'Principal place of business address',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: stateController,
+                            decoration: const InputDecoration(
+                              labelText: 'State',
+                              hintText: 'e.g. Chhattisgarh',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: pincodeController,
+                            keyboardType: TextInputType.number,
+                            maxLength: 6,
+                            decoration: const InputDecoration(
+                              labelText: 'PIN Code',
+                              counterText: '',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () async {
+                    final gstin = gstinController.text.trim().toUpperCase();
+                    if (isGstRequested && gstin.isNotEmpty) {
+                      final gstRegex = RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$');
+                      if (!gstRegex.hasMatch(gstin)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enter a valid 15-character GSTIN format')),
+                        );
+                        return;
+                      }
+                    }
+                    Navigator.pop(dialogCtx);
+                    final updateRes = await authRepo.updateProfile({
+                      'is_gst_requested': isGstRequested,
+                      'gstin': gstin,
+                      'gst_legal_name': legalNameController.text.trim(),
+                      'gst_billing_address': addressController.text.trim(),
+                      'gst_state_name': stateController.text.trim(),
+                      'gst_pincode': pincodeController.text.trim(),
+                    });
+                    if (mounted) {
+                      if (updateRes['success'] == true) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('GST billing profile saved successfully!'),
+                            backgroundColor: Color(0xFF166534),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(updateRes['message']?.toString() ?? 'Failed to update GST profile'),
+                            backgroundColor: Colors.red.shade700,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Save Profile'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }
 

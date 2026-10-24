@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/repositories/app_repositories.dart';
 import '../../core/services/notification_service.dart';
+import '../../core/services/session_service.dart';
 import '../../core/widgets/support_desk_modal.dart';
 import '../../models/user_model.dart';
 import '../../routes/app_routes.dart';
+import '../customer/orders/order_detail_screen.dart';
 
 import 'categories/franchise_categories_screen.dart';
 import 'customers/franchise_customers_screen.dart';
@@ -30,14 +33,190 @@ class FranchiseMainScreen extends StatefulWidget {
 
 class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
   final AuthRepository _authRepository = AuthRepository();
+  final OrderRepository _orderRepository = OrderRepository();
   int currentIndex = 0;
   UserModel? _currentUser;
+  Timer? _orderPollingTimer;
+  int _lastMaxOrderId = 0;
+  bool _baselineOrdersLoaded = false;
+  final Set<int> _alertedOrderIds = <int>{};
 
   @override
   void initState() {
     super.initState();
     _loadUser();
     NotificationService().registerDeviceTokenWithBackend();
+    _startOrderPolling();
+  }
+
+  @override
+  void dispose() {
+    _orderPollingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startOrderPolling() {
+    _orderPollingTimer?.cancel();
+    _pollFranchiseOrders();
+    _orderPollingTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      _pollFranchiseOrders();
+    });
+  }
+
+  Future<void> _pollFranchiseOrders() async {
+    final sessionEpoch = SessionService.currentSessionEpoch;
+    if (!mounted || !SessionService.isSessionActive(sessionEpoch)) return;
+    try {
+      final res = await _orderRepository.getOrders();
+      if (!mounted || !SessionService.isSessionActive(sessionEpoch)) return;
+      if (res['success'] == true && res['data'] != null) {
+        final data = res['data'];
+        final List items = data is Map ? (data['orders'] ?? []) : (data is List ? data : []);
+        if (items.isEmpty) {
+          _baselineOrdersLoaded = true;
+          return;
+        }
+
+        int currentMaxId = 0;
+        Map<String, dynamic>? latestNewOrder;
+
+        for (final it in items) {
+          final idVal = it['id'] is int
+              ? it['id'] as int
+              : int.tryParse(it['id']?.toString() ?? '0') ?? 0;
+          if (idVal > currentMaxId) {
+            currentMaxId = idVal;
+            latestNewOrder = Map<String, dynamic>.from(it as Map);
+          }
+        }
+
+        if (!_baselineOrdersLoaded) {
+          _lastMaxOrderId = currentMaxId;
+          _baselineOrdersLoaded = true;
+          // Check for active unfulfilled customer orders assigned to this franchise
+          final pendingOrders = items.where((it) {
+            final st = (it['status'] ?? '').toString().toLowerCase();
+            return st == 'order_placement' ||
+                st == 'pending' ||
+                st == 'created' ||
+                st == 'plant_approval' ||
+                st == 'preparing';
+          }).toList();
+
+          if (pendingOrders.isNotEmpty) {
+            final ordersMapped = pendingOrders
+                .map((it) => Map<String, dynamic>.from(it as Map))
+                .toList();
+            final firstPending = ordersMapped.first;
+            final pId = firstPending['id'] is int ? firstPending['id'] as int : int.tryParse('${firstPending['id']}') ?? 0;
+            if (!_alertedOrderIds.contains(pId)) {
+              _alertedOrderIds.add(pId);
+              _showNewOrderAlert(
+                firstPending,
+                isPendingOnLogin: true,
+                pendingCount: pendingOrders.length,
+              );
+            }
+          }
+        } else if (currentMaxId > _lastMaxOrderId && latestNewOrder != null) {
+          _lastMaxOrderId = currentMaxId;
+          if (!_alertedOrderIds.contains(currentMaxId)) {
+            _alertedOrderIds.add(currentMaxId);
+            _showNewOrderAlert(latestNewOrder);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _showNewOrderAlert(Map<String, dynamic> order, {bool isPendingOnLogin = false, int pendingCount = 1}) {
+    if (!mounted || !SessionService.isSessionActive(SessionService.currentSessionEpoch)) return;
+    final orderNum = order['order_id'] ?? order['order_code'] ?? order['id'] ?? 'New';
+    final cust = order['customer_name'] ?? order['name'] ?? 'Customer';
+    final amt = order['total_amount'] ?? order['amount'] ?? '';
+    final address = order['delivery_address'] ?? order['address'] ?? '';
+
+    void openTargetOrder() {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      final tRawId = order['id'] is int ? order['id'] as int : int.tryParse('${order['id']}') ?? 0;
+      final tCode = (order['order_id'] ?? order['orderId'] ?? order['order_code'] ?? 'ORD-$tRawId')
+          .toString()
+          .replaceAll('#', '');
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OrderDetailScreen(
+            orderId: tCode,
+            initialOrder: order,
+            dbId: tRawId,
+          ),
+        ),
+      );
+    }
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 12),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: InkWell(
+          onTap: openTargetOrder,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.notifications_active_rounded,
+                  color: Color(0xFF38BDF8),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isPendingOnLogin
+                          ? (pendingCount > 1 ? '$pendingCount NEW ORDERS WAITING' : 'NEW INCOMING ORDER!')
+                          : 'URGENT: INCOMING ORDER!',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        color: Colors.white,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Order #$orderNum from $cust • ₹$amt${address.isNotEmpty ? ' • $address' : ''}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF94A3B8),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        action: SnackBarAction(
+          label: 'OPEN ORDER',
+          textColor: const Color(0xFF38BDF8),
+          onPressed: openTargetOrder,
+        ),
+      ),
+    );
   }
 
   Future<void> _loadUser() async {

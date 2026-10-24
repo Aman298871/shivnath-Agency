@@ -206,6 +206,16 @@ class RawMaterialSerializer(serializers.ModelSerializer):
     def get_is_low_stock(self, obj):
         return obj.current_stock <= obj.reorder_level
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            user = request.user
+            is_admin = user.is_superuser or (hasattr(user, 'profile') and user.profile.role in ['super_admin', 'admin'])
+            if not is_admin:
+                ret.pop('unit_cost', None)
+        return ret
+
 
 class ProductionBatchSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
@@ -326,6 +336,16 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
                 return timezone.now().date() >= exp
             except Exception:
                 return False
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            user = request.user
+            is_admin = user.is_superuser or (hasattr(user, 'profile') and user.profile.role in ['super_admin', 'admin'])
+            if not is_admin:
+                ret.pop('unit_production_cost', None)
+        return ret
 
 
 class DealerStockBatchSerializer(serializers.ModelSerializer):
@@ -481,6 +501,16 @@ class InventoryTransactionLedgerSerializer(serializers.ModelSerializer):
             'notes',
             'timestamp',
         ]
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            user = request.user
+            is_admin = user.is_superuser or (hasattr(user, 'profile') and user.profile.role in ['super_admin', 'admin'])
+            if not is_admin:
+                ret.pop('unit_cost_or_price', None)
+        return ret
 
 
 class ExpenseSerializer(serializers.ModelSerializer):

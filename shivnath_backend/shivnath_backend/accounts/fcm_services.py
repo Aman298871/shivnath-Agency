@@ -93,12 +93,12 @@ def _init_firebase():
 def _get_all_admins():
     """
     Returns all active Admin, Super Admin, and Staff users.
-    Strictly excludes inactive users.
+    Strictly excludes inactive users or deactivated profiles.
     """
     User = get_user_model()
-    admin_users = list(User.objects.filter(is_superuser=True, is_active=True))
-    staff_admins = list(User.objects.filter(is_staff=True, is_active=True).exclude(is_superuser=True))
-    role_admins = list(User.objects.filter(profile__role__in=['admin', 'super_admin'], is_active=True).exclude(is_superuser=True))
+    admin_users = list(User.objects.filter(is_superuser=True, is_active=True).exclude(profile__status='inactive'))
+    staff_admins = list(User.objects.filter(is_staff=True, is_active=True).exclude(profile__status='inactive').exclude(is_superuser=True))
+    role_admins = list(User.objects.filter(profile__role__in=['admin', 'super_admin'], is_active=True, profile__status='active').exclude(is_superuser=True))
     resolved = list(set(admin_users + staff_admins + role_admins))
     logger.info("FCM: [RECIPIENT_RESOLVED] Resolved %d admin recipient(s): %s", len(resolved), [u.username for u in resolved])
     return resolved
@@ -147,6 +147,26 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
     # 2. Query active device tokens for these users
     from accounts.models import DeviceToken
     device_tokens_qs = DeviceToken.objects.filter(user__in=valid_users, is_active=True)
+
+    # Role-based cross-contamination safeguard:
+    # If this push is targeted for admins, strictly exclude any tokens currently active for non-admin users.
+    # If targeted for customers, strictly exclude tokens active for admins.
+    is_admin_push = (notification_type in ['admin', 'admin_order', 'admin_alert']) or (data and str(data.get('recipient_role', '')).lower() == 'admin')
+    is_cust_push = (notification_type in ['customer', 'customer_order', 'status_update', 'order_status']) or (data and str(data.get('recipient_role', '')).lower() == 'customer')
+
+    if is_admin_push:
+        non_admin_tokens = DeviceToken.objects.filter(
+            is_active=True,
+            user__profile__role__in=['customer', 'franchise', 'dealer']
+        ).values_list('token', flat=True)
+        device_tokens_qs = device_tokens_qs.exclude(token__in=non_admin_tokens)
+    elif is_cust_push:
+        admin_tokens = DeviceToken.objects.filter(
+            is_active=True,
+            user__profile__role__in=['admin', 'super_admin']
+        ).values_list('token', flat=True)
+        device_tokens_qs = device_tokens_qs.exclude(token__in=admin_tokens)
+
     tokens = list(device_tokens_qs.values_list('token', flat=True).distinct())
 
     if not tokens:
@@ -349,6 +369,7 @@ def notify_order_created(order):
         'items_count': str(items_count),
         'fulfillment_source': 'COMPANY' if is_direct else 'FRANCHISE',
         'screen': 'admin_orders',
+        'recipient_role': 'admin',
     }
     if not is_direct and order.serving_franchise:
         admin_payload['franchise_id'] = order.serving_franchise.id
@@ -379,6 +400,7 @@ def notify_order_created(order):
                 'customer_name': client_name,
                 'amount': str(amount),
                 'screen': 'franchise_orders',
+                'recipient_role': 'franchise',
             },
             notification_type='order_placed',
             reference_id=order.id
@@ -397,6 +419,7 @@ def notify_order_created(order):
                 'order_id': order.id,
                 'order_code': order.order_code,
                 'screen': 'customer_orders',
+                'recipient_role': 'customer',
             },
             notification_type='order_status',
             reference_id=order.id

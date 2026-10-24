@@ -125,33 +125,77 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
 
   Future<String?> _showRejectionDialog() async {
     final ctrl = TextEditingController();
+    String? localError;
     return showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        actionsOverflowDirection: VerticalDirection.down,
-        actionsOverflowButtonSpacing: 8,
-        title: const Text('Rejection Reason'),
-        content: SingleChildScrollView(
-          child: TextField(
-            controller: ctrl,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              hintText: 'Enter reason for rejection...',
-              border: OutlineInputBorder(),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: 8,
+          title: const Row(
+            children: [
+              Icon(Icons.report_problem_rounded, color: Color(0xFFDC2626)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Mandatory Rejection Reason',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Specify the regulatory or verification defect (e.g. invalid FSSAI number, illegible certificate, expired license, mismatched business name):',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ctrl,
+                  maxLines: 3,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Enter specific reason for rejection...',
+                    border: const OutlineInputBorder(),
+                    errorText: localError,
+                  ),
+                  onChanged: (val) {
+                    if (localError != null && val.trim().isNotEmpty) {
+                      setDialogState(() => localError = null);
+                    }
+                  },
+                ),
+              ],
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final reason = ctrl.text.trim();
+                if (reason.isEmpty) {
+                  setDialogState(() {
+                    localError = 'A detailed rejection reason is required for compliance audit.';
+                  });
+                  return;
+                }
+                Navigator.pop(ctx, reason);
+              },
+              child: const Text('Reject Document'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Reject Document'),
-          ),
-        ],
       ),
     );
   }
@@ -741,9 +785,29 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            docType,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  docType,
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                ),
+                                child: Text(
+                                  'v${doc['version'] ?? 1}',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                ),
+                              ),
+                            ],
                           ),
                           if (docNumber.isNotEmpty)
                             Text(
@@ -889,6 +953,79 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                ],
+                if (doc['verification_logs'] is List && (doc['verification_logs'] as List).isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.history_rounded, size: 15, color: Color(0xFF64748B)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Audit Trail (${(doc['verification_logs'] as List).length} decision${(doc['verification_logs'] as List).length > 1 ? 's' : ''})',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ...((doc['verification_logs'] as List).map((logItem) {
+                          final log = Map<String, dynamic>.from(logItem as Map);
+                          final action = (log['action']?.toString() ?? '').toUpperCase();
+                          final isReject = action == 'REJECTED';
+                          final reviewer = log['verified_by_name'] ?? log['verified_by_phone'] ?? 'Admin';
+                          final ver = log['version']?.toString() ?? '1';
+                          final notes = log['notes']?.toString() ?? '';
+                          final at = (log['verified_at']?.toString() ?? '').replaceFirst('T', ' ').split('.').first;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  isReject ? Icons.cancel_outlined : Icons.check_circle_outline,
+                                  size: 14,
+                                  color: isReject ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '$action (v$ver) by $reviewer • $at',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: isReject ? const Color(0xFFB91C1C) : const Color(0xFF15803D),
+                                        ),
+                                      ),
+                                      if (notes.isNotEmpty)
+                                        Text(
+                                          'Reason/Notes: $notes',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isReject ? const Color(0xFF7F1D1D) : const Color(0xFF334155),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        })),
+                      ],
                     ),
                   ),
                 ],

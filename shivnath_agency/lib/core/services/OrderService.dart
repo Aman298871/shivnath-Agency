@@ -249,43 +249,35 @@ class OrderService {
   Map<String, dynamic> _prepareOrderData(
     Map<String, dynamic> data,
   ) {
-    final map = <String, dynamic>{
-      'franchise_name':
-          data['franchise']?.toString().trim() ?? '',
+    final map = Map<String, dynamic>.from(data);
 
-      'city': data['city']?.toString().trim() ?? '',
+    if (data.containsKey('franchise')) {
+      map['franchise_name'] = data['franchise']?.toString().trim() ?? '';
+    } else if (!map.containsKey('franchise_name')) {
+      map['franchise_name'] = '';
+    }
 
-      'items_count': int.tryParse(
-            data['items']?.toString() ?? '0',
-          ) ??
-          0,
+    if (data.containsKey('city')) {
+      map['city'] = data['city']?.toString().trim() ?? '';
+    }
 
-      'amount': double.tryParse(
-            data['amount']?.toString() ?? '0',
-          ) ??
-          0,
+    if (data.containsKey('items')) {
+      map['items_count'] = int.tryParse(data['items']?.toString() ?? '0') ?? 0;
+    } else if (!map.containsKey('items_count') && data.containsKey('items_count')) {
+      map['items_count'] = int.tryParse(data['items_count']?.toString() ?? '0') ?? 0;
+    }
 
-      'status': _statusToApi(
-        data['status']?.toString() ?? 'Order Placement',
-      ),
+    if (data.containsKey('amount')) {
+      map['amount'] = double.tryParse(data['amount']?.toString() ?? '0') ?? 0.0;
+    }
 
-      'payment_status': _paymentToApi(
-        data['payment']?.toString() ?? 'Pending',
-      ),
-    };
+    if (data.containsKey('status')) {
+      map['status'] = _statusToApi(data['status']?.toString() ?? 'Order Placement');
+    }
 
-    if (data.containsKey('order_items')) map['order_items'] = data['order_items'];
-    if (data.containsKey('serving_franchise_id')) map['serving_franchise_id'] = data['serving_franchise_id'];
-    if (data.containsKey('order_source')) map['order_source'] = data['order_source'];
-    if (data.containsKey('payment_mode')) map['payment_mode'] = data['payment_mode'];
-    if (data.containsKey('payment_method')) map['payment_method'] = data['payment_method'];
-    if (data.containsKey('duration_choice')) map['duration_choice'] = data['duration_choice'];
-    if (data.containsKey('duration_days')) map['duration_days'] = data['duration_days'];
-    if (data.containsKey('customer_name')) map['customer_name'] = data['customer_name'];
-    if (data.containsKey('phone')) map['phone'] = data['phone'];
-    if (data.containsKey('delivery_address')) map['delivery_address'] = data['delivery_address'];
-    if (data.containsKey('notes')) map['notes'] = data['notes'];
-    if (data.containsKey('idempotency_key')) map['idempotency_key'] = data['idempotency_key'];
+    if (data.containsKey('payment')) {
+      map['payment_status'] = _paymentToApi(data['payment']?.toString() ?? 'Pending');
+    }
 
     return map;
   }
@@ -299,7 +291,7 @@ class OrderService {
   ) {
     final rawItems = item['items'];
     final List<Map<String, dynamic>> itemsList = rawItems is List
-        ? rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList()
+        ? rawItems.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
         : [];
 
     final double rawGrandTotal = double.tryParse(item['invoice_grand_total']?.toString() ?? item['grand_total']?.toString() ?? '') ?? 0.0;
@@ -412,10 +404,19 @@ class OrderService {
       'invoice_tax': double.tryParse(item['invoice_tax']?.toString() ?? '0') ?? 0.0,
       'invoice_grand_total': totalAmt,
       'delivery_charges': double.tryParse(item['delivery_charges']?.toString() ?? '0') ?? 0.0,
+      'delivery_distance_km': item['delivery_distance_km'] != null ? double.tryParse(item['delivery_distance_km'].toString()) : null,
       'discount_amount': double.tryParse(item['discount_amount']?.toString() ?? '0') ?? 0.0,
+      'points_discount_amount': double.tryParse(item['points_discount_amount']?.toString() ?? '0') ?? 0.0,
+      'wallet_amount_debited': double.tryParse(item['wallet_amount_debited']?.toString() ?? '0') ?? 0.0,
+      'remaining_payable_amount': double.tryParse(item['remaining_payable_amount']?.toString() ?? '0') ?? 0.0,
       'payment_mode': item['payment_mode']?.toString() ?? 'Pending',
-      'order_notes': item['order_notes']?.toString() ?? '',
-      'fulfilling_entity': item['fulfilling_entity'] is Map ? Map<String, dynamic>.from(item['fulfilling_entity'] as Map) : null,
+      'serving_franchise_code': item['serving_franchise_code']?.toString() ?? '',
+      'order_source_display': item['order_source_display']?.toString() ?? '',
+      'fulfilling_entity': item['fulfilling_entity'] is Map
+          ? Map<String, dynamic>.from(item['fulfilling_entity'] as Map)
+          : (item['fulfilling_entity'] is String && (item['fulfilling_entity'] as String).trim().isNotEmpty
+              ? {'type': 'CENTRAL_COMPANY', 'name': (item['fulfilling_entity'] as String).trim()}
+              : null),
 
       'raw': item,
     };
@@ -840,6 +841,34 @@ class OrderService {
     }
   }
 
+  Future<Map<String, dynamic>> calculateDelivery({
+    double? latitude,
+    double? longitude,
+    String? address,
+    String channel = 'CUSTOMER',
+  }) async {
+    try {
+      final Map<String, dynamic> body = {
+        'channel': channel,
+      };
+      if (latitude != null) body['latitude'] = latitude;
+      if (longitude != null) body['longitude'] = longitude;
+      if (address != null && address.trim().isNotEmpty) body['address'] = address.trim();
+
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/billing/delivery/calculate/'),
+        headers: await _headers(),
+        body: jsonEncode(body),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to calculate delivery fee: $e',
+      };
+    }
+  }
+
   Future<Map<String, dynamic>> verifyRazorpayPayment({
     required int orderId,
     required String razorpayOrderId,
@@ -933,7 +962,20 @@ class OrderService {
         Uri.parse('$baseUrl/api/orders/wallet/redemption-products/'),
         headers: await _headers(),
       );
-      return _decodeResponse(response);
+      final decoded = _decodeResponse(response);
+      if (decoded['success'] == true) {
+        final list = decoded['data'] is List
+            ? decoded['data']
+            : (decoded['products'] is List
+                ? decoded['products']
+                : (decoded['data'] is Map && decoded['data']['products'] is List
+                    ? decoded['data']['products']
+                    : null));
+        if (list != null) {
+          decoded['data'] = list;
+        }
+      }
+      return decoded;
     } catch (e) {
       return {'success': false, 'message': 'Network error loading redemption products.'};
     }

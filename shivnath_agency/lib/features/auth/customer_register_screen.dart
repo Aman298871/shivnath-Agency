@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/repositories/auth_repository.dart';
 
 class CustomerRegisterScreen extends StatefulWidget {
@@ -351,7 +352,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                   'Enter your details to register for pure water delivery',
                   style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                 ),
-                const SizedBox(height: 26),
+                const SizedBox(height: 22),
 
                 // Personal Details
                 _field(
@@ -656,25 +657,8 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                   width: isSelected ? 1.5 : 1,
                                 ),
                               ),
-                              child: RadioListTile<int?>(
-                                value: fId,
+                              child: RadioGroup<int?>(
                                 groupValue: selectedFranchiseId,
-                                activeColor: const Color(0xFF16A34A),
-                                title: Text(
-                                  f['business_name']?.toString() ??
-                                      'Franchise Partner',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  'Territory: ${f['territory'] ?? selectedTerritoryName} • Phone: ${f['phone'] ?? ''}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF64748B),
-                                  ),
-                                ),
                                 onChanged: (val) {
                                   setState(() {
                                     selectedFranchiseId = val;
@@ -683,6 +667,25 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                     isFallbackFranchise = false;
                                   });
                                 },
+                                child: RadioListTile<int?>(
+                                  value: fId,
+                                  activeColor: const Color(0xFF16A34A),
+                                  title: Text(
+                                    f['business_name']?.toString() ??
+                                        'Franchise Partner',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'Territory: ${f['territory'] ?? selectedTerritoryName} • Phone: ${f['phone'] ?? ''}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ),
                               ),
                             );
                           }),
@@ -799,9 +802,18 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                     width: isSelected ? 1.5 : 1,
                                   ),
                                 ),
+                                child: RadioGroup<int?>(
+                                groupValue: selectedFranchiseId,
+                                onChanged: (val) {
+                                  setState(() {
+                                    selectedFranchiseId = val;
+                                    selectedFranchiseName = f['business_name']
+                                        ?.toString();
+                                    isFallbackFranchise = true;
+                                  });
+                                },
                                 child: RadioListTile<int?>(
                                   value: fId,
-                                  groupValue: selectedFranchiseId,
                                   activeColor: const Color(0xFFD97706),
                                   title: Row(
                                     children: [
@@ -845,15 +857,8 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                       color: Color(0xFF64748B),
                                     ),
                                   ),
-                                  onChanged: (val) {
-                                    setState(() {
-                                      selectedFranchiseId = val;
-                                      selectedFranchiseName = f['business_name']
-                                          ?.toString();
-                                      isFallbackFranchise = true;
-                                    });
-                                  },
                                 ),
+                              ),
                               );
                             }),
                           ],

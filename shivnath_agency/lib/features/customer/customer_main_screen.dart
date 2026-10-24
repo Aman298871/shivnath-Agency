@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/services/session_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../models/user_model.dart';
@@ -39,6 +40,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       setState(() {
         _currentUser = user;
       });
+      NotificationService().registerDeviceTokenWithBackend(force: true);
     }
   }
 
@@ -292,7 +294,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Water Wala',
+                                AppConstants.appName,
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
@@ -301,11 +303,14 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                               ),
                               SizedBox(height: 2),
                               Text(
-                                'Customer Portal',
+                                AppConstants.appTagline,
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0284C7),
                                 ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ],
                           ),
@@ -520,19 +525,20 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Water Wala',
+                                AppConstants.appName,
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w800,
                                   color: Color(0xFF0F172A),
                                 ),
                               ),
-                              SizedBox(height: 2),
+                              SizedBox(height: 3),
                               Text(
-                                'Pure Water. Delivered.',
+                                AppConstants.appTagline,
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0284C7),
                                 ),
                               ),
                             ],

@@ -51,19 +51,25 @@ def get_verified_company_profile():
     return profile
 
 
-def _get_item_uom(item_name, item_size, product=None):
+def _get_item_uom(item_name, item_size, product=None, quantity=1):
     """
-    Authoritatively determines the sales unit and UOM for an item (e.g. Jars or Boxes).
+    Authoritatively determines the sales unit and UOM for an item (e.g. Jars, Bottles, or Boxes).
     """
-    name_str = str(item_name or '').upper()
-    size_str = str(item_size or '').upper()
+    name_str = str(item_name or '').upper().strip()
+    size_str = str(item_size or '').upper().strip()
     pkg_type = str(getattr(product, 'package_type', '')).upper() if product else ''
 
-    if pkg_type == 'JAR' or '20' in size_str or 'JAR' in name_str:
-        return 'Jar', 'Jars'
+    is_jar = (
+        pkg_type == 'JAR' or
+        'JAR' in name_str or
+        any(x in size_str for x in ['20L', '20 L', '20-L', '20LTR', '20 LITRE', '20 LITER'])
+    ) and ('ML' not in size_str)
+
+    if is_jar:
+        return ('Jar', 'Jars')
     elif pkg_type == 'BOTTLE' or 'BOTTLE' in name_str or 'ML' in size_str or 'LITRE' in size_str or 'LITER' in size_str:
-        return 'Box', 'Boxes'
-    return 'Unit', 'Units'
+        return ('Bottle', 'Bottles')
+    return ('Unit', 'Units')
 
 
 def _get_customer_previous_outstanding(order, current_invoice_id=None):
@@ -169,7 +175,21 @@ def generate_thermal_invoice_html(invoice, width='80mm', paper_width_mm=None):
 
     # Line items
     items = []
-    if order:
+    snapshot = invoice.financial_snapshot or {}
+    snapshot_items = snapshot.get('items', [])
+    if snapshot_items:
+        for it in snapshot_items:
+            items.append({
+                'name': it.get('name', 'Packaged Water'),
+                'size': it.get('size', ''),
+                'quantity': it.get('quantity', 1),
+                'uom': it.get('uom', 'Units'),
+                'packaging_display': it.get('packaging_display'),
+                'unit_price': float(it.get('unit_price', 0.0)),
+                'total_price': float(it.get('total_price', 0.0)),
+                'gst_percent': float(it.get('gst_rate', 18.0) or 18.0),
+            })
+    elif order:
         for it in order.items.select_related('product').all():
             p_name = it.product_name or (it.product.name if it.product else 'Packaged Water')
             p_size = it.size or (it.product.size if it.product else '')
@@ -218,25 +238,36 @@ def generate_thermal_invoice_html(invoice, width='80mm', paper_width_mm=None):
 
     items_html = ""
     for idx, item in enumerate(items, 1):
+        pkg_display = item.get('packaging_display') or f"{item['quantity']} {item['uom']}"
         items_html += f"""
         <tr>
             <td style="padding: 4px 2px; text-align: left;">{idx}. {html.escape(item['name'])}<br><small style="color: #555;">{html.escape(item['size'])}</small></td>
-            <td style="padding: 4px 2px; text-align: center;">{item['quantity']} {item['uom']}</td>
+            <td style="padding: 4px 2px; text-align: center;">{html.escape(pkg_display)}</td>
             <td style="padding: 4px 2px; text-align: right;">₹{item['unit_price']:.2f}</td>
             <td style="padding: 4px 2px; text-align: right; font-weight: bold;">₹{item['total_price']:.2f}</td>
         </tr>
         """
 
     gst_section = ""
-    if total_tax > 0 and is_gst:
+    snapshot = invoice.financial_snapshot or {}
+    gst_rate = float(snapshot.get('gst_rate') or getattr(invoice, 'tax_rate', None) or 18.0)
+    cgst_rate = float(snapshot.get('cgst_rate') or (gst_rate / 2.0))
+    sgst_rate = float(snapshot.get('sgst_rate') or (gst_rate / 2.0))
+    igst_rate = float(snapshot.get('igst_rate') or gst_rate)
+
+    if total_tax > 0:
         if igst > 0:
             gst_section += f"""
-            <div class="row"><span>IGST (18%):</span><span>₹{igst:.2f}</span></div>
+            <div class="row"><span>IGST ({igst_rate:g}%):</span><span>₹{igst:.2f}</span></div>
+            """
+        elif cgst > 0 or sgst > 0:
+            gst_section += f"""
+            <div class="row"><span>CGST ({cgst_rate:g}%):</span><span>₹{cgst:.2f}</span></div>
+            <div class="row"><span>SGST ({sgst_rate:g}%):</span><span>₹{sgst:.2f}</span></div>
             """
         else:
             gst_section += f"""
-            <div class="row"><span>CGST (9%):</span><span>₹{cgst:.2f}</span></div>
-            <div class="row"><span>SGST (9%):</span><span>₹{sgst:.2f}</span></div>
+            <div class="row"><span>Tax / GST ({gst_rate:g}%):</span><span>₹{total_tax:.2f}</span></div>
             """
 
     gstin_badge = f"<div class='sub-header'>GSTIN: {html.escape(company_gstin)}</div>" if company_gstin else "<div class='sub-header' style='color:#666;'>Retail Commercial Bill (Non-GST)</div>"
@@ -475,9 +506,10 @@ def generate_thermal_invoice_html(invoice, width='80mm', paper_width_mm=None):
             <div class="row"><span>Payment Method:</span><span style="font-weight:600;">{html.escape(payment_method_display)}</span></div>
             {prev_outstanding_line}
             <div class="row" style="font-weight: bold; color: {'#991b1b' if outstanding > 0 else '#166534'};">
-                <span>Balance Due:</span>
+                <span>This Invoice Balance Due:</span>
                 <span>₹{outstanding:.2f}</span>
             </div>
+            {f'<div class="row" style="font-weight: bold; color: #b45309;"><span>Total Account Balance Due:</span><span>₹{(outstanding + prev_cust_outstanding):.2f}</span></div>' if prev_cust_outstanding > 0 else ''}
         </div>
 
         <div class="status-badge {payment_badge_class}">
@@ -549,7 +581,20 @@ def generate_pure_pdf_document(invoice):
         franchise_phone = ""
 
     items = []
-    if order:
+    snapshot = invoice.financial_snapshot or {}
+    snapshot_items = snapshot.get('items', [])
+    if snapshot_items:
+        for it in snapshot_items:
+            items.append({
+                'name': it.get('name', 'Packaged Water'),
+                'size': it.get('size', ''),
+                'qty': it.get('quantity', 1),
+                'uom': it.get('uom', 'Units'),
+                'packaging_display': it.get('packaging_display'),
+                'rate': float(it.get('unit_price', 0.0)),
+                'total': float(it.get('total_price', 0.0)),
+            })
+    elif order:
         for it in order.items.select_related('product').all():
             p_name = it.product_name or (it.product.name if it.product else 'Packaged Water')
             p_size = it.size or (it.product.size if it.product else '')
@@ -580,7 +625,10 @@ def generate_pure_pdf_document(invoice):
     points_disc = float(invoice.points_discount_amount)
     promo_disc = float(invoice.discount_amount)
     wallet_debited = float(invoice.wallet_amount_debited)
-    total_tax = float(invoice.cgst_amount + invoice.sgst_amount + invoice.igst_amount) if is_gst else 0.0
+    total_tax = float(invoice.cgst_amount + invoice.sgst_amount + invoice.igst_amount)
+    cgst = float(invoice.cgst_amount)
+    sgst = float(invoice.sgst_amount)
+    igst = float(invoice.igst_amount)
     grand_total = float(invoice.grand_total)
     amount_paid = float(invoice.amount_paid)
     balance_due = float(invoice.outstanding_balance)
@@ -668,10 +716,10 @@ def generate_pure_pdf_document(invoice):
     for idx, it in enumerate(items, 1):
         name_desc = f"{idx}. {it['name']}"[:34]
         size_desc = f"{it['size']}"[:16]
-        qty_uom = f"{it['qty']} {it['uom']}"
+        qty_uom = it.get('packaging_display') or f"{it['qty']} {it['uom']}"
         stream_lines.append(f"BT /F1 8 Tf 35 {cur_y} Td ({clean(name_desc)}) Tj ET")
         stream_lines.append(f"BT /F1 8 Tf 260 {cur_y} Td ({clean(size_desc)}) Tj ET")
-        stream_lines.append(f"BT /F1 8 Tf 340 {cur_y} Td ({clean(qty_uom)}) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 340 {cur_y} Td ({clean(qty_uom[:32])}) Tj ET")
         stream_lines.append(f"BT /F1 8 Tf 420 {cur_y} Td (Rs. {it['rate']:.2f}) Tj ET")
         stream_lines.append(f"BT /F1 8 Tf 500 {cur_y} Td (Rs. {it['total']:.2f}) Tj ET")
         cur_y -= 14
@@ -704,8 +752,20 @@ def generate_pure_pdf_document(invoice):
         add_total_line("Promotional Discount:", f"-Rs. {promo_disc:.2f}")
     if points_disc > 0:
         add_total_line("Reward Points Discount:", f"-Rs. {points_disc:.2f}")
-    if total_tax > 0 and is_gst:
-        add_total_line("GST Tax (18%):", f"Rs. {total_tax:.2f}")
+
+    gst_rate = float(snapshot.get('gst_rate') or getattr(invoice, 'tax_rate', None) or 18.0)
+    cgst_rate = float(snapshot.get('cgst_rate') or (gst_rate / 2.0))
+    sgst_rate = float(snapshot.get('sgst_rate') or (gst_rate / 2.0))
+    igst_rate = float(snapshot.get('igst_rate') or gst_rate)
+
+    if total_tax > 0:
+        if igst > 0:
+            add_total_line(f"IGST ({igst_rate:g}%):", f"Rs. {total_tax:.2f}")
+        elif cgst > 0 or sgst > 0:
+            add_total_line(f"CGST ({cgst_rate:g}%):", f"Rs. {cgst:.2f}")
+            add_total_line(f"SGST ({sgst_rate:g}%):", f"Rs. {sgst:.2f}")
+        else:
+            add_total_line(f"GST / Tax ({gst_rate:g}%):", f"Rs. {total_tax:.2f}")
 
     stream_lines.append(f"0.2 0.2 0.2 RG 1.5 w 350 {cur_y + 4} m 565 {cur_y + 4} l S")
     cur_y -= 3
@@ -721,7 +781,9 @@ def generate_pure_pdf_document(invoice):
         add_total_line("Previous Customer Balance:", f"Rs. {prev_cust_outstanding:.2f}", alert_color="0.7 0.3 0")
 
     color_due = "0.7 0.1 0.1" if balance_due > 0 else "0.1 0.5 0.2"
-    add_total_line("Balance Payable:", f"Rs. {balance_due:.2f}", bold=True, alert_color=color_due)
+    add_total_line("This Invoice Balance Due:", f"Rs. {balance_due:.2f}", bold=True, alert_color=color_due)
+    if prev_cust_outstanding > 0:
+        add_total_line("Total Account Balance Due:", f"Rs. {(balance_due + prev_cust_outstanding):.2f}", bold=True, alert_color=color_due)
 
     # Footer
     stream_lines.append("0.4 0.4 0.4 rg")

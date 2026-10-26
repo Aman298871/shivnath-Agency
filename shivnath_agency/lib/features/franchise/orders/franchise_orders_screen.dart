@@ -74,25 +74,27 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
           final double rawBaseAmount = double.tryParse(item['amount']?.toString() ?? mappedItem['amount']?.toString() ?? '0') ?? 0.0;
           final double totalAmt = rawGrandTotal > 0 ? rawGrandTotal : rawBaseAmount;
 
+          final double rawAmtPaid = double.tryParse(item['amount_paid']?.toString() ?? mappedItem['amount_paid']?.toString() ?? '0') ?? 0.0;
+          final double? rawOutstanding = double.tryParse(item['outstanding_balance']?.toString() ?? mappedItem['outstanding_balance']?.toString() ?? '') ??
+              double.tryParse(item['outstanding_amount']?.toString() ?? mappedItem['outstanding_amount']?.toString() ?? '');
+
           final String paymentStatus = (item['payment_status'] ?? mappedItem['payment_status'] ?? '').toString().toLowerCase();
-          final bool isPaid = paymentStatus == 'paid' ||
+          final bool isExplicitlyPaid = paymentStatus == 'paid' ||
               mappedItem['payment_collected'] == true ||
               item['payment_collected'] == true ||
               (item['invoice_status']?.toString().toUpperCase() == 'PAID');
 
-          final double amtPaid = isPaid
-              ? totalAmt
-              : (double.tryParse(item['amount_paid']?.toString() ?? mappedItem['amount_paid']?.toString() ?? '0') ?? 0.0);
-          final double outstandingAmt = isPaid
-              ? 0.0
-              : (double.tryParse(item['outstanding_amount']?.toString() ?? mappedItem['outstanding_amount']?.toString() ?? '') ??
-                 double.tryParse(item['outstanding_balance']?.toString() ?? mappedItem['outstanding_balance']?.toString() ?? '') ??
-                 (totalAmt - amtPaid).clamp(0.0, totalAmt));
+          final bool isSettledByMath = (totalAmt > 0 && rawAmtPaid >= totalAmt - 0.05) ||
+              (rawOutstanding != null && rawOutstanding <= 0.05 && rawAmtPaid > 0);
+
+          final bool isPaid = isExplicitlyPaid || isSettledByMath;
+
+          final double amtPaid = isPaid ? totalAmt : rawAmtPaid;
           final double outstandingBal = isPaid
               ? 0.0
-              : (double.tryParse(item['outstanding_balance']?.toString() ?? mappedItem['outstanding_balance']?.toString() ?? '$outstandingAmt') ?? outstandingAmt);
+              : (rawOutstanding ?? (totalAmt - amtPaid).clamp(0.0, totalAmt));
 
-          final bool isPartial = !isPaid && amtPaid > 0 && outstandingBal > 0;
+          final bool isPartial = !isPaid && amtPaid > 0.05 && outstandingBal > 0.05;
 
           final String paymentLabel = isPaid
               ? 'PAYMENT COLLECTED'
@@ -1074,11 +1076,12 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (dialogInnerContext, setDialogState) {
+            final int enteredBoxesOrJars = int.tryParse(quantityController.text.trim()) ?? 0;
             final isBottle = selectedOption['is_bottle'] == true;
             final unitsPerCase = (selectedOption['units_per_case'] as int?) ?? 1;
             final double rate = (selectedOption['rate'] as num?)?.toDouble() ?? 20.0;
-            final enteredBoxesOrJars = int.tryParse(quantityController.text.trim()) ?? 0;
-            final bool meetsMoq = enteredBoxesOrJars >= 5;
+            final int requiredMoq = (selectedOption['min_order_quantity'] as int?) ?? 5;
+            final bool meetsMoq = enteredBoxesOrJars >= requiredMoq;
             final int totalBottlesOrJars = isBottle ? (enteredBoxesOrJars * unitsPerCase) : enteredBoxesOrJars;
             final double subtotal = totalBottlesOrJars * rate;
 
@@ -1167,7 +1170,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Minimum order is 5 ${isBottle ? 'boxes (${5 * unitsPerCase} bottles)' : 'jars'}. Franchise protection requires economical batch deliveries.',
+                                  'Minimum order is $requiredMoq ${isBottle ? 'boxes (${requiredMoq * unitsPerCase} bottles)' : 'jars'}. Franchise protection requires economical batch deliveries.',
                                   style: const TextStyle(fontSize: 11, color: Color(0xFF991B1B), fontWeight: FontWeight.w600),
                                 ),
                               ),
@@ -1318,7 +1321,7 @@ class _FranchiseOrdersScreenState extends State<FranchiseOrdersScreen> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : Text(meetsMoq ? 'Place Order (₹${subtotal.toStringAsFixed(0)})' : 'Min 5 Required'),
+                      : Text(meetsMoq ? 'Place Order (₹${subtotal.toStringAsFixed(0)})' : 'Min $requiredMoq Required'),
                 ),
               ],
             );

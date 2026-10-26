@@ -208,6 +208,7 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
         if APNSConfigClass and APNSPayloadClass and ApsClass and ApsAlertClass:
             try:
                 apns_config = APNSConfigClass(
+                    headers={'apns-priority': '10'},
                     payload=APNSPayloadClass(
                         aps=ApsClass(
                             alert=ApsAlertClass(
@@ -216,6 +217,7 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
                             ),
                             sound='default',
                             badge=1,
+                            content_available=True,
                         )
                     )
                 )

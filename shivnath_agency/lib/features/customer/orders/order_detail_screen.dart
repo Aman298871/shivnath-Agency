@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/repositories/app_repositories.dart';
@@ -14,6 +13,9 @@ import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/cancel_order_dialog.dart';
 import '../../../core/widgets/product_thumbnail.dart';
+import '../../../core/widgets/thermal_bill_preview_modal.dart';
+import '../../../core/utils/contact_action_helper.dart';
+import '../../../core/widgets/customer_outstanding_breakdown_modal.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final String orderId;
@@ -176,6 +178,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.receipt_long_rounded),
+            tooltip: 'View Bill / Tax Invoice',
+            onPressed: _showInvoiceModal,
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh order status',
             onPressed: _fetchLatestOrder,
@@ -227,6 +234,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                         children: [
                           _buildHeaderCard(),
+                          const SizedBox(height: 16),
+                          _buildInvoiceCard(),
                           if (_isAdminOrStaff) ...[
                             const SizedBox(height: 16),
                             _buildAdminActionsCard(),
@@ -238,9 +247,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           const SizedBox(height: 16),
                           _buildItemsCard(),
                           const SizedBox(height: 16),
-                          _buildInvoiceCard(),
-                          const SizedBox(height: 16),
                           _buildPriceSummaryCard(),
+                          const SizedBox(height: 16),
+                          _buildPaymentHelpAndContactCard(),
                           const SizedBox(height: 16),
                           _buildTimelineCard(),
                           const SizedBox(height: 24),
@@ -580,7 +589,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     ],
                   ),
                 ),
-                AppStatusBadge.order(status),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: AppStatusBadge.order(status),
+                ),
               ],
             ),
             const Divider(height: 28),
@@ -613,7 +625,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 2),
-                    AppStatusBadge.payment(_order?['payment']?.toString() ?? 'Pending'),
+                    AppStatusBadge.payment(_order?['payment_status']?.toString() ?? _order?['payment']?.toString() ?? 'Pending'),
                   ],
                 ),
               ],
@@ -724,12 +736,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       children: [
                         const Icon(Icons.badge_outlined, size: 14, color: Color(0xFF7C3AED)),
                         const SizedBox(width: 4),
-                        Text(
-                          'Franchise Code: $franchiseCode',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF5B21B6),
+                        Expanded(
+                          child: Text(
+                            'Franchise Code: $franchiseCode',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF5B21B6),
+                            ),
                           ),
                         ),
                       ],
@@ -756,9 +770,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       children: [
                         const Icon(Icons.phone_outlined, size: 14, color: Color(0xFF64748B)),
                         const SizedBox(width: 4),
-                        Text(
-                          'Contact: $phone',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                        Expanded(
+                          child: Text(
+                            'Contact: $phone',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                          ),
                         ),
                       ],
                     ),
@@ -1105,17 +1121,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       }
                     },
                   ),
-                  if (invId != null)
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        side: const BorderSide(color: Color(0xFF0284C7)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.print_rounded, size: 16, color: Color(0xFF0284C7)),
-                      label: const Text('Thermal Bill / Print', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w700, fontSize: 13)),
-                      onPressed: () => _printThermalInvoice(invId),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      side: const BorderSide(color: Color(0xFF0284C7)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     ),
+                    icon: const Icon(Icons.print_rounded, size: 16, color: Color(0xFF0284C7)),
+                    label: const Text('Thermal Bill / Print', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w700, fontSize: 13)),
+                    onPressed: () => _printThermalInvoice(invId ?? 0),
+                  ),
                   TextButton.icon(
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -1164,6 +1179,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         headers: {
           if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
         },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Invoice download request timed out after 10s'),
       );
       if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
         final dir = await getTemporaryDirectory();
@@ -1197,6 +1215,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         headers: {
           if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
         },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Order invoice download request timed out after 10s'),
       );
       if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
         final dir = await getTemporaryDirectory();
@@ -1218,23 +1239,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
-  Future<void> _printThermalInvoice(int invId) async {
-    try {
-      final token = await SessionService().getAccessToken();
-      final tokenParam = (token != null && token.isNotEmpty) ? '&token=$token' : '';
-      final url = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/invoices/$invId/thermal/?width=80mm$tokenParam');
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          AppToast.error(context, 'Could not open thermal bill preview');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        AppToast.error(context, 'Error launching thermal preview: $e');
-      }
-    }
+  void _printThermalInvoice(int invId) {
+    ThermalBillPreviewModal.show(
+      context,
+      orderData: _order,
+      invoiceId: invId > 0 ? invId : null,
+    );
   }
 
   void _showInvoiceModal() {
@@ -1294,7 +1304,37 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 if (discountAmount > 0) _infoRow('Discount Applied', '-₹${discountAmount.toStringAsFixed(2)}'),
                 if (pointsDiscount > 0) _infoRow('Points Redeemed', '-₹${pointsDiscount.toStringAsFixed(2)}'),
                 if (walletDebited > 0) _infoRow('Wallet Debited', '-₹${walletDebited.toStringAsFixed(2)}'),
-                if (previousOutstanding > 0) _infoRow('Previous Outstanding', '₹${previousOutstanding.toStringAsFixed(2)}'),
+                if (previousOutstanding > 0)
+                  InkWell(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      CustomerOutstandingBreakdownModal.show(context);
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Text('Previous Outstanding', style: TextStyle(fontSize: 13, color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEE2E2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text('View Breakdown', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+                              ),
+                            ],
+                          ),
+                          Text('₹${previousOutstanding.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFDC2626))),
+                        ],
+                      ),
+                    ),
+                  ),
                 const Divider(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1413,7 +1453,34 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             if (walletDebited > 0)
               _priceRow('Water Wallet Redeemed', '-₹${walletDebited.toStringAsFixed(2)}', isHighlight: true),
             if (previousOutstanding > 0)
-              _priceRow('Previous Outstanding', '₹${previousOutstanding.toStringAsFixed(2)}'),
+              InkWell(
+                onTap: () => CustomerOutstandingBreakdownModal.show(context),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('Previous Outstanding', style: TextStyle(fontSize: 13, color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEE2E2),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFFECACA)),
+                            ),
+                            child: const Text('View Breakdown', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+                          ),
+                        ],
+                      ),
+                      Text('₹${previousOutstanding.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFDC2626))),
+                    ],
+                  ),
+                ),
+              ),
             const Divider(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1476,6 +1543,182 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentHelpAndContactCard() {
+    final servingFranchiseName = _order?['serving_franchise_name']?.toString() ??
+        _order?['franchise']?.toString() ?? '';
+    final rawFranchisePhone = _order?['serving_franchise_phone']?.toString() ??
+        _order?['franchise_phone']?.toString() ?? '';
+    final hasFranchise = servingFranchiseName.isNotEmpty && !servingFranchiseName.toLowerCase().contains('direct');
+    final franchisePhone = rawFranchisePhone.isNotEmpty ? rawFranchisePhone : 'Contact number not configured';
+    final isFranchisePhoneConfigured = rawFranchisePhone.isNotEmpty && rawFranchisePhone != 'Contact number not configured';
+
+    const adminName = 'Shivnath Agency Support (Water Wala)';
+    const adminPhone = '+91 98062 47194';
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.support_agent_rounded, color: Color(0xFF0284C7), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Payment Help & Contact',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  ),
+                  icon: const Icon(Icons.receipt_long_rounded, size: 14, color: Color(0xFF0284C7)),
+                  label: const Text(
+                    'All Dues',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0284C7)),
+                  ),
+                  onPressed: () => CustomerOutstandingBreakdownModal.show(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Official authorized contacts for order billing, payments, and settlements.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 14),
+
+            // Assigned Franchise
+            if (hasFranchise) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 17,
+                      backgroundColor: Color(0xFFE0F2FE),
+                      child: Icon(Icons.storefront_outlined, size: 17, color: Color(0xFF0284C7)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            servingFranchiseName,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isFranchisePhoneConfigured ? franchisePhone : 'Contact number not configured',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isFranchisePhoneConfigured ? const Color(0xFF0284C7) : const Color(0xFF94A3B8),
+                              fontWeight: isFranchisePhoneConfigured ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isFranchisePhoneConfigured)
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.phone_in_talk_rounded, size: 13),
+                        label: const Text('Call Franchise', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                        onPressed: () => ContactActionHelper.makePhoneCall(context, franchisePhone),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+
+            // Admin Support
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 17,
+                    backgroundColor: Color(0xFFFEF3C7),
+                    child: Icon(Icons.shield_outlined, size: 17, color: Color(0xFFD97706)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          adminName,
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          adminPhone,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFD97706),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      visualDensity: VisualDensity.compact,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.phone_in_talk_rounded, size: 13),
+                    label: const Text('Call Admin Support', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                    onPressed: () => ContactActionHelper.makePhoneCall(context, adminPhone),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

@@ -279,6 +279,11 @@ def record_batch_collection_atomic(
     batch = ProductionBatch.objects.select_for_update().get(id=batch_id)
     qty = int(quantity_collected)
 
+    if batch.is_expired or batch.status in ['EXPIRED', 'RECALLED']:
+        raise ValidationError(
+            f"Cannot dispatch or collect from batch {batch.batch_number}: Batch is expired (Expiry date: {batch.expiry_date}) or marked {batch.status}."
+        )
+
     if qty <= 0:
         raise ValidationError("Quantity collected must be greater than zero.")
 
@@ -422,8 +427,127 @@ def record_batch_collection_atomic(
         'quantity_remaining_company': batch.quantity_remaining_company,
         'pending_stock': batch.quantity_pending_collection,
         'order_status': order.status if order else None,
-        'billing': billing_summary
+        'billing_summary': billing_summary,
     }
+
+
+@transaction.atomic
+def adjust_production_batch_atomic(batch_id, adjustment_type, quantity, reason, actor=None):
+    """
+    Authoritative stock adjustment for a ProductionBatch:
+    Supports: DAMAGE, RETURN, EXPIRY, AUDIT_ADJUSTMENT.
+    Updates relevant quantity counters, remaining stock, records adjustment reason,
+    and writes an immutable entry into InventoryTransactionLedger with full audit history.
+    """
+    batch = ProductionBatch.objects.select_for_update().get(id=batch_id)
+    qty = int(quantity)
+    if qty <= 0:
+        raise ValidationError("Adjustment quantity must be greater than zero.")
+
+    adj_clean = str(adjustment_type).strip().upper()
+    if not reason or not str(reason).strip():
+        raise ValidationError("A recorded reason is mandatory for stock adjustments.")
+
+    now_notes = f"[{adj_clean}] {qty} units: {str(reason).strip()}"
+    if batch.adjustment_reason:
+        batch.adjustment_reason = f"{batch.adjustment_reason}\n{now_notes}"
+    else:
+        batch.adjustment_reason = now_notes
+
+    if adj_clean == 'DAMAGE':
+        if qty > batch.quantity_remaining_company:
+            raise ValidationError(f"Cannot log {qty} damaged units. Only {batch.quantity_remaining_company} units remaining in company stock.")
+        batch.quantity_damaged += qty
+        batch.quantity_remaining_company -= qty
+        if batch.quantity_remaining_company == 0:
+            batch.status = 'DEPLETED'
+        batch.save()
+
+        InventoryTransactionLedger.objects.create(
+            transaction_type='DAMAGE',
+            material_type='FINISHED_GOODS',
+            location_type='COMPANY_WAREHOUSE',
+            product=batch.product,
+            production_batch=batch,
+            quantity=-Decimal(qty),
+            balance_after=Decimal(batch.quantity_remaining_company),
+            unit_cost_or_price=batch.unit_production_cost,
+            reference_type='BATCH_DAMAGE_ADJUSTMENT',
+            reference_id=batch.batch_number,
+            actor=actor,
+            notes=now_notes
+        )
+    elif adj_clean == 'RETURN':
+        batch.quantity_returned += qty
+        batch.quantity_remaining_company += qty
+        if batch.status == 'DEPLETED' and batch.quantity_remaining_company > 0:
+            batch.status = 'ACTIVE'
+        batch.save()
+
+        InventoryTransactionLedger.objects.create(
+            transaction_type='RETURN',
+            material_type='FINISHED_GOODS',
+            location_type='COMPANY_WAREHOUSE',
+            product=batch.product,
+            production_batch=batch,
+            quantity=Decimal(qty),
+            balance_after=Decimal(batch.quantity_remaining_company),
+            unit_cost_or_price=batch.unit_production_cost,
+            reference_type='BATCH_RETURN_RESTOCK',
+            reference_id=batch.batch_number,
+            actor=actor,
+            notes=now_notes
+        )
+    elif adj_clean == 'EXPIRY':
+        if qty > batch.quantity_remaining_company:
+            raise ValidationError(f"Cannot dispose {qty} units. Only {batch.quantity_remaining_company} units remaining in stock.")
+        batch.quantity_expired += qty
+        batch.quantity_remaining_company -= qty
+        if batch.quantity_remaining_company == 0:
+            batch.status = 'EXPIRED'
+        batch.save()
+
+        InventoryTransactionLedger.objects.create(
+            transaction_type='EXPIRY',
+            material_type='FINISHED_GOODS',
+            location_type='COMPANY_WAREHOUSE',
+            product=batch.product,
+            production_batch=batch,
+            quantity=-Decimal(qty),
+            balance_after=Decimal(batch.quantity_remaining_company),
+            unit_cost_or_price=batch.unit_production_cost,
+            reference_type='BATCH_EXPIRY_DISPOSAL',
+            reference_id=batch.batch_number,
+            actor=actor,
+            notes=now_notes
+        )
+    elif adj_clean in ['ADJUSTMENT', 'AUDIT_ADJUSTMENT']:
+        # Stock balance adjustment
+        batch.quantity_remaining_company = max(0, qty)
+        if batch.quantity_remaining_company == 0:
+            batch.status = 'DEPLETED'
+        elif batch.status == 'DEPLETED' and batch.quantity_remaining_company > 0:
+            batch.status = 'ACTIVE'
+        batch.save()
+
+        InventoryTransactionLedger.objects.create(
+            transaction_type='ADJUSTMENT',
+            material_type='FINISHED_GOODS',
+            location_type='COMPANY_WAREHOUSE',
+            product=batch.product,
+            production_batch=batch,
+            quantity=Decimal(qty),
+            balance_after=Decimal(batch.quantity_remaining_company),
+            unit_cost_or_price=batch.unit_production_cost,
+            reference_type='BATCH_STOCK_CORRECTION',
+            reference_id=batch.batch_number,
+            actor=actor,
+            notes=now_notes
+        )
+    else:
+        raise ValidationError(f"Unsupported adjustment type: {adj_clean}. Must be DAMAGE, RETURN, EXPIRY, or AUDIT_ADJUSTMENT.")
+
+    return batch
 
 
 @transaction.atomic
@@ -576,6 +700,9 @@ def receive_stock_request_atomic(stock_request, receipt_items, actor=None):
         allocation.save()
 
         pbatch = allocation.production_batch
+        if pbatch:
+            pbatch.quantity_received += rec_qty
+            pbatch.save(update_fields=['quantity_received'])
 
         # Create or update DealerStockBatch
         dealer_batch, created = DealerStockBatch.objects.select_for_update().get_or_create(

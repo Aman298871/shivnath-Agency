@@ -109,7 +109,6 @@ class CartItem {
         s.contains('SHV-') ||
         sz.contains('ml') ||
         sz.contains('1l') ||
-        sz.contains('2l') ||
         nm.contains('bottle') ||
         nm.contains('box') ||
         nm.contains('carton');
@@ -126,9 +125,6 @@ class CartItem {
     final nm = name.toLowerCase();
     if (s.contains('1L') || sz.contains('1l') || sz.contains('1 l') || nm.contains('1 litre') || nm.contains('1l')) {
       return 12;
-    }
-    if (s.contains('2L') || sz.contains('2l') || sz.contains('2 l') || nm.contains('2 litre')) {
-      return 9;
     }
     return 24;
   }

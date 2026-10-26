@@ -485,12 +485,12 @@ class ProductBOMItemManageView(APIView):
 # =====================================================
 
 class ProductPricingUpdateView(APIView):
-    permission_classes = [IsSuperAdminRole]
+    permission_classes = [IsProductMasterAdmin]
 
     def patch(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
 
-        retail_price = request.data.get("price") or request.data.get("customer_price")
+        retail_price = request.data.get("price") if request.data.get("price") is not None else request.data.get("customer_price")
         dealer_transfer_price = (
             request.data.get("dealer_transfer_price")
             if request.data.get("dealer_transfer_price") is not None
@@ -505,12 +505,26 @@ class ProductPricingUpdateView(APIView):
             if request.data.get("mrp") is not None
             else request.data.get("retail_mrp")
         )
-        gst = request.data.get("gst")
+        gst = request.data.get("gst") if request.data.get("gst") is not None else request.data.get("gst_rate")
         units_per_case = (
             request.data.get("units_per_case")
             if request.data.get("units_per_case") is not None
-            else request.data.get("minimum_order_quantity_cases")
+            else (
+                request.data.get("units_per_carton")
+                if request.data.get("units_per_carton") is not None
+                else (
+                    request.data.get("bottles_per_box")
+                    if request.data.get("bottles_per_box") is not None
+                    else request.data.get("minimum_order_quantity_cases")
+                )
+            )
         )
+        is_price_inclusive_gst = request.data.get("is_price_inclusive_gst")
+        carton_price = request.data.get("carton_price")
+        discount_price = request.data.get("discount_price")
+        unit = request.data.get("unit")
+        size = request.data.get("size")
+        package_type = request.data.get("package_type")
 
         update_fields = ["updated_at"]
 
@@ -522,7 +536,7 @@ class ProductPricingUpdateView(APIView):
                 product.price = p
                 update_fields.append("price")
             except (ValueError, TypeError):
-                return Response({"success": False, "message": "Invalid price value."}, status=400)
+                return Response({"success": False, "message": "Invalid customer retail price. Must be 0 or greater."}, status=400)
 
         if dealer_transfer_price is not None:
             try:
@@ -532,7 +546,7 @@ class ProductPricingUpdateView(APIView):
                 product.dealer_transfer_price = dtp
                 update_fields.append("dealer_transfer_price")
             except (ValueError, TypeError):
-                return Response({"success": False, "message": "Invalid dealer_transfer_price value."}, status=400)
+                return Response({"success": False, "message": "Invalid dealer transfer price. Must be 0 or greater."}, status=400)
 
         if mrp is not None:
             try:
@@ -542,7 +556,27 @@ class ProductPricingUpdateView(APIView):
                 product.mrp = m
                 update_fields.append("mrp")
             except (ValueError, TypeError):
-                return Response({"success": False, "message": "Invalid mrp value."}, status=400)
+                return Response({"success": False, "message": "Invalid MRP. Must be 0 or greater."}, status=400)
+
+        if carton_price is not None:
+            try:
+                cp = float(carton_price)
+                if cp < 0:
+                    raise ValueError()
+                product.carton_price = cp
+                update_fields.append("carton_price")
+            except (ValueError, TypeError):
+                return Response({"success": False, "message": "Invalid carton price. Must be 0 or greater."}, status=400)
+
+        if discount_price is not None:
+            try:
+                dp = float(discount_price)
+                if dp < 0:
+                    raise ValueError()
+                product.discount_price = dp
+                update_fields.append("discount_price")
+            except (ValueError, TypeError):
+                return Response({"success": False, "message": "Invalid discount price. Must be 0 or greater."}, status=400)
 
         if gst is not None:
             try:
@@ -552,22 +586,40 @@ class ProductPricingUpdateView(APIView):
                 product.gst = g
                 update_fields.append("gst")
             except (ValueError, TypeError):
-                return Response({"success": False, "message": "GST must be between 0 and 100."}, status=400)
+                return Response({"success": False, "message": "GST rate must be an integer between 0 and 100."}, status=400)
+
+        if is_price_inclusive_gst is not None:
+            is_inclusive = is_price_inclusive_gst in [True, 'true', 'True', 1, '1']
+            product.is_price_inclusive_gst = is_inclusive
+            update_fields.append("is_price_inclusive_gst")
 
         if units_per_case is not None:
             try:
                 u = int(units_per_case)
-                if u > 0:
-                    product.units_per_case = u
-                    update_fields.append("units_per_case")
+                if u < 1:
+                    return Response({"success": False, "message": "Units per carton/case must be at least 1."}, status=400)
+                product.units_per_case = u
+                update_fields.append("units_per_case")
             except (ValueError, TypeError):
-                pass
+                return Response({"success": False, "message": "Invalid units per case value."}, status=400)
+
+        if unit is not None and str(unit).strip():
+            product.unit = str(unit).strip()
+            update_fields.append("unit")
+
+        if size is not None and str(size).strip():
+            product.size = str(size).strip()
+            update_fields.append("size")
+
+        if package_type is not None and str(package_type).upper() in ['BOTTLE', 'JAR']:
+            product.package_type = str(package_type).upper()
+            update_fields.append("package_type")
 
         product.save(update_fields=update_fields)
 
         return Response({
             "success": True,
-            "message": "Product pricing updated successfully.",
+            "message": "Product pricing and packaging updated successfully.",
             "product": ProductSerializer(product).data,
         })
 
@@ -607,11 +659,15 @@ class ProductStockThresholdView(APIView):
 
 class MinimumOrderPackagingRuleListCreateView(APIView):
     """
-    List active packaging rules (public/authenticated) or create a new packaging rule (Admin only).
+    List active packaging rules (public/authenticated) or create a new packaging rule.
+    - Admins can create company baseline rules and toggle franchise override permissions.
+    - Franchises can configure product MOQ overrides ONLY if enabled on the baseline by Admin,
+      and strictly >= company baseline.
     """
     def get_permissions(self):
         if self.request.method == 'POST':
-            return [IsAdminRole()]
+            from rest_framework.permissions import IsAuthenticated
+            return [IsAuthenticated()]
         return [AllowAny()]
 
     def get(self, request):
@@ -621,6 +677,7 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
         qs = MinimumOrderPackagingRule.objects.all()
         product_id = request.query_params.get('product_id')
         category_id = request.query_params.get('category_id')
+        franchise_id = request.query_params.get('franchise_id')
         channel = request.query_params.get('channel')
         is_active = request.query_params.get('is_active')
 
@@ -628,6 +685,10 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
             qs = qs.filter(product_id=product_id)
         if category_id:
             qs = qs.filter(category_id=category_id)
+        if franchise_id:
+            qs = qs.filter(franchise_id=franchise_id)
+        elif request.query_params.get('baseline_only'):
+            qs = qs.filter(franchise__isnull=True)
         if channel:
             qs = qs.filter(Q(applies_to=channel) | Q(applies_to='ALL'))
         if is_active is not None and is_active != '':
@@ -641,8 +702,78 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
         })
 
     def post(self, request):
+        from .models import MinimumOrderPackagingRule, Product
         from .serializers import MinimumOrderPackagingRuleSerializer
-        serializer = MinimumOrderPackagingRuleSerializer(data=request.data)
+
+        is_admin = False
+        if request.user.is_staff or request.user.is_superuser:
+            is_admin = True
+        elif (hasattr(request.user, 'profile') and request.user.profile.role in ['admin', 'super_admin']) or (hasattr(request.user, 'userprofile') and request.user.userprofile.role in ['admin', 'superadmin']):
+            is_admin = True
+
+        franchise_profile = getattr(request.user, 'franchise_profile', None)
+
+        if not is_admin and not franchise_profile:
+            return Response({'success': False, 'message': 'Admin or Franchise credentials required.'}, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data.copy()
+        if 'product_id' in data and 'product' not in data:
+            data['product'] = data['product_id']
+        if 'channel' in data and 'applies_to' not in data:
+            data['applies_to'] = data['channel']
+        if 'carton_pack_size' in data and 'units_per_carton' not in data:
+            data['units_per_carton'] = data['carton_pack_size']
+        if 'enforce_carton_multiples' in data and 'allow_partial_carton' not in data:
+            data['allow_partial_carton'] = not (data['enforce_carton_multiples'] in [True, 'true', 'True', 1, '1'])
+
+        # If Franchise user is creating an override:
+        if not is_admin and franchise_profile:
+            prod_id = data.get('product')
+            if not prod_id:
+                return Response({'success': False, 'message': 'A specific product is required for franchise MOQ override.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            prod = Product.objects.filter(id=prod_id).first()
+            if not prod:
+                return Response({'success': False, 'message': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Check baseline rule for this product
+            baseline = MinimumOrderPackagingRule.objects.filter(product=prod, franchise__isnull=True, is_active=True).first()
+            if not baseline:
+                cat = getattr(prod, 'category_ref', None)
+                if cat:
+                    baseline = MinimumOrderPackagingRule.objects.filter(category=cat, franchise__isnull=True, is_active=True).first()
+
+            if not baseline or not baseline.allow_franchise_override:
+                msg = f"Product '{prod.name}' does not permit franchise-level overrides by Administrator policy. Franchise overrides are disabled."
+                return Response({
+                    'success': False,
+                    'message': msg,
+                    'error': msg,
+                }, status=status.HTTP_403_FORBIDDEN)
+
+            requested_moq = int(data.get('min_order_quantity', 1))
+            if requested_moq < baseline.min_order_quantity:
+                msg = f"Franchise MOQ ({requested_moq}) cannot be lower than company minimum baseline ({baseline.min_order_quantity} {baseline.sales_unit}s)."
+                return Response({
+                    'success': False,
+                    'message': msg,
+                    'error': msg,
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            if baseline.max_franchise_moq and requested_moq > baseline.max_franchise_moq:
+                msg = f"Franchise MOQ ({requested_moq}) cannot exceed company maximum limit ({baseline.max_franchise_moq} {baseline.sales_unit}s)."
+                return Response({
+                    'success': False,
+                    'message': msg,
+                    'error': msg,
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            data['franchise'] = franchise_profile.id
+            data['allow_franchise_override'] = False
+            data['sales_unit'] = baseline.sales_unit
+            data['units_per_carton'] = baseline.units_per_carton
+
+        serializer = MinimumOrderPackagingRuleSerializer(data=data)
         if not serializer.is_valid():
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         rule = serializer.save()
@@ -654,7 +785,9 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
 
 
 class MinimumOrderPackagingRuleDetailView(APIView):
-    permission_classes = [IsAdminRole]
+    def get_permissions(self):
+        from rest_framework.permissions import IsAuthenticated
+        return [IsAuthenticated()]
 
     def get_object(self, pk):
         from .models import MinimumOrderPackagingRule
@@ -669,8 +802,40 @@ class MinimumOrderPackagingRuleDetailView(APIView):
         return self.patch(request, pk)
 
     def patch(self, request, pk):
+        from .models import MinimumOrderPackagingRule
         from .serializers import MinimumOrderPackagingRuleSerializer
         rule = self.get_object(pk)
+
+        is_admin = False
+        if request.user.is_staff or request.user.is_superuser:
+            is_admin = True
+        elif (hasattr(request.user, 'profile') and request.user.profile.role in ['admin', 'super_admin']) or (hasattr(request.user, 'userprofile') and request.user.userprofile.role in ['admin', 'superadmin']):
+            is_admin = True
+
+        franchise_profile = getattr(request.user, 'franchise_profile', None)
+
+        if not is_admin:
+            if not franchise_profile or rule.franchise != franchise_profile:
+                return Response({'success': False, 'message': 'You do not have permission to modify this rule.'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Franchise editing their override: check baseline bounds
+            baseline = MinimumOrderPackagingRule.objects.filter(product=rule.product, franchise__isnull=True, is_active=True).first()
+            if baseline and not baseline.allow_franchise_override:
+                return Response({'success': False, 'message': 'Franchise overrides are disabled for this product.'}, status=status.HTTP_403_FORBIDDEN)
+
+            if 'min_order_quantity' in request.data and baseline:
+                req_qty = int(request.data['min_order_quantity'])
+                if req_qty < baseline.min_order_quantity:
+                    return Response({
+                        'success': False,
+                        'message': f"Franchise MOQ cannot be lower than company baseline ({baseline.min_order_quantity})."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                if baseline.max_franchise_moq and req_qty > baseline.max_franchise_moq:
+                    return Response({
+                        'success': False,
+                        'message': f"Franchise MOQ cannot exceed company maximum limit ({baseline.max_franchise_moq})."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = MinimumOrderPackagingRuleSerializer(rule, data=request.data, partial=True)
         if not serializer.is_valid():
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
@@ -683,6 +848,19 @@ class MinimumOrderPackagingRuleDetailView(APIView):
 
     def delete(self, request, pk):
         rule = self.get_object(pk)
+
+        is_admin = False
+        if request.user.is_staff or request.user.is_superuser:
+            is_admin = True
+        elif (hasattr(request.user, 'profile') and request.user.profile.role in ['admin', 'super_admin']) or (hasattr(request.user, 'userprofile') and request.user.userprofile.role in ['admin', 'superadmin']):
+            is_admin = True
+
+        franchise_profile = getattr(request.user, 'franchise_profile', None)
+
+        if not is_admin:
+            if not franchise_profile or rule.franchise != franchise_profile:
+                return Response({'success': False, 'message': 'You do not have permission to delete this rule.'}, status=status.HTTP_403_FORBIDDEN)
+
         name = rule.name
         rule.delete()
         return Response({

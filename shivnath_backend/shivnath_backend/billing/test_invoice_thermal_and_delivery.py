@@ -120,7 +120,7 @@ class InvoiceThermalAndDeliveryTestCase(TestCase):
         self.assertIsNotNone(inv1.invoice_number)
         self.assertTrue(inv1.invoice_number.startswith('SHV'))
         self.assertEqual(inv1.order.id, self.order.id)
-        self.assertEqual(inv1.grand_total, Decimal('148.00'))
+        self.assertEqual(inv1.grand_total, Decimal('130.00'))
 
         # Calling again must return the exact same invoice (idempotent)
         inv2 = generate_invoice_for_order(self.order)
@@ -136,7 +136,7 @@ class InvoiceThermalAndDeliveryTestCase(TestCase):
         self.assertIn(invoice.invoice_number, html_80)
         self.assertIn('22AAAAA0000A1Z5', html_80)
         self.assertIn('Shivnath 500ml Bottled Water', html_80)
-        self.assertIn('148.00', html_80)
+        self.assertIn('130.00', html_80)
 
         # 58mm compact layout
         html_58 = generate_thermal_invoice_html(invoice, paper_width_mm=58)

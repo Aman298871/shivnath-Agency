@@ -443,6 +443,10 @@ class ServiceDistrict(models.Model):
         return f"{self.name}, {self.state}"
 
 
+# Backward compatibility alias
+CityDistrict = ServiceDistrict
+
+
 class ServiceZone(models.Model):
     district = models.ForeignKey(
         ServiceDistrict,
@@ -451,6 +455,22 @@ class ServiceZone(models.Model):
     )
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=50, unique=True)
+    fulfilment_hub = models.ForeignKey(
+        'billing.DeliveryOriginSetting',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_zones',
+        help_text="Designated fulfilment warehouse/hub for this zone."
+    )
+    delivery_pricing_rule = models.ForeignKey(
+        'billing.DeliveryDistanceBand',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_zones',
+        help_text="Applicable delivery pricing rule/band."
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -475,6 +495,8 @@ class ServiceArea(models.Model):
     )
     pincode = models.CharField(max_length=10, db_index=True)
     locality_name = models.CharField(max_length=150)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

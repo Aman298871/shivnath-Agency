@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/widgets/ai_chatbot_modal.dart';
 import '../../core/widgets/support_desk_modal.dart';
+import 'products/franchise_moq_dialog.dart';
 
 class FranchiseSettingsScreen extends StatefulWidget {
   const FranchiseSettingsScreen({super.key});
@@ -163,7 +164,8 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
 
                       Future.delayed(const Duration(milliseconds: 700), () {
                         if (!mounted) return;
-                        Navigator.pop(ctx);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Row(
@@ -563,6 +565,37 @@ class _FranchiseSettingsScreenState extends State<FranchiseSettingsScreen> {
                           onChanged: (value) {
                             setState(() => offerNotifications = value);
                           },
+                        ),
+                      ],
+                    ),
+
+                    _section(
+                      'Order Rules & Packaging (MOQ)',
+                      Icons.inventory_2_outlined,
+                      [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const CircleAvatar(
+                            backgroundColor: Color(0xFFEFF6FF),
+                            child: Icon(
+                              Icons.tune_rounded,
+                              color: Color(0xFF0284C7),
+                              size: 20,
+                            ),
+                          ),
+                          title: const Text(
+                            'Minimum Order & Packaging Rules',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Inspect head-office MOQ thresholds, carton limits, and branch overrides',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => FranchiseMoqDialog.show(context),
                         ),
                       ],
                     ),

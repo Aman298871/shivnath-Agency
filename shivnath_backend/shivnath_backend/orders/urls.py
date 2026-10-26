@@ -30,8 +30,11 @@ from .wallet_views import (
 )
 
 
+from billing.views import CustomerOutstandingBreakdownAPIView
+
 urlpatterns = [
     path('', OrderListCreateView.as_view()),
+    path('customer-outstanding/', CustomerOutstandingBreakdownAPIView.as_view(), name='orders-customer-outstanding'),
     path('bulk/', CustomerBulkOrderView.as_view(), name='bulk-orders'),
     path('custom-requests/', CustomBrandedOrderRequestView.as_view(), name='custom-branded-requests'),
     path('custom-requests/<int:request_id>/quotations/', CustomOrderQuotationManageView.as_view(), name='custom-order-quotations'),

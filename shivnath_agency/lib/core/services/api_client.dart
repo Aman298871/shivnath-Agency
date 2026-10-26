@@ -1,32 +1,71 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'session_service.dart';
 
 /// Central API Client with pretty console logging for all HTTP requests,
 /// responses, status codes, headers, and formatted JSON bodies.
 class ApiClient {
   ApiClient._();
 
+  static const Duration defaultTimeout = Duration(seconds: 15);
   static final http.Client client = _LoggingClient();
 
+  static Future<http.Response> _executeWithRetry(
+    Future<http.Response> Function(Map<String, String>? headers) action,
+    Uri url,
+    Map<String, String>? headers,
+  ) async {
+    final res = await action(headers);
+    final isAuthUrl = url.path.contains('/auth/login') ||
+        url.path.contains('/auth/refresh') ||
+        url.path.contains('/auth/register');
+
+    if (res.statusCode == 401 &&
+        !isAuthUrl &&
+        headers != null &&
+        headers.containsKey('Authorization')) {
+      final newToken = await SessionService().refreshAccessToken();
+      if (newToken != null && newToken.isNotEmpty) {
+        final newHeaders = Map<String, String>.from(headers);
+        newHeaders['Authorization'] = 'Bearer $newToken';
+        return await action(newHeaders);
+      }
+    }
+    return res;
+  }
+
   static Future<http.Response> get(Uri url, {Map<String, String>? headers}) =>
-      client.get(url, headers: headers);
+      _executeWithRetry((h) => client.get(url, headers: h), url, headers);
 
   static Future<http.Response> post(Uri url,
           {Map<String, String>? headers, Object? body, Encoding? encoding}) =>
-      client.post(url, headers: headers, body: body, encoding: encoding);
+      _executeWithRetry(
+          (h) => client.post(url, headers: h, body: body, encoding: encoding),
+          url,
+          headers);
 
   static Future<http.Response> put(Uri url,
           {Map<String, String>? headers, Object? body, Encoding? encoding}) =>
-      client.put(url, headers: headers, body: body, encoding: encoding);
+      _executeWithRetry(
+          (h) => client.put(url, headers: h, body: body, encoding: encoding),
+          url,
+          headers);
 
   static Future<http.Response> patch(Uri url,
           {Map<String, String>? headers, Object? body, Encoding? encoding}) =>
-      client.patch(url, headers: headers, body: body, encoding: encoding);
+      _executeWithRetry(
+          (h) => client.patch(url, headers: h, body: body, encoding: encoding),
+          url,
+          headers);
 
   static Future<http.Response> delete(Uri url,
           {Map<String, String>? headers, Object? body, Encoding? encoding}) =>
-      client.delete(url, headers: headers, body: body, encoding: encoding);
+      _executeWithRetry(
+          (h) => client.delete(url, headers: h, body: body, encoding: encoding),
+          url,
+          headers);
 
   static Future<http.Response> head(Uri url, {Map<String, String>? headers}) =>
       client.head(url, headers: headers);
@@ -41,15 +80,16 @@ class _LoggingClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    const timeout = ApiClient.defaultTimeout;
     if (!kDebugMode) {
-      return _inner.send(request);
+      return _inner.send(request).timeout(timeout);
     }
 
     final stopwatch = Stopwatch()..start();
     _logRequest(request);
 
     try {
-      final streamedResponse = await _inner.send(request);
+      final streamedResponse = await _inner.send(request).timeout(timeout);
       final responseData = await streamedResponse.stream.toBytes();
       stopwatch.stop();
 

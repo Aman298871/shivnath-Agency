@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'franchise_moq_dialog.dart';
+
 import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/repositories/product_repository.dart';
 import '../../../core/utils/app_toast.dart';
@@ -129,6 +131,11 @@ class _FranchiseProductsScreenState
                   title: const Text('Company Catalog'),
                   actions: [
                     IconButton(
+                      tooltip: 'Order Rules & MOQ',
+                      icon: const Icon(Icons.tune_rounded),
+                      onPressed: () => FranchiseMoqDialog.show(context),
+                    ),
+                    IconButton(
                       tooltip: 'Refresh Products',
                       icon: const Icon(Icons.refresh_rounded),
                       onPressed: () => _fetchProducts(),
@@ -166,6 +173,18 @@ class _FranchiseProductsScreenState
                         ),
                       ),
                       const SizedBox(width: 16),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF0284C7)),
+                          foregroundColor: const Color(0xFF0284C7),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => FranchiseMoqDialog.show(context),
+                        icon: const Icon(Icons.tune_rounded, size: 18),
+                        label: const Text('Order Rules & MOQ', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                      const SizedBox(width: 10),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0284C7),

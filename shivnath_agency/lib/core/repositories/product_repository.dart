@@ -62,6 +62,10 @@ class ProductRepository {
     return await _productService.updateProduct(id, data);
   }
 
+  Future<Map<String, dynamic>> updateProductPricing(int id, Map<String, dynamic> data) async {
+    return await _productService.updateProductPricing(id, data);
+  }
+
   Future<Map<String, dynamic>> deleteProduct(int id) async {
     return await _productService.deleteProduct(id);
   }

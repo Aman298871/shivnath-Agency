@@ -18,6 +18,7 @@ import 'franchises/admin_franchises_screen.dart';
 import 'inventory/admin_stock_management_screen.dart';
 import 'inventory/central_plant_inventory_screen.dart';
 import 'inventory/dealer_stock_request_fulfillment_screen.dart';
+import 'products/admin_products_screen.dart';
 import 'products/bom_recipe_screen.dart';
 import 'suppliers/admin_suppliers_screen.dart';
 import 'orders/admin_orders_screen.dart';
@@ -507,7 +508,12 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       ),
       const _AdminMenuItem(
         index: 5,
-        title: 'BOM & Pricing Master',
+        title: 'Products & Packaging MOQ',
+        icon: Icons.inventory_2_outlined,
+      ),
+      const _AdminMenuItem(
+        index: 22,
+        title: 'BOM & Recipe Master',
         icon: Icons.science_outlined,
       ),
       const _AdminMenuItem(
@@ -588,7 +594,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
 
   Widget _currentScreen() {
     final isStockManager = _currentUser?.isStockManager == true;
-    if (isStockManager && ![4, 21, 5, 15, 16].contains(currentIndex)) {
+    if (isStockManager && ![4, 21, 5, 15, 16, 22].contains(currentIndex)) {
       return CentralPlantInventoryScreen(highlightBatchNumber: _targetBatchNumber);
     }
     switch (currentIndex) {
@@ -632,6 +638,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         return CentralPlantInventoryScreen(highlightBatchNumber: _targetBatchNumber);
 
       case 5:
+        return const AdminProductsScreen();
+
+      case 22:
         return const BomRecipeScreen();
 
       case 6:

@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/session_service.dart';
 import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
@@ -23,9 +25,18 @@ class FranchiseApprovalGuard extends StatefulWidget {
 
 class _FranchiseApprovalGuardState extends State<FranchiseApprovalGuard> {
   bool _isChecking = false;
+  bool _isLoggingOut = false;
 
   Future<void> _logout() async {
-    await SessionService().logout();
+    if (_isLoggingOut) return;
+    setState(() => _isLoggingOut = true);
+    try {
+      if (mounted) {
+        await context.read<AuthProvider>().logout();
+      }
+    } catch (_) {
+      await SessionService().logout();
+    }
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(
       context,

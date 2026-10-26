@@ -16,9 +16,20 @@ class ProductModel {
   final String packageType;
   final int unitsPerCase;
   final double dealerTransferPrice;
+  final double mrp;
+  final int gst;
+  final bool isPriceInclusiveGst;
+  final double cartonPrice;
+  final double discountPrice;
 
   final int? categoryRefId;
   final String? categoryHierarchy;
+
+  double get effectivePrice =>
+      (discountPrice > 0 && discountPrice < price) ? discountPrice : price;
+
+  double get calculatedCartonPrice =>
+      cartonPrice > 0 ? cartonPrice : (effectivePrice * unitsPerCase);
 
   const ProductModel({
     required this.id,
@@ -38,6 +49,11 @@ class ProductModel {
     this.packageType = 'BOTTLE',
     this.unitsPerCase = 1,
     this.dealerTransferPrice = 0.0,
+    this.mrp = 0.0,
+    this.gst = 18,
+    this.isPriceInclusiveGst = true,
+    this.cartonPrice = 0.0,
+    this.discountPrice = 0.0,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -91,8 +107,6 @@ class ProductModel {
       final nLower = parsedName.toLowerCase();
       if (sLower.contains('1l') || sLower.contains('1 l') || sLower.contains('1000') || nLower.contains('1 litre') || nLower.contains('1l')) {
         defaultUpc = 12;
-      } else if (sLower.contains('2l') || sLower.contains('2 l') || nLower.contains('2 litre')) {
-        defaultUpc = 9;
       } else {
         defaultUpc = 24;
       }
@@ -119,6 +133,14 @@ class ProductModel {
       unitsPerCase: parsedUpc > 0 ? parsedUpc : 1,
       dealerTransferPrice: double.tryParse(json["dealer_transfer_price"]?.toString() ?? "") ??
           (double.tryParse(json["price"]?.toString() ?? "0") ?? 0.0),
+      mrp: double.tryParse(json["mrp"]?.toString() ?? "") ??
+          (double.tryParse(json["price"]?.toString() ?? "0") ?? 0.0),
+      gst: int.tryParse(json["gst"]?.toString() ?? json["gst_rate"]?.toString() ?? "") ?? 18,
+      isPriceInclusiveGst: json["is_price_inclusive_gst"] is bool
+          ? json["is_price_inclusive_gst"] as bool
+          : (json["is_price_inclusive_gst"]?.toString().toLowerCase() != 'false'),
+      cartonPrice: double.tryParse(json["carton_price"]?.toString() ?? "") ?? 0.0,
+      discountPrice: double.tryParse(json["discount_price"]?.toString() ?? "") ?? 0.0,
     );
   }
 
@@ -138,6 +160,12 @@ class ProductModel {
       "package_type": packageType,
       "units_per_case": unitsPerCase,
       "dealer_transfer_price": dealerTransferPrice,
+      "mrp": mrp,
+      "gst": gst,
+      "is_price_inclusive_gst": isPriceInclusiveGst,
+      "carton_price": cartonPrice,
+      "discount_price": discountPrice,
+      "effective_price": effectivePrice,
     };
   }
 
@@ -164,19 +192,13 @@ class ProductModel {
       return 'assets/images/products/shv_20l.jpg';
     }
 
-    // 2L / 1L Bottles
-    if (s.contains('BOT-2000') ||
-        sz.contains('2l') ||
-        sz.contains('2 l') ||
-        nm.contains('2 litre') ||
-        nm.contains('2l') ||
-        s.contains('SHV-1L') ||
+    // 1L Bottles
+    if (s.contains('SHV-1L') ||
         s.contains('1000') ||
         sz.contains('1l') ||
         sz.contains('1 l') ||
         nm.contains('1 litre') ||
-        nm.contains('1l') ||
-        nm.contains('pure 2l')) {
+        nm.contains('1l')) {
       return 'assets/images/products/shv_1l.jpg';
     }
 

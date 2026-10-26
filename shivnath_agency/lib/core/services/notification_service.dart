@@ -24,24 +24,45 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     'FCM [Background]: Message received ID: ${message.messageId}, Title: ${message.notification?.title}',
   );
 
-  // Security Guard: Check stored role in SharedPreferences to prevent admin notifications to customer
+  // Security Guard: Check stored role in SharedPreferences to prevent cross-role contamination
   try {
     final prefs = await SharedPreferences.getInstance();
-    final role = (prefs.getString(AppConstants.selectedRoleKey) ?? '').toLowerCase();
+    String role = (prefs.getString(AppConstants.selectedRoleKey) ?? '').toLowerCase();
+    if (role.isEmpty) {
+      final userRaw = prefs.getString(AppConstants.userSessionKey);
+      if (userRaw != null && userRaw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(userRaw);
+          if (decoded is Map && decoded['role'] != null) {
+            role = decoded['role'].toString().toLowerCase();
+          }
+        } catch (_) {}
+      }
+    }
 
     final screen = (message.data['screen'] ?? '').toString().toLowerCase();
     final notifType = (message.data['notification_type'] ?? message.data['event_type'] ?? '').toString().toLowerCase();
     final targetRole = (message.data['recipient_role'] ?? message.data['role'] ?? '').toString().toLowerCase();
 
-    final isAdminAlert = screen.contains('admin') ||
-        notifType.contains('admin') ||
-        targetRole.contains('admin') ||
-        (notifType == 'customer_order' && screen.contains('admin')) ||
-        (message.data['event_type'] == 'customer_order');
+    final isExplicitAdmin = targetRole.contains('admin') || screen.startsWith('admin') || notifType.startsWith('admin');
+    final isExplicitFranchise = targetRole.contains('franchise') || screen.startsWith('franchise') || notifType.startsWith('franchise');
+    final isExplicitCustomer = targetRole.contains('customer') || screen.startsWith('customer') || notifType.startsWith('customer');
 
-    if (isAdminAlert && role != 'admin' && role != 'super_admin') {
-      debugPrint('FCM [Background]: Suppressing admin alert for non-admin role ($role).');
-      return;
+    if (isExplicitAdmin && !isExplicitFranchise && !isExplicitCustomer) {
+      if (role.isNotEmpty && role != 'admin' && role != 'super_admin') {
+        debugPrint('FCM [Background]: Suppressing admin alert for non-admin role ($role).');
+        return;
+      }
+    } else if (isExplicitFranchise && !isExplicitAdmin && !isExplicitCustomer) {
+      if (role.isNotEmpty && role != 'franchise' && role != 'dealer') {
+        debugPrint('FCM [Background]: Suppressing franchise alert for non-franchise role ($role).');
+        return;
+      }
+    } else if (isExplicitCustomer && !isExplicitAdmin && !isExplicitFranchise) {
+      if (role.isNotEmpty && role != 'customer') {
+        debugPrint('FCM [Background]: Suppressing customer alert for non-customer role ($role).');
+        return;
+      }
     }
   } catch (e) {
     debugPrint('FCM [Background]: Role check error: $e');
@@ -259,30 +280,35 @@ class NotificationService {
     // Security Guard: Role-check against current authenticated session
     final session = SessionService();
     final user = await session.getUser();
-    final userRole = (user?.role ?? '').toLowerCase();
+    String userRole = (user?.role ?? '').toLowerCase();
+    if (userRole.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      userRole = (prefs.getString(AppConstants.selectedRoleKey) ?? '').toLowerCase();
+    }
 
     final screen = (message.data['screen'] ?? '').toString().toLowerCase();
     final notifType = (message.data['notification_type'] ?? message.data['event_type'] ?? '').toString().toLowerCase();
     final targetRole = (message.data['recipient_role'] ?? message.data['role'] ?? '').toString().toLowerCase();
 
-    final isAdminAlert = screen.contains('admin') ||
-        notifType.contains('admin') ||
-        targetRole.contains('admin') ||
-        (notifType == 'customer_order' && screen.contains('admin')) ||
-        (message.data['event_type'] == 'customer_order');
+    final isExplicitAdmin = targetRole.contains('admin') || screen.startsWith('admin') || notifType.startsWith('admin');
+    final isExplicitFranchise = targetRole.contains('franchise') || screen.startsWith('franchise') || notifType.startsWith('franchise');
+    final isExplicitCustomer = targetRole.contains('customer') || screen.startsWith('customer') || notifType.startsWith('customer');
 
-    if (isAdminAlert && userRole != 'admin' && userRole != 'super_admin') {
-      debugPrint('FCM: Suppressing Admin alert for non-admin user (role: $userRole, event: $notifType).');
-      return;
-    }
-
-    final isFranchiseAlert = screen.contains('franchise') ||
-        notifType.contains('franchise') ||
-        targetRole.contains('franchise');
-
-    if (isFranchiseAlert && userRole != 'franchise' && userRole != 'dealer') {
-      debugPrint('FCM: Suppressing Franchise alert for non-franchise user (role: $userRole, event: $notifType).');
-      return;
+    if (isExplicitAdmin && !isExplicitFranchise && !isExplicitCustomer) {
+      if (userRole.isNotEmpty && userRole != 'admin' && userRole != 'super_admin') {
+        debugPrint('FCM: Suppressing Admin alert for non-admin user (role: $userRole, event: $notifType).');
+        return;
+      }
+    } else if (isExplicitFranchise && !isExplicitAdmin && !isExplicitCustomer) {
+      if (userRole.isNotEmpty && userRole != 'franchise' && userRole != 'dealer') {
+        debugPrint('FCM: Suppressing Franchise alert for non-franchise user (role: $userRole, event: $notifType).');
+        return;
+      }
+    } else if (isExplicitCustomer && !isExplicitAdmin && !isExplicitFranchise) {
+      if (userRole.isNotEmpty && userRole != 'customer') {
+        debugPrint('FCM: Suppressing Customer alert for non-customer user (role: $userRole, event: $notifType).');
+        return;
+      }
     }
 
     final title =

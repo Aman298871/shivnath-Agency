@@ -49,9 +49,28 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
 
     try {
       final invRepository = InventoryRepository();
+      final prodRepo = ProductRepository();
+
+      final results = await Future.wait([
+        invRepository
+            .getFranchiseRawMaterials()
+            .catchError((e) => <String, dynamic>{'success': false, 'message': '$e'}),
+        invRepository
+            .getFranchiseTransactions()
+            .catchError((e) => <String, dynamic>{'success': false, 'message': '$e'}),
+        invRepository
+            .getFranchiseProductionLogs()
+            .catchError((e) => <String, dynamic>{'success': false, 'message': '$e'}),
+        prodRepo
+            .getProducts()
+            .catchError((e) => <String, dynamic>{'success': false, 'message': '$e'}),
+      ]);
+
+      final rawRes = results[0];
+      final txRes = results[1];
+      final prodRes = results[2];
 
       // Fetch raw materials stock
-      final rawRes = await invRepository.getFranchiseRawMaterials();
       if (rawRes['success'] == true && rawRes['data'] is List) {
         _rawMaterials = List<Map<String, dynamic>>.from(rawRes['data']);
       } else if (rawRes['data'] is Map && rawRes['data']['results'] is List) {
@@ -61,7 +80,6 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       }
 
       // Fetch transactions
-      final txRes = await invRepository.getFranchiseTransactions();
       if (txRes['success'] == true && txRes['data'] is List) {
         _transactions = List<Map<String, dynamic>>.from(txRes['data']);
       } else if (txRes['data'] is Map && txRes['data']['results'] is List) {
@@ -71,7 +89,6 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       }
 
       // Fetch production logs
-      final prodRes = await invRepository.getFranchiseProductionLogs();
       if (prodRes['success'] == true && prodRes['data'] is List) {
         _productionLogs = List<Map<String, dynamic>>.from(prodRes['data']);
       } else if (prodRes['data'] is Map && prodRes['data']['results'] is List) {
@@ -81,13 +98,12 @@ class _FranchiseInventoryScreenState extends State<FranchiseInventoryScreen>
       }
 
       // Fetch finished products
-      await ProductRepository().getProducts();
       _finishedProducts = ProductRepository.cachedProducts;
     } catch (e) {
       _error = 'Failed to load inventory data. Please check your connection.';
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-
-    if (mounted) setState(() => _loading = false);
   }
 
   @override

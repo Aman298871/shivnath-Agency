@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/thermal_bill_preview_modal.dart';
 import 'delivery_pricing_dialog.dart';
 
 int _asInt(dynamic val) {
@@ -533,10 +535,20 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
           ),
           Expanded(child: _badge(invoice['status'].toString())),
           SizedBox(
-            width: 200,
+            width: 240,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  tooltip: 'Print Bill',
+                  onPressed: () {
+                    _printOrDownloadInvoice(invoice, isPrint: true);
+                  },
+                  icon: const Icon(Icons.print_outlined, size: 18, color: Color(0xFF0284C7)),
+                ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.all(4),
@@ -670,6 +682,13 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                 spacing: 7,
                 runSpacing: 7,
                 children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      _printOrDownloadInvoice(invoice, isPrint: true);
+                    },
+                    icon: const Icon(Icons.print_outlined, size: 16),
+                    label: const Text('Print Bill'),
+                  ),
                   OutlinedButton.icon(
                     onPressed: () {
                       _viewInvoice(invoice);
@@ -1728,7 +1747,14 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
             ),
           ),
           actions: [
-            if (invoice['id'] != null)
+            if (invoice['id'] != null) ...[
+              OutlinedButton.icon(
+                onPressed: () {
+                  _printOrDownloadInvoice(invoice, isPrint: true);
+                },
+                icon: const Icon(Icons.print_outlined, size: 16),
+                label: const Text('Print Bill'),
+              ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0284C7),
@@ -1743,6 +1769,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                 icon: const Icon(Icons.download_rounded, size: 16),
                 label: const Text('Download PDF'),
               ),
+            ],
             TextButton(
               onPressed: () {
                 Navigator.pop(dialogContext);
@@ -1755,9 +1782,26 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
     );
   }
 
-  Future<void> _downloadInvoicePdf(int invId, String invoiceNumber) async {
+  Future<void> _printOrDownloadInvoice(Map<String, dynamic> invoice, {bool isPrint = false}) async {
+    final invId = int.tryParse(invoice['id']?.toString() ?? '');
+    if (invId == null) {
+      AppToast.error(context, 'Invalid invoice identifier.', title: 'Error');
+      return;
+    }
+    if (isPrint) {
+      ThermalBillPreviewModal.show(
+        context,
+        invoiceData: invoice,
+        invoiceId: invId,
+      );
+      return;
+    }
+    await _downloadInvoicePdf(invId, invoice['invoice']?.toString() ?? 'Invoice', isPrint: false);
+  }
+
+  Future<void> _downloadInvoicePdf(int invId, String invoiceNumber, {bool isPrint = false}) async {
     try {
-      AppToast.info(context, 'Downloading official PDF invoice...', title: 'Invoice Download');
+      AppToast.info(context, isPrint ? 'Preparing invoice for printing...' : 'Downloading official PDF invoice...', title: isPrint ? 'Print Bill' : 'Invoice Download');
       final token = await SessionService().getAccessToken();
       final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/invoices/$invId/download/');
       final res = await http.get(
@@ -1765,16 +1809,36 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
         headers: {
           if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
         },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Invoice download request timed out after 10s'),
       );
       if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
-        final dir = await getTemporaryDirectory();
-        final safeName = invoiceNumber.replaceAll(RegExp(r'[\\/*?:"<>|]'), '_');
-        final file = File('${dir.path}/Invoice_$safeName.pdf');
-        await file.writeAsBytes(res.bodyBytes, flush: true);
-        if (mounted) {
-          AppToast.success(context, 'Invoice downloaded successfully.', title: 'PDF Ready');
+        Directory targetDir;
+        if (Platform.isAndroid) {
+          final publicDownloadDir = Directory('/storage/emulated/0/Download');
+          if (publicDownloadDir.existsSync()) {
+            targetDir = publicDownloadDir;
+          } else {
+            final ext = await getExternalStorageDirectory();
+            targetDir = ext ?? await getApplicationDocumentsDirectory();
+          }
+        } else {
+          targetDir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
         }
-        await OpenFilex.open(file.path);
+
+        final safeName = invoiceNumber.replaceAll(RegExp(r'[\\/*?:"<>|]'), '_');
+        final file = File('${targetDir.path}/Invoice_$safeName.pdf');
+        await file.writeAsBytes(res.bodyBytes, flush: true);
+
+        if (mounted) {
+          AppToast.success(context, 'Invoice saved to ${targetDir.path.split('/').last}.', title: isPrint ? 'Print Ready' : 'PDF Saved');
+        }
+
+        final openRes = await OpenFilex.open(file.path);
+        if (openRes.type != ResultType.done) {
+          await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'WATER WALA Invoice: $invoiceNumber'));
+        }
       } else {
         if (mounted) {
           AppToast.error(context, 'Failed to download invoice (HTTP ${res.statusCode}).', title: 'Download Failed');
@@ -1782,7 +1846,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, 'Error opening invoice PDF: $e', title: 'Error');
+        AppToast.error(context, 'Error processing invoice: $e', title: 'Error');
       }
     }
   }

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/providers/order_provider.dart';
 import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/customer_outstanding_breakdown_modal.dart';
 import 'order_detail_screen.dart';
 
 class CustomerOrdersScreen extends StatefulWidget {
@@ -84,6 +85,11 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7)),
+            tooltip: 'Outstanding Bills & Help',
+            onPressed: () => CustomerOutstandingBreakdownModal.show(context),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadOrders,
@@ -236,12 +242,76 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   }
 
   Widget _orderList(BuildContext context) {
+    final hasPendingPayments = orders.any((o) {
+      final p = (o['payment_status'] ?? o['payment'] ?? '').toString().toLowerCase();
+      final s = (o['status'] ?? '').toString().toLowerCase();
+      return p != 'paid' && s != 'cancelled';
+    });
+
+    final itemCount = orders.length + (hasPendingPayments ? 1 : 0);
+
     return ListView.separated(
       padding: const EdgeInsets.all(18),
-      itemCount: orders.length,
+      itemCount: itemCount,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final order = orders[index];
+        if (hasPendingPayments && index == 0) {
+          return InkWell(
+            onTap: () => CustomerOutstandingBreakdownModal.show(context),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFBAE6FD)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.receipt_long_rounded,
+                      color: Color(0xFF0284C7),
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Payment Breakdown & Support Help',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0369A1),
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'View itemized dues, collector routing (Franchise vs Admin), and contacts.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF0284C7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF0284C7)),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final order = orders[hasPendingPayments ? index - 1 : index];
         final orderCode = order['orderId']?.toString() ?? 'ORD-${order['id']}';
         final displayCode = orderCode.startsWith('#') ? orderCode : '#$orderCode';
         final amount = '₹${order['amount']}';
@@ -296,8 +366,15 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      AppStatusBadge.order(status),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.end,
+                        children: [
+                          AppStatusBadge.order(status),
+                          AppStatusBadge.payment(order['payment_status']?.toString() ?? order['payment']?.toString() ?? 'Pending'),
+                        ],
+                      ),
                     ],
                   ),
                   if (franchise.isNotEmpty) ...[
@@ -308,50 +385,71 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                  const SizedBox(height: 8),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
                   const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
                     children: [
-                      if (order['invoice_number'] != null && order['invoice_number'].toString().isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      // Direct Bill / Invoice Button
+                      InkWell(
+                        onTap: () => _openOrder(context, order),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFBAE6FD)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.receipt_rounded, size: 12, color: Color(0xFF0284C7)),
+                              const Icon(Icons.receipt_long_rounded, size: 14, color: Color(0xFF0369A1)),
                               const SizedBox(width: 4),
                               Text(
-                                'Inv: ${order['invoice_number']}',
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                                (order['invoice_number'] != null && order['invoice_number'].toString().isNotEmpty)
+                                    ? 'Bill: ${order['invoice_number']}'
+                                    : 'View Bill / Invoice',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0369A1),
+                                ),
                               ),
                             ],
                           ),
-                        )
-                      else
-                        const SizedBox.shrink(),
-                      const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'View Invoice & Details',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF0284C7),
-                            ),
+                        ),
+                      ),
+                      // View Full Order Details
+                      InkWell(
+                        onTap: () => _openOrder(context, order),
+                        borderRadius: BorderRadius.circular(6),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Order Details',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              SizedBox(width: 2),
+                              Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 10,
+                                color: Color(0xFF64748B),
+                              ),
+                            ],
                           ),
-                          SizedBox(width: 2),
-                          Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            size: 10,
-                            color: Color(0xFF0284C7),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -531,14 +629,33 @@ class _DesktopOrderRow extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
-
-            const SizedBox(
-              width: 18,
+            const SizedBox(width: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0F2FE),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFBAE6FD)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.receipt_long_rounded, size: 13, color: Color(0xFF0369A1)),
+                  SizedBox(width: 4),
+                  Text(
+                    'Bill',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0369A1),
+                    ),
+                  ),
+                ],
+              ),
             ),
-
+            const SizedBox(width: 10),
             const Icon(
-              Icons
-                  .chevron_right_rounded,
+              Icons.chevron_right_rounded,
             ),
           ],
         ),

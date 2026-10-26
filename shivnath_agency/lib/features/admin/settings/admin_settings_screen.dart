@@ -1,5 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../../../core/constants/app_constants.dart';
+import '../../../core/services/session_service.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../billing/delivery_pricing_dialog.dart';
+import '../products/packaging_rules_dialog.dart';
 
 class AdminSettingsScreen extends StatefulWidget {
   const AdminSettingsScreen({super.key});
@@ -11,11 +17,11 @@ class AdminSettingsScreen extends StatefulWidget {
 class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   String activeTab = 'Business';
 
-  final businessName = TextEditingController(text: 'Pure Water Industries');
+  final businessName = TextEditingController(text: 'Shivnath Agencies');
   final phone = TextEditingController(text: '9876543210');
-  final email = TextEditingController(text: 'admin@purewater.com');
-  final gst = TextEditingController(text: '22ABCDE1234F1Z5');
-  final invoicePrefix = TextEditingController(text: 'INV');
+  final email = TextEditingController(text: 'admin@shivnathagency.in');
+  final gst = TextEditingController(text: '22AQNPK7620D1Z3');
+  final invoicePrefix = TextEditingController(text: 'SHV/2026/');
   final orderPrefix = TextEditingController(text: 'ORD');
   final address = TextEditingController(text: 'Raipur, Chhattisgarh');
 
@@ -25,11 +31,62 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   bool newOrder = true;
   bool franchiseRenewal = true;
   final defaultGstController = TextEditingController(text: '18');
+  bool isPriceInclusiveGst = false;
+  bool isDeliveryTaxable = true;
+  bool _isSavingSettings = false;
 
   final lowStockPercentController = TextEditingController(text: '20');
 
   String creditPeriod = '7 Days';
   String currency = 'INR - Indian Rupee';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCompanyBillingProfile();
+  }
+
+  Future<void> _fetchCompanyBillingProfile() async {
+    try {
+      final token = await SessionService().getAccessToken();
+      final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/company-profile/');
+      final res = await http.get(
+        uri,
+        headers: {
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (mounted) {
+          setState(() {
+            if (data['default_gst_rate'] != null) {
+              final r = double.tryParse(data['default_gst_rate'].toString()) ?? 18.0;
+              defaultGstController.text = (r == r.truncateToDouble()) ? r.toInt().toString() : r.toString();
+            }
+            if (data['is_price_inclusive_gst'] != null) {
+              isPriceInclusiveGst = data['is_price_inclusive_gst'] == true;
+            }
+            if (data['is_delivery_taxable'] != null) {
+              isDeliveryTaxable = data['is_delivery_taxable'] != false;
+            }
+            if (data['trade_name'] != null && data['trade_name'].toString().isNotEmpty) {
+              businessName.text = data['trade_name'].toString();
+            }
+            if (data['gstin'] != null && data['gstin'].toString().isNotEmpty) {
+              gst.text = data['gstin'].toString();
+            }
+            if (data['invoice_prefix'] != null && data['invoice_prefix'].toString().isNotEmpty) {
+              invoicePrefix.text = data['invoice_prefix'].toString();
+            }
+          });
+        }
+      }
+    } catch (_) {
+      // Keep defaults on timeout or offline
+    }
+  }
 
   String lastBackup = 'No backup created yet';
 
@@ -1267,6 +1324,39 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             ),
           ]),
 
+          const SizedBox(height: 16),
+
+          // GST Mode Switches
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
+            ),
+            child: Column(
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('GST-Inclusive Catalog Prices', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  subtitle: const Text('When enabled, listed product prices already include GST and tax is extracted rather than added on top.', style: TextStyle(fontSize: 11)),
+                  value: isPriceInclusiveGst,
+                  onChanged: (val) => setState(() => isPriceInclusiveGst = val),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Taxable Delivery Charges', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  subtitle: const Text('When enabled, delivery fees are included in the taxable base under GST composite supply rules.', style: TextStyle(fontSize: 11)),
+                  value: isDeliveryTaxable,
+                  onChanged: (val) => setState(() => isDeliveryTaxable = val),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 20),
 
           Container(
@@ -1292,6 +1382,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                   '${defaultGstController.text}%',
                 ),
 
+                _configurationLine('Pricing Mode', isPriceInclusiveGst ? 'GST Inclusive' : 'GST Exclusive'),
+
+                _configurationLine('Delivery GST', isDeliveryTaxable ? 'Taxable (Composite supply)' : 'Non-taxable'),
+
                 _configurationLine('Credit Period', creditPeriod),
 
                 _configurationLine(
@@ -1306,17 +1400,103 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
           const SizedBox(height: 20),
 
+          // Operational Controls & Policy Rules Quick Launch
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.tune_rounded, color: Color(0xFF0284C7), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Operational Controls & Policy Rules',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Quick access to configure delivery radius pricing, packaging MOQ rules, and inventory threshold policies.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 14),
+
+                // Delivery Radius & Pricing Tile
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  tileColor: const Color(0xFFF8FAFC),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE0F2FE),
+                    child: Icon(Icons.radar_rounded, color: Color(0xFF0284C7), size: 20),
+                  ),
+                  title: const Text(
+                    'Delivery Origin & Radius Distance Pricing',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                  subtitle: const Text(
+                    'Configure dispatch origin, max serviceable radius, and distance-based delivery fee bands.',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                  onTap: () => DeliveryPricingDialog.show(context),
+                ),
+
+                const SizedBox(height: 10),
+
+                // MOQ & Packaging Tile
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  tileColor: const Color(0xFFF8FAFC),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFDCFCE7),
+                    child: Icon(Icons.inventory_2_outlined, color: Color(0xFF16A34A), size: 20),
+                  ),
+                  title: const Text(
+                    'Minimum Order Quantity (MOQ) & Packaging Rules',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                  subtitle: const Text(
+                    'Configure company baseline order quantities (5 jars, 5 boxes), packaging units, and franchise override permissions.',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                  onTap: () => PackagingRulesDialog.show(context, products: const []),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
           SizedBox(
-            width: 190,
+            width: 210,
             height: 44,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(0, 44),
-                maximumSize: const Size(190, 44),
+                maximumSize: const Size(210, 44),
               ),
-              onPressed: _saveSystemConfiguration,
-              icon: const Icon(Icons.save_outlined, size: 18),
-              label: const Text('Save Configuration'),
+              onPressed: _isSavingSettings ? null : _saveSystemConfiguration,
+              icon: _isSavingSettings
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save_outlined, size: 18),
+              label: Text(_isSavingSettings ? 'Saving...' : 'Save Configuration'),
             ),
           ),
         ],
@@ -1324,15 +1504,14 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     );
   }
 
-  void _saveSystemConfiguration() {
+  Future<void> _saveSystemConfiguration() async {
     final gstValue = double.tryParse(defaultGstController.text.trim());
-
     final stockValue = int.tryParse(lowStockPercentController.text.trim());
 
     if (gstValue == null || gstValue < 0 || gstValue > 100) {
       AppToast.error(
         context,
-        'Enter a valid GST percentage.',
+        'Enter a valid GST percentage (0 to 100).',
         title: 'Invalid GST',
       );
       return;
@@ -1347,24 +1526,59 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       return;
     }
 
-    setState(() {
-      activityLogs.insert(0, {
-        'id': DateTime.now().millisecondsSinceEpoch,
-        'title': 'System configuration updated',
-        'description':
-            'GST ${gstValue.toStringAsFixed(gstValue.truncateToDouble() == gstValue ? 0 : 1)}%, Credit $creditPeriod, Low Stock $stockValue%',
-        'user': 'Admin User',
-        'module': 'System Configuration',
-        'date': _settingsDate(),
-        'time': _settingsTime(),
-      });
-    });
+    setState(() => _isSavingSettings = true);
+    try {
+      final token = await SessionService().getAccessToken();
+      final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/company-profile/');
+      final res = await http.put(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'default_gst_rate': gstValue,
+          'is_price_inclusive_gst': isPriceInclusiveGst,
+          'is_delivery_taxable': isDeliveryTaxable,
+          'trade_name': businessName.text.trim(),
+          'gstin': gst.text.trim(),
+        }),
+      ).timeout(const Duration(seconds: 10));
 
-    AppToast.success(
-      context,
-      'System configuration saved successfully.',
-      title: 'Configuration Saved',
-    );
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        setState(() {
+          activityLogs.insert(0, {
+            'id': DateTime.now().millisecondsSinceEpoch,
+            'title': 'System configuration updated',
+            'description':
+                'GST ${gstValue.toStringAsFixed(gstValue.truncateToDouble() == gstValue ? 0 : 1)}%, Credit $creditPeriod, Low Stock $stockValue%, ${isPriceInclusiveGst ? "Inclusive" : "Exclusive"} Pricing',
+            'user': 'Admin User',
+            'module': 'System Configuration',
+            'date': _settingsDate(),
+            'time': _settingsTime(),
+          });
+        });
+        if (mounted) {
+          AppToast.success(
+            context,
+            'System configuration and GST rate ($gstValue%) saved successfully.',
+            title: 'Configuration Saved',
+          );
+        }
+      } else {
+        throw Exception('Server returned ${res.statusCode}: ${res.body}');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(
+          context,
+          'Could not persist configuration: $e',
+          title: 'Save Failed',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingSettings = false);
+    }
   }
 
   Widget _configurationLine(String label, String value) {

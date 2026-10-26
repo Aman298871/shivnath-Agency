@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -128,6 +129,25 @@ class Product(models.Model):
         default=18,
     )
 
+    is_price_inclusive_gst = models.BooleanField(
+        default=True,
+        help_text="True if unit price includes GST, False if GST is added on top (exclusive)"
+    )
+
+    carton_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        help_text="Wholesale or retail pack/carton price in INR (if 0, calculated as units_per_case * price)"
+    )
+
+    discount_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        help_text="Discounted / promotional selling price in INR (if 0, regular price applies)"
+    )
+
     stock = models.PositiveIntegerField(
         default=0,
     )
@@ -181,6 +201,22 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.sku})"
+
+    @property
+    def effective_price(self):
+        if self.discount_price and self.discount_price > Decimal('0.00') and self.discount_price < self.price:
+            return self.discount_price
+        return self.price
+
+    @property
+    def calculated_carton_price(self):
+        if self.carton_price and self.carton_price > Decimal('0.00'):
+            return self.carton_price
+        return Decimal(str(self.effective_price)) * Decimal(str(self.units_per_case))
+
+    @property
+    def gst_rate(self):
+        return self.gst
 
 
 class ProductionRecipeBOM(models.Model):
@@ -342,6 +378,23 @@ class MinimumOrderPackagingRule(models.Model):
         choices=CHANNEL_CHOICES,
         default='ALL',
         help_text="Order channel this rule governs."
+    )
+    franchise = models.ForeignKey(
+        'accounts.FranchiseProfile',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="moq_rules",
+        help_text="Franchise this override applies to, or blank for company baseline."
+    )
+    allow_franchise_override = models.BooleanField(
+        default=False,
+        help_text="Whether franchises can override this baseline rule within Admin limits."
+    )
+    max_franchise_moq = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Upper limit for franchise MOQ override if allowed."
     )
     is_active = models.BooleanField(
         default=True,

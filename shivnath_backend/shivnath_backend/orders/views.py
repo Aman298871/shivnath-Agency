@@ -262,7 +262,7 @@ class OrderListCreateView(APIView):
 
                 # Packaging and MOQ validation
                 try:
-                    pkg_rule = validate_order_item_packaging(prod, qty, channel=channel)
+                    pkg_rule = validate_order_item_packaging(prod, qty, channel=channel, franchise=creator_fp)
                 except (DjangoValidationError, DRFValidationError) as p_err:
                     msg = p_err.message if hasattr(p_err, 'message') else str(p_err)
                     if isinstance(msg, list):
@@ -382,6 +382,7 @@ class OrderListCreateView(APIView):
                 dest_latitude=dest_lat,
                 dest_longitude=dest_lng,
                 dest_address=delivery_address_val,
+                city_hint=request.data.get('delivery_city') or request.data.get('city'),
                 channel=channel,
             )
             if not delivery_calc.get('is_supported', True):
@@ -426,11 +427,49 @@ class OrderListCreateView(APIView):
             calc_count = sum(q for _, q, _ in validated_order_items)
 
             subtotal_dec = Decimal(str(calc_amount)).quantize(Decimal('0.01'))
-            grand_total_dec = (subtotal_dec + auth_delivery_charge).quantize(Decimal('0.01'))
+
+            from billing.models import CompanyBillingProfile
+            from billing.tax_calculator import calculate_order_tax_and_totals
+
+            billing_profile = CompanyBillingProfile.objects.filter(is_configured=True).first() or CompanyBillingProfile.objects.first()
+            if billing_profile and billing_profile.default_gst_rate is not None:
+                configured_gst_rate = Decimal(str(billing_profile.default_gst_rate))
+                is_price_inclusive = getattr(billing_profile, 'is_price_inclusive_gst', True)
+                is_delivery_taxable = getattr(billing_profile, 'is_delivery_taxable', False)
+                company_state = (billing_profile.state_name if billing_profile.state_name else 'Chhattisgarh').strip().lower()
+            elif billing_profile and billing_profile.cgst_rate and billing_profile.sgst_rate:
+                configured_gst_rate = Decimal(str(billing_profile.cgst_rate + billing_profile.sgst_rate))
+                is_price_inclusive = getattr(billing_profile, 'is_price_inclusive_gst', True)
+                is_delivery_taxable = getattr(billing_profile, 'is_delivery_taxable', False)
+                company_state = (billing_profile.state_name if billing_profile.state_name else 'Chhattisgarh').strip().lower()
+            else:
+                configured_gst_rate = Decimal('0.00')
+                is_price_inclusive = True
+                is_delivery_taxable = False
+                company_state = 'chhattisgarh'
+
+            customer_state = gst_state_name.strip().lower() if gst_state_name else 'chhattisgarh'
+            is_intra_state = (not customer_state) or (customer_state == company_state)
+
+            tax_calc = calculate_order_tax_and_totals(
+                subtotal=subtotal_dec,
+                delivery_fee=auth_delivery_charge,
+                promo_discount=Decimal(str(request.data.get('discount_amount', 0.0) or 0.0)),
+                points_discount=Decimal(str(request.data.get('points_discount_amount', 0.0) or 0.0)),
+                wallet_debited=Decimal('0.00'),
+                is_intra_state=is_intra_state,
+                gst_rate=configured_gst_rate,
+                is_price_inclusive_gst=is_price_inclusive,
+                is_delivery_taxable=is_delivery_taxable,
+            )
+
+            grand_total_dec = tax_calc['grand_total']
+            tax_amount_dec = tax_calc['total_tax']
 
             # Server-authoritative totals: Client cannot manipulate order total
             order_data['amount'] = float(subtotal_dec)
             order_data['delivery_charges'] = float(auth_delivery_charge)
+            order_data['tax_amount'] = float(tax_amount_dec)
             order_data['delivery_distance_km'] = float(auth_distance_km) if auth_distance_km is not None else None
             order_data['delivery_latitude'] = dest_lat
             order_data['delivery_longitude'] = dest_lng
@@ -840,11 +879,13 @@ class OrderDetailView(APIView):
             role = getattr(getattr(user, 'profile', None), 'role', '')
             is_admin = user.is_superuser or user.is_staff or role in ['admin', 'super_admin']
             is_franchise = role == 'franchise' or bool(getattr(user, 'franchise_profile', None))
-            if not is_admin and is_franchise and order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
-                return Response(
-                    {'success': False, 'message': 'Franchises are not authorized to view Water Wallet orders.'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+            if not is_admin and is_franchise:
+                fp = getattr(user, 'franchise_profile', None)
+                if not fp or (order.serving_franchise_id != fp.id and order.registered_franchise_id != fp.id) or order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
+                    return Response(
+                        {'success': False, 'message': 'You are not authorized to view this order.'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
         return Response(
             {
                 'success': True,
@@ -866,11 +907,13 @@ class OrderDetailView(APIView):
         role = getattr(getattr(user, 'profile', None), 'role', '')
         is_admin = user and (user.is_superuser or user.is_staff or role in ['admin', 'super_admin'])
 
-        if not is_admin and (role == 'franchise' or getattr(user, 'franchise_profile', None)) and order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
-            return Response(
-                {'success': False, 'message': 'Franchises are not authorized to update Water Wallet orders.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        if not is_admin and (role == 'franchise' or getattr(user, 'franchise_profile', None)):
+            fp = getattr(user, 'franchise_profile', None)
+            if not fp or (order.serving_franchise_id != fp.id and order.registered_franchise_id != fp.id) or order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
+                return Response(
+                    {'success': False, 'message': 'You are not authorized to update this order.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
         from orders.services import validate_order_status_transition, validate_payment_stage, transition_order_status
         from django.core.exceptions import ValidationError as DjangoValidationError
@@ -930,6 +973,13 @@ class OrderDetailView(APIView):
             updated_order = serializer.save()
             new_st = updated_order.status
 
+            # payment_status is a SerializerMethodField (read-only in serializer) so
+            # we must apply the validated payment_status directly after save.
+            req_ps = data.get('payment_status', '').lower().strip() if 'payment_status' in data else ''
+            if req_ps and req_ps in ['pending', 'partial', 'paid', 'pending_verification']:
+                updated_order.payment_status = req_ps
+                updated_order.save(update_fields=['payment_status'])
+
             if new_st != old_status:
                 transition_order_status(
                     updated_order,
@@ -975,6 +1025,15 @@ class OrderDetailView(APIView):
         )
 
     def delete(self, request, pk):
+        user = request.user if request.user and request.user.is_authenticated else None
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        is_admin = user and (user.is_superuser or user.is_staff or role in ['admin', 'super_admin'])
+        if not is_admin:
+            return Response(
+                {'success': False, 'message': 'Only administrators are authorized to delete orders.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         order = get_object_or_404(Order, pk=pk)
         order_code = order.order_code
 
@@ -1251,7 +1310,8 @@ class RazorpayCreateOrderAPIView(APIView):
                 for it in order.items.all():
                     if it.product:
                         try:
-                            validate_order_item_packaging(it.product, it.quantity, channel=channel)
+                            f_prof = getattr(order, 'assigned_franchise', None)
+                            validate_order_item_packaging(it.product, it.quantity, channel=channel, franchise=f_prof)
                         except (DjangoValidationError, DRFValidationError) as p_err:
                             msg = p_err.message if hasattr(p_err, 'message') else str(p_err)
                             if isinstance(msg, list):
@@ -1331,12 +1391,8 @@ class RazorpayCreateOrderAPIView(APIView):
         is_dev = os.environ.get('ENVIRONMENT', '').lower() in ['development', 'local', 'dev']
         is_mock_mode = False
 
-        if getattr(settings, 'IS_TESTING', False) or 'test_mock_order' in request.data:
-            # Automated isolated test hook ONLY
-            razorpay_order_id = f"order_test_{uuid.uuid4().hex[:14]}"
-            is_mock_mode = True
-        elif not key_id or not key_secret:
-            if is_dev:
+        if not key_id or not key_secret:
+            if is_dev or getattr(settings, 'IS_TESTING', False):
                 razorpay_order_id = f"mock_order_{uuid.uuid4().hex[:14]}"
                 is_mock_mode = True
             else:

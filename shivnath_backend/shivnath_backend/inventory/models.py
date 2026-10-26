@@ -156,6 +156,14 @@ class ProductionBatch(models.Model):
         default=0,
         help_text="Quantity collected / taken / dispatched by client or dealer"
     )
+    quantity_received = models.PositiveIntegerField(
+        default=0,
+        help_text="Quantity confirmed received by customer or franchise"
+    )
+    quantity_sold = models.PositiveIntegerField(
+        default=0,
+        help_text="Quantity sold or consumed"
+    )
     quantity_damaged = models.PositiveIntegerField(
         default=0,
         help_text="Quantity damaged or spoiled"
@@ -163,6 +171,15 @@ class ProductionBatch(models.Model):
     quantity_returned = models.PositiveIntegerField(
         default=0,
         help_text="Quantity returned"
+    )
+    quantity_expired = models.PositiveIntegerField(
+        default=0,
+        help_text="Quantity marked or written off as expired"
+    )
+    adjustment_reason = models.TextField(
+        blank=True,
+        default='',
+        help_text="Recorded reason for damaged, returned, expired or adjusted stock"
     )
     status = models.CharField(
         max_length=20,
@@ -212,7 +229,42 @@ class ProductionBatch(models.Model):
 
     @property
     def available_quantity(self):
+        if self.is_expired:
+            return 0
         return max(0, self.quantity_remaining_company - self.reserved_quantity)
+
+    @property
+    def remaining_usable_stock(self):
+        if self.is_expired:
+            return 0
+        return max(0, self.quantity_remaining_company)
+
+    @property
+    def dynamic_quantity_expired(self):
+        if self.quantity_expired > 0:
+            return self.quantity_expired
+        if self.is_expired:
+            return self.quantity_remaining_company
+        return 0
+
+    @property
+    def unit_of_measure(self):
+        return getattr(self.product, 'unit', 'Bottle') if self.product else 'Unit'
+
+    @property
+    def dynamic_quantity_received(self):
+        if self.quantity_received > 0:
+            return self.quantity_received
+        if hasattr(self, '_prefetched_objects_cache') and 'dealer_request_allocations' in self._prefetched_objects_cache:
+            return sum((alloc.received_quantity or 0) for alloc in self.dealer_request_allocations.all())
+        alloc_received = self.dealer_request_allocations.aggregate(s=models.Sum('received_quantity'))['s'] or 0
+        return alloc_received
+
+    @property
+    def dynamic_quantity_sold(self):
+        if self.quantity_sold > 0:
+            return self.quantity_sold
+        return self.quantity_dispatched
 
     def _normalize_dates(self):
         import datetime
@@ -242,6 +294,8 @@ class ProductionBatch(models.Model):
 
     @property
     def is_expired(self):
+        if self.status in ['EXPIRED', 'RECALLED']:
+            return True
         from django.utils import timezone
         import datetime
         from django.utils.dateparse import parse_date

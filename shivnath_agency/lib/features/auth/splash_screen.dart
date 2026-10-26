@@ -70,15 +70,19 @@ class _SplashScreenState extends State<SplashScreen> {
         debugPrint('Token registration non-fatal: $e');
       }
 
+      if (!mounted) return;
+
       final roleProvider = Provider.of<RoleThemeProvider>(context, listen: false);
       if (user.role == AppConstants.customerRole) {
         roleProvider.setRole('customer');
+        if (!mounted) return;
         Navigator.pushReplacementNamed(
           context,
           AppRoutes.customerDashboard,
         );
       } else if (user.role == AppConstants.franchiseRole) {
         roleProvider.setRole('franchise');
+        if (!mounted) return;
         Navigator.pushReplacementNamed(
           context,
           AppRoutes.franchiseDashboard,
@@ -87,11 +91,13 @@ class _SplashScreenState extends State<SplashScreen> {
           user.role == AppConstants.superAdminRole ||
           user.role == AppConstants.salesExecutiveRole) {
         roleProvider.setRole('admin');
+        if (!mounted) return;
         Navigator.pushReplacementNamed(
           context,
           AppRoutes.adminDashboard,
         );
       } else {
+        if (!mounted) return;
         Navigator.pushReplacementNamed(
           context,
           AppRoutes.roleSelection,

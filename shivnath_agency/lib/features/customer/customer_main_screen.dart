@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/services/session_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../models/user_model.dart';
@@ -26,6 +28,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   UserModel? _currentUser;
   Key _ordersKey = UniqueKey();
   Key _profileKey = UniqueKey();
+  bool _isLoggingOut = false;
 
   @override
   void initState() {
@@ -179,6 +182,8 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   // =========================================================
 
   Future<void> _logoutCustomer() async {
+    if (_isLoggingOut) return;
+
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -227,7 +232,16 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       return;
     }
 
-    await SessionService().logout();
+    if (_isLoggingOut) return;
+    setState(() => _isLoggingOut = true);
+
+    try {
+      if (mounted) {
+        await context.read<AuthProvider>().logout();
+      }
+    } catch (_) {
+      await SessionService().logout();
+    }
 
     if (!mounted) return;
 

@@ -311,6 +311,24 @@ class InventoryRepository {
     return await _inventoryService.getInventoryLedger(filters: filters);
   }
 
+  Future<Map<String, dynamic>> adjustBatch({
+    required int batchId,
+    required String adjustmentType,
+    required int quantity,
+    required String reason,
+  }) async {
+    return await _inventoryService.adjustBatch(
+      batchId: batchId,
+      adjustmentType: adjustmentType,
+      quantity: quantity,
+      reason: reason,
+    );
+  }
+
+  Future<Map<String, dynamic>> getBatchHistory(int batchId) async {
+    return await _inventoryService.getBatchHistory(batchId);
+  }
+
   // =========================================================
   // STOCK CYCLES & METRICS
   // =========================================================

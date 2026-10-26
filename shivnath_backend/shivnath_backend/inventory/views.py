@@ -687,7 +687,7 @@ class ProductionBatchListCreateAPIView(views.APIView):
         return [IsStockManagerOrAdmin()]
 
     def get(self, request):
-        batches = ProductionBatch.objects.select_related('product', 'linked_order').all()
+        batches = ProductionBatch.objects.select_related('product', 'linked_order').prefetch_related('dealer_request_allocations').all()
         product_id = request.query_params.get('product_id')
         if product_id:
             batches = batches.filter(product_id=product_id)
@@ -797,6 +797,78 @@ class ProductionBatchCollectionAPIView(views.APIView):
             if msg.startswith("['") and msg.endswith("']"):
                 msg = msg[2:-2]
             return Response({'error': msg, 'message': msg}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductionBatchAdjustmentAPIView(views.APIView):
+    def get_permissions(self):
+        return [IsStockManagerOrAdmin()]
+
+    def post(self, request, pk):
+        adj_type = request.data.get('adjustment_type') or request.data.get('type')
+        qty = request.data.get('quantity')
+        reason = request.data.get('reason')
+
+        if not adj_type or not qty or not reason:
+            return Response(
+                {'error': 'adjustment_type, quantity, and reason are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            from .services import adjust_production_batch_atomic
+            batch = adjust_production_batch_atomic(
+                batch_id=pk,
+                adjustment_type=adj_type,
+                quantity=int(qty),
+                reason=reason,
+                actor=request.user
+            )
+            return Response({
+                'success': True,
+                'message': f"Batch {batch.batch_number} adjusted successfully ({adj_type}: {qty} units).",
+                'batch': ProductionBatchSerializer(batch, context={'request': request}).data,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            msg = str(e)
+            if hasattr(e, 'messages') and e.messages:
+                msg = e.messages[0]
+            elif hasattr(e, 'message') and e.message:
+                msg = e.message
+            if msg.startswith("['") and msg.endswith("']"):
+                msg = msg[2:-2]
+            return Response({'error': msg, 'message': msg}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductionBatchHistoryAPIView(views.APIView):
+    def get_permissions(self):
+        return [permissions.IsAuthenticated()]
+
+    def get(self, request, pk):
+        batch = get_object_or_404(ProductionBatch, pk=pk)
+        ledger_entries = InventoryTransactionLedger.objects.filter(
+            production_batch=batch
+        ).select_related('actor', 'product', 'dealer').order_by('-timestamp')
+
+        history = []
+        for entry in ledger_entries:
+            history.append({
+                'id': str(entry.transaction_id),
+                'timestamp': entry.timestamp.isoformat(),
+                'transaction_type': entry.transaction_type,
+                'quantity': float(entry.quantity),
+                'balance_after': float(entry.balance_after),
+                'reference_type': entry.reference_type,
+                'reference_id': entry.reference_id,
+                'actor_name': entry.actor.get_full_name() or entry.actor.username if entry.actor else 'System',
+                'notes': entry.notes,
+            })
+
+        return Response({
+            'success': True,
+            'batch_number': batch.batch_number,
+            'history': history,
+            'count': len(history),
+        }, status=status.HTTP_200_OK)
 
 
 class DealerStockBatchListAPIView(generics.ListAPIView):

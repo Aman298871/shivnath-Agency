@@ -440,37 +440,20 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
                     'service_coverage': f"Serves {assign.zone.name} (Alternate Territory)",
                 })
 
-        # Also include any active approved franchise in system not yet in list
-        other_approved = FranchiseProfile.objects.filter(status='approved').exclude(id__in=seen_franchise_ids).select_related('user', 'user__profile')
-        for f in other_approved:
-            fallback_franchises.append({
-                'id': f.id,
-                'business_name': f.business_name,
-                'owner_name': f.user.get_full_name() or f.user.username,
-                'city': f.city,
-                'address': f.address,
-                'phone': f.user.profile.phone if hasattr(f.user, 'profile') else '',
-                'is_primary': False,
-                'is_headquarters': f.is_headquarters,
+        if fallback_franchises:
+            zone_label = f" ({zone.name})" if zone else ""
+            dist_label = f" ({target_district.name})" if target_district else ""
+            return {
+                'success': True,
+                'match_level': 'fallback',
                 'is_fallback': True,
-                'serving_zone_id': None,
-                'serving_zone_name': 'Other',
-                'serving_district_name': f.city,
-                'service_coverage': f"{f.city} (Alternate / Outside Territory)",
-            })
-
-        zone_label = f" ({zone.name})" if zone else ""
-        return {
-            'success': True,
-            'match_level': 'fallback',
-            'is_fallback': True,
-            'fallback_message': f'No franchise is currently available in your selected territory{zone_label}. You may select an alternate available franchise below.',
-            'support_contact': _get_support_info(),
-            'franchises': fallback_franchises,
-            'exact_matches': [],
-            'available_franchises': fallback_franchises,
-            'count': len(fallback_franchises),
-        }
+                'fallback_message': f'No primary franchise is currently available in your exact zone{zone_label}. Showing authorized alternate franchises in your district{dist_label}.',
+                'support_contact': _get_support_info(),
+                'franchises': fallback_franchises,
+                'exact_matches': [],
+                'available_franchises': fallback_franchises,
+                'count': len(fallback_franchises),
+            }
 
     # 3. No Serviceable Franchise Available
     return {

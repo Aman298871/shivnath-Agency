@@ -196,6 +196,11 @@ class ProductSerializer(serializers.ModelSerializer):
             "price",
             "dealer_transfer_price",
             "mrp",
+            "is_price_inclusive_gst",
+            "carton_price",
+            "calculated_carton_price",
+            "discount_price",
+            "effective_price",
             "shelf_life_days",
             "production_cost_per_unit",
             "gst",
@@ -212,6 +217,8 @@ class ProductSerializer(serializers.ModelSerializer):
             "category_name",
             "category_hierarchy",
             "production_cost_per_unit",
+            "calculated_carton_price",
+            "effective_price",
             "created_at",
             "updated_at",
         ]
@@ -302,6 +309,18 @@ class ProductSerializer(serializers.ModelSerializer):
         ret['company_gross_margin'] = float(company_margin)
         ret['company_gross_margin_pct'] = float(company_margin_pct)
 
+        # Authoritative pricing & packaging fields
+        ret['is_price_inclusive_gst'] = bool(instance.is_price_inclusive_gst)
+        ret['carton_price'] = float(instance.carton_price or 0.0)
+        ret['calculated_carton_price'] = float(instance.calculated_carton_price or 0.0)
+        ret['discount_price'] = float(instance.discount_price or 0.0)
+        ret['effective_price'] = float(instance.effective_price or instance.price or 0.0)
+        ret['gst_rate'] = int(instance.gst)
+        ret['units_per_carton'] = int(instance.units_per_case)
+        ret['dealer_wholesale_price'] = float(instance.dealer_transfer_price or 0.0)
+        ret['retail_mrp'] = float(instance.mrp or instance.price or 0.0)
+        ret['customer_price'] = float(instance.price or 0.0)
+
         return ret
 
     def validate_name(self, value):
@@ -335,6 +354,21 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Dealer transfer price cannot be negative.")
         return value
 
+    def validate_carton_price(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Carton price cannot be negative.")
+        return value
+
+    def validate_discount_price(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Discount price cannot be negative.")
+        return value
+
+    def validate_units_per_case(self, value):
+        if value is not None and value < 1:
+            raise serializers.ValidationError("Units per carton/case must be at least 1.")
+        return value
+
     def validate_gst(self, value):
         if value < 0 or value > 100:
             raise serializers.ValidationError("GST must be between 0 and 100.")
@@ -346,6 +380,17 @@ class ProductSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        # Support common aliases seamlessly
+        if 'customer_price' in self.initial_data and 'price' not in attrs:
+            attrs['price'] = self.initial_data['customer_price']
+        if 'dealer_wholesale_price' in self.initial_data and 'dealer_transfer_price' not in attrs:
+            attrs['dealer_transfer_price'] = self.initial_data['dealer_wholesale_price']
+        if 'retail_mrp' in self.initial_data and 'mrp' not in attrs:
+            attrs['mrp'] = self.initial_data['retail_mrp']
+        if 'units_per_carton' in self.initial_data and 'units_per_case' not in attrs:
+            attrs['units_per_case'] = self.initial_data['units_per_carton']
+        if 'gst_rate' in self.initial_data and 'gst' not in attrs:
+            attrs['gst'] = self.initial_data['gst_rate']
         return attrs
 
 
@@ -353,6 +398,7 @@ class MinimumOrderPackagingRuleSerializer(serializers.ModelSerializer):
     name = serializers.CharField(required=False, allow_blank=True, default='')
     product_name = serializers.CharField(source='product.name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
+    franchise_name = serializers.CharField(source='franchise.business_name', read_only=True)
 
     class Meta:
         model = MinimumOrderPackagingRule
@@ -363,6 +409,10 @@ class MinimumOrderPackagingRuleSerializer(serializers.ModelSerializer):
             'product_name',
             'category',
             'category_name',
+            'franchise',
+            'franchise_name',
+            'allow_franchise_override',
+            'max_franchise_moq',
             'sales_unit',
             'min_order_quantity',
             'units_per_carton',

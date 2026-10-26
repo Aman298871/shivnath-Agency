@@ -142,8 +142,28 @@ class _CentralPlantInventoryScreenState
     });
 
     try {
+      // Fetch all independent endpoints concurrently
+      final results = await Future.wait([
+        _invService
+            .getProductionBatches()
+            .catchError((e) => <String, dynamic>{'success': false, 'message': '$e'}),
+        _invService
+            .getRawMaterials()
+            .catchError((e) => <String, dynamic>{'success': false, 'message': '$e'}),
+        _invService
+            .getDealerStockRequests()
+            .catchError((e) => <String, dynamic>{'success': false, 'message': '$e'}),
+        _productRepository
+            .getProducts(activeOnly: true, status: 'Active')
+            .catchError((e) => <String, dynamic>{'success': false, 'message': '$e'}),
+      ]);
+
+      final bRes = results[0];
+      final rmRes = results[1];
+      final reqRes = results[2];
+      final pRes = results[3];
+
       // 1. Batches
-      final bRes = await _invService.getProductionBatches();
       if (bRes['success'] == true && bRes['data'] is List) {
         _productionBatches = List<Map<String, dynamic>>.from(bRes['data']);
         if (widget.highlightBatchNumber != null && widget.highlightBatchNumber!.isNotEmpty) {
@@ -159,19 +179,16 @@ class _CentralPlantInventoryScreenState
       }
 
       // 2. Raw materials
-      final rmRes = await _invService.getRawMaterials();
       if (rmRes['success'] == true && rmRes['data'] is List) {
         _rawMaterials = List<Map<String, dynamic>>.from(rmRes['data']);
       }
 
       // 3. Dealer Stock Requests
-      final reqRes = await _invService.getDealerStockRequests();
       if (reqRes['success'] == true && reqRes['data'] is List) {
         _dealerRequests = List<Map<String, dynamic>>.from(reqRes['data']);
       }
 
       // 4. Products - fetch active products directly from Product Master
-      final pRes = await _productRepository.getProducts(activeOnly: true, status: 'Active');
       List<ProductModel> fetchedList = [];
       if (pRes['parsed_products'] is List<ProductModel> && (pRes['parsed_products'] as List).isNotEmpty) {
         fetchedList = List<ProductModel>.from(pRes['parsed_products']);
@@ -232,9 +249,9 @@ class _CentralPlantInventoryScreenState
       }
     } catch (e) {
       _error = 'Failed to load central plant data: $e';
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-
-    if (mounted) setState(() => _loading = false);
   }
 
   @override
@@ -293,16 +310,89 @@ class _CentralPlantInventoryScreenState
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF0284C7)),
             )
-          : _error != null
-          ? Center(child: Text(_error!))
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildProductionBatchesTab(),
-                _buildRawMaterialsTab(),
-                _buildDealerDispatchesTab(),
-              ],
+          : _error != null && _productionBatches.isEmpty && _rawMaterials.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.cloud_off_rounded, size: 48, color: Color(0xFF94A3B8)),
+                        const SizedBox(height: 12),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _loadData,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Retry Loading'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0284C7),
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildProductionBatchesTab(),
+                    _buildRawMaterialsTab(),
+                    _buildDealerDispatchesTab(),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildBatchMetric(String label, String value, Color color, String sub) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+              color: color,
+            ),
+          ),
+          Text(
+            sub,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 8,
+              color: Color(0xFF94A3B8),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -397,10 +487,19 @@ class _CentralPlantInventoryScreenState
                   '0',
             ) ??
             (produced - taken);
+        final dispatched = int.tryParse(b['quantity_dispatched']?.toString() ?? taken.toString()) ?? taken;
+        final received = int.tryParse((b['dynamic_quantity_received'] ?? b['quantity_received'])?.toString() ?? '0') ?? 0;
+        final sold = int.tryParse((b['dynamic_quantity_sold'] ?? b['quantity_sold'])?.toString() ?? '0') ?? 0;
+        final damaged = int.tryParse(b['quantity_damaged']?.toString() ?? '0') ?? 0;
+        final returned = int.tryParse(b['quantity_returned']?.toString() ?? '0') ?? 0;
         final shelfDays = b['shelf_life_days']?.toString() ?? '';
         final mfgDate = b['manufacture_date']?.toString() ?? '';
         final expiry = b['expiry_date']?.toString() ?? '';
-        final isExpired = b['is_expired'] == true;
+        final isExpired = b['is_expired'] == true || (b['status']?.toString().toUpperCase() == 'EXPIRED');
+        final expired = int.tryParse(b['quantity_expired']?.toString() ?? '0') ?? (isExpired ? remaining : 0);
+        final usableStock = int.tryParse(b['remaining_usable_stock']?.toString() ?? '0') ?? (isExpired ? 0 : remaining);
+        final availableInStock = int.tryParse(b['available_quantity']?.toString() ?? '0') ?? (isExpired ? 0 : remaining);
+        final uom = b['unit_of_measure']?.toString() ?? 'Units';
         final isDepleted = remaining <= 0;
         final isHighlighted = widget.highlightBatchNumber != null &&
             bNum.toLowerCase().contains(widget.highlightBatchNumber!.toLowerCase());
@@ -834,129 +933,104 @@ class _CentralPlantInventoryScreenState
                 ],
 
                 const SizedBox(height: 14),
-
-                // 3-Metric Stock Breakdown Grid (Produced, Taken, Pending Company Stock)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+                // Expiry Alert Banner
+                if (isExpired) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFECACA), width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'BATCH EXPIRED — DISPATCH BLOCKED',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                  color: Color(0xFFB91C1C),
+                                ),
+                              ),
+                              Text(
+                                'Expired on $expiry. All outbound dispatch from this batch is strictly locked.',
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF7F1D1D)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ],
+
+                const SizedBox(height: 14),
+
+                // 8-Metric Distinguishable Stock Breakdown Grid
+                Container(
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  child: Row(
+                  child: Column(
                     children: [
-                      // Produced
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'PRODUCED',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF64748B),
-                              ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'STOCK INVENTORY BREAKDOWN ($uom)',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF64748B),
+                              letterSpacing: 0.5,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$produced',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 16,
-                                color: Color(0xFF0F172A),
-                              ),
+                          ),
+                          Text(
+                            'UOM: $uom',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0284C7),
                             ),
-                            const Text(
-                              'Units Manufactured',
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      Container(
-                        width: 1,
-                        height: 32,
-                        color: const Color(0xFFE2E8F0),
+                      const SizedBox(height: 8),
+                      // Row 1: Produced, In Stock, Dispatched, Received
+                      Row(
+                        children: [
+                          Expanded(child: _buildBatchMetric('PRODUCED', '$produced', const Color(0xFF0F172A), 'Manufactured')),
+                          const SizedBox(width: 6),
+                          Expanded(child: _buildBatchMetric('IN STOCK', '$availableInStock', isExpired ? Colors.grey : const Color(0xFF16A34A), isExpired ? 'Locked' : 'Available')),
+                          const SizedBox(width: 6),
+                          Expanded(child: _buildBatchMetric('DISPATCHED', '$dispatched', const Color(0xFF0284C7), 'Outbound')),
+                          const SizedBox(width: 6),
+                          Expanded(child: _buildBatchMetric('RECEIVED', '$received', const Color(0xFF059669), 'By Customer/Dealer')),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      // Taken / Collected
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'TAKEN / DELIVERED',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF0284C7),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$taken',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 16,
-                                color: Color(0xFF0284C7),
-                              ),
-                            ),
-                            const Text(
-                              'Collected by Client',
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 32,
-                        color: const Color(0xFFE2E8F0),
-                      ),
-                      const SizedBox(width: 8),
-                      // Pending in Company Stock
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'PENDING STOCK',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF16A34A),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$remaining',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 16,
-                                color: remaining > 0
-                                    ? const Color(0xFF16A34A)
-                                    : Colors.grey,
-                              ),
-                            ),
-                            const Text(
-                              'Still in Central Plant',
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: 6),
+                      // Row 2: Sold/Consumed, Damaged/Returned, Expired, Usable Stock
+                      Row(
+                        children: [
+                          Expanded(child: _buildBatchMetric('SOLD/CONSUMED', '$sold', const Color(0xFF7C3AED), 'Fulfilled')),
+                          const SizedBox(width: 6),
+                          Expanded(child: _buildBatchMetric('DAMAGED/RET.', '${damaged + returned}', (damaged + returned) > 0 ? Colors.orange.shade800 : const Color(0xFF64748B), 'Loss/Returns')),
+                          const SizedBox(width: 6),
+                          Expanded(child: _buildBatchMetric('EXPIRED', '$expired', expired > 0 ? Colors.red.shade700 : const Color(0xFF64748B), 'Expired Qty')),
+                          const SizedBox(width: 6),
+                          Expanded(child: _buildBatchMetric('USABLE STOCK', '$usableStock', usableStock > 0 ? const Color(0xFF0284C7) : Colors.grey, 'Net Usable')),
+                        ],
                       ),
                     ],
                   ),
@@ -992,8 +1066,34 @@ class _CentralPlantInventoryScreenState
 
                 const SizedBox(height: 12),
 
-                // Bottom Action Button
-                if (remaining > 0)
+                // Bottom Action Buttons
+                if (isExpired) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFECACA)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.block_rounded, size: 16, color: Colors.red),
+                        SizedBox(width: 6),
+                        Text(
+                          'Dispatch Blocked (Batch Expired)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (availableInStock > 0) ...[
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -1009,8 +1109,8 @@ class _CentralPlantInventoryScreenState
                       icon: const Icon(Icons.local_shipping_rounded, size: 18),
                       label: Text(
                         orderNumber.isNotEmpty
-                            ? 'Dispatch Pending Stock for #$orderNumber ($remaining Units)'
-                            : 'Dispatch Pending Stock ($remaining Units)',
+                            ? 'Dispatch Pending Stock for #$orderNumber ($availableInStock $uom)'
+                            : 'Dispatch Pending Stock ($availableInStock $uom)',
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
@@ -1018,8 +1118,8 @@ class _CentralPlantInventoryScreenState
                       ),
                       onPressed: () => _openBatchCollectionDialog(b),
                     ),
-                  )
-                else
+                  ),
+                ] else ...[
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1048,6 +1148,52 @@ class _CentralPlantInventoryScreenState
                       ],
                     ),
                   ),
+                ],
+
+                const SizedBox(height: 8),
+                // Secondary Batch Actions (Adjust Stock & Movement History)
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF475569),
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        icon: const Icon(Icons.tune_rounded, size: 15),
+                        label: const Text(
+                          'Adjust Stock',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                        ),
+                        onPressed: () => _openAdjustBatchDialog(b),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0284C7),
+                          side: const BorderSide(color: Color(0xFFBAE6FD)),
+                          backgroundColor: const Color(0xFFF0F9FF),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        icon: const Icon(Icons.history_rounded, size: 15),
+                        label: const Text(
+                          'Movement History',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                        ),
+                        onPressed: () => _openBatchHistoryDialog(b),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -2412,6 +2558,15 @@ class _CentralPlantInventoryScreenState
   }
 
   void _openBatchCollectionDialog(Map<String, dynamic> batch) {
+    if (batch['is_expired'] == true || batch['status']?.toString().toUpperCase() == 'EXPIRED') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot dispatch stock from an expired batch. Outbound dispatch is locked.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     final bId = batch['id'] is int
         ? batch['id'] as int
         : int.tryParse(batch['id']?.toString() ?? '0') ?? 0;
@@ -3039,6 +3194,354 @@ class _CentralPlantInventoryScreenState
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _openAdjustBatchDialog(Map<String, dynamic> batch) {
+    final bId = batch['id'] is int
+        ? batch['id'] as int
+        : int.tryParse(batch['id']?.toString() ?? '0') ?? 0;
+    final bNum = batch['batch_number']?.toString() ?? 'BATCH';
+    final pName = batch['product_name'] ?? 'Packaged Drinking Water';
+    final remaining = int.tryParse(
+          (batch['quantity_remaining_company'] ??
+                  batch['dynamic_remaining_company'])
+              ?.toString() ??
+              '0',
+        ) ?? 0;
+    final uom = batch['unit_of_measure']?.toString() ?? 'Units';
+
+    String selectedType = 'DAMAGE';
+    final qtyCtrl = TextEditingController();
+    final reasonCtrl = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.tune_rounded, color: Color(0xFFD97706), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Adjust Batch Stock', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                    Text('$bNum • $pName', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Current Company Stock:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text('$remaining $uom', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedType,
+                  decoration: const InputDecoration(
+                    labelText: 'Adjustment Type *',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'DAMAGE', child: Text('Damage (Transit/Handling)')),
+                    DropdownMenuItem(value: 'RETURN', child: Text('Return (Customer/Dealer)')),
+                    DropdownMenuItem(value: 'EXPIRY', child: Text('Expiry Write-Off')),
+                    DropdownMenuItem(value: 'AUDIT_ADJUSTMENT', child: Text('Audit Reconciliation (+/-)')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setDlgState(() => selectedType = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: qtyCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Adjustment Quantity ($uom) *',
+                    hintText: 'e.g. 5',
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: reasonCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason for Adjustment (Mandatory) *',
+                    hintText: 'e.g. Leaked during transit; physical audit difference',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
+                      final reason = reasonCtrl.text.trim();
+                      if (qty <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Quantity must be greater than zero.'), backgroundColor: Colors.red),
+                        );
+                        return;
+                      }
+                      if (reason.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enter a mandatory reason for stock adjustment.'), backgroundColor: Colors.red),
+                        );
+                        return;
+                      }
+
+                      setDlgState(() => isSubmitting = true);
+                      try {
+                        final res = await _invService.adjustBatch(
+                          batchId: bId,
+                          adjustmentType: selectedType,
+                          quantity: qty,
+                          reason: reason,
+                        );
+                        if (!mounted) return;
+                        if (res['success'] == true) {
+                          if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(res['message']?.toString() ?? 'Batch stock adjusted successfully.'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                            _loadData();
+                          }
+                        } else {
+                          setDlgState(() => isSubmitting = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(res['message']?.toString() ?? 'Failed to adjust stock.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          setDlgState(() => isSubmitting = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Submit Adjustment'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openBatchHistoryDialog(Map<String, dynamic> batch) async {
+    final bId = batch['id'] is int
+        ? batch['id'] as int
+        : int.tryParse(batch['id']?.toString() ?? '0') ?? 0;
+    final bNum = batch['batch_number']?.toString() ?? 'BATCH';
+    final pName = batch['product_name'] ?? 'Packaged Drinking Water';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => DraggableScrollableSheet(
+        initialChildSize: 0.65,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (ctx, scrollCtrl) => FutureBuilder<Map<String, dynamic>>(
+          future: _invService.getBatchHistory(bId),
+          builder: (context, snapshot) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.history_rounded, color: Color(0xFF0284C7), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Batch Audit Trail & Movement History', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                            Text('$bNum • $pName', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Expanded(
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (snapshot.hasError || snapshot.data?['success'] != true)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          snapshot.data?['message']?.toString() ?? 'Failed to load batch history.',
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    Builder(
+                      builder: (ctx) {
+                        final data = snapshot.data?['data'];
+                        final historyList = (data is Map && data['history'] is List)
+                            ? List<Map<String, dynamic>>.from(data['history'])
+                            : <Map<String, dynamic>>[];
+
+                        if (historyList.isEmpty) {
+                          return const Expanded(
+                            child: Center(
+                              child: Text(
+                                'No ledger movements recorded for this batch yet.',
+                                style: TextStyle(color: Color(0xFF64748B)),
+                              ),
+                            ),
+                          );
+                        }
+
+                        return Expanded(
+                          child: ListView.separated(
+                            controller: scrollCtrl,
+                            itemCount: historyList.length,
+                            separatorBuilder: (_, _) => const Divider(height: 1),
+                            itemBuilder: (ctx, idx) {
+                              final item = historyList[idx];
+                              final action = item['action']?.toString() ?? item['movement_type']?.toString() ?? 'MOVEMENT';
+                              final qty = item['quantity']?.toString() ?? '0';
+                              final note = item['note']?.toString() ?? item['reason']?.toString() ?? '';
+                              final user = item['created_by_name']?.toString() ?? item['user']?.toString() ?? 'System';
+                              final time = item['created_at']?.toString() ?? '';
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF1F5F9),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        action.toUpperCase(),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 10,
+                                          color: Color(0xFF1E293B),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Quantity: $qty Units', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                          if (note.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2),
+                                              child: Text('Reason: $note', style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+                                            ),
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Text('By $user • $time', style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

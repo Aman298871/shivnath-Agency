@@ -641,6 +641,44 @@ class InventoryService {
     }
   }
 
+  /// Adjust a Production Batch stock (DAMAGE, RETURN, EXPIRY, AUDIT_ADJUSTMENT) with recorded reason
+  Future<Map<String, dynamic>> adjustBatch({
+    required int batchId,
+    required String adjustmentType,
+    required int quantity,
+    required String reason,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/production-batches/$batchId/adjustment/');
+      final response = await ApiClient.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({
+          'adjustment_type': adjustmentType,
+          'quantity': quantity,
+          'reason': reason,
+        }),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Get immutable transaction history for a specific Production Batch
+  Future<Map<String, dynamic>> getBatchHistory(int batchId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/inventory/production-batches/$batchId/history/');
+      final response = await ApiClient.get(
+        uri,
+        headers: await _headers(),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   /// Universal Inventory Transaction Ledger
   Future<Map<String, dynamic>> getInventoryLedger({Map<String, String>? filters}) async {
     try {

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/providers/auth_provider.dart';
 import '../../core/repositories/app_repositories.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/session_service.dart';
@@ -40,6 +42,7 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
   int _lastMaxOrderId = 0;
   bool _baselineOrdersLoaded = false;
   final Set<int> _alertedOrderIds = <int>{};
+  bool _isLoggingOut = false;
 
   @override
   void initState() {
@@ -1212,6 +1215,8 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
   // =========================================================
 
   Future<void> _logout() async {
+    if (_isLoggingOut) return;
+
     final bool? shouldLogout = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -1242,7 +1247,16 @@ class _FranchiseMainScreenState extends State<FranchiseMainScreen> {
       return;
     }
 
-    await AuthRepository().logout();
+    if (_isLoggingOut) return;
+    setState(() => _isLoggingOut = true);
+
+    try {
+      if (mounted) {
+        await context.read<AuthProvider>().logout();
+      }
+    } catch (_) {
+      await AuthRepository().logout();
+    }
 
     if (!mounted) {
       return;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/app_constants.dart';
+
 import '../../core/repositories/auth_repository.dart';
 
 class CustomerRegisterScreen extends StatefulWidget {

@@ -248,7 +248,8 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                         setDlgState(() => isSaving = false);
                         if (res['success'] == true) {
                           if (mounted) {
-                            Navigator.pop(dlgCtx);
+                            if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                            if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(

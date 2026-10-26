@@ -50,6 +50,7 @@ class _FranchiseProfileScreenState extends State<FranchiseProfileScreen> {
     }
 
     try {
+      if (!mounted) return;
       final authProvider = context.read<AuthProvider>();
       await authProvider.refreshUser();
       if (mounted && authProvider.currentUser != null) {

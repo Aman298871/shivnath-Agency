@@ -96,14 +96,20 @@ class OrderRepository {
     double? latitude,
     double? longitude,
     String? address,
+    String? city,
     String channel = 'CUSTOMER',
   }) async {
     return await _orderService.calculateDelivery(
       latitude: latitude,
       longitude: longitude,
       address: address,
+      city: city,
       channel: channel,
     );
+  }
+
+  Future<List<Map<String, dynamic>>> getAddressSuggestions(String query, {String? city}) async {
+    return await _orderService.getAddressSuggestions(query, city: city);
   }
 
   Future<Map<String, dynamic>> getRedemptionProducts() async {
@@ -161,4 +167,9 @@ class OrderRepository {
   Map<String, dynamic> mapOrder(Map<String, dynamic> raw) {
     return _orderService.mapOrder(raw);
   }
+
+  Future<Map<String, dynamic>> getCustomerOutstanding({int? customerId}) async {
+    return await _orderService.getCustomerOutstanding(customerId: customerId);
+  }
 }
+

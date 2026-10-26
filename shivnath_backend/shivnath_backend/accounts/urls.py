@@ -51,6 +51,9 @@ from .views import (
     RegisterDeviceTokenView,
     UnregisterDeviceTokenView,
     SendTestPushNotificationView,
+    AdminZoneManagementView,
+    AdminZoneDetailView,
+    AdminZoneAreaManagementView,
 )
 
 
@@ -83,6 +86,21 @@ urlpatterns = [
         'eligible-franchises/',
         EligibleFranchisesView.as_view(),
         name='eligible-franchises'
+    ),
+    path(
+        'zones/',
+        AdminZoneManagementView.as_view(),
+        name='admin-zones'
+    ),
+    path(
+        'zones/<int:pk>/',
+        AdminZoneDetailView.as_view(),
+        name='admin-zone-detail'
+    ),
+    path(
+        'zones/<int:pk>/areas/',
+        AdminZoneAreaManagementView.as_view(),
+        name='admin-zone-areas'
     ),
 
     # Service Lifecycle (Hold / Resume)

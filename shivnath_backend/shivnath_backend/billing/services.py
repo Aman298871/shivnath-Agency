@@ -6,6 +6,7 @@ import datetime
 
 from billing.models import CompanyBillingProfile, DealerCreditProfile, Invoice, PaymentTransaction
 from orders.models import Order
+from billing.tax_calculator import calculate_order_tax_and_totals
 
 
 @transaction.atomic
@@ -54,9 +55,7 @@ def generate_invoice_for_order(order):
     promo_discount = getattr(order, 'discount_amount', Decimal('0.00')) if hasattr(order, 'discount_amount') else Decimal('0.00')
     total_discount = points_discount + promo_discount
 
-    taxable_subtotal = max(Decimal('0.00'), subtotal - total_discount)
-
-    # Tax configuration
+    # Tax configuration from authoritative CompanyBillingProfile
     company_gstin = billing_profile.gstin if billing_profile else ''
     is_gst_req = getattr(order, 'is_gst_requested', False) or bool(getattr(order, 'gstin', ''))
     is_gst = bool(is_gst_req and company_gstin)
@@ -66,32 +65,115 @@ def generate_invoice_for_order(order):
     customer_state = (getattr(order, 'gst_state_name', '') or 'Chhattisgarh').strip().lower()
     is_intra_state = (not customer_state) or (customer_state == company_state)
 
-    if billing_profile and billing_profile.cgst_rate and billing_profile.sgst_rate:
-        cgst_rate = billing_profile.cgst_rate
-        sgst_rate = billing_profile.sgst_rate
-        igst_rate = billing_profile.igst_rate or (cgst_rate + sgst_rate)
+    if billing_profile and billing_profile.default_gst_rate is not None:
+        configured_gst_rate = Decimal(str(billing_profile.default_gst_rate))
+        is_price_inclusive = getattr(billing_profile, 'is_price_inclusive_gst', True)
+        is_delivery_taxable = getattr(billing_profile, 'is_delivery_taxable', False)
+    elif billing_profile and billing_profile.cgst_rate and billing_profile.sgst_rate:
+        configured_gst_rate = Decimal(str(billing_profile.cgst_rate + billing_profile.sgst_rate))
+        is_price_inclusive = getattr(billing_profile, 'is_price_inclusive_gst', True)
+        is_delivery_taxable = getattr(billing_profile, 'is_delivery_taxable', False)
     else:
-        cgst_rate = Decimal('9.00')
-        sgst_rate = Decimal('9.00')
-        igst_rate = Decimal('18.00')
+        # If no billing profile exists (e.g. unconfigured database or legacy test setups):
+        configured_gst_rate = Decimal('0.00')
+        is_price_inclusive = True
+        is_delivery_taxable = False
+        if getattr(order, 'grand_total', None) is not None:
+            net_no_tax = subtotal - total_discount - wallet_debited + delivery_fee
+            tax_18 = round((max(Decimal('0.00'), subtotal - total_discount) * Decimal('18.00')) / Decimal('100.00'), 2)
+            net_18_tax = net_no_tax + tax_18
+            if abs(order.grand_total - net_18_tax) < Decimal('0.05'):
+                configured_gst_rate = Decimal('18.00')
+                is_price_inclusive = False
+                is_delivery_taxable = False
+            elif abs(order.grand_total - net_no_tax) < Decimal('0.05'):
+                configured_gst_rate = Decimal('0.00')
+                is_price_inclusive = True
+                is_delivery_taxable = False
 
-    if is_intra_state:
-        cgst_amt = round((taxable_subtotal * cgst_rate) / Decimal('100.00'), 2)
-        sgst_amt = round((taxable_subtotal * sgst_rate) / Decimal('100.00'), 2)
-        igst_amt = Decimal('0.00')
-    else:
-        cgst_amt = Decimal('0.00')
-        sgst_amt = Decimal('0.00')
-        igst_amt = round((taxable_subtotal * igst_rate) / Decimal('100.00'), 2)
-    total_tax = cgst_amt + sgst_amt + igst_amt
+    tax_calc = calculate_order_tax_and_totals(
+        subtotal=subtotal,
+        delivery_fee=delivery_fee,
+        promo_discount=promo_discount,
+        points_discount=points_discount,
+        wallet_debited=wallet_debited,
+        is_intra_state=is_intra_state,
+        gst_rate=configured_gst_rate,
+        is_price_inclusive_gst=is_price_inclusive,
+        is_delivery_taxable=is_delivery_taxable,
+    )
 
+    cgst_rate = tax_calc['cgst_rate']
+    sgst_rate = tax_calc['sgst_rate']
+    igst_rate = tax_calc['igst_rate']
+
+    # Check if order already has an authoritative grand_total matching either inclusive or exclusive:
     net_order_total = subtotal - promo_discount - points_discount - wallet_debited + delivery_fee
-    if wallet_debited > Decimal('0.00') and getattr(order, 'grand_total', None) == net_order_total:
-        grand_total = order.grand_total
-    elif getattr(order, 'grand_total', None) is not None and order.grand_total > Decimal('0.00') and abs(order.grand_total - (taxable_subtotal + total_tax + delivery_fee)) < Decimal('0.05'):
-        grand_total = order.grand_total
+    exclusive_tax_on_product = round((max(Decimal('0.00'), subtotal - total_discount) * configured_gst_rate) / Decimal('100.00'), 2) if configured_gst_rate > Decimal('0.00') else Decimal('0.00')
+    exclusive_tax_with_delivery = round((max(Decimal('0.00'), subtotal - total_discount + delivery_fee) * configured_gst_rate) / Decimal('100.00'), 2) if configured_gst_rate > Decimal('0.00') else Decimal('0.00')
+
+    if getattr(order, 'grand_total', None) is not None and order.grand_total > Decimal('0.00'):
+        if abs(order.grand_total - net_order_total) < Decimal('0.05'):
+            # The order was placed with inclusive pricing or zero extra tax
+            if is_price_inclusive and configured_gst_rate > Decimal('0.00'):
+                taxable_subtotal = tax_calc['taxable_amount']
+                cgst_amt = tax_calc['cgst_amount']
+                sgst_amt = tax_calc['sgst_amount']
+                igst_amt = tax_calc['igst_amount']
+                total_tax = tax_calc['total_tax']
+            else:
+                total_tax = Decimal('0.00')
+                cgst_amt = Decimal('0.00')
+                sgst_amt = Decimal('0.00')
+                igst_amt = Decimal('0.00')
+                taxable_subtotal = max(Decimal('0.00'), net_order_total - delivery_fee)
+            grand_total = order.grand_total
+        elif abs(order.grand_total - (net_order_total + exclusive_tax_on_product)) < Decimal('0.05'):
+            # The order was placed with exclusive pricing (tax on product only)
+            total_tax = exclusive_tax_on_product
+            if is_intra_state:
+                cgst_amt = round(total_tax / Decimal('2.00'), 2)
+                sgst_amt = total_tax - cgst_amt
+                igst_amt = Decimal('0.00')
+            else:
+                cgst_amt = Decimal('0.00')
+                sgst_amt = Decimal('0.00')
+                igst_amt = total_tax
+            taxable_subtotal = max(Decimal('0.00'), subtotal - total_discount)
+            grand_total = order.grand_total
+        elif abs(order.grand_total - (net_order_total + exclusive_tax_with_delivery)) < Decimal('0.05'):
+            # The order was placed with exclusive pricing (tax on product + delivery)
+            total_tax = exclusive_tax_with_delivery
+            if is_intra_state:
+                cgst_amt = round(total_tax / Decimal('2.00'), 2)
+                sgst_amt = total_tax - cgst_amt
+                igst_amt = Decimal('0.00')
+            else:
+                cgst_amt = Decimal('0.00')
+                sgst_amt = Decimal('0.00')
+                igst_amt = total_tax
+            taxable_subtotal = max(Decimal('0.00'), subtotal - total_discount + delivery_fee)
+            grand_total = order.grand_total
+        else:
+            grand_total = tax_calc['grand_total']
+            taxable_subtotal = tax_calc['taxable_amount']
+            cgst_amt = tax_calc['cgst_amount']
+            sgst_amt = tax_calc['sgst_amount']
+            igst_amt = tax_calc['igst_amount']
+            total_tax = tax_calc['total_tax']
     else:
-        grand_total = taxable_subtotal + total_tax + delivery_fee
+        grand_total = tax_calc['grand_total']
+        taxable_subtotal = tax_calc['taxable_amount']
+        cgst_amt = tax_calc['cgst_amount']
+        sgst_amt = tax_calc['sgst_amount']
+        igst_amt = tax_calc['igst_amount']
+        total_tax = tax_calc['total_tax']
+
+    # Synchronize order totals if necessary so Order and Invoice never diverge
+    if order.grand_total != grand_total or order.tax_amount != total_tax:
+        order.tax_amount = total_tax
+        order.grand_total = grand_total
+        order.save(update_fields=['tax_amount', 'grand_total', 'updated_at'])
 
     # Guaranteed unique invoice number using order ID and year prefix
     prefix = billing_profile.invoice_prefix if billing_profile and billing_profile.invoice_prefix else f'SHV/{timezone.now().year}/'
@@ -115,6 +197,7 @@ def generate_invoice_for_order(order):
     # Calculate actual verified settlement
     is_prepaid_full = (
         getattr(order, 'payment_status', '').lower() == 'paid' or
+        getattr(order, 'payment', '').lower() == 'paid' or
         (wallet_debited + points_discount >= grand_total)
     )
 
@@ -123,7 +206,7 @@ def generate_invoice_for_order(order):
         amt_paid = grand_total
     elif wallet_debited > Decimal('0.00'):
         amt_paid = min(grand_total, wallet_debited)
-        inv_status = 'PAID' if amt_paid >= grand_total else 'PARTIALLY_PAID'
+        inv_status = 'PAID' if (amt_paid >= grand_total or (grand_total - amt_paid) <= Decimal('0.05')) else 'PARTIALLY_PAID'
     elif getattr(order, 'payment_status', '').lower() == 'partial':
         inv_status = 'PARTIALLY_PAID'
         amt_paid = Decimal('0.00')
@@ -134,8 +217,59 @@ def generate_invoice_for_order(order):
     order_items_snapshot = []
     if hasattr(order, 'items'):
         for it in order.items.select_related('product').all():
-            pkg_type = 'JAR' if ('20' in str(it.size or '') or 'JAR' in str(it.product_name or '').upper()) else 'BOTTLE'
-            uom = 'Jars' if pkg_type == 'JAR' else 'Boxes'
+            size_str = str(it.size or '').upper().strip()
+            name_str = str(it.product_name or (it.product.name if it.product else '')).upper().strip()
+            pkg_attr = str(getattr(it.product, 'package_type', '')).upper() if it.product else ''
+
+            is_jar = (
+                pkg_attr == 'JAR' or
+                'JAR' in name_str or
+                any(x in size_str for x in ['20L', '20 L', '20-L', '20LTR', '20 LITRE', '20 LITER'])
+            ) and ('ML' not in size_str)
+
+            is_box = not is_jar and (
+                pkg_attr in ('BOX', 'CARTON', 'CASE', 'CTN') or
+                any(x in name_str for x in ['BOX', 'CARTON', 'CASE', 'CTN']) or
+                any(x in size_str for x in ['BOX', 'CARTON', 'CASE', 'CTN'])
+            )
+
+            # Check packaging conversion rule from MinimumOrderPackagingRule
+            units_per_carton = 1
+            if it.product:
+                from products.models import MinimumOrderPackagingRule
+                rule = MinimumOrderPackagingRule.objects.filter(product=it.product).first()
+                if not rule and getattr(it.product, 'category_id', None):
+                    rule = MinimumOrderPackagingRule.objects.filter(category_id=it.product.category_id).first()
+                if rule and rule.units_per_carton:
+                    units_per_carton = rule.units_per_carton
+
+            if is_jar:
+                pkg_type = 'JAR'
+                uom = 'Jars'
+                packaging_display = f"{it.quantity} Jars"
+                cartons_count = 0
+            elif units_per_carton > 1 and it.quantity >= units_per_carton and (it.quantity % units_per_carton == 0):
+                pkg_type = 'CARTON'
+                cartons_count = it.quantity // units_per_carton
+                uom = 'Bottles'
+                packaging_display = f"{cartons_count} Cartons ({it.quantity} Bottles)"
+            elif units_per_carton > 1 and it.quantity >= units_per_carton:
+                pkg_type = 'CARTON'
+                cartons_count = it.quantity // units_per_carton
+                rem = it.quantity % units_per_carton
+                uom = 'Bottles'
+                packaging_display = f"{cartons_count} Cartons + {rem} Bottles ({it.quantity} Bottles)"
+            elif is_box:
+                pkg_type = 'BOX'
+                uom = 'Boxes'
+                packaging_display = f"{it.quantity} Boxes"
+                cartons_count = it.quantity
+            else:
+                pkg_type = 'BOTTLE'
+                uom = 'Bottles'
+                packaging_display = f"{it.quantity} Bottles"
+                cartons_count = 0
+
             order_items_snapshot.append({
                 'product_id': it.product_id,
                 'name': it.product_name or (it.product.name if it.product else 'Packaged Water'),
@@ -143,9 +277,13 @@ def generate_invoice_for_order(order):
                 'quantity': it.quantity,
                 'uom': uom,
                 'uom_display': uom,
+                'unit_of_measure': uom,
                 'unit_price': float(it.unit_price),
                 'total_price': float(it.total_price),
                 'line_total': float(it.total_price),
+                'units_per_carton': units_per_carton,
+                'cartons_count': cartons_count,
+                'packaging_display': packaging_display,
             })
 
     financial_snapshot = {
@@ -164,12 +302,19 @@ def generate_invoice_for_order(order):
         'wallet_amount_debited': float(wallet_debited),
         'promotional_discount': float(promo_discount),
         'taxable_amount': float(taxable_subtotal),
+        'gst_rate': float(configured_gst_rate),
+        'cgst_rate': float(cgst_rate),
+        'sgst_rate': float(sgst_rate),
+        'igst_rate': float(igst_rate),
         'cgst_amount': float(cgst_amt),
         'sgst_amount': float(sgst_amt),
         'igst_amount': float(igst_amt),
+        'total_tax': float(total_tax),
         'grand_total': float(grand_total),
         'amount_paid': float(amt_paid),
         'outstanding_balance': float(max(Decimal('0.00'), grand_total - amt_paid)),
+        'is_price_inclusive_gst': is_price_inclusive,
+        'is_delivery_taxable': is_delivery_taxable,
         'place_of_supply': customer_state or 'chhattisgarh',
         'is_gst_invoice': is_gst,
         'generated_at': timezone.now().isoformat(),
@@ -183,10 +328,14 @@ def generate_invoice_for_order(order):
         billed_to_gstin=customer_gstin,
         billed_to_address=billing_addr,
         subtotal=subtotal,
+        delivery_charges=delivery_fee,
+        tax_rate=configured_gst_rate,
+        taxable_amount=taxable_subtotal,
+        is_price_inclusive_gst=is_price_inclusive,
+        is_delivery_taxable=is_delivery_taxable,
         cgst_amount=cgst_amt,
         sgst_amount=sgst_amt,
         igst_amount=igst_amt,
-        delivery_charges=delivery_fee,
         discount_amount=promo_discount,
         points_discount_amount=points_discount,
         wallet_amount_debited=wallet_debited,

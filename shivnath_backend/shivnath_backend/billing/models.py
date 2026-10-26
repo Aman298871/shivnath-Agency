@@ -17,9 +17,12 @@ class CompanyBillingProfile(models.Model):
     state_name = models.CharField(max_length=100, blank=True, default='')
     state_code = models.CharField(max_length=10, blank=True, default='')
     invoice_prefix = models.CharField(max_length=30, default='SHV/2026/')
+    default_gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('18.00'), help_text="Authoritative GST rate (%) configured by Admin")
     cgst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('9.00'))
     sgst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('9.00'))
     igst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('18.00'))
+    is_price_inclusive_gst = models.BooleanField(default=True, help_text="True if product prices already include GST, False if added on top (exclusive)")
+    is_delivery_taxable = models.BooleanField(default=False, help_text="True if delivery charges are subject to GST")
     bank_name = models.CharField(max_length=150, blank=True, default='')
     bank_account_number = models.CharField(max_length=50, blank=True, default='')
     bank_ifsc_code = models.CharField(max_length=30, blank=True, default='')
@@ -33,6 +36,15 @@ class CompanyBillingProfile(models.Model):
         verbose_name = 'Company Billing Profile'
         verbose_name_plural = 'Company Billing Profiles'
 
+    def save(self, *args, **kwargs):
+        if self.default_gst_rate is not None:
+            rate_dec = Decimal(str(self.default_gst_rate))
+            half = (rate_dec / Decimal('2.00')).quantize(Decimal('0.01'))
+            self.cgst_rate = half
+            self.sgst_rate = half
+            self.igst_rate = rate_dec
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.trade_name or self.legal_name or 'Unconfigured Company Profile'} ({self.gstin or 'No GST'})"
 
@@ -42,6 +54,7 @@ class DeliveryOriginSetting(models.Model):
     Authoritative dispatch origin for distance-based delivery calculations.
     """
     name = models.CharField(max_length=150, default="Shivnath Agency Central Dispatch")
+    city = models.CharField(max_length=100, default="Raipur", blank=True, help_text="Hub City/District")
     address = models.TextField(default="Ekta Nagar, Pragati Nagar, LIC Colony, near Mowa Thana, Raipur, Chhattisgarh")
     latitude = models.DecimalField(max_digits=9, decimal_places=6, default=Decimal('21.267800'), help_text="Origin Latitude")
     longitude = models.DecimalField(max_digits=9, decimal_places=6, default=Decimal('81.671100'), help_text="Origin Longitude")
@@ -205,6 +218,10 @@ class Invoice(models.Model):
     sgst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     igst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     delivery_charges = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('18.00'), help_text="Authoritative GST rate (%) applied to this invoice")
+    taxable_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), help_text="Net taxable value before tax")
+    is_price_inclusive_gst = models.BooleanField(default=False, help_text="True if item prices are inclusive of GST")
+    is_delivery_taxable = models.BooleanField(default=True, help_text="True if delivery charges were included in taxable value")
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     points_discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     wallet_amount_debited = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
@@ -249,6 +266,23 @@ class Invoice(models.Model):
     @property
     def payment_status(self):
         return self.status
+
+    @property
+    def tax_amount(self):
+        return (self.cgst_amount or Decimal('0.00')) + (self.sgst_amount or Decimal('0.00')) + (self.igst_amount or Decimal('0.00'))
+
+    def record_payment(self, amount, payment_method='CASH', reference_number='', notes='', actor=None):
+        from billing.services import record_payment_transaction
+        txn = record_payment_transaction(
+            invoice_id=self.id,
+            amount_paid=amount,
+            payment_method=payment_method,
+            reference_number=reference_number,
+            actor=actor,
+            notes=notes,
+        )
+        self.refresh_from_db()
+        return txn
 
 
 class PaymentTransaction(models.Model):

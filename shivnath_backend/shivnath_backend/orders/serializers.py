@@ -56,7 +56,13 @@ class OrderItemSerializer(serializers.ModelSerializer):
     def get_package_type(self, obj):
         if obj.product and hasattr(obj.product, 'package_type'):
             return obj.product.package_type
-        if '20' in str(obj.size or '') or 'JAR' in str(obj.product_name or '').upper():
+        size_str = str(obj.size or '').upper().strip()
+        name_str = str(obj.product_name or '').upper().strip()
+        is_jar = (
+            'JAR' in name_str or
+            any(x in size_str for x in ['20L', '20 L', '20-L', '20LTR', '20 LITRE', '20 LITER'])
+        ) and ('ML' not in size_str)
+        if is_jar:
             return 'JAR'
         return 'BOTTLE'
 
@@ -261,6 +267,8 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
 
+    payment_status = serializers.SerializerMethodField()
+    payment = serializers.SerializerMethodField()
     amount_paid = serializers.SerializerMethodField()
     outstanding_balance = serializers.SerializerMethodField()
     outstanding_amount = serializers.SerializerMethodField()
@@ -376,6 +384,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'status_display',
 
             'payment_status',
+            'payment',
             'payment_display',
 
             'created_by',
@@ -423,6 +432,8 @@ class OrderSerializer(serializers.ModelSerializer):
             'order_notes',
             'fulfilling_entity',
             'status_display',
+            'payment_status',
+            'payment',
             'payment_display',
             'created_by',
             'created_by_name',
@@ -446,12 +457,34 @@ class OrderSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
+    def get_payment_status(self, obj):
+        if getattr(obj, 'order_source', '') == 'WATER_WALLET_REDEMPTION':
+            return 'paid'
+        rem = getattr(obj, 'remaining_payable_amount', None)
+        if rem is not None and rem <= Decimal('0.00') and ((getattr(obj, 'points_discount_amount', 0) or 0) > 0 or (getattr(obj, 'wallet_amount_debited', 0) or 0) > 0):
+            return 'paid'
+        inv = self._get_invoice(obj)
+        if inv:
+            if inv.status == 'PAID' or (inv.grand_total > Decimal('0.00') and (inv.grand_total - (inv.amount_paid or Decimal('0.00'))) <= Decimal('0.05')):
+                return 'paid'
+            if inv.amount_paid and inv.amount_paid > Decimal('0.00'):
+                return 'partial'
+        raw = getattr(obj, 'payment_status', '').lower()
+        if raw == 'paid' or getattr(obj, 'payment', '').lower() == 'paid':
+            return 'paid'
+        if raw == 'partial':
+            return 'partial'
+        return 'pending'
+
+    def get_payment(self, obj):
+        return self.get_payment_status(obj)
+
     def get_amount_paid(self, obj):
         if getattr(obj, 'payment_status', '').lower() == 'paid':
             return float(obj.grand_total or obj.amount or 0.0)
         inv = self._get_invoice(obj)
         if inv:
-            if inv.status == 'PAID':
+            if inv.status == 'PAID' or (inv.grand_total > Decimal('0.00') and (inv.grand_total - (inv.amount_paid or Decimal('0.00'))) <= Decimal('0.05')):
                 return float(inv.grand_total)
             return float(inv.amount_paid or 0.0)
         return 0.0
@@ -466,7 +499,7 @@ class OrderSerializer(serializers.ModelSerializer):
             return 0.0
         inv = self._get_invoice(obj)
         if inv:
-            if inv.status == 'PAID':
+            if inv.status == 'PAID' or (inv.grand_total > Decimal('0.00') and (inv.grand_total - (inv.amount_paid or Decimal('0.00'))) <= Decimal('0.05')):
                 return 0.0
             return float(inv.outstanding_balance)
         if rem is not None and ((getattr(obj, 'points_discount_amount', 0) or 0) > 0 or (getattr(obj, 'wallet_amount_debited', 0) or 0) > 0):
@@ -485,7 +518,7 @@ class OrderSerializer(serializers.ModelSerializer):
         if rem is not None and rem <= Decimal('0.00') and ((getattr(obj, 'points_discount_amount', 0) or 0) > 0 or (getattr(obj, 'wallet_amount_debited', 0) or 0) > 0):
             return True
         inv = self._get_invoice(obj)
-        if inv and inv.status == 'PAID':
+        if inv and (inv.status == 'PAID' or (inv.grand_total > Decimal('0.00') and (inv.grand_total - (inv.amount_paid or Decimal('0.00'))) <= Decimal('0.05'))):
             return True
         return False
 
@@ -513,7 +546,11 @@ class OrderSerializer(serializers.ModelSerializer):
         if getattr(obj, 'payment_status', '').lower() == 'paid':
             return 'PAID'
         inv = self._get_invoice(obj)
-        return inv.status if inv else 'UNPAID'
+        if inv:
+            if inv.status == 'PAID' or (inv.grand_total > Decimal('0.00') and (inv.grand_total - (inv.amount_paid or Decimal('0.00'))) <= Decimal('0.05')):
+                return 'PAID'
+            return inv.status
+        return 'UNPAID'
 
     def get_invoice_subtotal(self, obj):
         inv = self._get_invoice(obj)
@@ -707,8 +744,18 @@ class OrderSerializer(serializers.ModelSerializer):
                 invs = Invoice.objects.filter(
                     order__created_by=obj.created_by,
                     invoice_type__in=['CUSTOMER_SALE_INVOICE', 'DIRECT_COMPANY_SALE_INVOICE']
-                ).exclude(order_id=obj.id).exclude(status__in=['PAID', 'CANCELLED'])
-                total_prev = sum(float(inv.outstanding_balance) for inv in invs)
+                ).exclude(
+                    order_id=obj.id
+                ).exclude(
+                    status__in=['PAID', 'CANCELLED']
+                ).exclude(
+                    order__status__in=['cancelled', 'order_placement', 'created']
+                ).exclude(
+                    order__payment_status__in=['paid', 'PAID']
+                ).exclude(
+                    order__order_source__in=['WATER_WALLET_REDEMPTION', 'WATER_WALLET']
+                )
+                total_prev = sum(float(inv.outstanding_balance) for inv in invs if inv.outstanding_balance > Decimal('0.05'))
                 return round(total_prev, 2)
         except Exception:
             pass

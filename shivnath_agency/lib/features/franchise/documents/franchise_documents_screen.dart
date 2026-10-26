@@ -517,8 +517,8 @@ class _FranchiseDocumentsScreenState extends State<FranchiseDocumentsScreen> {
                               });
                             });
 
-                            Navigator.pop(bCtx);
-
+                            if (bCtx.mounted) Navigator.pop(bCtx);
+                            if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Row(

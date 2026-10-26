@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
 import 'api_client.dart';
@@ -130,7 +131,7 @@ class LeadService {
     
     try {
       final body = _prepareLeadData(data);
-      print(body);
+      debugPrint('[LeadService] Creating lead: $body');
 
       final response = await ApiClient.post(
         Uri.parse(

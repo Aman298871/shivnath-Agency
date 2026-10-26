@@ -4,13 +4,15 @@ from rest_framework.exceptions import ValidationError
 from products.models import Product, ProductCategory, MinimumOrderPackagingRule
 
 
-def get_applicable_packaging_rule(product, channel='ALL'):
+def get_applicable_packaging_rule(product, channel='ALL', franchise=None):
     """
-    Finds the highest-priority active packaging/MOQ rule for a given product and channel.
+    Finds the authoritative active packaging/MOQ rule for a given product, channel, and franchise.
     Precedence:
-    1. Product-specific rule with exact or matching channel
-    2. Category-specific rule with exact or matching channel
-    3. Global rule (product=None, category=None)
+    1. Admin baseline rule establishes company minimum.
+    2. If Admin baseline has allow_franchise_override=True and franchise is specified,
+       an active franchise override is applied provided it is >= company baseline.
+    3. Category-specific rule if no product rule.
+    4. Global rule if no category rule.
     """
     if not product:
         return None
@@ -20,37 +22,54 @@ def get_applicable_packaging_rule(product, channel='ALL'):
     if channel_upper in ['CUSTOMER', 'FRANCHISE', 'ADMIN']:
         channel_filter.append(channel_upper)
 
-    # 1. Product-specific
-    rule = MinimumOrderPackagingRule.objects.filter(
+    # 1. Admin Baseline Product-specific rule
+    baseline_rule = MinimumOrderPackagingRule.objects.filter(
         product=product,
+        franchise__isnull=True,
         is_active=True,
         applies_to__in=channel_filter
     ).order_by('-priority', '-id').first()
-    if rule:
-        return rule
 
-    # 2. Category-specific
-    cat = getattr(product, 'category_ref', None)
-    if cat:
-        rule = MinimumOrderPackagingRule.objects.filter(
-            category=cat,
+    # 2. Category-specific baseline if no product rule
+    if not baseline_rule:
+        cat = getattr(product, 'category_ref', None)
+        if cat:
+            baseline_rule = MinimumOrderPackagingRule.objects.filter(
+                category=cat,
+                franchise__isnull=True,
+                is_active=True,
+                applies_to__in=channel_filter
+            ).order_by('-priority', '-id').first()
+
+    # 3. Global baseline
+    if not baseline_rule:
+        baseline_rule = MinimumOrderPackagingRule.objects.filter(
+            product__isnull=True,
+            category__isnull=True,
+            franchise__isnull=True,
             is_active=True,
             applies_to__in=channel_filter
         ).order_by('-priority', '-id').first()
-        if rule:
-            return rule
 
-    # 3. Global
-    rule = MinimumOrderPackagingRule.objects.filter(
-        product__isnull=True,
-        category__isnull=True,
-        is_active=True,
-        applies_to__in=channel_filter
-    ).order_by('-priority', '-id').first()
-    return rule
+    # 4. Check Franchise Override if requested and permitted
+    if franchise and baseline_rule and baseline_rule.allow_franchise_override:
+        f_rule = MinimumOrderPackagingRule.objects.filter(
+            product=product,
+            franchise=franchise,
+            is_active=True,
+            applies_to__in=channel_filter
+        ).order_by('-priority', '-id').first()
+
+        if f_rule:
+            # Enforce business invariant: Franchise cannot lower company minimum
+            if f_rule.min_order_quantity >= baseline_rule.min_order_quantity:
+                if baseline_rule.max_franchise_moq is None or f_rule.min_order_quantity <= baseline_rule.max_franchise_moq:
+                    return f_rule
+
+    return baseline_rule
 
 
-def get_product_moq_info(product, channel='CUSTOMER'):
+def get_product_moq_info(product, channel='CUSTOMER', franchise=None):
     """
     Returns authoritative MOQ and packaging conversion metadata for a product.
     Authoritative business rules:
@@ -63,10 +82,13 @@ def get_product_moq_info(product, channel='CUSTOMER'):
     if not product:
         return None
 
-    rule = get_applicable_packaging_rule(product, channel=channel)
+    rule = get_applicable_packaging_rule(product, channel=channel, franchise=franchise)
     pkg_type = str(getattr(product, 'package_type', 'BOTTLE')).upper()
     prod_name_upper = str(product.name).upper()
     prod_units_per_case = getattr(product, 'units_per_case', 24) or 24
+
+    is_jar = (pkg_type == 'JAR') or ('JAR' in prod_name_upper) or ('20L' in prod_name_upper)
+    is_bottle = (pkg_type == 'BOTTLE') or ('BOTTLE' in prod_name_upper) or ('MINERAL' in prod_name_upper) or ('WATER' in prod_name_upper)
 
     if rule:
         rule_name = rule.name
@@ -74,10 +96,14 @@ def get_product_moq_info(product, channel='CUSTOMER'):
         min_order_qty = rule.min_order_quantity
         units_per_carton = rule.units_per_carton or prod_units_per_case
         allow_partial = rule.allow_partial_carton
+        allow_override = rule.allow_franchise_override
+        is_override = rule.franchise is not None
+        max_f_moq = rule.max_franchise_moq
     else:
         rule_name = 'Approved Water Wala Default Policy'
-        is_jar = (pkg_type == 'JAR') or ('JAR' in prod_name_upper) or ('20L' in prod_name_upper)
-        is_bottle = (pkg_type == 'BOTTLE') or ('BOTTLE' in prod_name_upper) or ('MINERAL' in prod_name_upper) or ('WATER' in prod_name_upper)
+        allow_override = False
+        is_override = False
+        max_f_moq = None
 
         if is_jar:
             sales_unit = 'JAR'
@@ -124,10 +150,13 @@ def get_product_moq_info(product, channel='CUSTOMER'):
         'allow_partial_carton': allow_partial,
         'required_min_units': required_min_units,
         'moq_display_text': moq_display_text,
+        'allow_franchise_override': allow_override,
+        'is_franchise_override': is_override,
+        'max_franchise_moq': max_f_moq,
     }
 
 
-def validate_order_item_packaging(product, quantity, channel='ALL'):
+def validate_order_item_packaging(product, quantity, channel='ALL', franchise=None):
     """
     Authoritative backend validation of order quantities against active packaging and MOQ rules.
     Enforces minimum quantities and carton/peti boundaries.
@@ -136,7 +165,7 @@ def validate_order_item_packaging(product, quantity, channel='ALL'):
         raise ValidationError(f"Quantity for '{product.name}' must be at least 1.")
 
     qty = int(quantity)
-    moq_info = get_product_moq_info(product, channel=channel)
+    moq_info = get_product_moq_info(product, channel=channel, franchise=franchise)
 
     required_min_units = moq_info['required_min_units']
     sales_unit = moq_info['sales_unit']

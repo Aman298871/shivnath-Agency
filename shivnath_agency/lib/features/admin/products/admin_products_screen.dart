@@ -3,6 +3,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/product_thumbnail.dart';
 import '../../../core/repositories/product_repository.dart';
 import 'packaging_rules_dialog.dart';
+import 'product_pricing_dialog.dart';
 
 class AdminProductsScreen extends StatefulWidget {
   const AdminProductsScreen({super.key});
@@ -119,18 +120,38 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
 
   String search = '';
   String categoryFilter = 'All';
+  String priceSort = 'Default';
 
   List<Map<String, dynamic>> get filteredProducts {
     final keyword = search.trim().toLowerCase();
 
-    return products.where((product) {
+    final list = products.where((product) {
       final matchesSearch =
           keyword.isEmpty ||
           product['name'].toString().toLowerCase().contains(keyword) ||
-          product['sku'].toString().toLowerCase().contains(keyword);
+          product['sku'].toString().toLowerCase().contains(keyword) ||
+          (product['size']?.toString().toLowerCase().contains(keyword) ?? false);
 
       return matchesSearch;
     }).toList();
+
+    if (priceSort == 'Price: Low to High') {
+      list.sort((a, b) => (num.tryParse(a['price']?.toString() ?? '0') ?? 0)
+          .compareTo(num.tryParse(b['price']?.toString() ?? '0') ?? 0));
+    } else if (priceSort == 'Price: High to Low') {
+      list.sort((a, b) => (num.tryParse(b['price']?.toString() ?? '0') ?? 0)
+          .compareTo(num.tryParse(a['price']?.toString() ?? '0') ?? 0));
+    } else if (priceSort == 'Margin: High to Low') {
+      list.sort((a, b) {
+        final aCust = num.tryParse(a['price']?.toString() ?? '0') ?? 0;
+        final aWhl = num.tryParse((a['dealer_transfer_price'] ?? a['dealer_wholesale_price'] ?? a['price'])?.toString() ?? '0') ?? aCust;
+        final bCust = num.tryParse(b['price']?.toString() ?? '0') ?? 0;
+        final bWhl = num.tryParse((b['dealer_transfer_price'] ?? b['dealer_wholesale_price'] ?? b['price'])?.toString() ?? '0') ?? bCust;
+        return (bCust - bWhl).compareTo(aCust - aWhl);
+      });
+    }
+
+    return list;
   }
 
   int get activeProducts =>
@@ -1150,13 +1171,21 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                 Expanded(child: _searchField()),
                 const SizedBox(width: 14),
                 SizedBox(width: 220, child: _categoryDropdown()),
+                const SizedBox(width: 14),
+                SizedBox(width: 200, child: _priceSortDropdown()),
               ],
             )
           : Column(
               children: [
                 _searchField(),
                 const SizedBox(height: 10),
-                _categoryDropdown(),
+                Row(
+                  children: [
+                    Expanded(child: _categoryDropdown()),
+                    const SizedBox(width: 10),
+                    Expanded(child: _priceSortDropdown()),
+                  ],
+                ),
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
@@ -1248,6 +1277,39 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
     );
   }
 
+  Widget _priceSortDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: priceSort,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      ),
+      items: const [
+        DropdownMenuItem(
+          value: 'Default',
+          child: Text('Sort: Default', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Price: Low to High',
+          child: Text('Price: Low to High', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Price: High to Low',
+          child: Text('Price: High to Low', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+        DropdownMenuItem(
+          value: 'Margin: High to Low',
+          child: Text('Margin: High to Low', overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          setState(() => priceSort = value);
+        }
+      },
+    );
+  }
+
   Widget _buildDesktopTable() {
     return Container(
       width: double.infinity,
@@ -1296,7 +1358,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
           Expanded(child: Text('GST', style: _headerStyle)),
           Expanded(child: Text('STOCK', style: _headerStyle)),
           Expanded(child: Text('STATUS', style: _headerStyle)),
-          SizedBox(width: 100, child: Text('ACTIONS', style: _headerStyle)),
+          SizedBox(width: 140, child: Text('ACTIONS', style: _headerStyle)),
         ],
       ),
     );
@@ -1407,11 +1469,29 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
             ),
           ),
           SizedBox(
-            width: 100,
+            width: 140,
             child: Row(
               children: [
                 IconButton(
-                  tooltip: 'Edit',
+                  tooltip: 'Pricing & Packaging',
+                  constraints: const BoxConstraints(
+                    minWidth: 35,
+                    minHeight: 35,
+                  ),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => ProductPricingDialog.show(
+                    context,
+                    product: product,
+                    onUpdated: loadProducts,
+                  ),
+                  icon: const Icon(
+                    Icons.currency_rupee_rounded,
+                    size: 18,
+                    color: Color(0xFF059669),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Edit Product',
                   constraints: const BoxConstraints(
                     minWidth: 35,
                     minHeight: 35,
@@ -1559,14 +1639,37 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
               ),
               _mobileInfo('GST', '${product['gst']}%'),
               _mobileInfo('Stock', product['stock']),
+              const SizedBox(height: 8),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF059669),
+                        side: const BorderSide(color: Color(0xFF059669)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () => ProductPricingDialog.show(
+                        context,
+                        product: product,
+                        onUpdated: loadProducts,
+                      ),
+                      icon: const Icon(Icons.currency_rupee_rounded, size: 16),
+                      label: const Text(
+                        'Pricing & Pack',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   IconButton(
+                    tooltip: 'Edit Product',
                     onPressed: () => _openProductForm(product: product),
                     icon: const Icon(Icons.edit_outlined),
                   ),
                   IconButton(
+                    tooltip: 'Delete Product',
                     onPressed: () => _deleteProduct(product),
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
                   ),

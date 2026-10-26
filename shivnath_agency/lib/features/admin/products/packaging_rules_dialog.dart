@@ -27,11 +27,14 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
   // New Rule Form Controllers
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
-  final _minQtyCtrl = TextEditingController(text: '1');
-  final _cartonSizeCtrl = TextEditingController(text: '1');
+  final _minQtyCtrl = TextEditingController(text: '5');
+  final _cartonSizeCtrl = TextEditingController(text: '24');
+  final _maxFranchiseMoqCtrl = TextEditingController();
   int? _selectedProductId;
   String _channel = 'CUSTOMER';
-  bool _enforceMultiples = false;
+  String _salesUnit = 'CARTON';
+  bool _allowPartialCarton = false;
+  bool _allowFranchiseOverride = false;
   bool _isActive = true;
 
   @override
@@ -40,6 +43,27 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
     _loadRules();
     if (widget.products.isNotEmpty) {
       _selectedProductId = widget.products.first['id'] as int?;
+      _applySmartDefaults(widget.products.first);
+    }
+  }
+
+  void _applySmartDefaults(Map<String, dynamic> product) {
+    final name = (product['name'] ?? '').toString().toUpperCase();
+    final sku = (product['sku'] ?? '').toString().toUpperCase();
+    final isJar = name.contains('JAR') || name.contains('20L') || sku.contains('JAR');
+    if (isJar) {
+      _salesUnit = 'JAR';
+      _minQtyCtrl.text = '5';
+      _cartonSizeCtrl.text = '1';
+      _allowPartialCarton = true;
+      _nameCtrl.text = '20L Water Jar Minimum 5 Jars Policy';
+    } else {
+      _salesUnit = 'CARTON';
+      _minQtyCtrl.text = '5';
+      final unitsPerCase = (product['units_per_case'] as int?) ?? 24;
+      _cartonSizeCtrl.text = '$unitsPerCase';
+      _allowPartialCarton = false;
+      _nameCtrl.text = '${product['name'] ?? 'Packaged Water'} 5 Carton MOQ Policy';
     }
   }
 
@@ -48,6 +72,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
     _nameCtrl.dispose();
     _minQtyCtrl.dispose();
     _cartonSizeCtrl.dispose();
+    _maxFranchiseMoqCtrl.dispose();
     super.dispose();
   }
 
@@ -67,30 +92,36 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
   Future<void> _submitNewRule() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final minQty = int.tryParse(_minQtyCtrl.text.trim()) ?? 1;
-    final cartonSize = int.tryParse(_cartonSizeCtrl.text.trim()) ?? 1;
+    final minQty = int.tryParse(_minQtyCtrl.text.trim()) ?? 5;
+    final cartonSize = int.tryParse(_cartonSizeCtrl.text.trim()) ?? 24;
+    final maxFMoq = int.tryParse(_maxFranchiseMoqCtrl.text.trim());
 
     setState(() => _creating = true);
     final res = await _service.createPackagingRule({
       'name': _nameCtrl.text.trim(),
       'channel': _channel,
+      'applies_to': _channel,
       'product_id': _selectedProductId,
+      'product': _selectedProductId,
+      'sales_unit': _salesUnit,
       'min_order_quantity': minQty,
       'carton_pack_size': cartonSize,
-      'enforce_carton_multiples': _enforceMultiples,
+      'units_per_carton': cartonSize,
+      'allow_partial_carton': _allowPartialCarton,
+      'enforce_carton_multiples': !_allowPartialCarton,
+      'allow_franchise_override': _allowFranchiseOverride,
+      if (_allowFranchiseOverride && maxFMoq != null)
+        'max_franchise_moq': maxFMoq,
       'is_active': _isActive,
     });
 
     if (mounted) {
       setState(() => _creating = false);
       if (res['success'] == true) {
-        AppToast.success(context, 'Packaging/MOQ rule created successfully');
-        _nameCtrl.clear();
-        _minQtyCtrl.text = '1';
-        _cartonSizeCtrl.text = '1';
+        AppToast.success(context, 'Packaging & MOQ rule saved successfully');
         _loadRules();
       } else {
-        AppToast.error(context, res['message']?.toString() ?? 'Failed to create rule');
+        AppToast.error(context, res['message']?.toString() ?? 'Failed to save rule');
       }
     }
   }
@@ -227,7 +258,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                                 },
                               ),
                               const SizedBox(height: 12),
-                              DropdownButtonFormField<int>(
+                               DropdownButtonFormField<int>(
                                 initialValue: _selectedProductId,
                                 decoration: const InputDecoration(
                                   labelText: 'Assigned Product',
@@ -243,7 +274,34 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                                     ),
                                   );
                                 }).toList(),
-                                onChanged: (val) => setState(() => _selectedProductId = val),
+                                onChanged: (val) {
+                                  setState(() {
+                                    _selectedProductId = val;
+                                    if (val != null) {
+                                      final p = widget.products.firstWhere((it) => it['id'] == val, orElse: () => {});
+                                      if (p.isNotEmpty) _applySmartDefaults(p);
+                                    }
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<String>(
+                                initialValue: _salesUnit,
+                                decoration: const InputDecoration(
+                                  labelText: 'Sales Packaging Unit',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'CARTON', child: Text('Carton / Peti Box')),
+                                  DropdownMenuItem(value: 'JAR', child: Text('20L Water Jar')),
+                                  DropdownMenuItem(value: 'BOTTLE', child: Text('Individual Bottle')),
+                                  DropdownMenuItem(value: 'PACK', child: Text('Pack')),
+                                  DropdownMenuItem(value: 'PIECE', child: Text('Piece')),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _salesUnit = val);
+                                },
                               ),
                               const SizedBox(height: 12),
                               Row(
@@ -252,10 +310,12 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                                     child: TextFormField(
                                       controller: _minQtyCtrl,
                                       keyboardType: TextInputType.number,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Min Qty (MOQ)',
-                                        border: OutlineInputBorder(),
+                                      decoration: InputDecoration(
+                                        labelText: 'Min Quantity (MOQ)',
+                                        hintText: 'e.g. 5',
+                                        border: const OutlineInputBorder(),
                                         isDense: true,
+                                        helperText: _salesUnit == 'CARTON' ? 'in Boxes/Cartons' : 'in $_salesUnit units',
                                       ),
                                       validator: (v) {
                                         final n = int.tryParse(v ?? '');
@@ -270,9 +330,11 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                                       controller: _cartonSizeCtrl,
                                       keyboardType: TextInputType.number,
                                       decoration: const InputDecoration(
-                                        labelText: 'Pack Size (Units)',
+                                        labelText: 'Pack Size (Units/Box)',
+                                        hintText: 'e.g. 24',
                                         border: OutlineInputBorder(),
                                         isDense: true,
+                                        helperText: 'Base bottles per box',
                                       ),
                                       validator: (v) {
                                         final n = int.tryParse(v ?? '');
@@ -286,14 +348,34 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                               const SizedBox(height: 10),
                               SwitchListTile(
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Enforce Exact Multiples', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                                subtitle: const Text('Order must be in carton increments (e.g., 24, 48, 72)', style: TextStyle(fontSize: 11)),
-                                value: _enforceMultiples,
-                                onChanged: (v) => setState(() => _enforceMultiples = v),
+                                title: const Text('Allow Partial Cartons', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                subtitle: const Text('Allow ordering partial quantities vs enforcing exact carton multiples', style: TextStyle(fontSize: 11)),
+                                value: _allowPartialCarton,
+                                onChanged: (v) => setState(() => _allowPartialCarton = v),
                               ),
                               SwitchListTile(
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Rule Active', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                title: const Text('Allow Franchise Custom MOQ', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                subtitle: const Text('Franchises can set local MOQ above company baseline', style: TextStyle(fontSize: 11)),
+                                value: _allowFranchiseOverride,
+                                onChanged: (v) => setState(() => _allowFranchiseOverride = v),
+                              ),
+                              if (_allowFranchiseOverride) ...[
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: _maxFranchiseMoqCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Max Franchise MOQ Limit (Optional)',
+                                    hintText: 'e.g. 20',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ],
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Rule Active & Enforced', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                                 value: _isActive,
                                 onChanged: (v) => setState(() => _isActive = v),
                               ),
@@ -305,12 +387,13 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF0284C7),
                                     foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   onPressed: _creating ? null : _submitNewRule,
                                   icon: _creating
                                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                       : const Icon(Icons.save_rounded, size: 18),
-                                  label: const Text('Save Packaging Rule'),
+                                  label: const Text('Save Packaging & MOQ Rule', style: TextStyle(fontWeight: FontWeight.w700)),
                                 ),
                               ),
                             ],
@@ -349,24 +432,26 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                                             const Text('No packaging rules configured yet.', style: TextStyle(color: Color(0xFF64748B))),
                                             const SizedBox(height: 4),
                                             Text(
-                                              'Default single unit ordering applies until rules are saved.',
-                                              style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                                              'Default 5 Jars & 5 Boxes MOQ applies automatically.',
+                                              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
                                             ),
                                           ],
                                         ),
                                       )
                                     : ListView.separated(
                                         itemCount: _rules.length,
-                                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                        separatorBuilder: (_, _) => const SizedBox(height: 10),
                                         itemBuilder: (_, idx) {
                                           final r = _rules[idx];
                                           final name = r['name'] ?? 'Packaging Rule';
                                           final prodName = r['product_name'] ?? 'All Products';
+                                          final salesUnit = r['sales_unit'] ?? 'CARTON';
                                           final minQty = r['min_order_quantity'] ?? 1;
-                                          final packSize = r['carton_pack_size'] ?? 1;
+                                          final packSize = r['units_per_carton'] ?? r['carton_pack_size'] ?? 1;
                                           final active = r['is_active'] == true;
-                                          final multiples = r['enforce_carton_multiples'] == true;
-                                          final channel = r['channel'] ?? 'CUSTOMER';
+                                          final allowPartial = r['allow_partial_carton'] == true;
+                                          final allowOverride = r['allow_franchise_override'] == true;
+                                          final channel = r['applies_to'] ?? r['channel'] ?? 'CUSTOMER';
 
                                           return Container(
                                             padding: const EdgeInsets.all(12),
@@ -383,7 +468,9 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                                                     children: [
                                                       Row(
                                                         children: [
-                                                          Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                                                          Expanded(
+                                                            child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                                                          ),
                                                           const SizedBox(width: 8),
                                                           Container(
                                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -402,8 +489,8 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                                                       Text('Product: $prodName', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                                                       const SizedBox(height: 4),
                                                       Text(
-                                                        'MOQ: $minQty units • Pack: $packSize units ${multiples ? '(Multiples enforced)' : ''}',
-                                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                                                        'MOQ: $minQty $salesUnit • Pack: $packSize units • ${allowPartial ? 'Partial Allowed' : 'Strict Multiples'} ${allowOverride ? '• Override: Allowed' : '• Override: Disabled'}',
+                                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
                                                       ),
                                                     ],
                                                   ),

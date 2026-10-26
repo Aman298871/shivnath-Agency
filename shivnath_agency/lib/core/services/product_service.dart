@@ -190,6 +190,37 @@ return result;
   }
 
   //=========================================
+  // UPDATE PRICING & PACKAGING
+  //=========================================
+
+  Future<Map<String, dynamic>> updateProductPricing(
+      int id,
+      Map<String, dynamic> data) async {
+    try {
+      final response = await ApiClient.patch(
+        Uri.parse(
+            '$baseUrl/api/products/$id/pricing/'),
+        headers: await _headers(),
+        body: jsonEncode(data),
+      );
+
+      final result = _decode(response);
+
+      if (result["success"] == true) {
+        await getProducts();
+      }
+
+      return result;
+    } catch (e) {
+      return {
+        "success": false,
+        "message":
+            "Server unavailable. Please start the backend and try again.",
+      };
+    }
+  }
+
+  //=========================================
   // DELETE
   //=========================================
 

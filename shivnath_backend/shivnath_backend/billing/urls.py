@@ -22,9 +22,14 @@ from billing.views import (
     DeliveryOriginSettingsAPIView,
     DeliveryDistanceBandListCreateView,
     DeliveryDistanceBandDetailView,
+    DeliveryAddressSuggestionsAPIView,
+    CustomerOutstandingBreakdownAPIView,
+    CalculateTaxAPIView,
 )
 
 urlpatterns = [
+    path('customer-outstanding/', CustomerOutstandingBreakdownAPIView.as_view(), name='billing_customer_outstanding'),
+    path('calculate-tax/', CalculateTaxAPIView.as_view(), name='billing_calculate_tax'),
     path('invoices/', InvoiceListAPIView.as_view(), name='billing_invoices_list'),
     path('invoices/<int:pk>/', InvoiceDetailAPIView.as_view(), name='billing_invoice_detail'),
     path('invoices/<int:pk>/thermal/', InvoiceThermalPrintView.as_view(), name='billing_invoice_thermal_print'),
@@ -45,6 +50,7 @@ urlpatterns = [
     path('company-profile/', CompanyBillingProfileAPIView.as_view(), name='billing_company_profile'),
     # Distance-based delivery endpoints
     path('delivery/calculate/', DeliveryCalculateAPIView.as_view(), name='billing_delivery_calculate'),
+    path('delivery/address-suggestions/', DeliveryAddressSuggestionsAPIView.as_view(), name='billing_delivery_address_suggestions'),
     path('delivery/origin/', DeliveryOriginSettingsAPIView.as_view(), name='billing_delivery_origin'),
     path('delivery/bands/', DeliveryDistanceBandListCreateView.as_view(), name='billing_delivery_bands_list_create'),
     path('delivery/bands/<int:pk>/', DeliveryDistanceBandDetailView.as_view(), name='billing_delivery_bands_detail'),

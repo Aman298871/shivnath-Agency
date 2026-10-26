@@ -632,8 +632,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             if (ord is Map) {
               final mapped = _orderRepository.mapOrder(Map<String, dynamic>.from(ord));
               parsedOrders.add(mapped);
-              final status = (mapped['status_raw'] ?? mapped['status'] ?? '').toString().toLowerCase();
-              if (status.contains('place') || status.contains('new') || status.contains('created')) {
+              final status = (mapped['raw_status'] ?? mapped['status_raw'] ?? mapped['status'] ?? '').toString().toLowerCase();
+              if (status.contains('deliv')) {
+                delivCount++;
+              } else if (status.contains('cancel') || status.contains('reject')) {
+                // Cancelled orders not counted as pending or new
+              } else if (status.contains('place') || status.contains('new') || status.contains('created')) {
                 newCount++;
               } else if (status.contains('pending') || status.contains('approval')) {
                 pendingCount++;
@@ -641,8 +645,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 prepCount++;
               } else if (status.contains('dispatch') || status.contains('transit')) {
                 dispCount++;
-              } else if (status.contains('deliv')) {
-                delivCount++;
               }
             }
           }

@@ -476,22 +476,25 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   }
 
   Widget _tableRow(Map<String, dynamic>? order, bool header) {
-    final isWalletOrder = !header && order != null && (order['order_source'] == 'WATER_WALLET' ||
-        order['order_source'] == 'WATER_WALLET_REDEMPTION' ||
-        order['payment_mode'] == 'WALLET');
+    if (!header && order == null) return const SizedBox.shrink();
+    final Map<String, dynamic> o = order ?? const <String, dynamic>{};
 
-    final custName = (order?['customer_name'] ?? '').toString().trim();
+    final isWalletOrder = !header && (o['order_source'] == 'WATER_WALLET' ||
+        o['order_source'] == 'WATER_WALLET_REDEMPTION' ||
+        o['payment_mode'] == 'WALLET');
+
+    final custName = (o['customer_name'] ?? '').toString().trim();
     final cells = header
         ? ['ORDER', 'CUSTOMER', 'FULFILLED BY', 'DATE', 'ITEMS', 'AMOUNT', 'STATUS', 'PAYMENT']
         : [
-            isWalletOrder ? '${order!['orderId']}\n[WALLET]' : order!['orderId'],
+            isWalletOrder ? "${o['orderId']}\n[WALLET]" : o['orderId'],
             custName.isNotEmpty ? custName : 'Customer',
-            '${order['franchise']}\n${order['city']}',
-            order['date'],
-            '${order['items']} Items',
-            '₹${order['amount']}',
-            order['status'],
-            order['payment'],
+            '${o['franchise']}\n${o['city']}',
+            o['date'],
+            '${o['items']} Items',
+            '₹${o['amount']}',
+            o['status'],
+            o['payment'],
           ];
 
     final row = Container(

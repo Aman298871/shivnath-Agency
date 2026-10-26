@@ -298,21 +298,26 @@ class OrderService {
     final double rawBaseAmount = double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
     final double totalAmt = rawGrandTotal > 0 ? rawGrandTotal : rawBaseAmount;
 
-    final bool isPaid = item['payment_collected'] == true ||
+    final double rawAmtPaid = double.tryParse(item['amount_paid']?.toString() ?? '0') ?? 0.0;
+    final double? rawOutstanding = double.tryParse(item['outstanding_balance']?.toString() ?? '') ??
+        double.tryParse(item['outstanding_amount']?.toString() ?? '');
+
+    final bool isExplicitlyPaid = item['payment_collected'] == true ||
         (item['payment_status']?.toString().toLowerCase() == 'paid') ||
         (item['invoice_status']?.toString().toUpperCase() == 'PAID');
 
-    final double amtPaid = isPaid
-        ? totalAmt
-        : (double.tryParse(item['amount_paid']?.toString() ?? '0') ?? 0.0);
+    final bool isSettledByMath = (totalAmt > 0 && rawAmtPaid >= totalAmt - 0.05) ||
+        (rawOutstanding != null && rawOutstanding <= 0.05 && rawAmtPaid > 0);
+
+    final bool isPaid = isExplicitlyPaid || isSettledByMath;
+
+    final double amtPaid = isPaid ? totalAmt : rawAmtPaid;
 
     final double outstandingBal = isPaid
         ? 0.0
-        : (double.tryParse(item['outstanding_balance']?.toString() ?? '') ??
-            double.tryParse(item['outstanding_amount']?.toString() ?? '') ??
-            (totalAmt - amtPaid).clamp(0.0, totalAmt));
+        : (rawOutstanding ?? (totalAmt - amtPaid).clamp(0.0, totalAmt));
 
-    final bool isPartial = !isPaid && amtPaid > 0 && outstandingBal > 0;
+    final bool isPartial = !isPaid && amtPaid > 0.05 && outstandingBal > 0.05;
 
     String paymentLabel;
     if (isPaid) {
@@ -502,6 +507,8 @@ class OrderService {
         message = decoded['detail'].toString();
       } else if (decoded['errors'] != null) {
         message = _formatErrors(decoded['errors']);
+      } else if (decoded.isNotEmpty) {
+        message = _formatErrors(decoded);
       }
     }
 
@@ -845,6 +852,7 @@ class OrderService {
     double? latitude,
     double? longitude,
     String? address,
+    String? city,
     String channel = 'CUSTOMER',
   }) async {
     try {
@@ -854,6 +862,7 @@ class OrderService {
       if (latitude != null) body['latitude'] = latitude;
       if (longitude != null) body['longitude'] = longitude;
       if (address != null && address.trim().isNotEmpty) body['address'] = address.trim();
+      if (city != null && city.trim().isNotEmpty) body['city_hint'] = city.trim();
 
       final response = await ApiClient.post(
         Uri.parse('$baseUrl/api/billing/delivery/calculate/'),
@@ -866,6 +875,26 @@ class OrderService {
         'success': false,
         'message': 'Failed to calculate delivery fee: $e',
       };
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAddressSuggestions(String query, {String? city}) async {
+    try {
+      final q = Uri.encodeComponent(query);
+      final cityParam = (city != null && city.isNotEmpty) ? '&city=${Uri.encodeComponent(city)}' : '';
+      final response = await ApiClient.get(
+        Uri.parse('$baseUrl/api/billing/delivery/address-suggestions/?q=$q$cityParam'),
+        headers: await _headers(),
+      );
+      final decoded = _decodeResponse(response);
+      if (decoded['success'] == true && decoded['suggestions'] is List) {
+        return List<Map<String, dynamic>>.from(
+          (decoded['suggestions'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+        );
+      }
+      return [];
+    } catch (_) {
+      return [];
     }
   }
 
@@ -1108,6 +1137,34 @@ class OrderService {
       return _decodeResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'Network error loading wallet transactions: $e'};
+    }
+  }
+
+  // =====================================================
+  // GET CUSTOMER AUTHORITATIVE OUTSTANDING BREAKDOWN
+  // =====================================================
+  Future<Map<String, dynamic>> getCustomerOutstanding({int? customerId}) async {
+    try {
+      final queryParam = customerId != null ? '?user_id=$customerId' : '';
+      final uri = Uri.parse('$baseUrl/api/billing/customer-outstanding/$queryParam');
+      final response = await ApiClient.get(
+        uri,
+        headers: await _headers(),
+      ).timeout(const Duration(seconds: 5));
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {'success': false, 'error': decoded['message'] ?? 'Failed to load outstanding balance'};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
     }
   }
 }

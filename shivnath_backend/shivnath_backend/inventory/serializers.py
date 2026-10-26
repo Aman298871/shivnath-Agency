@@ -230,6 +230,11 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
     quantity_taken = serializers.IntegerField(read_only=True)
     quantity_pending_collection = serializers.IntegerField(read_only=True)
     dynamic_remaining_company = serializers.IntegerField(read_only=True)
+    unit_of_measure = serializers.CharField(read_only=True)
+    dynamic_quantity_received = serializers.IntegerField(read_only=True)
+    dynamic_quantity_sold = serializers.IntegerField(read_only=True)
+    remaining_usable_stock = serializers.IntegerField(read_only=True)
+    quantity_expired = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = ProductionBatch
@@ -239,6 +244,7 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
             'product',
             'product_name',
             'product_sku',
+            'unit_of_measure',
             'client_name',
             'linked_order',
             'linked_order_code',
@@ -255,11 +261,18 @@ class ProductionBatchSerializer(serializers.ModelSerializer):
             'quantity_remaining_company',
             'reserved_quantity',
             'quantity_dispatched',
+            'quantity_received',
+            'dynamic_quantity_received',
+            'quantity_sold',
+            'dynamic_quantity_sold',
             'quantity_taken',
             'quantity_pending_collection',
             'dynamic_remaining_company',
             'quantity_damaged',
             'quantity_returned',
+            'quantity_expired',
+            'remaining_usable_stock',
+            'adjustment_reason',
             'available_quantity',
             'unit_production_cost',
             'status',

@@ -130,11 +130,15 @@ class ReportService {
         try {
           Directory appDir;
           if (Platform.isAndroid) {
-            // On Android, prefer external storage or documents dir for user visibility
-            final extDir = await getExternalStorageDirectory();
-            appDir = extDir ?? await getApplicationDocumentsDirectory();
+            final publicDownloadDir = Directory('/storage/emulated/0/Download');
+            if (publicDownloadDir.existsSync()) {
+              appDir = publicDownloadDir;
+            } else {
+              final extDir = await getExternalStorageDirectory();
+              appDir = extDir ?? await getApplicationDocumentsDirectory();
+            }
           } else {
-            appDir = await getApplicationDocumentsDirectory();
+            appDir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
           }
 
           final file = File('${appDir.path}/$finalFileName');
@@ -166,17 +170,33 @@ class ReportService {
         try {
           final openRes = await OpenFilex.open(savedFilePath);
           debugPrint('[ReportService] OpenFilex result: ${openRes.message}');
+          if (openRes.type != ResultType.done && !shareAfterDownload) {
+            // Graceful fallback to share sheet if no viewer app is installed
+            await SharePlus.instance.share(ShareParams(
+              files: [XFile(savedFilePath)],
+              text: 'WATER WALA Report: $finalFileName',
+            ));
+          }
         } catch (openErr) {
           debugPrint('[ReportService] OpenFilex error: $openErr');
+          if (!shareAfterDownload) {
+            try {
+              await SharePlus.instance.share(ShareParams(
+                files: [XFile(savedFilePath)],
+                text: 'WATER WALA Report: $finalFileName',
+              ));
+            } catch (_) {}
+          }
         }
       }
 
       // Trigger Share sheet if requested (native only)
       if (!kIsWeb && shareAfterDownload && savedFilePath != null) {
         try {
-          await Share.shareXFiles([
-            XFile(savedFilePath),
-          ], text: 'WATER WALA Report: $finalFileName');
+          await SharePlus.instance.share(ShareParams(
+            files: [XFile(savedFilePath)],
+            text: 'WATER WALA Report: $finalFileName',
+          ));
         } catch (shareErr) {
           debugPrint('[ReportService] Share error: $shareErr');
         }
@@ -211,9 +231,10 @@ class ReportService {
   /// Opens the system Share sheet for a report file
   Future<void> shareReportFile(String filePath, {String? fileName}) async {
     try {
-      await Share.shareXFiles([
-        XFile(filePath),
-      ], text: 'WATER WALA Report ${fileName != null ? ': $fileName' : ''}');
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(filePath)],
+        text: 'WATER WALA Report ${fileName != null ? ': $fileName' : ''}',
+      ));
     } catch (e) {
       debugPrint('[ReportService] Failed to share report: $e');
     }

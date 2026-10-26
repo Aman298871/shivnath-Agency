@@ -8,6 +8,7 @@ import '../cart/cart_provider.dart';
 import '../cart/customer_cart_screen.dart';
 import '../../../core/widgets/product_thumbnail.dart';
 import 'product_detail_screen.dart';
+import '../../../core/widgets/moq_confirmation_dialog.dart';
 
 class CustomerProductsScreen extends StatefulWidget {
   const CustomerProductsScreen({super.key});
@@ -771,67 +772,7 @@ class _ProductCard extends StatelessWidget {
                   onPressed: product.stock <= 0
                       ? null
                       : () {
-                          final error = context
-                              .read<CartProvider>()
-                              .addProduct(product);
-
-                          if (error != null) {
-                            ScaffoldMessenger.of(context)
-                              ..hideCurrentSnackBar()
-                              ..showSnackBar(
-                                SnackBar(
-                                  content: Text(error),
-                                  backgroundColor: Colors.red.shade700,
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                          } else {
-                            ScaffoldMessenger.of(context)
-                              ..hideCurrentSnackBar()
-                              ..showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.check_circle_rounded,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          '${product.name} added to cart',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  backgroundColor: const Color(0xFF0284C7),
-                                  duration: const Duration(seconds: 4),
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  action: SnackBarAction(
-                                    label: 'GO TO CART',
-                                    textColor: const Color(0xFFFEF08A),
-                                    onPressed: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              const CustomerCartScreen(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              );
-                          }
+                          MoqConfirmationDialog.handleAddToCart(context, product);
                         },
                   child: FittedBox(
                     fit: BoxFit.scaleDown,

@@ -5231,4 +5231,302 @@ class SendTestPushNotificationView(APIView):
 
         return Response(res)
 
+
+# =====================================================================
+# ZONE & SERVICE AREA ADMINISTRATION (ADMIN INTERFACE)
+# =====================================================================
+
+class AdminZoneManagementView(APIView):
+    """
+    Authoritative Admin API for managing Service Zones:
+    - Lists configured zones with districts, fulfilment hubs, pricing rules, and assigned franchises.
+    - Creates new service zones.
+    """
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAdminRole()]
+
+    def get(self, request):
+        from .models import ServiceZone, ServiceArea, FranchiseTerritoryAssignment
+        district_id = request.query_params.get('district_id')
+        district_name = request.query_params.get('district')
+        search = request.query_params.get('q', '').strip()
+        is_active = request.query_params.get('is_active')
+
+        qs = ServiceZone.objects.select_related('district', 'fulfilment_hub', 'delivery_pricing_rule').prefetch_related('areas', 'franchise_assignments__franchise')
+
+        if district_id:
+            qs = qs.filter(district_id=district_id)
+        if district_name:
+            qs = qs.filter(district__name__icontains=district_name)
+        if search:
+            qs = qs.filter(
+                models.Q(name__icontains=search) |
+                models.Q(code__icontains=search) |
+                models.Q(district__name__icontains=search)
+            )
+        if is_active is not None and is_active != '':
+            qs = qs.filter(is_active=str(is_active).lower() in ['true', '1'])
+
+        zones_data = []
+        for z in qs:
+            areas = list(z.areas.filter(is_active=True).values('id', 'locality_name', 'pincode', 'latitude', 'longitude'))
+            assigned_franchises = [
+                {
+                    'id': fa.franchise.id,
+                    'business_name': fa.franchise.business_name,
+                    'is_primary': fa.is_primary,
+                    'is_active': fa.is_active,
+                }
+                for fa in z.franchise_assignments.filter(is_active=True)
+            ]
+            zones_data.append({
+                'id': z.id,
+                'name': z.name,
+                'code': z.code,
+                'is_active': z.is_active,
+                'district_id': z.district.id,
+                'district_name': z.district.name,
+                'district_state': z.district.state,
+                'fulfilment_hub_id': z.fulfilment_hub.id if z.fulfilment_hub else None,
+                'fulfilment_hub_name': z.fulfilment_hub.name if z.fulfilment_hub else None,
+                'fulfilment_hub_city': z.fulfilment_hub.city if z.fulfilment_hub else None,
+                'delivery_pricing_rule_id': z.delivery_pricing_rule.id if z.delivery_pricing_rule else None,
+                'delivery_pricing_rule_name': f"Band: {z.delivery_pricing_rule.min_km}-{z.delivery_pricing_rule.max_km}km (Rs {z.delivery_pricing_rule.price})" if z.delivery_pricing_rule else None,
+                'assigned_franchises': assigned_franchises,
+                'areas_count': len(areas),
+                'localities': [a['locality_name'] for a in areas],
+                'areas': areas,
+                'created_at': z.created_at.strftime('%Y-%m-%d %H:%M') if z.created_at else None,
+            })
+
+        return Response({
+            'success': True,
+            'count': len(zones_data),
+            'zones': zones_data,
+            'results': zones_data,
+        })
+
+    def post(self, request):
+        from .models import ServiceZone, ServiceDistrict, FranchiseProfile, FranchiseTerritoryAssignment
+        from billing.models import DeliveryOriginSetting, DeliveryDistanceBand
+
+        name = request.data.get('name', '').strip()
+        code = request.data.get('code', '').strip()
+        district_id = request.data.get('district_id')
+        district_name = request.data.get('district')
+        is_active = request.data.get('is_active', True)
+        hub_id = request.data.get('fulfilment_hub_id')
+        pricing_rule_id = request.data.get('delivery_pricing_rule_id')
+        franchise_ids = request.data.get('franchise_ids', [])
+
+        if not name:
+            return Response({'success': False, 'message': 'Zone name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        district = None
+        if district_id:
+            district = ServiceDistrict.objects.filter(id=district_id).first()
+        elif district_name:
+            district = ServiceDistrict.objects.filter(name__iexact=district_name).first()
+
+        if not district:
+            return Response({'success': False, 'message': 'Valid district is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not code:
+            code = f"{district.name[:3].upper()}-{name[:3].upper()}-{ServiceZone.objects.count() + 1}"
+
+        hub = DeliveryOriginSetting.objects.filter(id=hub_id).first() if hub_id else None
+        pricing_rule = DeliveryDistanceBand.objects.filter(id=pricing_rule_id).first() if pricing_rule_id else None
+
+        zone, created = ServiceZone.objects.get_or_create(
+            district=district,
+            name=name,
+            defaults={
+                'code': code,
+                'is_active': is_active,
+                'fulfilment_hub': hub,
+                'delivery_pricing_rule': pricing_rule,
+            }
+        )
+        if not created:
+            zone.code = code
+            zone.is_active = is_active
+            zone.fulfilment_hub = hub
+            zone.delivery_pricing_rule = pricing_rule
+            zone.save()
+
+        # Handle franchise assignments
+        if isinstance(franchise_ids, list):
+            for fid in franchise_ids:
+                fr = FranchiseProfile.objects.filter(id=fid).first()
+                if fr:
+                    FranchiseTerritoryAssignment.objects.get_or_create(
+                        franchise=fr,
+                        zone=zone,
+                        defaults={'is_primary': False, 'is_active': True}
+                    )
+
+        return Response({
+            'success': True,
+            'message': f"Zone '{zone.name}' configured successfully.",
+            'zone_id': zone.id,
+            'name': zone.name,
+            'code': zone.code,
+            'created': created,
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+class AdminZoneDetailView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get_object(self, pk):
+        from .models import ServiceZone
+        return get_object_or_404(ServiceZone, pk=pk)
+
+    def get(self, request, pk):
+        z = self.get_object(pk)
+        areas = list(z.areas.filter(is_active=True).values('id', 'locality_name', 'pincode', 'latitude', 'longitude'))
+        assigned_franchises = [
+            {
+                'id': fa.franchise.id,
+                'business_name': fa.franchise.business_name,
+                'is_primary': fa.is_primary,
+                'is_active': fa.is_active,
+            }
+            for fa in z.franchise_assignments.filter(is_active=True)
+        ]
+        return Response({
+            'success': True,
+            'zone': {
+                'id': z.id,
+                'name': z.name,
+                'code': z.code,
+                'is_active': z.is_active,
+                'district_id': z.district.id,
+                'district_name': z.district.name,
+                'district_state': z.district.state,
+                'fulfilment_hub_id': z.fulfilment_hub.id if z.fulfilment_hub else None,
+                'fulfilment_hub_name': z.fulfilment_hub.name if z.fulfilment_hub else None,
+                'delivery_pricing_rule_id': z.delivery_pricing_rule.id if z.delivery_pricing_rule else None,
+                'assigned_franchises': assigned_franchises,
+                'areas': areas,
+                'localities': [a['locality_name'] for a in areas],
+            }
+        })
+
+    def patch(self, request, pk):
+        from .models import ServiceDistrict
+        from billing.models import DeliveryOriginSetting, DeliveryDistanceBand
+        z = self.get_object(pk)
+
+        if 'name' in request.data:
+            z.name = request.data['name'].strip()
+        if 'code' in request.data:
+            z.code = request.data['code'].strip()
+        if 'is_active' in request.data:
+            z.is_active = bool(request.data['is_active'])
+        if 'district_id' in request.data:
+            dist = ServiceDistrict.objects.filter(id=request.data['district_id']).first()
+            if dist:
+                z.district = dist
+        if 'fulfilment_hub_id' in request.data:
+            hid = request.data['fulfilment_hub_id']
+            z.fulfilment_hub = DeliveryOriginSetting.objects.filter(id=hid).first() if hid else None
+        if 'delivery_pricing_rule_id' in request.data:
+            rid = request.data['delivery_pricing_rule_id']
+            z.delivery_pricing_rule = DeliveryDistanceBand.objects.filter(id=rid).first() if rid else None
+
+        z.save()
+        return Response({
+            'success': True,
+            'message': f"Zone '{z.name}' updated successfully.",
+        })
+
+    def delete(self, request, pk):
+        z = self.get_object(pk)
+        z.is_active = False
+        z.save()
+        return Response({
+            'success': True,
+            'message': f"Zone '{z.name}' deactivated successfully.",
+        })
+
+
+class AdminZoneAreaManagementView(APIView):
+    """
+    Manage localities / areas covered within a specific service zone.
+    """
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAdminRole()]
+
+    def get(self, request, pk):
+        from .models import ServiceZone, ServiceArea
+        zone = get_object_or_404(ServiceZone, pk=pk)
+        areas = ServiceArea.objects.filter(zone=zone, is_active=True).order_by('locality_name')
+        return Response({
+            'success': True,
+            'zone_id': zone.id,
+            'zone_name': zone.name,
+            'district_name': zone.district.name,
+            'count': areas.count(),
+            'areas': [
+                {
+                    'id': a.id,
+                    'name': a.locality_name,
+                    'locality_name': a.locality_name,
+                    'pincode': a.pincode,
+                    'latitude': float(a.latitude) if a.latitude else None,
+                    'longitude': float(a.longitude) if a.longitude else None,
+                    'is_active': a.is_active,
+                }
+                for a in areas
+            ]
+        })
+
+    def post(self, request, pk):
+        from .models import ServiceZone, ServiceArea
+        zone = get_object_or_404(ServiceZone, pk=pk)
+        locality_name = (request.data.get('locality_name') or request.data.get('name') or '').strip()
+        pincode = request.data.get('pincode', '').strip()
+        lat = request.data.get('latitude')
+        lon = request.data.get('longitude')
+
+        if not locality_name:
+            return Response({'success': False, 'message': 'Locality name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not pincode:
+            pincode = '492001'
+
+        area, created = ServiceArea.objects.get_or_create(
+            zone=zone,
+            locality_name=locality_name,
+            defaults={
+                'district': zone.district,
+                'pincode': pincode,
+                'latitude': lat,
+                'longitude': lon,
+                'is_active': True,
+            }
+        )
+        if not created:
+            area.pincode = pincode
+            if lat is not None:
+                area.latitude = lat
+            if lon is not None:
+                area.longitude = lon
+            area.is_active = True
+            area.save()
+
+        return Response({
+            'success': True,
+            'message': f"Locality '{area.locality_name}' mapped to zone '{zone.name}' successfully.",
+            'area_id': area.id,
+            'name': area.locality_name,
+            'locality_name': area.locality_name,
+            'zone_name': zone.name,
+            'created': created,
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
 

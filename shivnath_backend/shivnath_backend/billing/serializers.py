@@ -208,6 +208,7 @@ class DeliveryOriginSettingSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'name',
+            'city',
             'address',
             'latitude',
             'longitude',
@@ -236,4 +237,62 @@ class DeliveryDistanceBandSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            data = data.copy()
+            if 'label' in data and 'name' not in data:
+                data['name'] = data['label']
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        instance = self.instance
+        min_k = attrs.get('min_distance_km', getattr(instance, 'min_distance_km', Decimal('0.00')) if instance else Decimal('0.00'))
+        max_k = attrs.get('max_distance_km', getattr(instance, 'max_distance_km', None) if instance else None)
+        delivery_charge = attrs.get('delivery_charge', getattr(instance, 'delivery_charge', Decimal('0.00')) if instance else Decimal('0.00'))
+        is_active = attrs.get('is_active', getattr(instance, 'is_active', True) if instance else True)
+        applies_to = attrs.get('applies_to', getattr(instance, 'applies_to', 'ALL') if instance else 'ALL')
+
+        if min_k is not None and min_k < Decimal('0.00'):
+            raise serializers.ValidationError({'min_distance_km': 'Minimum distance cannot be negative.'})
+
+        if max_k is not None:
+            if min_k is not None and max_k <= min_k:
+                raise serializers.ValidationError({'max_distance_km': f'Maximum distance ({max_k} km) must be strictly greater than minimum distance ({min_k} km).'})
+
+        if delivery_charge is not None and delivery_charge < Decimal('0.00'):
+            raise serializers.ValidationError({'delivery_charge': 'Delivery charge cannot be negative.'})
+
+        if is_active:
+            from billing.models import DeliveryDistanceBand
+            from django.db import models
+            existing_bands = DeliveryDistanceBand.objects.filter(is_active=True)
+            if instance:
+                existing_bands = existing_bands.exclude(pk=instance.pk)
+            if applies_to != 'ALL':
+                existing_bands = existing_bands.filter(models.Q(applies_to=applies_to) | models.Q(applies_to='ALL'))
+
+            for ex in existing_bands:
+                ex_min = ex.min_distance_km
+                ex_max = ex.max_distance_km
+                overlap = False
+                if max_k is not None and ex_max is not None:
+                    if not (max_k <= ex_min or min_k >= ex_max):
+                        overlap = True
+                elif max_k is None and ex_max is None:
+                    overlap = True
+                elif max_k is None and ex_max is not None:
+                    if min_k < ex_max:
+                        overlap = True
+                elif max_k is not None and ex_max is None:
+                    if max_k > ex_min:
+                        overlap = True
+
+                if overlap:
+                    upper_str = f"{ex_max} km" if ex_max is not None else "Above"
+                    raise serializers.ValidationError(
+                        f"Overlapping distance band detected with '{ex.name}' ({ex_min} to {upper_str}). Please adjust band boundaries to prevent overlap."
+                    )
+
+        return attrs
 

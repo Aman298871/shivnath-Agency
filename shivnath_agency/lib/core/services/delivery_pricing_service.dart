@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import '../constants/app_constants.dart';
 import 'api_client.dart';
@@ -7,6 +8,8 @@ class DeliveryPricingService {
   static final DeliveryPricingService _instance = DeliveryPricingService._internal();
   factory DeliveryPricingService() => _instance;
   DeliveryPricingService._internal();
+
+  static const Duration _timeoutDuration = Duration(seconds: 8);
 
   Future<Map<String, String>> _authHeaders() async {
     final token = await SessionService().getAccessToken();
@@ -20,12 +23,16 @@ class DeliveryPricingService {
   Future<Map<String, dynamic>> getDeliveryOrigin() async {
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/delivery/origin/');
-      final res = await ApiClient.get(url, headers: await _authHeaders());
+      final res = await ApiClient.get(url, headers: await _authHeaders())
+          .timeout(_timeoutDuration);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final decoded = jsonDecode(res.body);
-        return {'success': true, 'origin': decoded};
+        final originData = (decoded is Map && decoded.containsKey('origin')) ? decoded['origin'] : decoded;
+        return {'success': true, 'origin': originData};
       }
       return {'success': false, 'message': 'HTTP ${res.statusCode}: Failed to load delivery origin'};
+    } on TimeoutException {
+      return {'success': false, 'message': 'Request timed out after 8s while loading origin. Please retry.'};
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
     }
@@ -34,12 +41,15 @@ class DeliveryPricingService {
   Future<Map<String, dynamic>> updateDeliveryOrigin(Map<String, dynamic> data) async {
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/delivery/origin/');
-      final res = await ApiClient.post(url, headers: await _authHeaders(), body: jsonEncode(data));
+      final res = await ApiClient.post(url, headers: await _authHeaders(), body: jsonEncode(data))
+          .timeout(_timeoutDuration);
       final decoded = jsonDecode(res.body);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': decoded['error'] ?? decoded['detail'] ?? 'Failed to update origin'};
+    } on TimeoutException {
+      return {'success': false, 'message': 'Request timed out after 8s while saving origin. Please retry.'};
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
     }
@@ -48,13 +58,16 @@ class DeliveryPricingService {
   Future<Map<String, dynamic>> getDistanceBands() async {
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/delivery/bands/');
-      final res = await ApiClient.get(url, headers: await _authHeaders());
+      final res = await ApiClient.get(url, headers: await _authHeaders())
+          .timeout(_timeoutDuration);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final decoded = jsonDecode(res.body);
         final list = decoded is List ? decoded : (decoded['bands'] ?? decoded['data'] ?? []);
         return {'success': true, 'bands': list};
       }
       return {'success': false, 'message': 'HTTP ${res.statusCode}: Failed to load distance bands'};
+    } on TimeoutException {
+      return {'success': false, 'message': 'Request timed out after 8s while loading distance bands. Please retry.'};
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
     }
@@ -63,12 +76,15 @@ class DeliveryPricingService {
   Future<Map<String, dynamic>> createDistanceBand(Map<String, dynamic> data) async {
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/delivery/bands/');
-      final res = await ApiClient.post(url, headers: await _authHeaders(), body: jsonEncode(data));
+      final res = await ApiClient.post(url, headers: await _authHeaders(), body: jsonEncode(data))
+          .timeout(_timeoutDuration);
       final decoded = jsonDecode(res.body);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': decoded['error'] ?? decoded['detail'] ?? 'Failed to create band'};
+    } on TimeoutException {
+      return {'success': false, 'message': 'Request timed out after 8s while creating band. Please retry.'};
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
     }
@@ -77,11 +93,14 @@ class DeliveryPricingService {
   Future<Map<String, dynamic>> deleteDistanceBand(int id) async {
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/delivery/bands/$id/');
-      final res = await ApiClient.delete(url, headers: await _authHeaders());
+      final res = await ApiClient.delete(url, headers: await _authHeaders())
+          .timeout(_timeoutDuration);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         return {'success': true};
       }
       return {'success': false, 'message': 'HTTP ${res.statusCode}'};
+    } on TimeoutException {
+      return {'success': false, 'message': 'Request timed out after 8s while deleting band. Please retry.'};
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
     }
@@ -106,7 +125,7 @@ class DeliveryPricingService {
         url,
         headers: await _authHeaders(),
         body: jsonEncode(body),
-      );
+      ).timeout(_timeoutDuration);
       final decoded = jsonDecode(res.body);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         return {
@@ -119,6 +138,8 @@ class DeliveryPricingService {
         'message': decoded['message'] ?? 'HTTP ${res.statusCode}',
         'data': decoded is Map<String, dynamic> ? decoded : null,
       };
+    } on TimeoutException {
+      return {'success': false, 'message': 'Fee calculation timed out after 8s. Please retry.'};
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
     }

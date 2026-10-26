@@ -160,19 +160,21 @@ class SessionService {
   Future<void> logout() async {
     _sessionEpoch++;
     try {
-      await NotificationService().unregisterDeviceTokenWithBackend();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userKey);
+      await prefs.remove(_roleKey);
+      await prefs.remove(_accessTokenKey);
+      await prefs.remove(_refreshTokenKey);
     } catch (_) {}
 
     try {
       NotificationService().resetRegistrationCache();
     } catch (_) {}
 
-    final prefs =
-        await SharedPreferences.getInstance();
-
-    await prefs.remove(_userKey);
-    await prefs.remove(_roleKey);
-    await prefs.remove(_accessTokenKey);
-    await prefs.remove(_refreshTokenKey);
+    try {
+      await NotificationService()
+          .unregisterDeviceTokenWithBackend()
+          .timeout(const Duration(milliseconds: 1000), onTimeout: () => false);
+    } catch (_) {}
   }
 }

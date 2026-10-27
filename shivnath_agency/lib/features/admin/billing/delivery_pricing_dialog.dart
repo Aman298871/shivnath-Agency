@@ -119,7 +119,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     if (mounted) {
       setState(() {
         _loadingOrigin = false;
-        if (originRes['success'] == true && originRes['origin'] is Map) {
+        if (originRes['origin'] is Map) {
           var o = originRes['origin'] as Map;
           if (o.containsKey('origin') && o['origin'] is Map) {
             o = o['origin'] as Map;
@@ -148,8 +148,11 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
           _savedDepotName = _depotNameCtrl.text;
 
           _originActive = o['is_active'] ?? true;
-        } else {
+        }
+        if (originRes['success'] != true) {
           _originError = originRes['message']?.toString() ?? 'Failed to load delivery origin settings.';
+        } else {
+          _originError = null;
         }
       });
     }
@@ -164,10 +167,13 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     if (mounted) {
       setState(() {
         _loadingBands = false;
-        if (bandsRes['success'] == true && bandsRes['bands'] is List) {
+        if (bandsRes['bands'] is List && (bandsRes['bands'] as List).isNotEmpty) {
           _bands = bandsRes['bands'] as List;
-        } else {
+        }
+        if (bandsRes['success'] != true) {
           _bandsError = bandsRes['message']?.toString() ?? 'Failed to load distance bands.';
+        } else {
+          _bandsError = null;
         }
       });
     }
@@ -575,7 +581,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         ),
       );
     }
-    if (_originError != null) {
+    if (_originError != null && _latCtrl.text.isEmpty) {
       return Center(
         child: _buildErrorWidget(
           title: 'Delivery Origin Unavailable',
@@ -590,6 +596,43 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_originError != null) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Server response slow / cold start. Showing fallback central dispatch.\n${_originError!}',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFFDC2626),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      onPressed: _loadOriginData,
+                      icon: const Icon(Icons.refresh_rounded, size: 14),
+                      label: const Text('Retry', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             // Haversine Formula Clarity Banner
             Container(
               padding: const EdgeInsets.all(12),
@@ -1030,7 +1073,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         ),
       );
     }
-    if (_bandsError != null) {
+    if (_bandsError != null && _bands.isEmpty) {
       return Center(
         child: _buildErrorWidget(
           title: 'Distance Bands Unavailable',
@@ -1039,10 +1082,50 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         ),
       );
     }
+
+    final errorBanner = _bandsError != null
+        ? Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFECACA)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Server response slow / cold start. Showing fallback distance bands.\n${_bandsError!}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w500),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFDC2626),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  onPressed: _loadBandsData,
+                  icon: const Icon(Icons.refresh_rounded, size: 14),
+                  label: const Text('Retry', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          )
+        : const SizedBox.shrink();
+
     if (isMobile) {
       return SingleChildScrollView(
         child: Column(
           children: [
+            errorBanner,
             _buildBandCreateForm(),
             const SizedBox(height: 20),
             const Divider(),
@@ -1053,12 +1136,20 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
       );
     }
 
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(flex: 5, child: SingleChildScrollView(child: _buildBandCreateForm())),
-        const VerticalDivider(width: 32),
-        Expanded(flex: 6, child: _buildBandsList()),
+        errorBanner,
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 5, child: SingleChildScrollView(child: _buildBandCreateForm())),
+              const VerticalDivider(width: 32),
+              Expanded(flex: 6, child: _buildBandsList()),
+            ],
+          ),
+        ),
       ],
     );
   }

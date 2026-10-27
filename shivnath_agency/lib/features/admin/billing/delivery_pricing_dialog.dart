@@ -166,8 +166,8 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     if (mounted) {
       setState(() {
         _loadingBands = false;
-        if (bandsRes['bands'] is List && (bandsRes['bands'] as List).isNotEmpty) {
-          _bands = bandsRes['bands'] as List;
+        if (bandsRes['bands'] is List) {
+          _bands = List<dynamic>.from(bandsRes['bands'] as List);
         }
         if (bandsRes['success'] != true) {
           _bandsError = bandsRes['message']?.toString() ?? 'Failed to load distance bands.';
@@ -196,23 +196,36 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
       return;
     }
 
+    final freeVal = double.tryParse(_freeRadiusCtrl.text.trim()) ?? 0.0;
+    final maxVal = double.tryParse(_maxRadiusCtrl.text.trim()) ?? 25.0;
+    final feeVal = double.tryParse(_defaultFeeCtrl.text.trim()) ?? 30.0;
+    final nameVal = _depotNameCtrl.text.trim();
+
     setState(() => _savingOrigin = true);
 
     final res = await _service.updateDeliveryOrigin({
-      'name': _depotNameCtrl.text.trim(),
-      'depot_name': _depotNameCtrl.text.trim(),
+      'name': nameVal,
+      'depot_name': nameVal,
       'address': _addressCtrl.text.trim(),
       'pincode': _pincodeCtrl.text.trim(),
       'latitude': lat,
       'longitude': lng,
-      'free_delivery_radius_km': double.tryParse(_freeRadiusCtrl.text.trim()) ?? 0.0,
-      'max_serviceable_radius_km': double.tryParse(_maxRadiusCtrl.text.trim()) ?? 25.0,
-      'default_delivery_charge': double.tryParse(_defaultFeeCtrl.text.trim()) ?? 30.0,
+      'free_delivery_radius_km': freeVal,
+      'max_serviceable_radius_km': maxVal,
+      'default_delivery_charge': feeVal,
       'is_active': _originActive,
     });
 
     if (mounted) {
-      setState(() => _savingOrigin = false);
+      setState(() {
+        _savingOrigin = false;
+        if (res['success'] == true) {
+          _savedFreeRadius = freeVal;
+          _savedMaxRadius = maxVal;
+          _savedDefaultFee = feeVal;
+          _savedDepotName = nameVal;
+        }
+      });
       if (res['success'] == true) {
         AppToast.success(context, 'Delivery origin & radius settings persisted.');
         await _loadAllData();
@@ -250,13 +263,17 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
   }
 
   Future<void> _deleteBand(int id) async {
+    setState(() {
+      _bands.removeWhere((b) => b['id'] == id);
+    });
     final res = await _service.deleteDistanceBand(id);
     if (mounted) {
       if (res['success'] == true) {
         AppToast.success(context, 'Distance band removed.');
-        _loadAllData();
+        await _loadBandsData();
       } else {
-        AppToast.error(context, 'Failed to delete band');
+        AppToast.error(context, res['message']?.toString() ?? 'Failed to delete band');
+        await _loadBandsData();
       }
     }
   }

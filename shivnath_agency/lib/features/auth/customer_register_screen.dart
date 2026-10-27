@@ -545,12 +545,25 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                             prefixIcon: Icon(Icons.explore_outlined),
                           ),
                           items: territories.map((t) {
+                            final areasDisp = t['areas_display']?.toString();
                             return DropdownMenuItem<int>(
                               value: t['id'] as int,
-                              child: Text(
-                                t['name']?.toString() ?? '',
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    t['name']?.toString() ?? '',
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (areasDisp != null && areasDisp.isNotEmpty)
+                                    Text(
+                                      'Covers: $areasDisp',
+                                      style: TextStyle(fontSize: 10, color: Colors.blueGrey.shade600),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
                               ),
                             );
                           }).toList(),
@@ -569,6 +582,53 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                             }
                           },
                         ),
+                      if (selectedTerritoryId != null) ...[
+                        const SizedBox(height: 10),
+                        Builder(
+                          builder: (context) {
+                            final sel = territories.firstWhere(
+                              (t) => t['id'] == selectedTerritoryId,
+                              orElse: () => {},
+                            );
+                            final areasList = sel['areas'] as List? ?? [];
+                            final areasStr = areasList.isNotEmpty
+                                ? areasList.join(' • ')
+                                : (sel['areas_display']?.toString() ?? '');
+                            if (areasStr.isEmpty) return const SizedBox.shrink();
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0FDF4),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFBBF7D0)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.check_circle_outline_rounded, size: 14, color: Color(0xFF16A34A)),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'Areas & Localities in ${sel['name']}:',
+                                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: Color(0xFF166534)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    areasStr,
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF14532D)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ],
                   ),
                 ),

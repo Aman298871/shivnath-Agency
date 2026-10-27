@@ -1212,9 +1212,10 @@ class DeliveryDistanceBandListCreateView(views.APIView):
     def get(self, request):
         from billing.models import DeliveryDistanceBand
         from billing.serializers import DeliveryDistanceBandSerializer
-        from billing.delivery_services import seed_default_distance_bands_if_empty
         from django.db import models
-        seed_default_distance_bands_if_empty()
+        if request.query_params.get('seed', '').lower() in ['true', '1']:
+            from billing.delivery_services import seed_default_distance_bands_if_empty
+            seed_default_distance_bands_if_empty()
 
         qs = DeliveryDistanceBand.objects.all().order_by('order', 'min_distance_km')
         channel = request.query_params.get('channel')

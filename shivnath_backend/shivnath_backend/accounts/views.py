@@ -2221,15 +2221,19 @@ class TerritoryMasterView(APIView):
                     )
                     zones = ServiceZone.objects.filter(id=fallback_zone.id)
 
-            territories = [
-                {
+            territories = []
+            for z in zones:
+                area_names = list(z.areas.filter(is_active=True).values_list('locality_name', flat=True))
+                area_pincodes = list(z.areas.filter(is_active=True).values_list('pincode', flat=True).distinct())
+                territories.append({
                     'id': z.id,
                     'name': z.name,
                     'code': z.code,
                     'district_name': z.district.name,
-                }
-                for z in zones
-            ]
+                    'areas': area_names,
+                    'areas_display': ", ".join(area_names[:6]) if area_names else "All central & municipal localities in zone",
+                    'pincodes': area_pincodes,
+                })
             return Response({
                 'success': True,
                 'district': district_name,
@@ -2746,19 +2750,68 @@ class SupportContactView(APIView):
                 'message_template': contact['message_template'] or f"Namaste Admin Support,\nI am reaching out regarding franchise account {user.get_full_name() or user.username}."
             })
         elif role == 'customer':
+            from .models import FranchiseProfile
+            from orders.models import Order
+
             rel = getattr(user, 'customer_relationship', None)
             target_f = (rel.current_serving_franchise if rel and rel.current_serving_franchise else (rel.registered_franchise if rel else None))
-            f_phone = target_f.user.profile.phone if target_f and hasattr(target_f.user, 'profile') and target_f.user.profile.phone else None
+
+            # If not explicitly linked in relationship, find franchise from recent orders or customer zone/district
+            if not target_f:
+                last_order = Order.objects.filter(created_by=user).exclude(serving_franchise=None).order_by('-id').first()
+                if last_order and last_order.serving_franchise:
+                    target_f = last_order.serving_franchise
+
+            prof = getattr(user, 'profile', None)
+            if not target_f and prof:
+                user_zone = getattr(prof, 'zone', None) or getattr(user, 'zone', None)
+                if user_zone:
+                    target_f = FranchiseProfile.objects.filter(zone=user_zone, is_verified=True).first()
+                if not target_f and getattr(prof, 'district', None):
+                    target_f = FranchiseProfile.objects.filter(district__iexact=prof.district, is_verified=True).first()
+
+            if not target_f:
+                target_f = FranchiseProfile.objects.filter(is_verified=True).first()
+
+            f_phone = target_f.user.profile.phone if target_f and hasattr(target_f.user, 'profile') and target_f.user.profile.phone else getattr(target_f, 'contact_number', None)
+
+            # Also fetch all verified franchises in the customer's area/district
+            user_dist = getattr(prof, 'district', '') if prof else ''
+            area_franchises = []
+            q_franchises = FranchiseProfile.objects.filter(is_verified=True)
+            if user_dist:
+                q_dist = q_franchises.filter(district__iexact=user_dist)
+                if q_dist.exists():
+                    q_franchises = q_dist
+
+            for f_item in q_franchises[:6]:
+                f_ph = f_item.user.profile.phone if hasattr(f_item.user, 'profile') and f_item.user.profile.phone else getattr(f_item, 'contact_number', '')
+                area_franchises.append({
+                    'id': f_item.id,
+                    'name': f_item.business_name,
+                    'owner_name': f_item.user.get_full_name() or f_item.user.username,
+                    'phone': f_ph,
+                    'email': f_item.user.email,
+                    'zone': str(f_item.zone) if f_item.zone else '',
+                    'district': str(f_item.district) if f_item.district else '',
+                    'office_address': getattr(f_item, 'office_address', ''),
+                })
+
             if target_f and f_phone:
                 return Response({
                     'success': True,
                     'target': 'franchise',
                     'franchise_id': target_f.id,
                     'name': target_f.business_name,
+                    'role_display': f"{target_f.business_name} (Local Franchise)",
                     'owner_name': target_f.user.get_full_name() or target_f.user.username,
                     'phone': f_phone,
                     'email': target_f.user.email,
-                    'message_template': f"Namaste {target_f.business_name},\nI am customer {user.get_full_name() or user.username} (Phone: {user.profile.phone if hasattr(user, 'profile') else ''}). I need assistance with my drinking water supply."
+                    'zone': str(target_f.zone) if target_f.zone else '',
+                    'district': str(target_f.district) if target_f.district else '',
+                    'office_address': getattr(target_f, 'office_address', ''),
+                    'franchises_in_area': area_franchises,
+                    'message_template': f"Namaste {target_f.business_name},\nI am customer {user.get_full_name() or user.username} (Phone: {user.profile.phone if hasattr(user, 'profile') else ''}). I need assistance with my drinking water supply in {getattr(prof, 'district', 'my area')}."
                 })
             else:
                 contact = _get_support_contact('customer') or _get_support_contact('public_customer') or _get_support_contact('admin')
@@ -5529,4 +5582,4 @@ class AdminZoneAreaManagementView(APIView):
             'created': created,
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
-
+

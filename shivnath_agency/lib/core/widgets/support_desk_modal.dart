@@ -562,7 +562,9 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
 
   Widget _buildContactCard(SupportContactInfo contact) {
     final displayRole = contact.target == 'franchise'
-        ? 'Assigned Franchise Support'
+        ? (contact.name.isNotEmpty && !contact.name.toLowerCase().contains('assigned')
+              ? '${contact.name} (Area Franchise)'
+              : 'Local Area Franchise Support')
         : (contact.roleDisplay.isNotEmpty
               ? contact.roleDisplay
               : (contact.target == 'admin'
@@ -665,11 +667,42 @@ class _SupportDeskModalState extends State<SupportDeskModal> {
                     contact.ownerName!.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    'Partner: ${contact.ownerName}',
+                    'Proprietor: ${contact.ownerName}',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+                if ((contact.zone != null && contact.zone!.isNotEmpty) ||
+                    (contact.district != null && contact.district!.isNotEmpty) ||
+                    (contact.officeAddress != null && contact.officeAddress!.isNotEmpty)) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (contact.zone != null && contact.zone!.isNotEmpty)
+                          Text(
+                            'Assigned Zone: ${contact.zone}${contact.district != null && contact.district!.isNotEmpty ? " (${contact.district})" : ""}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                          ),
+                        if (contact.officeAddress != null && contact.officeAddress!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Franchise Office: ${contact.officeAddress}',
+                            style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],

@@ -213,6 +213,9 @@ class DeliveryOriginSettingSerializer(serializers.ModelSerializer):
             'latitude',
             'longitude',
             'phone',
+            'free_delivery_radius_km',
+            'max_serviceable_radius_km',
+            'default_delivery_charge',
             'is_active',
             'updated_at',
         ]

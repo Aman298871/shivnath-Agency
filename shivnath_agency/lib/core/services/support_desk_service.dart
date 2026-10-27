@@ -14,6 +14,10 @@ class SupportContactInfo {
   final String messageTemplate;
   final String target;
   final String? ownerName;
+  final String? zone;
+  final String? district;
+  final String? officeAddress;
+  final List<Map<String, dynamic>> franchisesInArea;
 
   SupportContactInfo({
     this.id,
@@ -25,6 +29,10 @@ class SupportContactInfo {
     this.messageTemplate = '',
     this.target = 'central',
     this.ownerName,
+    this.zone,
+    this.district,
+    this.officeAddress,
+    this.franchisesInArea = const [],
   });
 
   factory SupportContactInfo.fromJson(Map<String, dynamic> json) {
@@ -38,6 +46,12 @@ class SupportContactInfo {
       messageTemplate: json['message_template']?.toString() ?? '',
       target: json['target']?.toString() ?? 'central',
       ownerName: json['owner_name']?.toString(),
+      zone: json['zone']?.toString(),
+      district: json['district']?.toString(),
+      officeAddress: json['office_address']?.toString(),
+      franchisesInArea: json['franchises_in_area'] is List
+          ? (json['franchises_in_area'] as List).whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList()
+          : const [],
     );
   }
 }

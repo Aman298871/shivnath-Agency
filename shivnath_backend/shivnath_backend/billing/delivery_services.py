@@ -679,7 +679,6 @@ def get_authoritative_delivery_charge(
     if dest_lon is None and dest_longitude is not None:
         dest_lon = dest_longitude
 
-    seed_default_distance_bands_if_empty()
     active_origins = list(DeliveryOriginSetting.objects.filter(is_active=True))
 
     # Rule 1: Check origin coordinates & configuration
@@ -768,6 +767,61 @@ def get_authoritative_delivery_charge(
 
     distance_km = calculate_haversine_distance(origin.latitude, origin.longitude, lat_val, lon_val)
     distance_dec = Decimal(str(distance_km))
+
+    # Free Delivery Radius check
+    free_radius = getattr(origin, 'free_delivery_radius_km', Decimal('0.00')) or Decimal('0.00')
+    if free_radius > Decimal('0.00') and distance_dec <= free_radius:
+        return {
+            'is_supported': True,
+            'is_blocked': False,
+            'distance_km': float(distance_km),
+            'distance_type': 'STRAIGHT_LINE_HAVERSINE',
+            'distance_label': 'Straight-line distance (Haversine)',
+            'distance_explanation': 'Direct point-to-point distance from dispatch hub. Road route distance may be higher.',
+            'distance_method': 'HAVERSINE_STRAIGHT_LINE',
+            'distance_metric': 'HAVERSINE_GREAT_CIRCLE_KM',
+            'delivery_charge': Decimal('0.00'),
+            'band_name': f'Free Delivery (Within {free_radius} km)',
+            'band_id': None,
+            'message': f'Free Delivery applied: location is within {free_radius} km radius of dispatch hub.',
+            'origin': {
+                'name': origin.name,
+                'address': origin.address,
+                'city': origin.city,
+                'latitude': float(origin.latitude),
+                'longitude': float(origin.longitude),
+                'free_delivery_radius_km': float(free_radius),
+                'max_serviceable_radius_km': float(getattr(origin, 'max_serviceable_radius_km', Decimal('500.00')) or Decimal('500.00')),
+            }
+        }
+
+    # Max Serviceable Radius check
+    max_radius = getattr(origin, 'max_serviceable_radius_km', Decimal('500.00')) or Decimal('500.00')
+    if max_radius > Decimal('0.00') and distance_dec > max_radius:
+        return {
+            'is_supported': False,
+            'is_blocked': False,
+            'distance_km': float(distance_km),
+            'distance_type': 'STRAIGHT_LINE_HAVERSINE',
+            'distance_label': 'Straight-line distance (Haversine)',
+            'distance_explanation': 'Direct point-to-point distance from dispatch hub. Road route distance may be higher.',
+            'distance_method': 'HAVERSINE_STRAIGHT_LINE',
+            'distance_metric': 'HAVERSINE_GREAT_CIRCLE_KM',
+            'delivery_charge': Decimal('0.00'),
+            'band_name': 'Beyond Serviceable Area',
+            'band_id': None,
+            'message': f'Delivery distance ({distance_km:.1f} km from {origin.name}) exceeds your configured maximum serviceable delivery radius ({max_radius} km).',
+            'error_code': 'DELIVERY_UNSUPPORTED',
+            'origin': {
+                'name': origin.name,
+                'address': origin.address,
+                'city': origin.city,
+                'latitude': float(origin.latitude),
+                'longitude': float(origin.longitude),
+                'free_delivery_radius_km': float(free_radius),
+                'max_serviceable_radius_km': float(max_radius),
+            }
+        }
 
     matched_band = None
     for band in active_bands:

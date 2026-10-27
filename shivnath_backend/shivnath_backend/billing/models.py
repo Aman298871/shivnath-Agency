@@ -59,6 +59,9 @@ class DeliveryOriginSetting(models.Model):
     latitude = models.DecimalField(max_digits=9, decimal_places=6, default=Decimal('21.267800'), help_text="Origin Latitude")
     longitude = models.DecimalField(max_digits=9, decimal_places=6, default=Decimal('81.671100'), help_text="Origin Longitude")
     phone = models.CharField(max_length=20, blank=True, default='')
+    free_delivery_radius_km = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('0.00'), help_text="Free delivery within this radius (km)")
+    max_serviceable_radius_km = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('500.00'), help_text="Maximum serviceable radius (km)")
+    default_delivery_charge = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('30.00'), help_text="Default base delivery fee")
     is_active = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
 

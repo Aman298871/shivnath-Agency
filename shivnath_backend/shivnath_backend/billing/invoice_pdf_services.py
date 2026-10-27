@@ -72,6 +72,42 @@ def _get_item_uom(item_name, item_size, product=None, quantity=1):
     return ('Unit', 'Units')
 
 
+def _get_item_packaging_display(item_name, item_size, quantity, product=None):
+    """
+    Computes exact packaging and carton/bottle breakdown display (e.g. 5 Cartons (120 Bottles)).
+    """
+    qty = quantity or 1
+    units_per_carton = 1
+    if product:
+        try:
+            from products.models import MinimumOrderPackagingRule
+            rule = MinimumOrderPackagingRule.objects.filter(product=product).first()
+            if not rule and getattr(product, 'category_id', None):
+                rule = MinimumOrderPackagingRule.objects.filter(category_id=product.category_id).first()
+            if rule and rule.units_per_carton:
+                units_per_carton = rule.units_per_carton
+        except Exception:
+            units_per_carton = 1
+
+    name_upper = str(item_name or '').upper().strip()
+    size_upper = str(item_size or '').upper().strip()
+    pkg_type = str(getattr(product, 'package_type', '')).upper() if product else ''
+    is_bottle = pkg_type == 'BOTTLE' or 'BOTTLE' in name_upper or 'ML' in size_upper or 'ML' in name_upper or 'LITRE' in size_upper
+    is_jar = not is_bottle and (pkg_type == 'JAR' or 'JAR' in name_upper or '20L' in size_upper or '20L' in name_upper)
+
+    if is_jar:
+        return f"{qty} Jars" if qty > 1 else f"{qty} Jar"
+    elif units_per_carton > 1 and qty >= units_per_carton:
+        cartons = qty // units_per_carton
+        rem = qty % units_per_carton
+        if rem == 0:
+            return f"{cartons} Cartons ({qty} Bottles)"
+        return f"{cartons} Cartons + {rem} Bottles ({qty} Bottles)"
+    elif is_bottle:
+        return f"{qty} Bottles" if qty > 1 else f"{qty} Bottle"
+    return f"{qty} Units" if qty > 1 else f"{qty} Unit"
+
+
 def _get_customer_previous_outstanding(order, current_invoice_id=None):
     """
     Returns genuine, verified unpaid balance strictly for this specific customer.
@@ -211,12 +247,17 @@ def generate_thermal_invoice_html(invoice, width='80mm', paper_width_mm=None):
     snapshot_items = snapshot.get('items', [])
     if snapshot_items:
         for it in snapshot_items:
+            pkg_disp = it.get('packaging_display')
+            if not pkg_disp:
+                from products.models import Product
+                prod = Product.objects.filter(id=it.get('product_id')).first() if it.get('product_id') else None
+                pkg_disp = _get_item_packaging_display(it.get('name'), it.get('size'), it.get('quantity', 1), product=prod)
             items.append({
                 'name': it.get('name', 'Packaged Water'),
                 'size': it.get('size', ''),
                 'quantity': it.get('quantity', 1),
                 'uom': it.get('uom', 'Units'),
-                'packaging_display': it.get('packaging_display'),
+                'packaging_display': pkg_disp,
                 'unit_price': float(it.get('unit_price', 0.0)),
                 'total_price': float(it.get('total_price', 0.0)),
                 'gst_percent': float(it.get('gst_rate', 18.0) or 18.0),
@@ -227,12 +268,14 @@ def generate_thermal_invoice_html(invoice, width='80mm', paper_width_mm=None):
             p_size = it.size or (it.product.size if it.product else '')
             single_uom, plural_uom = _get_item_uom(p_name, p_size, it.product)
             uom_str = plural_uom if it.quantity > 1 else single_uom
+            pkg_disp = _get_item_packaging_display(p_name, p_size, it.quantity, it.product)
 
             items.append({
                 'name': p_name,
                 'size': p_size,
                 'quantity': it.quantity,
                 'uom': uom_str,
+                'packaging_display': pkg_disp,
                 'unit_price': float(it.unit_price),
                 'total_price': float(it.total_price),
                 'gst_percent': float(getattr(it.product, 'gst', 18) if it.product else 18),
@@ -617,12 +660,17 @@ def generate_pure_pdf_document(invoice):
     snapshot_items = snapshot.get('items', [])
     if snapshot_items:
         for it in snapshot_items:
+            pkg_disp = it.get('packaging_display')
+            if not pkg_disp:
+                from products.models import Product
+                prod = Product.objects.filter(id=it.get('product_id')).first() if it.get('product_id') else None
+                pkg_disp = _get_item_packaging_display(it.get('name'), it.get('size'), it.get('quantity', 1), product=prod)
             items.append({
                 'name': it.get('name', 'Packaged Water'),
                 'size': it.get('size', ''),
                 'qty': it.get('quantity', 1),
                 'uom': it.get('uom', 'Units'),
-                'packaging_display': it.get('packaging_display'),
+                'packaging_display': pkg_disp,
                 'rate': float(it.get('unit_price', 0.0)),
                 'total': float(it.get('total_price', 0.0)),
             })
@@ -632,11 +680,14 @@ def generate_pure_pdf_document(invoice):
             p_size = it.size or (it.product.size if it.product else '')
             single_uom, plural_uom = _get_item_uom(p_name, p_size, it.product)
             uom_str = plural_uom if it.quantity > 1 else single_uom
+            pkg_disp = _get_item_packaging_display(p_name, p_size, it.quantity, it.product)
+
             items.append({
                 'name': p_name,
                 'size': p_size,
                 'qty': it.quantity,
                 'uom': uom_str,
+                'packaging_display': pkg_disp,
                 'rate': float(it.unit_price),
                 'total': float(it.total_price),
             })
@@ -647,6 +698,7 @@ def generate_pure_pdf_document(invoice):
             'size': 'Standard',
             'qty': 1,
             'uom': 'Units',
+            'packaging_display': '1 Unit',
             'rate': float(invoice.subtotal),
             'total': float(invoice.subtotal),
         })
@@ -707,7 +759,7 @@ def generate_pure_pdf_document(invoice):
     # Seller Information Box (Left side)
     stream_lines.append("0 0 0 rg")  # Black
     stream_lines.append(f"BT /F1 8 Tf 40 738 Td (Legal Seller: {clean(seller_legal_name[:55])}) Tj ET")
-    seller_addr_lines = wrap_lines(company_address, max_len=52)
+    seller_addr_lines = wrap_lines(company_address, max_len=42)
     s_y = 726
     for sa in seller_addr_lines[:2]:
         stream_lines.append(f"BT /F1 8 Tf 40 {s_y} Td ({clean(sa)}) Tj ET")
@@ -762,15 +814,16 @@ def generate_pure_pdf_document(invoice):
     if delivery_address:
         cust_addr_lines = wrap_lines(delivery_address, max_len=60)
         stream_lines.append(f"BT /F1 8 Tf 40 {y_cust} Td (Delivery Address: {clean(cust_addr_lines[0])}) Tj ET")
-        y_cust -= 10
+        y_cust -= 11
         for cal in cust_addr_lines[1:3]:
             stream_lines.append(f"BT /F1 8 Tf 108 {y_cust} Td ({clean(cal)}) Tj ET")
-            y_cust -= 10
+            y_cust -= 11
 
-    # Table Header Box
-    y_table = y_cust - 6
+    # Table Header Box (Height: 18, positioned strictly below all customer & delivery address lines)
+    table_header_h = 18
+    y_table = y_cust - table_header_h - 6
     stream_lines.append("0.9 0.94 0.98 rg")
-    stream_lines.append(f"30 {y_table} 535 18 re f")
+    stream_lines.append(f"30 {y_table} 535 {table_header_h} re f")
     stream_lines.append("0 0 0 rg")
     stream_lines.append(f"BT /F1 8 Tf 35 {y_table + 5} Td (#  Item Description) Tj ET")
     stream_lines.append(f"BT /F1 8 Tf 250 {y_table + 5} Td (Size) Tj ET")

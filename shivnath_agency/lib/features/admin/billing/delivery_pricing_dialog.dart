@@ -119,7 +119,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     if (mounted) {
       setState(() {
         _loadingOrigin = false;
-        if (originRes['origin'] is Map) {
+        if (originRes['success'] == true && originRes['origin'] is Map) {
           var o = originRes['origin'] as Map;
           if (o.containsKey('origin') && o['origin'] is Map) {
             o = o['origin'] as Map;
@@ -148,11 +148,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
           _savedDepotName = _depotNameCtrl.text;
 
           _originActive = o['is_active'] ?? true;
-        }
-        if (originRes['success'] != true) {
-          _originError = originRes['message']?.toString() ?? 'Failed to load delivery origin settings.';
-        } else {
           _originError = null;
+        } else {
+          // Preserve previously loaded valid data; surface error clearly
+          _originError = originRes['message']?.toString() ?? 'Failed to load delivery origin settings. Please retry.';
         }
       });
     }
@@ -184,7 +183,19 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
   }
 
   Future<void> _saveOrigin() async {
+    if (_originError != null && _savedDepotName.isEmpty) {
+      AppToast.error(context, 'Cannot save: Delivery origin settings are unavailable. Please retry.');
+      return;
+    }
     if (!_originFormKey.currentState!.validate()) return;
+
+    final lat = double.tryParse(_latCtrl.text.trim());
+    final lng = double.tryParse(_lngCtrl.text.trim());
+    if (lat == null || lng == null) {
+      AppToast.error(context, 'Valid depot latitude and longitude coordinates are required.');
+      return;
+    }
+
     setState(() => _savingOrigin = true);
 
     final res = await _service.updateDeliveryOrigin({
@@ -192,8 +203,8 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
       'depot_name': _depotNameCtrl.text.trim(),
       'address': _addressCtrl.text.trim(),
       'pincode': _pincodeCtrl.text.trim(),
-      'latitude': double.tryParse(_latCtrl.text.trim()) ?? 21.2678,
-      'longitude': double.tryParse(_lngCtrl.text.trim()) ?? 81.6711,
+      'latitude': lat,
+      'longitude': lng,
       'free_delivery_radius_km': double.tryParse(_freeRadiusCtrl.text.trim()) ?? 0.0,
       'max_serviceable_radius_km': double.tryParse(_maxRadiusCtrl.text.trim()) ?? 25.0,
       'default_delivery_charge': double.tryParse(_defaultFeeCtrl.text.trim()) ?? 30.0,
@@ -469,7 +480,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                         ),
-                        onPressed: (_loadingOrigin || _savingOrigin) ? null : _saveOrigin,
+                        onPressed: (_loadingOrigin || _savingOrigin || _originError != null) ? null : _saveOrigin,
                         icon: (_savingOrigin || _loadingOrigin)
                             ? const SizedBox(
                                 width: 16,

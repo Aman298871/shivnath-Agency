@@ -35,122 +35,98 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
     _loadBackendInvoices();
   }
 
+  bool _isLoading = false;
+  String? _billingError;
+
   Future<void> _loadBackendInvoices() async {
+    setState(() {
+      _isLoading = true;
+      _billingError = null;
+    });
     try {
       final res = await InventoryRepository().getInvoices();
       if (res['success'] == true && res['data'] is List) {
         final list = (res['data'] as List).cast<Map<String, dynamic>>();
-        if (list.isNotEmpty) {
-          final mapped = list.map((item) {
-            final total = _asInt(item['grand_total'] ?? item['total_amount'] ?? item['total']);
-            final paid = _asInt(item['amount_paid'] ?? item['paid']);
-            final subtotal = _asInt(item['subtotal'] ?? (total * 0.82).round());
-            final gst = _asInt(item['cgst_amount'] != null ? (_asInt(item['cgst_amount']) + _asInt(item['sgst_amount'])) : (item['tax_amount'] ?? (total - subtotal)));
-            final rawStatus = item['status']?.toString() ?? '';
-            String status = 'Unpaid';
-            if (rawStatus == 'PAID' || rawStatus == 'Paid' || (paid >= total && total > 0)) {
-              status = 'Paid';
-            } else if (rawStatus == 'PAYMENT_PENDING_VERIFICATION') {
-              status = 'Payment Verification Required';
-            } else if (paid > 0 || rawStatus == 'PARTIALLY_PAID' || rawStatus == 'Partial') {
-              status = 'Partial';
-            } else {
-              status = 'Unpaid';
-            }
-
-            final orderSource = item['order_source']?.toString();
-            final invoiceType = item['invoice_type']?.toString();
-            String franchiseDisplay;
-            if (orderSource == 'DIRECT_COMPANY' || invoiceType == 'DIRECT_COMPANY_SALE_INVOICE') {
-              franchiseDisplay = 'Direct (Shivnath)';
-            } else if (item['franchise_name'] != null && item['franchise_name'].toString().trim().isNotEmpty) {
-              franchiseDisplay = item['franchise_name'].toString().trim();
-            } else if (item['dealer_name'] != null && item['dealer_name'].toString().trim().isNotEmpty) {
-              franchiseDisplay = item['dealer_name'].toString().trim();
-            } else {
-              franchiseDisplay = 'Direct (Shivnath)';
-            }
-
-            final rawCust = (item['customer_name'] ?? item['billed_to_name'] ?? item['client_name'] ?? '').toString().trim();
-            final customerDisplay = rawCust.isNotEmpty ? rawCust : 'Direct Customer';
-
-            return {
-              'id': item['id'],
-              'invoice': item['invoice_number'] ?? 'INV-${item['id']}',
-              'order': item['order_number'] ?? (item['order'] != null ? 'ORD-${item['order']}' : 'WHL-STOCK-TRANSFER'),
-              'customer_name': customerDisplay,
-              'franchise': franchiseDisplay,
-              'date': item['issue_date'] ?? item['invoice_date'] ?? item['issued_at']?.toString().split('T').first ?? 'Today',
-              'subtotal': subtotal,
-              'gst': gst,
-              'total': total,
-              'paid': paid,
-              'creditDays': _asInt(item['credit_days'] ?? item['creditDays'] ?? 15),
-              'dueDate': item['due_date'] ?? 'N/A',
-              'status': status,
-              'raw_status': rawStatus,
-              'latest_pending_payment': item['latest_pending_payment'],
-              'lastReminder': item['last_reminder'] ?? '-',
-            };
-          }).toList();
-
-          if (mounted) {
-            setState(() {
-              invoices.clear();
-              invoices.addAll(mapped);
-            });
+        final mapped = list.map((item) {
+          final total = _asInt(item['grand_total'] ?? item['total_amount'] ?? item['total']);
+          final paid = _asInt(item['amount_paid'] ?? item['paid']);
+          final subtotal = _asInt(item['subtotal'] ?? (total * 0.82).round());
+          final gst = _asInt(item['cgst_amount'] != null ? (_asInt(item['cgst_amount']) + _asInt(item['sgst_amount'])) : (item['tax_amount'] ?? (total - subtotal)));
+          final rawStatus = item['status']?.toString() ?? '';
+          String status = 'Unpaid';
+          if (rawStatus == 'PAID' || rawStatus == 'Paid' || (paid >= total && total > 0)) {
+            status = 'Paid';
+          } else if (rawStatus == 'PAYMENT_PENDING_VERIFICATION') {
+            status = 'Payment Verification Required';
+          } else if (paid > 0 || rawStatus == 'PARTIALLY_PAID' || rawStatus == 'Partial') {
+            status = 'Partial';
+          } else {
+            status = 'Unpaid';
           }
+
+          final orderSource = item['order_source']?.toString();
+          final invoiceType = item['invoice_type']?.toString();
+          String franchiseDisplay;
+          if (orderSource == 'DIRECT_COMPANY' || invoiceType == 'DIRECT_COMPANY_SALE_INVOICE') {
+            franchiseDisplay = 'Direct (Shivnath)';
+          } else if (item['franchise_name'] != null && item['franchise_name'].toString().trim().isNotEmpty) {
+            franchiseDisplay = item['franchise_name'].toString().trim();
+          } else if (item['dealer_name'] != null && item['dealer_name'].toString().trim().isNotEmpty) {
+            franchiseDisplay = item['dealer_name'].toString().trim();
+          } else {
+            franchiseDisplay = 'Direct (Shivnath)';
+          }
+
+          final rawCust = (item['customer_name'] ?? item['billed_to_name'] ?? item['client_name'] ?? '').toString().trim();
+          final customerDisplay = rawCust.isNotEmpty ? rawCust : 'Direct Customer';
+
+          return {
+            'id': item['id'],
+            'invoice': item['invoice_number'] ?? 'INV-${item['id']}',
+            'order': item['order_number'] ?? (item['order'] != null ? 'ORD-${item['order']}' : 'WHL-STOCK-TRANSFER'),
+            'customer_name': customerDisplay,
+            'franchise': franchiseDisplay,
+            'date': item['issue_date'] ?? item['invoice_date'] ?? item['issued_at']?.toString().split('T').first ?? 'Today',
+            'subtotal': subtotal,
+            'gst': gst,
+            'total': total,
+            'paid': paid,
+            'creditDays': _asInt(item['credit_days'] ?? item['creditDays'] ?? 15),
+            'dueDate': item['due_date'] ?? 'N/A',
+            'status': status,
+            'raw_status': rawStatus,
+            'latest_pending_payment': item['latest_pending_payment'],
+            'lastReminder': item['last_reminder'] ?? '-',
+          };
+        }).toList();
+
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _billingError = null;
+            invoices.clear();
+            invoices.addAll(mapped);
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _billingError = res['message']?.toString() ?? 'Failed to load invoices from server.';
+          });
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _billingError = 'Error fetching invoices: $e';
+        });
+      }
+    }
   }
 
-  bool _isLoading = false;
-
-  final List<Map<String, dynamic>> invoices = [
-    {
-      'invoice': 'INV-2026-101',
-      'order': 'ORD-1001',
-      'franchise': 'Krishna Franchise',
-      'date': '07 Sep 2026',
-      'subtotal': 48500,
-      'gst': 8730,
-      'total': 57230,
-      'paid': 0,
-      'creditDays': 15,
-      'dueDate': '22 Sep 2026',
-      'status': 'Unpaid',
-      'lastReminder': '-',
-    },
-    {
-      'invoice': 'INV-2026-102',
-      'order': 'ORD-1002',
-      'franchise': 'Aqua Point',
-      'date': '06 Sep 2026',
-      'subtotal': 32200,
-      'gst': 5796,
-      'total': 37996,
-      'paid': 20000,
-      'creditDays': 7,
-      'dueDate': '13 Sep 2026',
-      'status': 'Partial',
-      'lastReminder': '09 Sep 2026',
-    },
-    {
-      'invoice': 'INV-2026-103',
-      'order': 'ORD-1003',
-      'franchise': 'Shiv Water',
-      'date': '05 Sep 2026',
-      'subtotal': 68400,
-      'gst': 12312,
-      'total': 80712,
-      'paid': 80712,
-      'creditDays': 0,
-      'dueDate': '05 Sep 2026',
-      'status': 'Paid',
-      'lastReminder': '-',
-    },
-  ];
+  final List<Map<String, dynamic>> invoices = [];
 
   List<Map<String, dynamic>> get filtered {
     final q = search.trim().toLowerCase();
@@ -447,6 +423,71 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   }
 
   Widget _desktopTable() {
+    if (_isLoading) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(40),
+        decoration: _billingCard(),
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text('Loading live billing records...', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_billingError != null && invoices.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: _billingCard(),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 36),
+              const SizedBox(height: 10),
+              const Text('Failed to load billing records', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF991B1B))),
+              const SizedBox(height: 6),
+              Text(_billingError!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D))),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7), foregroundColor: Colors.white),
+                onPressed: _loadBackendInvoices,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (filtered.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(40),
+        decoration: _billingCard(),
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.receipt_long_outlined, size: 48, color: Color(0xFF94A3B8)),
+              SizedBox(height: 12),
+              Text('No billing records found', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF475569))),
+              SizedBox(height: 4),
+              Text('Invoices will appear here automatically upon order creation and fulfillment.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
       decoration: _billingCard(),
@@ -633,6 +674,71 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   }
 
   Widget _mobileList() {
+    if (_isLoading) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: _billingCard(),
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text('Loading live billing records...', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_billingError != null && invoices.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: _billingCard(),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 32),
+              const SizedBox(height: 10),
+              const Text('Failed to load billing records', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF991B1B))),
+              const SizedBox(height: 6),
+              Text(_billingError!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D))),
+              const SizedBox(height: 14),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7), foregroundColor: Colors.white),
+                onPressed: _loadBackendInvoices,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (filtered.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: _billingCard(),
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.receipt_long_outlined, size: 40, color: Color(0xFF94A3B8)),
+              SizedBox(height: 10),
+              Text('No billing records found', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF475569))),
+              SizedBox(height: 4),
+              Text('Invoices will appear here automatically.', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       children: filtered.map((invoice) {
         final total = _asInt(invoice['total']);

@@ -90,22 +90,19 @@ class DeliveryPricingService {
       return {
         'success': false,
         'message': 'HTTP ${res.statusCode}: Failed to load delivery origin',
-        'origin': fallbackOrigin,
-        'is_fallback': true,
+        'origin': null,
       };
     } on TimeoutException {
       return {
         'success': false,
         'message': 'Request timed out after 30s while loading origin. Please retry.',
-        'origin': fallbackOrigin,
-        'is_fallback': true,
+        'origin': null,
       };
     } catch (e) {
       return {
         'success': false,
         'message': 'Error: $e',
-        'origin': fallbackOrigin,
-        'is_fallback': true,
+        'origin': null,
       };
     }
   }
@@ -140,22 +137,19 @@ class DeliveryPricingService {
       return {
         'success': false,
         'message': 'HTTP ${res.statusCode}: Failed to load distance bands',
-        'bands': fallbackBands,
-        'is_fallback': true,
+        'bands': [],
       };
     } on TimeoutException {
       return {
         'success': false,
         'message': 'Request timed out after 30s while loading distance bands. Please retry.',
-        'bands': fallbackBands,
-        'is_fallback': true,
+        'bands': [],
       };
     } catch (e) {
       return {
         'success': false,
         'message': 'Error: $e',
-        'bands': fallbackBands,
-        'is_fallback': true,
+        'bands': [],
       };
     }
   }

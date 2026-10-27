@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/repositories/product_repository.dart';
 import '../../../core/services/packaging_service.dart';
 import '../../../core/widgets/app_toast.dart';
 
@@ -21,6 +22,7 @@ class PackagingRulesDialog extends StatefulWidget {
 class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
   final PackagingService _service = PackagingService();
   List<dynamic> _rules = [];
+  List<Map<String, dynamic>> _productList = [];
   bool _loading = true;
   bool _creating = false;
 
@@ -40,11 +42,30 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
   @override
   void initState() {
     super.initState();
+    _productList = List<Map<String, dynamic>>.from(widget.products);
     _loadRules();
-    if (widget.products.isNotEmpty) {
-      _selectedProductId = widget.products.first['id'] as int?;
-      _applySmartDefaults(widget.products.first);
+    if (_productList.isNotEmpty) {
+      _selectedProductId = _productList.first['id'] as int?;
+      _applySmartDefaults(_productList.first);
+    } else {
+      _loadProducts();
     }
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final res = await ProductRepository().getProducts();
+      if (res['success'] == true && res['data'] is List) {
+        final list = (res['data'] as List).cast<Map<String, dynamic>>();
+        if (mounted && list.isNotEmpty) {
+          setState(() {
+            _productList = list;
+            _selectedProductId = _productList.first['id'] as int?;
+            _applySmartDefaults(_productList.first);
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   void _applySmartDefaults(Map<String, dynamic> product) {
@@ -326,7 +347,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
               border: OutlineInputBorder(),
               isDense: true,
             ),
-            items: widget.products.map((p) {
+            items: _productList.map((p) {
               return DropdownMenuItem<int>(
                 value: p['id'] as int?,
                 child: Text(

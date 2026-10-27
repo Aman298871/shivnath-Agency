@@ -67,7 +67,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     if (!mounted) return;
 
     if (ordersResult['success'] == true) {
-      final List<dynamic> items = ordersResult['data']['orders'] ?? [];
+      final dynamic rawData = ordersResult['data'];
+      final List<dynamic> items = rawData is Map
+          ? (rawData['orders'] as List? ?? rawData['results'] as List? ?? rawData['data'] as List? ?? [])
+          : (rawData is List ? rawData : []);
 
       orders = items
           .map(

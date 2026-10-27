@@ -67,7 +67,7 @@ void initState() {
     });
   }
 
-  String activeTab = 'Today';
+  String activeTab = 'All';
   String search = '';
 
   String get _todayDateStr {
@@ -99,6 +99,10 @@ void initState() {
       final status = (item['status'] ?? 'Pending').toString();
       final isCompleted = status.toLowerCase() == 'completed';
 
+      if (activeTab == 'All') {
+        return true;
+      }
+
       if (activeTab == 'Completed') {
         return isCompleted;
       }
@@ -124,6 +128,9 @@ void initState() {
   }
 
   int countFor(String type) {
+    if (type == "All") {
+      return followups.length;
+    }
     int? val;
     switch (type) {
       case "Today":
@@ -267,6 +274,12 @@ else
 
   Widget _summary(bool desktop) {
     final items = [
+      {
+        'title': 'All',
+        'value': countFor('All'),
+        'icon': Icons.list_alt_rounded,
+        'type': 'all',
+      },
       {
         'title': 'Today',
         'value': countFor('Today'),
@@ -422,6 +435,7 @@ else
       spacing: 8,
       runSpacing: 8,
       children: [
+        'All',
         'Today',
         'Overdue',
         'Upcoming',

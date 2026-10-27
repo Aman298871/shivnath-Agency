@@ -331,7 +331,11 @@ class OrderService {
     return {
       'id': item['id'],
 
-      'orderId': item['order_id']?.toString() ?? '',
+      'orderId': (item['order_id'] != null && item['order_id'].toString().trim().isNotEmpty)
+          ? item['order_id'].toString()
+          : ((item['order_code'] != null && item['order_code'].toString().trim().isNotEmpty)
+              ? item['order_code'].toString()
+              : (item['id'] != null ? 'ORD-${item['id']}' : '')),
 
       'customer_name': (item['customer_name'] != null && item['customer_name'].toString().isNotEmpty)
           ? item['customer_name'].toString()

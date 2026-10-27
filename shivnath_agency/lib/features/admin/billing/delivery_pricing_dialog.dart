@@ -75,7 +75,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
 
     _maxRadiusCtrl.addListener(() {
       final v = double.tryParse(_maxRadiusCtrl.text);
-      if (v != null && v >= 0 && v <= 100 && (v - _maxRadiusSlider).abs() > 0.1) {
+      if (v != null && v >= 0 && v <= 500 && (v - _maxRadiusSlider).abs() > 0.1) {
         setState(() => _maxRadiusSlider = v);
       }
     });
@@ -140,7 +140,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
           _defaultFeeCtrl.text = feeVal.toStringAsFixed(1);
 
           _freeRadiusSlider = freeVal.clamp(0.0, 30.0);
-          _maxRadiusSlider = maxVal.clamp(0.0, 100.0);
+          _maxRadiusSlider = maxVal.clamp(0.0, 500.0);
 
           _savedFreeRadius = freeVal;
           _savedMaxRadius = maxVal;
@@ -871,10 +871,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                       valueIndicatorColor: const Color(0xFF0284C7),
                     ),
                     child: Slider(
-                      value: _maxRadiusSlider.clamp(0.0, 100.0),
+                      value: _maxRadiusSlider.clamp(0.0, 500.0),
                       min: 0.0,
-                      max: 100.0,
-                      divisions: 200,
+                      max: 500.0,
+                      divisions: 500,
                       label: '${_maxRadiusSlider.toStringAsFixed(1)} km',
                       onChanged: (val) {
                         setState(() {
@@ -893,10 +893,11 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                       Wrap(
                         spacing: 6,
                         children: [
-                          _buildPresetChip('10 km', 10.0, true),
                           _buildPresetChip('25 km (Std)', 25.0, true),
                           _buildPresetChip('50 km', 50.0, true),
-                          _buildPresetChip('75 km', 75.0, true),
+                          _buildPresetChip('100 km', 100.0, true),
+                          _buildPresetChip('250 km', 250.0, true),
+                          _buildPresetChip('500 km', 500.0, true),
                         ],
                       ),
                     ],

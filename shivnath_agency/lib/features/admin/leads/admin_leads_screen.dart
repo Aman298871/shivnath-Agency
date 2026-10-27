@@ -143,9 +143,14 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
     }
 
     if (result['success'] == true) {
-      final response = result['data'];
+      final dynamic response = result['data'];
 
-      final List<dynamic> items = response['leads'] ?? [];
+      final List<dynamic> items = response is Map
+          ? (response['leads'] as List? ??
+              response['results'] as List? ??
+              response['data'] as List? ??
+              [])
+          : (response is List ? response : []);
 
       setState(() {
         leads.clear();

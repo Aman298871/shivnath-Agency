@@ -51,7 +51,13 @@ class OrderListCreateView(APIView):
                     | Q(created_by__username=phone)
                 ).prefetch_related('items')
             else:
-                orders = Order.objects.none()
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'Authentication credentials were not provided or session expired.',
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
         else:
             profile = getattr(user, 'profile', None)
             role = profile.role if profile else 'customer'

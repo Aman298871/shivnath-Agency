@@ -129,7 +129,7 @@ class IsAdminOrApprovedFranchise(BasePermission):
         if not profile:
             return False
 
-        if profile.role in ['admin', 'super_admin']:
+        if profile.role in ['admin', 'super_admin', 'sales_executive']:
             return True
 
         if profile.role == 'franchise':

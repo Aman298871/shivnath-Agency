@@ -620,14 +620,44 @@ def seed_default_distance_bands_if_empty():
             order=4
         )
         DeliveryDistanceBand.objects.create(
-            name="Above 25 km Non-Serviceable Area",
+            name="Above 25-50 km Regional Delivery",
             min_distance_km=Decimal('25.00'),
+            max_distance_km=Decimal('50.00'),
+            delivery_charge=Decimal('450.00'),
+            is_active=True,
+            is_supported=True,
+            applies_to='ALL',
+            order=5
+        )
+        DeliveryDistanceBand.objects.create(
+            name="Above 50-100 km Inter-District Delivery",
+            min_distance_km=Decimal('50.00'),
+            max_distance_km=Decimal('100.00'),
+            delivery_charge=Decimal('850.00'),
+            is_active=True,
+            is_supported=True,
+            applies_to='ALL',
+            order=6
+        )
+        DeliveryDistanceBand.objects.create(
+            name="Above 100-300 km Statewide Delivery",
+            min_distance_km=Decimal('100.00'),
+            max_distance_km=Decimal('300.00'),
+            delivery_charge=Decimal('1500.00'),
+            is_active=True,
+            is_supported=True,
+            applies_to='ALL',
+            order=7
+        )
+        DeliveryDistanceBand.objects.create(
+            name="Above 300 km Special Freight Review",
+            min_distance_km=Decimal('300.00'),
             max_distance_km=None,  # Open-ended
             delivery_charge=Decimal('0.00'),
             is_active=True,
             is_supported=False,
             applies_to='ALL',
-            order=5
+            order=8
         )
 
 

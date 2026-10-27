@@ -441,7 +441,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                       children: [
                         _buildOriginTab(isMobile),
                         _buildBandsTab(isMobile),
-                        _buildSimulatorTab(),
+                        _buildSimulatorTab(isMobile),
                       ],
                     ),
                   ),
@@ -469,8 +469,8 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                         ),
-                        onPressed: _savingOrigin ? null : _saveOrigin,
-                        icon: _savingOrigin
+                        onPressed: (_loadingOrigin || _savingOrigin) ? null : _saveOrigin,
+                        icon: (_savingOrigin || _loadingOrigin)
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
@@ -478,7 +478,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                               )
                             : const Icon(Icons.check_circle_outline_rounded, size: 18),
                         label: Text(
-                          _savingOrigin ? 'Saving Changes...' : 'Save Configuration',
+                          _savingOrigin
+                              ? 'Saving Changes...'
+                              : (_loadingOrigin ? 'Loading Configuration...' : 'Save Configuration'),
                           style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -569,7 +571,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
   }
 
   Widget _buildOriginTab(bool isMobile) {
-    if (_loadingOrigin) {
+    if (_loadingOrigin && _latCtrl.text.isEmpty && _depotNameCtrl.text.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -581,7 +583,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         ),
       );
     }
-    if (_originError != null && _latCtrl.text.isEmpty) {
+    if (_originError != null && _latCtrl.text.isEmpty && _depotNameCtrl.text.isEmpty) {
       return Center(
         child: _buildErrorWidget(
           title: 'Delivery Origin Unavailable',
@@ -596,6 +598,17 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_loadingOrigin) ...[
+              const ClipRRect(
+                borderRadius: BorderRadius.all(Radius.circular(4)),
+                child: LinearProgressIndicator(
+                  minHeight: 4,
+                  color: Color(0xFF0284C7),
+                  backgroundColor: Color(0xFFE0F2FE),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             if (_originError != null) ...[
               Container(
                 margin: const EdgeInsets.only(bottom: 14),
@@ -1061,7 +1074,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
   }
 
   Widget _buildBandsTab(bool isMobile) {
-    if (_loadingBands) {
+    if (_loadingBands && _bands.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1340,7 +1353,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     );
   }
 
-  Widget _buildSimulatorTab() {
+  Widget _buildSimulatorTab(bool isMobile) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1350,25 +1363,22 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
           const Text('Simulate distance and fee calculation from the base dispatch plant to any customer coordinates.',
               style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _simLatCtrl,
-                  decoration: const InputDecoration(labelText: 'Customer Latitude', border: OutlineInputBorder(), isDense: true),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: _simLngCtrl,
-                  decoration: const InputDecoration(labelText: 'Customer Longitude', border: OutlineInputBorder(), isDense: true),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
+          if (isMobile) ...[
+            TextFormField(
+              controller: _simLatCtrl,
+              decoration: const InputDecoration(labelText: 'Customer Latitude', border: OutlineInputBorder(), isDense: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _simLngCtrl,
+              decoration: const InputDecoration(labelText: 'Customer Longitude', border: OutlineInputBorder(), isDense: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0284C7),
                   foregroundColor: Colors.white,
@@ -1377,10 +1387,42 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                 ),
                 onPressed: _testCalculate,
                 icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                label: const Text('Calculate'),
+                label: const Text('Calculate Delivery Fee', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
-            ],
-          ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _simLatCtrl,
+                    decoration: const InputDecoration(labelText: 'Customer Latitude', border: OutlineInputBorder(), isDense: true),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _simLngCtrl,
+                    decoration: const InputDecoration(labelText: 'Customer Longitude', border: OutlineInputBorder(), isDense: true),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  onPressed: _testCalculate,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: const Text('Calculate'),
+                ),
+              ],
+            ),
+          ],
           if (_simResult != null) ...[
             const SizedBox(height: 16),
             Container(

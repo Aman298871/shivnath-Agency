@@ -75,23 +75,55 @@ def _get_item_uom(item_name, item_size, product=None, quantity=1):
 def _get_customer_previous_outstanding(order, current_invoice_id=None):
     """
     Returns genuine, verified unpaid balance strictly for this specific customer.
-    Never attributes franchise wholesale credit balances to customer orders.
+    Authoritative single-source ledger reconciliation:
+    - Reconciles valid unpaid delivered orders and invoices.
+    - Excludes cancelled orders, fully paid orders, and water wallet redemptions.
+    - Excludes invoices whose status is PAID or CANCELLED, or whose linked order payment_status is 'paid'.
+    - Excludes current invoice/order to prevent double-counting.
+    - Matches CustomerOutstandingBreakdownAPIView ledger output 100%.
     """
     if not order or not order.created_by:
         return 0.0
 
     try:
-        qs = Invoice.objects.filter(
-            order__created_by=order.created_by,
-            invoice_type__in=['CUSTOMER_SALE_INVOICE', 'DIRECT_COMPANY_SALE_INVOICE']
-        ).exclude(status__in=['PAID', 'CANCELLED'])
-        if current_invoice_id:
-            qs = qs.exclude(id=current_invoice_id)
-        elif hasattr(order, 'invoice') and order.invoice:
-            qs = qs.exclude(id=order.invoice.id)
+        from orders.models import Order
+        prev_orders = Order.objects.filter(
+            created_by=order.created_by
+        ).exclude(
+            status__in=['cancelled', 'order_placement', 'created']
+        ).exclude(
+            order_source__in=['WATER_WALLET_REDEMPTION', 'WATER_WALLET']
+        )
+        if order.id:
+            prev_orders = prev_orders.exclude(id=order.id)
 
-        total = sum(float(inv.outstanding_balance) for inv in qs)
-        return round(total, 2)
+        total_due = Decimal('0.00')
+        for prev_ord in prev_orders:
+            # Skip if explicitly marked paid
+            if (prev_ord.payment_status or '').lower() == 'paid':
+                continue
+
+            inv = Invoice.objects.filter(order=prev_ord).first()
+            if inv:
+                if current_invoice_id and inv.id == current_invoice_id:
+                    continue
+                if inv.status in ['PAID', 'CANCELLED']:
+                    continue
+                bal = inv.outstanding_balance
+                if bal <= Decimal('0.05'):
+                    continue
+                total_due += bal
+            else:
+                rem = getattr(prev_ord, 'remaining_payable_amount', None)
+                if rem is not None and rem <= Decimal('0.00') and ((getattr(prev_ord, 'points_discount_amount', 0) or 0) > 0 or (getattr(prev_ord, 'wallet_amount_debited', 0) or 0) > 0):
+                    continue
+                orig_total = prev_ord.grand_total or prev_ord.amount or Decimal('0.00')
+                paid = orig_total if prev_ord.payment_status in ['paid', 'PAID'] else (getattr(prev_ord, 'paid_amount', None) or Decimal('0.00'))
+                due = max(Decimal('0.00'), orig_total - paid)
+                if due > Decimal('0.05'):
+                    total_due += due
+
+        return round(float(total_due), 2)
     except Exception:
         return 0.0
 
@@ -639,10 +671,30 @@ def generate_pure_pdf_document(invoice):
     def clean(s):
         return str(s or '').replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
 
+    def wrap_lines(text, max_len=45):
+        if not text:
+            return []
+        words = str(text).split()
+        lines = []
+        current = []
+        curr_len = 0
+        for w in words:
+            if curr_len + len(w) + (1 if current else 0) <= max_len:
+                current.append(w)
+                curr_len += len(w) + (1 if len(current) > 1 else 0)
+            else:
+                if current:
+                    lines.append(' '.join(current))
+                current = [w]
+                curr_len = len(w)
+        if current:
+            lines.append(' '.join(current))
+        return lines
+
     # Construct PDF Stream instructions
     stream_lines = []
 
-    # Header Accent Box
+    # Header Accent Box (Page width: 595, margins: 30 on left, 30 on right -> width 535)
     stream_lines.append("0.05 0.5 0.8 rg")  # Brand Blue
     stream_lines.append("30 755 535 55 re f")
 
@@ -652,64 +704,79 @@ def generate_pure_pdf_document(invoice):
     stream_lines.append("BT /F1 9 Tf 45 776 Td (WATER WALA - PURE, SAFE & CERTIFIED PACKAGED DRINKING WATER) Tj ET")
     stream_lines.append(f"BT /F1 11 Tf 45 762 Td ({clean(invoice_title)}) Tj ET")
 
-    # Seller Information Box
+    # Seller Information Box (Left side)
     stream_lines.append("0 0 0 rg")  # Black
-    stream_lines.append(f"BT /F1 8 Tf 40 738 Td (Legal Seller: {clean(seller_legal_name[:50])}) Tj ET")
-    stream_lines.append(f"BT /F1 8 Tf 40 726 Td (Address: {clean(company_address[:55])}) Tj ET")
+    stream_lines.append(f"BT /F1 8 Tf 40 738 Td (Legal Seller: {clean(seller_legal_name[:55])}) Tj ET")
+    seller_addr_lines = wrap_lines(company_address, max_len=52)
+    s_y = 726
+    for sa in seller_addr_lines[:2]:
+        stream_lines.append(f"BT /F1 8 Tf 40 {s_y} Td ({clean(sa)}) Tj ET")
+        s_y -= 11
     if company_gstin:
-        stream_lines.append(f"BT /F1 8 Tf 40 714 Td (Seller GSTIN: {clean(company_gstin)}) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 40 {s_y} Td (Seller GSTIN: {clean(company_gstin)}) Tj ET")
+        s_y -= 11
     else:
-        stream_lines.append("BT /F1 8 Tf 40 714 Td (Tax Status: Regular Retail Commercial Bill) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 40 {s_y} Td (Tax Status: Regular Retail Commercial Bill) Tj ET")
+        s_y -= 11
     if company_phone:
-        stream_lines.append(f"BT /F1 8 Tf 40 702 Td (Helpline: {clean(company_phone)}) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 40 {s_y} Td (Helpline: {clean(company_phone)}) Tj ET")
 
     # Invoice Details on Right
-    stream_lines.append(f"BT /F1 9 Tf 360 738 Td (Invoice No: {clean(invoice.invoice_number)}) Tj ET")
-    stream_lines.append(f"BT /F1 8 Tf 360 726 Td (Invoice Date: {clean(inv_date)}) Tj ET")
-    stream_lines.append(f"BT /F1 8 Tf 360 714 Td (Order ID: {clean(order_code)}) Tj ET")
-    stream_lines.append(f"BT /F1 8 Tf 360 702 Td (Payment Status: {clean(invoice.get_status_display())}) Tj ET")
+    stream_lines.append(f"BT /F1 9 Tf 350 738 Td (Invoice No: {clean(invoice.invoice_number)}) Tj ET")
+    stream_lines.append(f"BT /F1 8 Tf 350 726 Td (Invoice Date: {clean(inv_date)}) Tj ET")
+    stream_lines.append(f"BT /F1 8 Tf 350 714 Td (Order ID: {clean(order_code)}) Tj ET")
+    stream_lines.append(f"BT /F1 8 Tf 350 702 Td (Payment Status: {clean(invoice.get_status_display())}) Tj ET")
 
     # Horizontal Divider
-    stream_lines.append("0.7 0.7 0.7 RG 1 w 30 692 m 565 692 l S")
+    stream_lines.append("0.7 0.7 0.7 RG 1 w 30 684 m 565 684 l S")
 
     # Order Source & Fulfillment Info Banner
     stream_lines.append("0.96 0.96 0.98 rg")
-    stream_lines.append("30 655 535 32 re f")
+    stream_lines.append("30 648 535 30 re f")
     stream_lines.append("0 0 0 rg")
-    stream_lines.append(f"BT /F1 9 Tf 40 673 Td (Order Source: {clean(order_source_label)}) Tj ET")
+    stream_lines.append(f"BT /F1 9 Tf 40 665 Td (Order Source: {clean(order_source_label)}) Tj ET")
     if is_franchise:
         franchise_desc = f"Handling Franchise: {clean(franchise_name)} {f'({clean(franchise_code)})' if franchise_code else ''} {f'- Ph: {clean(franchise_phone)}' if franchise_phone else ''}"
-        stream_lines.append(f"BT /F1 8 Tf 40 661 Td ({clean(franchise_desc[:75])}) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 40 653 Td ({clean(franchise_desc[:70])}) Tj ET")
     else:
-        stream_lines.append("BT /F1 8 Tf 40 661 Td (Fulfillment: Direct Central Plant Dispatch - Raipur, Chhattisgarh) Tj ET")
+        stream_lines.append("BT /F1 8 Tf 40 653 Td (Fulfillment: Direct Central Plant Dispatch - Raipur, Chhattisgarh) Tj ET")
 
     # Customer Billing Section
-    y_cust = 635
+    y_cust = 632
     stream_lines.append("0 0 0 rg")
     stream_lines.append(f"BT /F1 9 Tf 40 {y_cust} Td (CUSTOMER / BILLED TO:) Tj ET")
-    stream_lines.append(f"BT /F1 9 Tf 40 {y_cust - 12} Td (Name: {clean(customer_name)}) Tj ET")
+    y_cust -= 12
+    stream_lines.append(f"BT /F1 9 Tf 40 {y_cust} Td (Name: {clean(customer_name)}) Tj ET")
+    y_cust -= 11
     cust_contact_line = []
     if customer_phone:
         cust_contact_line.append(f"Phone: {customer_phone}")
     if customer_email:
         cust_contact_line.append(f"Email: {customer_email}")
     if cust_contact_line:
-        stream_lines.append(f"BT /F1 8 Tf 40 {y_cust - 23} Td ({clean(' | '.join(cust_contact_line))}) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 40 {y_cust} Td ({clean(' | '.join(cust_contact_line))}) Tj ET")
+        y_cust -= 11
     if customer_gstin:
-        stream_lines.append(f"BT /F1 8 Tf 40 {y_cust - 34} Td (Customer GSTIN: {clean(customer_gstin)}) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 40 {y_cust} Td (Customer GSTIN: {clean(customer_gstin)}) Tj ET")
+        y_cust -= 11
     if delivery_address:
-        stream_lines.append(f"BT /F1 8 Tf 40 {y_cust - 45} Td (Delivery Address: {clean(delivery_address[:65])}) Tj ET")
+        cust_addr_lines = wrap_lines(delivery_address, max_len=60)
+        stream_lines.append(f"BT /F1 8 Tf 40 {y_cust} Td (Delivery Address: {clean(cust_addr_lines[0])}) Tj ET")
+        y_cust -= 10
+        for cal in cust_addr_lines[1:3]:
+            stream_lines.append(f"BT /F1 8 Tf 108 {y_cust} Td ({clean(cal)}) Tj ET")
+            y_cust -= 10
 
     # Table Header Box
-    y_table = 572
+    y_table = y_cust - 6
     stream_lines.append("0.9 0.94 0.98 rg")
     stream_lines.append(f"30 {y_table} 535 18 re f")
     stream_lines.append("0 0 0 rg")
     stream_lines.append(f"BT /F1 8 Tf 35 {y_table + 5} Td (#  Item Description) Tj ET")
-    stream_lines.append(f"BT /F1 8 Tf 260 {y_table + 5} Td (Size) Tj ET")
-    stream_lines.append(f"BT /F1 8 Tf 340 {y_table + 5} Td (Qty & UOM) Tj ET")
-    stream_lines.append(f"BT /F1 8 Tf 420 {y_table + 5} Td (Unit Rate) Tj ET")
-    stream_lines.append(f"BT /F1 8 Tf 500 {y_table + 5} Td (Total) Tj ET")
+    stream_lines.append(f"BT /F1 8 Tf 250 {y_table + 5} Td (Size) Tj ET")
+    stream_lines.append(f"BT /F1 8 Tf 320 {y_table + 5} Td (Qty & UOM) Tj ET")
+    stream_lines.append(f"BT /F1 8 Tf 415 {y_table + 5} Td (Unit Rate) Tj ET")
+    stream_lines.append(f"BT /F1 8 Tf 485 {y_table + 5} Td (Total) Tj ET")
 
     # Table Rows
     cur_y = y_table - 14
@@ -718,15 +785,15 @@ def generate_pure_pdf_document(invoice):
         size_desc = f"{it['size']}"[:16]
         qty_uom = it.get('packaging_display') or f"{it['qty']} {it['uom']}"
         stream_lines.append(f"BT /F1 8 Tf 35 {cur_y} Td ({clean(name_desc)}) Tj ET")
-        stream_lines.append(f"BT /F1 8 Tf 260 {cur_y} Td ({clean(size_desc)}) Tj ET")
-        stream_lines.append(f"BT /F1 8 Tf 340 {cur_y} Td ({clean(qty_uom[:32])}) Tj ET")
-        stream_lines.append(f"BT /F1 8 Tf 420 {cur_y} Td (Rs. {it['rate']:.2f}) Tj ET")
-        stream_lines.append(f"BT /F1 8 Tf 500 {cur_y} Td (Rs. {it['total']:.2f}) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 250 {cur_y} Td ({clean(size_desc)}) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 320 {cur_y} Td ({clean(qty_uom[:28])}) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 415 {cur_y} Td (Rs. {it['rate']:.2f}) Tj ET")
+        stream_lines.append(f"BT /F1 8 Tf 485 {cur_y} Td (Rs. {it['total']:.2f}) Tj ET")
         cur_y -= 14
 
     # Bottom Divider
     stream_lines.append(f"0.7 0.7 0.7 RG 1 w 30 {cur_y + 4} m 565 {cur_y + 4} l S")
-    cur_y -= 12
+    cur_y -= 14
 
     # Financial Totals on Right
     def add_total_line(label, val, bold=False, alert_color=None):
@@ -735,8 +802,8 @@ def generate_pure_pdf_document(invoice):
             stream_lines.append(f"{alert_color} rg")
         else:
             stream_lines.append("0 0 0 rg")
-        stream_lines.append(f"BT /F1 {'9' if bold else '8'} Tf 350 {cur_y} Td ({clean(label)}) Tj ET")
-        stream_lines.append(f"BT /F1 {'9' if bold else '8'} Tf 490 {cur_y} Td ({clean(val)}) Tj ET")
+        stream_lines.append(f"BT /F1 {'9' if bold else '8'} Tf 320 {cur_y} Td ({clean(label)}) Tj ET")
+        stream_lines.append(f"BT /F1 {'9' if bold else '8'} Tf 475 {cur_y} Td ({clean(val)}) Tj ET")
         cur_y -= 13
 
     add_total_line("Items Subtotal:", f"Rs. {subtotal:.2f}")
@@ -767,9 +834,14 @@ def generate_pure_pdf_document(invoice):
         else:
             add_total_line(f"GST / Tax ({gst_rate:g}%):", f"Rs. {total_tax:.2f}")
 
-    stream_lines.append(f"0.2 0.2 0.2 RG 1.5 w 350 {cur_y + 4} m 565 {cur_y + 4} l S")
-    cur_y -= 3
+    # Separator rule before Grand Total with safe vertical margins
+    cur_y -= 4
+    stream_lines.append(f"0.2 0.2 0.2 RG 1.5 w 320 {cur_y + 8} m 555 {cur_y + 8} l S")
+    cur_y -= 8
     add_total_line("GRAND TOTAL:", f"Rs. {grand_total:.2f}", bold=True)
+    cur_y -= 2
+    stream_lines.append(f"0.7 0.7 0.7 RG 1 w 320 {cur_y + 8} m 555 {cur_y + 8} l S")
+    cur_y -= 4
 
     if wallet_debited > 0:
         add_total_line("Water Wallet Debited:", f"Rs. {wallet_debited:.2f}")

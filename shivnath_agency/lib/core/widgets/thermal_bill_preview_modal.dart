@@ -223,7 +223,18 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
     for (final item in _items) {
       final name = item['product_name']?.toString() ?? 'Packaged Water';
       final qty = item['quantity']?.toString() ?? '1';
-      final packaging = item['packaging_display']?.toString();
+      String? packaging = item['packaging_display']?.toString();
+      if (packaging == null || packaging.isEmpty) {
+        final nameUpper = name.toUpperCase();
+        final sizeUpper = (item['size'] ?? '').toString().toUpperCase();
+        final isBottle = nameUpper.contains('BOTTLE') || sizeUpper.contains('ML') || nameUpper.contains('ML') || sizeUpper.contains('LITRE');
+        final isJar = !isBottle && (nameUpper.contains('JAR') || sizeUpper.contains('20L') || nameUpper.contains('20L'));
+        if (isJar) {
+          packaging = '$qty Jars';
+        } else if (isBottle) {
+          packaging = '$qty Bottles';
+        }
+      }
       final rate = double.tryParse(item['unit_price']?.toString() ?? '0') ?? 0.0;
       final total = double.tryParse(item['total_price']?.toString() ?? '0') ?? 0.0;
 
@@ -624,7 +635,18 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
                             ..._items.map((item) {
                               final name = item['product_name']?.toString() ?? 'Packaged Water';
                               final qty = item['quantity']?.toString() ?? '1';
-                              final packaging = item['packaging_display']?.toString();
+                              String? packaging = item['packaging_display']?.toString();
+                              if (packaging == null || packaging.isEmpty) {
+                                final nameUpper = name.toUpperCase();
+                                final sizeUpper = (item['size'] ?? '').toString().toUpperCase();
+                                final isBottle = nameUpper.contains('BOTTLE') || sizeUpper.contains('ML') || nameUpper.contains('ML') || sizeUpper.contains('LITRE');
+                                final isJar = !isBottle && (nameUpper.contains('JAR') || sizeUpper.contains('20L') || nameUpper.contains('20L'));
+                                if (isJar) {
+                                  packaging = '$qty Jars';
+                                } else if (isBottle) {
+                                  packaging = '$qty Bottles';
+                                }
+                              }
                               final rate = double.tryParse(item['unit_price']?.toString() ?? '0') ?? 0.0;
                               final total = double.tryParse(item['total_price']?.toString() ?? '0') ?? 0.0;
 

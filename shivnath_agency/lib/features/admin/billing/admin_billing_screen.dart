@@ -105,11 +105,13 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
     } catch (_) {}
   }
 
+  bool _isLoading = false;
+
   final List<Map<String, dynamic>> invoices = [
     {
       'invoice': 'INV-2026-101',
       'order': 'ORD-1001',
-      'franchise': 'Sangam Franchise',
+      'franchise': 'Krishna Franchise',
       'date': '07 Sep 2026',
       'subtotal': 48500,
       'gst': 8730,

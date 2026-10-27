@@ -15,6 +15,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     package_type = serializers.SerializerMethodField()
     sales_unit = serializers.SerializerMethodField()
     sales_unit_display = serializers.SerializerMethodField()
+    packaging_display = serializers.SerializerMethodField()
     uom_display = serializers.SerializerMethodField()
 
     class Meta:
@@ -34,6 +35,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             'package_type',
             'sales_unit',
             'sales_unit_display',
+            'packaging_display',
             'uom_display',
         ]
 
@@ -85,9 +87,37 @@ class OrderItemSerializer(serializers.ModelSerializer):
             return 'Bottles' if qty > 1 else 'Bottle'
         return 'Units' if qty > 1 else 'Unit'
 
+    def get_packaging_display(self, obj):
+        qty = obj.quantity or 1
+        pkg_type = self.get_package_type(obj)
+        units_per_carton = 1
+        if obj.product:
+            from products.models import MinimumOrderPackagingRule
+            rule = MinimumOrderPackagingRule.objects.filter(product=obj.product).first()
+            if not rule and getattr(obj.product, 'category_id', None):
+                rule = MinimumOrderPackagingRule.objects.filter(category_id=obj.product.category_id).first()
+            if rule and rule.units_per_carton:
+                units_per_carton = rule.units_per_carton
+
+        name_upper = str(obj.product_name or (obj.product.name if obj.product else '')).upper()
+        size_upper = str(obj.size or (obj.product.size if obj.product else '')).upper()
+        is_bottle = pkg_type == 'BOTTLE' or 'BOTTLE' in name_upper or 'ML' in size_upper or 'ML' in name_upper or 'LITRE' in size_upper
+        is_jar = not is_bottle and (pkg_type == 'JAR' or 'JAR' in name_upper or '20L' in size_upper or '20L' in name_upper)
+
+        if is_jar:
+            return f"{qty} Jars" if qty > 1 else f"{qty} Jar"
+        elif units_per_carton > 1 and qty >= units_per_carton:
+            cartons = qty // units_per_carton
+            rem = qty % units_per_carton
+            if rem == 0:
+                return f"{cartons} Cartons ({qty} Bottles)"
+            return f"{cartons} Cartons + {rem} Bottles ({qty} Bottles)"
+        elif is_bottle:
+            return f"{qty} Bottles" if qty > 1 else f"{qty} Bottle"
+        return f"{qty} Units" if qty > 1 else f"{qty} Unit"
+
     def get_uom_display(self, obj):
-        unit_disp = self.get_sales_unit_display(obj)
-        return f"{obj.quantity} {unit_disp}"
+        return self.get_packaging_display(obj)
 
 
 

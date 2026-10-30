@@ -279,14 +279,15 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                 const Text('Credit Status', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: ['ACTIVE', 'SUSPENDED', 'BLOCKED', 'UNDER_REVIEW'].contains(creditStatus)
                       ? creditStatus
                       : 'ACTIVE',
                   items: const [
-                    DropdownMenuItem(value: 'ACTIVE', child: Text('ACTIVE (Normal)')),
-                    DropdownMenuItem(value: 'UNDER_REVIEW', child: Text('UNDER_REVIEW')),
-                    DropdownMenuItem(value: 'SUSPENDED', child: Text('SUSPENDED (Grace)')),
-                    DropdownMenuItem(value: 'BLOCKED', child: Text('BLOCKED (No Orders)')),
+                    DropdownMenuItem(value: 'ACTIVE', child: Text('ACTIVE (Normal)', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'UNDER_REVIEW', child: Text('UNDER_REVIEW', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'SUSPENDED', child: Text('SUSPENDED (Grace)', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'BLOCKED', child: Text('BLOCKED (No Orders)', overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) {
                     if (val != null) setDialogState(() => creditStatus = val);
@@ -1165,8 +1166,11 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 10,
               children: [
                 const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1225,7 +1229,10 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
             const SizedBox(height: 16),
 
             // Credit Status & Risk Level
-            Row(
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 10,
+              runSpacing: 6,
               children: [
                 const Text('Credit Status: ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF475569))),
                 Container(
@@ -1247,7 +1254,6 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                     ),
                   ),
                 ),
-                const SizedBox(width: 20),
                 Text(
                   availableCredit <= 0 ? '⚠ Limit Exceeded — Stock Orders Blocked' : '✓ Credit in Good Standing',
                   style: TextStyle(
@@ -1272,15 +1278,21 @@ class _AdminFranchiseDetailScreenState extends State<AdminFranchiseDetailScreen>
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _agingColumn('Current', '₹${aging['current'] ?? '0.00'}', const Color(0xFF16A34A)),
-                  _agingColumn('1-15 Days', '₹${aging['1_15_days'] ?? '0.00'}', const Color(0xFF0284C7)),
-                  _agingColumn('16-30 Days', '₹${aging['16_30_days'] ?? '0.00'}', const Color(0xFFD97706)),
-                  _agingColumn('31-45 Days', '₹${aging['31_45_days'] ?? '0.00'}', Colors.orange),
-                  _agingColumn('45+ Days', '₹${aging['45_plus_days'] ?? '0.00'}', Colors.red),
-                ],
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _agingColumn('Current', '₹${aging['current'] ?? '0.00'}', const Color(0xFF16A34A)),
+                    const SizedBox(width: 20),
+                    _agingColumn('1-15 Days', '₹${aging['1_15_days'] ?? '0.00'}', const Color(0xFF0284C7)),
+                    const SizedBox(width: 20),
+                    _agingColumn('16-30 Days', '₹${aging['16_30_days'] ?? '0.00'}', const Color(0xFFD97706)),
+                    const SizedBox(width: 20),
+                    _agingColumn('31-45 Days', '₹${aging['31_45_days'] ?? '0.00'}', Colors.orange),
+                    const SizedBox(width: 20),
+                    _agingColumn('45+ Days', '₹${aging['45_plus_days'] ?? '0.00'}', Colors.red),
+                  ],
+                ),
               ),
             ),
           ],

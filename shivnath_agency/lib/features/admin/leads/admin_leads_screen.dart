@@ -450,27 +450,27 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
 
   Widget _statusDropdown() {
     const items = [
-      DropdownMenuItem(value: 'All', child: Text('All Status')),
-      DropdownMenuItem(value: 'New Lead', child: Text('New Lead')),
-      DropdownMenuItem(value: 'Contacted', child: Text('Contacted')),
-      DropdownMenuItem(value: 'Follow-up 1', child: Text('Follow-up 1')),
-      DropdownMenuItem(value: 'Follow-up 2', child: Text('Follow-up 2')),
-      DropdownMenuItem(value: 'Interested', child: Text('Interested')),
+      DropdownMenuItem(value: 'All', child: Text('All Status', overflow: TextOverflow.ellipsis)),
+      DropdownMenuItem(value: 'New Lead', child: Text('New Lead', overflow: TextOverflow.ellipsis)),
+      DropdownMenuItem(value: 'Contacted', child: Text('Contacted', overflow: TextOverflow.ellipsis)),
+      DropdownMenuItem(value: 'Follow-up 1', child: Text('Follow-up 1', overflow: TextOverflow.ellipsis)),
+      DropdownMenuItem(value: 'Follow-up 2', child: Text('Follow-up 2', overflow: TextOverflow.ellipsis)),
+      DropdownMenuItem(value: 'Interested', child: Text('Interested', overflow: TextOverflow.ellipsis)),
       DropdownMenuItem(
         value: 'Site Visit Scheduled',
-        child: Text('Site Visit Scheduled'),
+        child: Text('Site Visit Scheduled', overflow: TextOverflow.ellipsis),
       ),
       DropdownMenuItem(
         value: 'Agreement Pending',
-        child: Text('Agreement Pending'),
+        child: Text('Agreement Pending', overflow: TextOverflow.ellipsis),
       ),
       DropdownMenuItem(
         value: 'Franchise Confirmed',
-        child: Text('Franchise Confirmed'),
+        child: Text('Franchise Confirmed', overflow: TextOverflow.ellipsis),
       ),
-      DropdownMenuItem(value: 'Converted', child: Text('Converted')),
-      DropdownMenuItem(value: 'Not Interested', child: Text('Not Interested')),
-      DropdownMenuItem(value: 'Lost', child: Text('Lost')),
+      DropdownMenuItem(value: 'Converted', child: Text('Converted', overflow: TextOverflow.ellipsis)),
+      DropdownMenuItem(value: 'Not Interested', child: Text('Not Interested', overflow: TextOverflow.ellipsis)),
+      DropdownMenuItem(value: 'Lost', child: Text('Lost', overflow: TextOverflow.ellipsis)),
     ];
     final validValues = items.map((e) => e.value).toSet();
     final safeValue = validValues.contains(selectedStatus)

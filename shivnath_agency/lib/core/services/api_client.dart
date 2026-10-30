@@ -9,7 +9,7 @@ import 'session_service.dart';
 class ApiClient {
   ApiClient._();
 
-  static const Duration defaultTimeout = Duration(seconds: 15);
+  static const Duration defaultTimeout = Duration(seconds: 35);
   static final http.Client client = _LoggingClient();
 
   static Future<http.Response> _executeWithRetry(

@@ -38,7 +38,7 @@ class WaterWalletRedemptionMOQTestCase(TestCase):
         self.wallet.balance = Decimal('1000.00')  # Rs 1,000 cash balance
         self.wallet.save()
 
-        from billing.models import DeliveryOriginSetting
+        from billing.models import DeliveryOriginSetting, DeliveryDistanceBand
         DeliveryOriginSetting.objects.get_or_create(
             is_active=True,
             defaults={
@@ -46,6 +46,16 @@ class WaterWalletRedemptionMOQTestCase(TestCase):
                 'address': 'Ekta Nagar, Pragati Nagar, LIC Colony, near Mowa Thana, Raipur, Chhattisgarh',
                 'latitude': Decimal('21.267800'),
                 'longitude': Decimal('81.671100'),
+            }
+        )
+        DeliveryDistanceBand.objects.get_or_create(
+            name='Local Delivery (0-50km)',
+            min_distance_km=Decimal('0.00'),
+            max_distance_km=Decimal('50.00'),
+            defaults={
+                'delivery_charge': Decimal('30.00'),
+                'is_active': True,
+                'is_supported': True,
             }
         )
 

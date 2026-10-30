@@ -15,6 +15,7 @@ import 'dashboard/admin_dashboard_screen.dart';
 import 'leads/admin_leads_screen.dart';
 import 'followups/admin_followups_screen.dart';
 import 'franchises/admin_franchises_screen.dart';
+import 'customers/admin_customers_screen.dart';
 import 'inventory/admin_stock_management_screen.dart';
 import 'inventory/central_plant_inventory_screen.dart';
 import 'inventory/dealer_stock_request_fulfillment_screen.dart';
@@ -497,6 +498,11 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         icon: Icons.storefront_outlined,
       ),
       const _AdminMenuItem(
+        index: 23,
+        title: 'Customer CRM',
+        icon: Icons.groups_outlined,
+      ),
+      const _AdminMenuItem(
         index: 4,
         title: 'Plant Batches & Stock',
         icon: Icons.inventory_2_outlined,
@@ -611,6 +617,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           onOpenUsers: () => _selectMenu(14),
           onOpenNotifications: () => _selectMenu(15),
           onOpenStockRequests: () => _selectMenu(21),
+          onOpenCustomers: () => _selectMenu(23),
           onOpenInventoryWithBatch: (batch) {
             setState(() {
               _targetBatchNumber = batch;
@@ -692,6 +699,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       case 21:
         return const CentralPlantInventoryScreen(initialTab: 2);
 
+      case 23:
+        return const AdminCustomersScreen();
+
       default:
         return AdminDashboardScreen(
           onOpenLeads: () => _selectMenu(1),
@@ -705,6 +715,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           onOpenUsers: () => _selectMenu(14),
           onOpenNotifications: () => _selectMenu(15),
           onOpenStockRequests: () => _selectMenu(21),
+          onOpenCustomers: () => _selectMenu(23),
           onOpenInventoryWithBatch: (batch) {
             setState(() {
               _targetBatchNumber = batch;
@@ -756,8 +767,13 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       // Leads
       'lead': 1,
       'leads': 1,
-      'crm': 1,
-      'customer': 1,
+
+      // Customer CRM
+      'customer': 23,
+      'customers': 23,
+      'customer crm': 23,
+      'crm': 23,
+      'client': 23,
 
       // Follow-ups
       'followup': 2,
@@ -819,7 +835,6 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       'users': 14,
       'directory': 14,
       'staff': 14,
-      'customers': 14,
 
       // Notifications
       'notification': 15,
@@ -1690,6 +1705,15 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
 
       case 20:
         return 'Staff Performance';
+
+      case 21:
+        return 'Central Stock Requests';
+
+      case 22:
+        return 'BOM & Recipe Master';
+
+      case 23:
+        return 'Customer CRM';
 
       default:
         return 'Admin';

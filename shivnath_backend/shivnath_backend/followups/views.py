@@ -1,17 +1,67 @@
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Count
+from django.db.models import Count, Q
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from accounts.permissions import IsAdminRole, IsAdminOrApprovedFranchise
+from accounts.permissions import IsAdminRole, IsCrmStaffOrFranchise
 
 from leads.models import Lead
 
 from .models import FollowUp
 from .serializers import FollowUpSerializer
+
+
+def get_scoped_followup_queryset(user):
+    if not user or not user.is_authenticated:
+        return FollowUp.objects.none()
+    if user.is_superuser:
+        return FollowUp.objects.all()
+    profile = getattr(user, 'profile', None)
+    role = profile.role if profile else 'admin'
+    if role in ['admin', 'super_admin']:
+        return FollowUp.objects.all()
+    if role == 'franchise':
+        fp = getattr(user, 'franchise_profile', None)
+        if fp:
+            return FollowUp.objects.filter(lead__assigned_franchise=fp)
+        return FollowUp.objects.none()
+    if role == 'sales_executive':
+        p_name = profile.name if profile else ''
+        return FollowUp.objects.filter(
+            Q(lead__assigned_executive_user=user)
+            | Q(created_by=user)
+            | Q(lead__created_by=user)
+            | Q(lead__assigned_executive=user.username)
+            | (Q(lead__assigned_executive=p_name) if p_name else Q())
+        )
+    return FollowUp.objects.none()
+
+
+def check_followup_access(user, followup):
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    profile = getattr(user, 'profile', None)
+    role = profile.role if profile else 'admin'
+    if role in ['admin', 'super_admin']:
+        return True
+    if role == 'franchise':
+        fp = getattr(user, 'franchise_profile', None)
+        return bool(fp and (followup.lead.assigned_franchise_id == fp.id or followup.lead.assigned_franchise_id is None))
+    if role == 'sales_executive':
+        p_name = profile.name if profile else ''
+        return bool(
+            followup.lead.assigned_executive_user_id == user.id
+            or followup.created_by_id == user.id
+            or followup.lead.created_by_id == user.id
+            or followup.lead.assigned_executive == user.username
+            or (p_name and followup.lead.assigned_executive == p_name)
+        )
+    return False
 
 
 # ==========================================
@@ -21,16 +71,15 @@ from .serializers import FollowUpSerializer
 class FollowUpListCreateView(APIView):
 
     permission_classes = [
-        IsAdminOrApprovedFranchise
+        IsCrmStaffOrFranchise
     ]
 
     def get(self, request):
 
         queryset = (
-            FollowUp.objects
+            get_scoped_followup_queryset(request.user)
             .select_related("lead")
             .select_related("created_by")
-            .all()
         )
 
         serializer = FollowUpSerializer(
@@ -98,7 +147,7 @@ class FollowUpListCreateView(APIView):
 class FollowUpDetailView(APIView):
 
     permission_classes = [
-        IsAdminOrApprovedFranchise
+        IsCrmStaffOrFranchise
     ]
 
     def patch(self, request, pk):
@@ -110,6 +159,12 @@ class FollowUpDetailView(APIView):
             FollowUp,
             pk=pk,
         )
+
+        if not check_followup_access(request.user, followup):
+            return Response(
+                {"success": False, "message": "You are not authorized to update this follow-up."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         old_datetime = followup.followup_datetime
         old_status = followup.status
@@ -170,6 +225,14 @@ class FollowUpDetailView(APIView):
         })
 
     def delete(self, request, pk):
+        profile = getattr(request.user, 'profile', None)
+        role = profile.role if profile else 'admin'
+        if not request.user.is_superuser and role not in ['admin', 'super_admin']:
+            return Response(
+                {"success": False, "message": "Only Administrators can delete follow-ups."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         from .models import FollowUpAuditLog
         followup = get_object_or_404(
             FollowUp,
@@ -201,7 +264,7 @@ class FollowUpDetailView(APIView):
 
 class CompleteFollowUpView(APIView):
     permission_classes = [
-        IsAdminOrApprovedFranchise
+        IsCrmStaffOrFranchise
     ]
 
     def patch(self, request, pk):
@@ -215,6 +278,12 @@ class CompleteFollowUpView(APIView):
             FollowUp,
             pk=pk,
         )
+
+        if not check_followup_access(request.user, followup):
+            return Response(
+                {"success": False, "message": "You are not authorized to update this follow-up."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         old_status = followup.status
         notes = request.data.get("outcome_notes") or request.data.get("notes") or request.data.get("outcome") or ""
@@ -274,7 +343,7 @@ class CompletedFollowUpListView(APIView):
     today, yesterday, this_week, this_month, custom date ranges, and keyword search.
     """
     permission_classes = [
-        IsAdminOrApprovedFranchise
+        IsCrmStaffOrFranchise
     ]
 
     def get(self, request):
@@ -283,7 +352,7 @@ class CompletedFollowUpListView(APIView):
 
         today = timezone.localdate()
         qs = (
-            FollowUp.objects
+            get_scoped_followup_queryset(request.user)
             .filter(status="Completed")
             .select_related("lead", "created_by", "completed_by")
             .order_by("-completed_at")
@@ -334,11 +403,16 @@ class CompletedFollowUpListView(APIView):
 
 class FollowUpAuditLogListView(APIView):
     permission_classes = [
-        IsAdminOrApprovedFranchise
+        IsCrmStaffOrFranchise
     ]
 
     def get(self, request, pk):
         followup = get_object_or_404(FollowUp, pk=pk)
+        if not check_followup_access(request.user, followup):
+            return Response(
+                {"success": False, "message": "You are not authorized to view audit logs for this follow-up."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         from .models import FollowUpAuditLog
         logs = FollowUpAuditLog.objects.filter(followup=followup).select_related("performed_by").order_by("-performed_at")
         serializer = FollowUpAuditLogSerializer(logs, many=True)
@@ -357,29 +431,30 @@ class FollowUpAuditLogListView(APIView):
 class FollowUpStatsView(APIView):
 
     permission_classes = [
-        IsAdminOrApprovedFranchise
+        IsCrmStaffOrFranchise
     ]
 
     def get(self, request):
 
         today = timezone.localdate()
+        scoped_qs = get_scoped_followup_queryset(request.user)
 
-        today_count = FollowUp.objects.filter(
+        today_count = scoped_qs.filter(
             followup_datetime__date=today,
             status="Pending",
         ).count()
 
-        overdue = FollowUp.objects.filter(
+        overdue = scoped_qs.filter(
             followup_datetime__date__lt=today,
             status="Pending",
         ).count()
 
-        upcoming = FollowUp.objects.filter(
+        upcoming = scoped_qs.filter(
             followup_datetime__date__gt=today,
             status="Pending",
         ).count()
 
-        completed = FollowUp.objects.filter(
+        completed = scoped_qs.filter(
             status="Completed",
         ).count()
 

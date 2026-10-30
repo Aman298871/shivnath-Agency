@@ -129,6 +129,32 @@ class IsAdminOrApprovedFranchise(BasePermission):
         if not profile:
             return False
 
+        if profile.role in ['admin', 'super_admin']:
+            return True
+
+        if profile.role == 'franchise':
+            franchise_profile = getattr(request.user, 'franchise_profile', None)
+            return franchise_profile is not None and franchise_profile.status == 'approved'
+
+        return False
+
+
+class IsCrmStaffOrFranchise(BasePermission):
+    """
+    Grants access to Super Admin, Admin, Sales Executive, and Approved Franchise for CRM operations.
+    Querysets must be appropriately scoped by role.
+    """
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if request.user.is_superuser:
+            return True
+
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return False
+
         if profile.role in ['admin', 'super_admin', 'sales_executive']:
             return True
 

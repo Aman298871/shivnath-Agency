@@ -32,6 +32,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   };
 
   bool isLoading = true;
+  bool hasError = false;
+  String errorMessage = '';
   String search = '';
   String filter = 'All';
 
@@ -67,6 +69,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     if (!mounted) return;
 
     if (ordersResult['success'] == true) {
+      hasError = false;
+      errorMessage = '';
       final dynamic rawData = ordersResult['data'];
       final List<dynamic> items = rawData is Map
           ? (rawData['orders'] as List? ?? rawData['results'] as List? ?? rawData['data'] as List? ?? [])
@@ -78,10 +82,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           )
           .toList();
     } else {
+      hasError = true;
+      errorMessage = ordersResult['message'] ?? 'Unable to connect to backend server. Please verify network or start backend.';
       AppToast.error(
         context,
-        ordersResult['message'] ?? 'Failed to load orders.',
-        title: 'Unable to Load',
+        errorMessage,
+        title: 'Unable to Load Orders',
       );
     }
 
@@ -457,7 +463,57 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     );
   }
 
+  Widget _errorView() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: Color(0xFFDC2626), size: 48),
+          const SizedBox(height: 12),
+          const Text(
+            'Unable to Load Orders',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF991B1B),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            errorMessage.isNotEmpty ? errorMessage : 'The server connection timed out or is unavailable.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF7F1D1D)),
+          ),
+          const SizedBox(height: 18),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Retry Connection', style: TextStyle(fontWeight: FontWeight.w700)),
+            onPressed: _loadData,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _desktop() {
+    if (hasError) {
+      return _errorView();
+    }
+
     return Container(
       decoration: _orderCard(),
       child: Column(
@@ -467,7 +523,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 50),
               child: Text(
-                'No orders found.',
+                'No orders found matching the selected filter.',
                 style: TextStyle(color: Color(0xFF64748B)),
               ),
             )
@@ -545,13 +601,17 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   }
 
   Widget _mobile() {
+    if (hasError) {
+      return _errorView();
+    }
+
     if (filtered.isEmpty) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(35),
         alignment: Alignment.center,
         child: const Text(
-          'No orders found.',
+          'No orders found matching the selected filter.',
           style: TextStyle(color: Color(0xFF64748B)),
         ),
       );

@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.core.exceptions import ValidationError
 
-from accounts.permissions import IsAdminRole, IsAdminOrApprovedFranchise, IsAdminOrSalesExecutiveRole
+from accounts.permissions import IsAdminRole, IsAdminOrApprovedFranchise, IsAdminOrSalesExecutiveRole, IsCrmStaffOrFranchise
 from accounts.services import apply_data_scope
 
 from .models import (
@@ -428,7 +428,7 @@ class PublicLeadCaptureView(APIView):
 
 
 class LeadListCreateView(APIView):
-    permission_classes = [IsAdminOrApprovedFranchise]
+    permission_classes = [IsCrmStaffOrFranchise]
 
     def get(self, request):
         user = request.user
@@ -446,6 +446,16 @@ class LeadListCreateView(APIView):
             fp = getattr(user, 'franchise_profile', None)
             if fp:
                 leads = leads.filter(Q(assigned_franchise=fp) | Q(assigned_franchise__isnull=True))
+            else:
+                leads = leads.none()
+        elif role == 'sales_executive' and not user.is_superuser:
+            p_name = profile.name if profile else ''
+            leads = leads.filter(
+                Q(assigned_executive_user=user)
+                | Q(created_by=user)
+                | Q(assigned_executive=user.username)
+                | (Q(assigned_executive=p_name) if p_name else Q())
+            )
 
         search = request.query_params.get('search', '').strip()
         if search:
@@ -550,8 +560,30 @@ class LeadListCreateView(APIView):
 class LeadDetailView(APIView):
 
     permission_classes = [
-        IsAdminOrApprovedFranchise
+        IsCrmStaffOrFranchise
     ]
+
+    def _check_lead_access(self, user, lead):
+        if not user or not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        profile = getattr(user, 'profile', None)
+        role = profile.role if profile else 'admin'
+        if role in ['admin', 'super_admin']:
+            return True
+        if role == 'franchise':
+            fp = getattr(user, 'franchise_profile', None)
+            return bool(fp and (lead.assigned_franchise_id == fp.id or lead.assigned_franchise_id is None))
+        if role == 'sales_executive':
+            p_name = profile.name if profile else ''
+            return bool(
+                lead.assigned_executive_user_id == user.id
+                or lead.created_by_id == user.id
+                or lead.assigned_executive == user.username
+                or (p_name and lead.assigned_executive == p_name)
+            )
+        return False
 
     def get(self, request, pk):
 
@@ -566,6 +598,12 @@ class LeadDetailView(APIView):
             ),
             pk=pk
         )
+
+        if not self._check_lead_access(request.user, lead):
+            return Response(
+                {'success': False, 'message': 'You are not authorized to view this lead.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         return Response(
             {
@@ -605,6 +643,12 @@ class LeadDetailView(APIView):
             Lead,
             pk=pk
         )
+
+        if not self._check_lead_access(request.user, lead):
+            return Response(
+                {'success': False, 'message': 'You are not authorized to update this lead.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         old_status = lead.status
         old_score = lead.score
@@ -735,6 +779,13 @@ class LeadDetailView(APIView):
         )
 
     def delete(self, request, pk):
+        profile = getattr(request.user, 'profile', None)
+        role = profile.role if profile else 'admin'
+        if not request.user.is_superuser and role not in ['admin', 'super_admin']:
+            return Response(
+                {'success': False, 'message': 'Only Administrators can delete leads.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         lead = get_object_or_404(
             Lead,
@@ -1083,7 +1134,7 @@ class LeadScoreRecalculateView(APIView):
 # =========================================================
 
 class LeadConvertAPIView(APIView):
-    permission_classes = [IsAdminOrApprovedFranchise]
+    permission_classes = [IsCrmStaffOrFranchise]
 
     def post(self, request, pk):
         lead = get_object_or_404(Lead, pk=pk)
@@ -1162,6 +1213,14 @@ class LeadConvertAPIView(APIView):
             }, status=status.HTTP_200_OK)
 
         elif action in ['start_franchise_onboarding', 'franchise', 'franchise_onboarding']:
+            profile = getattr(actor, 'profile', None) if actor else None
+            role = profile.role if profile else 'admin'
+            if not getattr(actor, 'is_superuser', False) and role not in ['admin', 'super_admin']:
+                return Response(
+                    {'success': False, 'message': 'Only Administrators can initiate franchise onboarding.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
             user = None
             if lead.converted_user:
                 user = lead.converted_user
@@ -1229,4 +1288,4 @@ class LeadConvertAPIView(APIView):
         return Response({
             'success': False,
             'message': f"Unknown conversion action '{action}'. Supported actions: 'convert_to_customer', 'start_franchise_onboarding'."
-        }, status=status.HTTP_400_BAD_REQUEST)
+        }, status=status.HTTP_400_BAD_REQUEST)

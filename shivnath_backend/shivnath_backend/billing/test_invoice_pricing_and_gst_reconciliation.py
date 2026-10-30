@@ -506,3 +506,167 @@ class InvoicePricingAndGstReconciliationTests(TestCase):
         self.assertEqual(calc['sgst_amount'], Decimal('8.77'))
         self.assertEqual(calc['cgst_amount'] + calc['sgst_amount'], calc['tax_amount'])
         self.assertEqual(calc['grand_total'], Decimal('368.37'))
+
+    # -------------------------------------------------------------------------
+    # TEST J: Dynamic GST Rate Transition (18% -> 12%) & Strict Snapshot Immutability
+    # -------------------------------------------------------------------------
+    def test_j_dynamic_gst_rate_transition_and_snapshot_immutability(self):
+        """
+        Verify that changing GST rate from 18% to 12% in CompanyBillingProfile updates
+        newly calculated invoices correctly, while preserving existing historical invoices.
+        Baseline: Subtotal = 500.00, Delivery = 30.00, Taxable Delivery = True, Exclusive GST.
+        Under 18%: Taxable Base = 530.00, CGST (9%) = 47.70, SGST (9%) = 47.70, Grand Total = 625.40.
+        Under 12%: Taxable Base = 530.00, CGST (6%) = 31.80, SGST (6%) = 31.80, Grand Total = 593.60.
+        """
+        # 1. Configure Company Billing Profile for 18% Exclusive GST with Taxable Delivery
+        self.profile.default_gst_rate = Decimal('18.00')
+        self.profile.cgst_rate = Decimal('9.00')
+        self.profile.sgst_rate = Decimal('9.00')
+        self.profile.igst_rate = Decimal('18.00')
+        self.profile.is_price_inclusive_gst = False
+        self.profile.is_delivery_taxable = True
+        self.profile.save()
+
+        # 2. Place Order 1 under 18% GST (let tax calculator compute authoritative totals)
+        calc_18 = calculate_order_tax_and_totals(
+            subtotal=Decimal('500.00'),
+            delivery_fee=Decimal('30.00'),
+            profile=self.profile,
+        )
+        self.assertEqual(calc_18['taxable_amount'], Decimal('530.00'))
+        self.assertEqual(calc_18['cgst_amount'], Decimal('47.70'))
+        self.assertEqual(calc_18['sgst_amount'], Decimal('47.70'))
+        self.assertEqual(calc_18['total_tax'], Decimal('95.40'))
+        self.assertEqual(calc_18['grand_total'], Decimal('625.40'))
+
+        order_1 = Order.objects.create(
+            created_by=self.customer,
+            client_name="Test Customer 18%",
+            city="Raipur",
+            delivery_address="Civil Lines Raipur",
+            order_source="DIRECT_COMPANY",
+            payment_mode="ONLINE",
+            payment_status="paid",
+            amount=Decimal('500.00'),
+            delivery_charges=Decimal('30.00'),
+            tax_amount=calc_18['total_tax'],
+            grand_total=calc_18['grand_total'],
+            is_gst_requested=True,
+        )
+        inv_1 = generate_invoice_for_order(order_1)
+        self.assertEqual(inv_1.tax_rate, Decimal('18.00'))
+        self.assertEqual(inv_1.taxable_amount, Decimal('530.00'))
+        self.assertEqual(inv_1.cgst_amount, Decimal('47.70'))
+        self.assertEqual(inv_1.sgst_amount, Decimal('47.70'))
+        self.assertEqual(inv_1.grand_total, Decimal('625.40'))
+
+        # 3. Admin modifies Company Profile default_gst_rate to 12.00%
+        self.client.force_authenticate(user=self.admin)
+        res_put = self.client.put(
+            '/api/billing/company-profile/',
+            {
+                'legal_name': self.profile.legal_name,
+                'trade_name': self.profile.trade_name,
+                'default_gst_rate': '12.00',
+                'is_price_inclusive_gst': False,
+                'is_delivery_taxable': True,
+            },
+            format='json',
+        )
+        self.assertEqual(res_put.status_code, 200)
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.default_gst_rate, Decimal('12.00'))
+        self.assertEqual(self.profile.cgst_rate, Decimal('6.00'))
+        self.assertEqual(self.profile.sgst_rate, Decimal('6.00'))
+
+        # 4. Place Order 2 under 12% GST
+        calc_12 = calculate_order_tax_and_totals(
+            subtotal=Decimal('500.00'),
+            delivery_fee=Decimal('30.00'),
+            profile=self.profile,
+        )
+        self.assertEqual(calc_12['taxable_amount'], Decimal('530.00'))
+        self.assertEqual(calc_12['cgst_amount'], Decimal('31.80'))
+        self.assertEqual(calc_12['sgst_amount'], Decimal('31.80'))
+        self.assertEqual(calc_12['total_tax'], Decimal('63.60'))
+        self.assertEqual(calc_12['grand_total'], Decimal('593.60'))
+
+        order_2 = Order.objects.create(
+            created_by=self.customer,
+            client_name="Test Customer 12%",
+            city="Raipur",
+            delivery_address="Pandri Raipur",
+            order_source="DIRECT_COMPANY",
+            payment_mode="ONLINE",
+            payment_status="paid",
+            amount=Decimal('500.00'),
+            delivery_charges=Decimal('30.00'),
+            tax_amount=calc_12['total_tax'],
+            grand_total=calc_12['grand_total'],
+            is_gst_requested=True,
+        )
+        inv_2 = generate_invoice_for_order(order_2)
+        self.assertEqual(inv_2.tax_rate, Decimal('12.00'))
+        self.assertEqual(inv_2.taxable_amount, Decimal('530.00'))
+        self.assertEqual(inv_2.cgst_amount, Decimal('31.80'))
+        self.assertEqual(inv_2.sgst_amount, Decimal('31.80'))
+        self.assertEqual(inv_2.grand_total, Decimal('593.60'))
+
+        # 5. Strict Database Re-fetch and Complete Field Assertion:
+        persisted_inv_1 = Invoice.objects.get(id=inv_1.id)
+        persisted_inv_2 = Invoice.objects.get(id=inv_2.id)
+
+        # Assert Invoice 1 (18% Exclusive GST, Delivery Taxable)
+        self.assertEqual(persisted_inv_1.tax_rate, Decimal('18.00'))
+        self.assertEqual(persisted_inv_1.taxable_amount, Decimal('530.00'))
+        self.assertEqual(persisted_inv_1.tax_amount, Decimal('95.40'))
+        self.assertEqual(persisted_inv_1.cgst_amount, Decimal('47.70'))
+        self.assertEqual(persisted_inv_1.sgst_amount, Decimal('47.70'))
+        self.assertEqual(persisted_inv_1.igst_amount, Decimal('0.00'))
+        self.assertEqual(persisted_inv_1.is_delivery_taxable, True)
+        self.assertEqual(persisted_inv_1.is_price_inclusive_gst, False)
+        self.assertEqual(persisted_inv_1.grand_total, Decimal('625.40'))
+
+        # Assert Invoice 2 (12% Exclusive GST, Delivery Taxable)
+        self.assertEqual(persisted_inv_2.tax_rate, Decimal('12.00'))
+        self.assertEqual(persisted_inv_2.taxable_amount, Decimal('530.00'))
+        self.assertEqual(persisted_inv_2.tax_amount, Decimal('63.60'))
+        self.assertEqual(persisted_inv_2.cgst_amount, Decimal('31.80'))
+        self.assertEqual(persisted_inv_2.sgst_amount, Decimal('31.80'))
+        self.assertEqual(persisted_inv_2.igst_amount, Decimal('0.00'))
+        self.assertEqual(persisted_inv_2.is_delivery_taxable, True)
+        self.assertEqual(persisted_inv_2.is_price_inclusive_gst, False)
+        self.assertEqual(persisted_inv_2.grand_total, Decimal('593.60'))
+
+        # Strict Historical Immutability Assertion:
+        # Invoice 1 remained completely unchanged after profile was updated to 12%
+        self.assertNotEqual(persisted_inv_1.tax_rate, persisted_inv_2.tax_rate)
+        self.assertNotEqual(persisted_inv_1.tax_amount, persisted_inv_2.tax_amount)
+        self.assertNotEqual(persisted_inv_1.grand_total, persisted_inv_2.grand_total)
+
+        # 6. Negative/Bypass Proof Test:
+        # If an order bypasses tax calculation and passes grand_total == subtotal + delivery_charges (530.00),
+        # billing/services.py detects zero tax requested and preserves grand_total = 530.00 with 0.00 tax.
+        bypassed_order = Order.objects.create(
+            created_by=self.customer,
+            client_name="Test Bypassed Order",
+            city="Raipur",
+            delivery_address="Bypass Road Raipur",
+            order_source="DIRECT_COMPANY",
+            payment_mode="ONLINE",
+            payment_status="paid",
+            amount=Decimal('500.00'),
+            delivery_charges=Decimal('30.00'),
+            tax_amount=Decimal('0.00'),
+            grand_total=Decimal('530.00'),
+            is_gst_requested=False,
+        )
+        bypassed_inv = generate_invoice_for_order(bypassed_order)
+        persisted_bypassed = Invoice.objects.get(id=bypassed_inv.id)
+        # Bypassed order results in zero tax and fails an assertion expecting 63.60 or 95.40 tax
+        self.assertEqual(persisted_bypassed.tax_amount, Decimal('0.00'))
+        self.assertEqual(persisted_bypassed.grand_total, Decimal('530.00'))
+        self.assertNotEqual(persisted_bypassed.grand_total, Decimal('593.60'))
+        self.assertNotEqual(persisted_bypassed.tax_amount, Decimal('63.60'))
+

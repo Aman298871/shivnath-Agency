@@ -2231,6 +2231,7 @@ class TerritoryMasterView(APIView):
                     'code': z.code,
                     'district_name': z.district.name,
                     'areas': area_names,
+                    'areas_covered': area_names,
                     'areas_display': ", ".join(area_names[:6]) if area_names else "All central & municipal localities in zone",
                     'pincodes': area_pincodes,
                 })
@@ -4622,12 +4623,62 @@ class DealerKYCDocumentView(APIView):
         return franchise
 
     def get(self, request, dealer_id=None):
+        dealer_id = dealer_id or request.query_params.get('dealer_id')
+        is_admin = bool(
+            request.user.is_superuser or
+            request.user.is_staff or
+            (hasattr(request.user, 'profile') and getattr(request.user.profile, 'role', '') in ['admin', 'super_admin'])
+        )
+
+        if not dealer_id and is_admin:
+            status_filter = request.query_params.get('status')
+            doc_type_filter = request.query_params.get('document_type')
+            qs = DealerDocument.objects.all().select_related('dealer', 'dealer__user', 'verified_by').order_by('-uploaded_at')
+            if status_filter:
+                qs = qs.filter(verification_status=status_filter.upper())
+            if doc_type_filter:
+                qs = qs.filter(document_type=doc_type_filter.upper())
+            data = [
+                {
+                    'id': d.id,
+                    'dealer_id': d.dealer_id,
+                    'dealer_name': d.dealer.business_name if d.dealer else 'Franchise Partner',
+                    'dealer_code': f"FRN-{d.dealer_id:04d}" if d.dealer_id else '',
+                    'version': d.version,
+                    'document_type': d.document_type,
+                    'document_type_display': d.get_document_type_display(),
+                    'document_number': d.document_number,
+                    'document_url': _build_public_doc_url(request, f'/api/accounts/dealers/documents/{d.id}/view/') if d.document_file else '',
+                    'download_url': _build_public_doc_url(request, f'/api/accounts/dealers/documents/{d.id}/download/') if d.document_file else '',
+                    'verification_status': d.verification_status,
+                    'rejection_reason': d.rejection_reason,
+                    'uploaded_at': d.uploaded_at.isoformat(),
+                    'verified_at': d.verified_at.isoformat() if d.verified_at else None,
+                    'verified_by': d.verified_by.username if d.verified_by else None,
+                    'verification_logs': [
+                        {
+                            'id': log.id,
+                            'version': getattr(log, 'document_version', 1),
+                            'decision': log.decision,
+                            'reviewed_by': log.reviewer_username or (log.reviewer.username if log.reviewer else 'Admin'),
+                            'reviewed_at': log.created_at.isoformat() if log.created_at else '',
+                            'rejection_reason': log.rejection_reason,
+                            'verification_method': log.verification_method,
+                            'notes': log.notes,
+                        }
+                        for log in d.audit_trail.all()
+                    ],
+                }
+                for d in qs
+            ]
+            return Response({'success': True, 'is_admin_all': True, 'documents': data})
+
         franchise = self._get_franchise(request, dealer_id)
         if not franchise:
             return Response({'success': False, 'message': 'Franchise profile not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         # Authorization check: admin or the dealer itself
-        if not (request.user.is_superuser or getattr(request.user, 'profile', None).role in ['admin', 'super_admin']):
+        if not is_admin:
             if getattr(request.user, 'franchise_profile', None) != franchise:
                 return Response({'success': False, 'message': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -4635,6 +4686,9 @@ class DealerKYCDocumentView(APIView):
         data = [
             {
                 'id': d.id,
+                'dealer_id': franchise.id,
+                'dealer_name': franchise.business_name,
+                'dealer_code': f"FRN-{franchise.id:04d}",
                 'version': d.version,
                 'document_type': d.document_type,
                 'document_type_display': d.get_document_type_display(),
@@ -4649,15 +4703,15 @@ class DealerKYCDocumentView(APIView):
                 'verification_logs': [
                     {
                         'id': log.id,
-                        'version': log.version,
+                        'version': getattr(log, 'document_version', 1),
                         'decision': log.decision,
-                        'reviewed_by': log.reviewed_by.username if log.reviewed_by else 'Admin',
-                        'reviewed_at': log.reviewed_at.isoformat(),
+                        'reviewed_by': log.reviewer_username or (log.reviewer.username if log.reviewer else 'Admin'),
+                        'reviewed_at': log.created_at.isoformat() if log.created_at else '',
                         'rejection_reason': log.rejection_reason,
                         'verification_method': log.verification_method,
                         'notes': log.notes,
                     }
-                    for log in d.verification_logs.all().order_by('-reviewed_at')
+                    for log in d.audit_trail.all()
                 ],
             }
             for d in docs
@@ -4732,7 +4786,7 @@ class DealerKYCDocumentView(APIView):
             if doc.dealer != getattr(request.user, 'franchise_profile', None):
                 return Response({'success': False, 'message': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
             # Franchise users cannot delete documents that have been reviewed or have audit records
-            if doc.verification_status in ['VERIFIED', 'REJECTED'] or doc.verification_logs.exists():
+            if doc.verification_status in ['VERIFIED', 'REJECTED'] or (hasattr(doc, 'audit_trail') and doc.audit_trail.exists()):
                 return Response({
                     'success': False,
                     'message': 'Audited or reviewed documents cannot be deleted. Please upload a new version.'

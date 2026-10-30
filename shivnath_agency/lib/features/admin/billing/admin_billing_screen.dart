@@ -9,6 +9,7 @@ import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/thermal_bill_preview_modal.dart';
+import '../products/packaging_rules_dialog.dart';
 import 'delivery_pricing_dialog.dart';
 
 int _asInt(dynamic val) {
@@ -230,29 +231,35 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
             style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 14),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
-                    onPressed: _createInvoice,
-                    icon: const Icon(Icons.add),
-                    label: const Text('New Invoice'),
-                  ),
+              SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
+                  onPressed: _createInvoice,
+                  icon: const Icon(Icons.add),
+                  label: const Text('New Invoice'),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
-                    onPressed: () => DeliveryPricingDialog.show(context),
-                    icon: const Icon(Icons.local_shipping_outlined, size: 18),
-                    label: const Text('Delivery Pricing'),
-                  ),
+              SizedBox(
+                height: 44,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+                  onPressed: () => DeliveryPricingDialog.show(context),
+                  icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                  label: const Text('Delivery Pricing'),
+                ),
+              ),
+              SizedBox(
+                height: 44,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+                  onPressed: () => PackagingRulesDialog.show(context),
+                  icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                  label: const Text('MOQ Rules'),
                 ),
               ),
             ],
@@ -280,6 +287,15 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
           ),
         ),
 
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 44),
+          ),
+          onPressed: () => PackagingRulesDialog.show(context),
+          icon: const Icon(Icons.inventory_2_outlined),
+          label: const Text('MOQ Rules'),
+        ),
+        const SizedBox(width: 10),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(0, 44),

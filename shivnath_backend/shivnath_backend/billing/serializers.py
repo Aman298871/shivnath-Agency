@@ -221,6 +221,30 @@ class DeliveryOriginSettingSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'updated_at']
 
+    def validate(self, attrs):
+        free_r = attrs.get('free_delivery_radius_km')
+        max_r = attrs.get('max_serviceable_radius_km')
+        fee = attrs.get('default_delivery_charge')
+
+        inst = self.instance
+        if free_r is None and inst:
+            free_r = inst.free_delivery_radius_km
+        if max_r is None and inst:
+            max_r = inst.max_serviceable_radius_km
+
+        if free_r is not None and free_r < Decimal('0.00'):
+            raise serializers.ValidationError({'free_delivery_radius_km': 'Free delivery radius cannot be negative.'})
+        if max_r is not None and max_r < Decimal('0.00'):
+            raise serializers.ValidationError({'max_serviceable_radius_km': 'Maximum serviceable radius cannot be negative.'})
+        if fee is not None and fee < Decimal('0.00'):
+            raise serializers.ValidationError({'default_delivery_charge': 'Default delivery charge cannot be negative.'})
+
+        if free_r is not None and max_r is not None and free_r > max_r:
+            raise serializers.ValidationError({
+                'free_delivery_radius_km': f'Free delivery radius ({free_r} km) cannot exceed maximum serviceable radius ({max_r} km).'
+            })
+        return attrs
+
 
 class DeliveryDistanceBandSerializer(serializers.ModelSerializer):
     class Meta:
@@ -244,8 +268,15 @@ class DeliveryDistanceBandSerializer(serializers.ModelSerializer):
     def to_internal_value(self, data):
         if isinstance(data, dict):
             data = data.copy()
-            if 'label' in data and 'name' not in data:
-                data['name'] = data['label']
+            name_val = (data.get('name') or data.get('label') or '').strip()
+            if not name_val:
+                min_k = data.get('min_distance_km', '0')
+                max_k = data.get('max_distance_km')
+                if max_k is not None and str(max_k).strip() != '':
+                    name_val = f"{min_k} - {max_k} km Delivery"
+                else:
+                    name_val = f"Above {min_k} km Delivery"
+            data['name'] = name_val
         return super().to_internal_value(data)
 
     def validate(self, attrs):
@@ -293,9 +324,11 @@ class DeliveryDistanceBandSerializer(serializers.ModelSerializer):
 
                 if overlap:
                     upper_str = f"{ex_max} km" if ex_max is not None else "Above"
-                    raise serializers.ValidationError(
-                        f"Overlapping distance band detected with '{ex.name}' ({ex_min} to {upper_str}). Please adjust band boundaries to prevent overlap."
-                    )
+                    raise serializers.ValidationError({
+                        'non_field_errors': [
+                            f"Overlapping distance band detected with '{ex.name}' ({ex_min} to {upper_str}). Please adjust band boundaries to prevent overlap."
+                        ]
+                    })
 
         return attrs
 

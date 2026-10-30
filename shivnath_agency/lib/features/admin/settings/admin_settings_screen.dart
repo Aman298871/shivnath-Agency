@@ -1478,6 +1478,34 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                   onTap: () => PackagingRulesDialog.show(context, products: const []),
                 ),
+
+                const SizedBox(height: 10),
+
+                // Server Environment Tile
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  tileColor: const Color(0xFFF8FAFC),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFFEF3C7),
+                    child: Icon(Icons.dns_rounded, color: Color(0xFFD97706), size: 20),
+                  ),
+                  title: const Text(
+                    'Backend Server Environment',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                  subtitle: Text(
+                    'Active: ${AppConstants.apiBaseUrl}',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                  onTap: _showServerEnvDialog,
+                ),
               ],
             ),
           ),
@@ -1564,6 +1592,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             'System configuration and GST rate ($gstValue%) saved successfully.',
             title: 'Configuration Saved',
           );
+          await _fetchCompanyBillingProfile();
         }
       } else {
         throw Exception('Server returned ${res.statusCode}: ${res.body}');
@@ -1579,6 +1608,122 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     } finally {
       if (mounted) setState(() => _isSavingSettings = false);
     }
+  }
+
+  void _showServerEnvDialog() {
+    final customUrlCtrl = TextEditingController(text: AppConstants.apiBaseUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.dns_rounded, color: Color(0xFF0284C7)),
+              SizedBox(width: 8),
+              Text('Backend Server Environment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Select or configure the authoritative backend API endpoint used for orders, leads, billing, and settings persistence:',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 14),
+                _buildEnvOption(
+                  title: 'Render Cloud (Production)',
+                  url: 'https://shivnath-agency.onrender.com',
+                  currentUrl: customUrlCtrl.text.trim(),
+                  onSelect: (val) => setDlgState(() => customUrlCtrl.text = val),
+                ),
+                _buildEnvOption(
+                  title: 'Local Development (Android Emulator)',
+                  url: 'http://10.0.2.2:8000',
+                  currentUrl: customUrlCtrl.text.trim(),
+                  onSelect: (val) => setDlgState(() => customUrlCtrl.text = val),
+                ),
+                _buildEnvOption(
+                  title: 'Localhost (PC / Web / Desktop)',
+                  url: 'http://127.0.0.1:8000',
+                  currentUrl: customUrlCtrl.text.trim(),
+                  onSelect: (val) => setDlgState(() => customUrlCtrl.text = val),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: customUrlCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Active Server URL',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    prefixIcon: Icon(Icons.link_rounded, size: 18),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7), foregroundColor: Colors.white),
+              onPressed: () async {
+                final url = customUrlCtrl.text.trim();
+                await AppConstants.saveCustomBaseUrl(url.isEmpty ? null : url);
+                if (!mounted) return;
+                setState(() {});
+                if (ctx.mounted) {
+                  Navigator.pop(ctx);
+                }
+                AppToast.success(context, 'Active server URL updated and saved across restarts: ${AppConstants.apiBaseUrl}');
+                _fetchCompanyBillingProfile();
+              },
+              child: const Text('Save & Apply'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnvOption({
+    required String title,
+    required String url,
+    required String currentUrl,
+    required ValueChanged<String> onSelect,
+  }) {
+    final isSelected = currentUrl == url;
+    return InkWell(
+      onTap: () => onSelect(url),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              color: isSelected ? const Color(0xFF0284C7) : const Color(0xFF94A3B8),
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  Text(url, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _configurationLine(String label, String value) {

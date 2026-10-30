@@ -705,19 +705,6 @@ def get_authoritative_delivery_charge(
         applies_to__in=channel_filter
     ).order_by('order', 'min_distance_km')
 
-    # Rule 1b: Check pricing bands exist
-    if not active_bands.exists():
-        return {
-            'is_supported': False,
-            'is_blocked': True,
-            'message': 'No active delivery distance pricing bands configured. Delivery calculation is BLOCKED. Please configure pricing bands in Admin Panel.',
-            'error_code': 'PRICING_BANDS_BLOCKED',
-            'delivery_charge': Decimal('0.00'),
-            'distance_km': None,
-            'distance_type': 'STRAIGHT_LINE_HAVERSINE',
-            'distance_label': 'Straight-line distance (Haversine)',
-            'distance_explanation': 'Direct point-to-point distance from dispatch hub. Road route distance may be higher.',
-        }
 
     # Rule 2: If coordinates are missing, resolve from address
     if dest_lat is None or dest_lon is None:
@@ -812,6 +799,32 @@ def get_authoritative_delivery_charge(
             'band_id': None,
             'message': f'Delivery distance ({distance_km:.1f} km from {origin.name}) exceeds your configured maximum serviceable delivery radius ({max_radius} km).',
             'error_code': 'DELIVERY_UNSUPPORTED',
+            'origin': {
+                'name': origin.name,
+                'address': origin.address,
+                'city': origin.city,
+                'latitude': float(origin.latitude),
+                'longitude': float(origin.longitude),
+                'free_delivery_radius_km': float(free_radius),
+                'max_serviceable_radius_km': float(max_radius),
+            }
+        }
+
+    if not active_bands.exists():
+        return {
+            'is_supported': False,
+            'is_blocked': True,
+            'distance_km': float(distance_km),
+            'distance_type': 'STRAIGHT_LINE_HAVERSINE',
+            'distance_label': 'Straight-line distance (Haversine)',
+            'distance_explanation': 'Direct point-to-point distance from dispatch hub. Pricing bands unconfigured.',
+            'distance_method': 'HAVERSINE_STRAIGHT_LINE',
+            'distance_metric': 'HAVERSINE_GREAT_CIRCLE_KM',
+            'delivery_charge': Decimal('0.00'),
+            'band_name': 'Distance Pricing Bands Unconfigured',
+            'band_id': None,
+            'message': 'No active delivery distance pricing bands have been configured by the agency administrator.',
+            'error_code': 'PRICING_BANDS_BLOCKED',
             'origin': {
                 'name': origin.name,
                 'address': origin.address,

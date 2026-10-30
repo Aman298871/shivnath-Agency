@@ -81,6 +81,23 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
         'Valued Customer';
   }
 
+  String get _deliveryAddress {
+    final addr = widget.orderData?['delivery_address']?.toString() ??
+        widget.invoiceData?['billed_to_address']?.toString() ??
+        widget.orderData?['address']?.toString() ??
+        widget.orderData?['customer_address']?.toString() ??
+        widget.invoiceData?['customer_address']?.toString() ??
+        widget.orderData?['shipping_address']?.toString() ??
+        '';
+    if (addr.trim().isNotEmpty) return addr.trim();
+    final city = widget.orderData?['city'] ?? widget.invoiceData?['city'];
+    final pin = widget.orderData?['pincode'] ?? widget.invoiceData?['pincode'];
+    if (city != null || pin != null) {
+      return [city, pin].where((e) => e != null && e.toString().isNotEmpty).join(' - ');
+    }
+    return '';
+  }
+
   String get _orderCode {
     return widget.orderData?['order_code']?.toString() ??
         widget.invoiceData?['order']?.toString() ??
@@ -215,6 +232,9 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
     buffer.writeln('Receipt / Inv: $_invoiceNumber');
     buffer.writeln('Order Ref   : $_orderCode');
     buffer.writeln('Customer    : $_customerName');
+    if (_deliveryAddress.isNotEmpty) {
+      buffer.writeln('Delivery To : $_deliveryAddress');
+    }
     buffer.writeln('Date/Time   : ${DateTime.now().toLocal().toString().split('.')[0]}');
     buffer.writeln(subDiv);
     buffer.writeln(_paperWidthMm == 58 ? 'Item           Qty  Rate  Total' : 'Item Description          Qty   Rate    Total');
@@ -565,6 +585,8 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
                             _buildThermalMetaRow('RECEIPT #', _invoiceNumber),
                             _buildThermalMetaRow('ORDER CODE', _orderCode),
                             _buildThermalMetaRow('CUSTOMER', _customerName),
+                            if (_deliveryAddress.isNotEmpty)
+                              _buildThermalAddressBlock(_deliveryAddress),
                             _buildThermalMetaRow(
                               'DATE/TIME',
                               DateTime.now().toLocal().toString().substring(0, 16),
@@ -992,6 +1014,38 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
               ),
               overflow: TextOverflow.ellipsis,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThermalAddressBlock(String address) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'DELIVERY ADDRESS:',
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 9,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            address,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+              height: 1.25,
+            ),
+            softWrap: true,
           ),
         ],
       ),

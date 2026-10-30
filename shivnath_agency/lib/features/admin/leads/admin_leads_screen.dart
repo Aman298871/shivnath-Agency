@@ -18,6 +18,8 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
   final LeadService _leadService = LeadService();
 
   bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
   @override
   void initState() {
     super.initState();
@@ -115,6 +117,8 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
                         padding: EdgeInsets.symmetric(vertical: 60),
                         child: Center(child: CircularProgressIndicator()),
                       )
+                    else if (_hasError)
+                      _errorView()
                     else if (desktop)
                       _desktopTable()
                     else
@@ -126,6 +130,52 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _errorView() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: Color(0xFFDC2626), size: 48),
+          const SizedBox(height: 12),
+          const Text(
+            'Unable to Load Leads',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF991B1B),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _errorMessage.isNotEmpty ? _errorMessage : 'The server connection timed out or is unavailable.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF7F1D1D)),
+          ),
+          const SizedBox(height: 18),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Retry Connection', style: TextStyle(fontWeight: FontWeight.w700)),
+            onPressed: _loadLeads,
+          ),
+        ],
+      ),
     );
   }
 
@@ -153,6 +203,8 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
           : (response is List ? response : []);
 
       setState(() {
+        _hasError = false;
+        _errorMessage = '';
         leads.clear();
 
         leads.addAll(
@@ -166,12 +218,14 @@ class _AdminLeadsScreenState extends State<AdminLeadsScreen> {
     } else {
       setState(() {
         _isLoading = false;
+        _hasError = true;
+        _errorMessage = result['message'] ?? 'Unable to connect to backend server. Please verify network or backend.';
       });
 
       AppToast.error(
         context,
-        result['message'] ?? 'Failed to load leads.',
-        title: 'Unable to Load',
+        _errorMessage,
+        title: 'Unable to Load Leads',
       );
     }
   }

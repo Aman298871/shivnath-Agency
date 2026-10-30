@@ -23,7 +23,8 @@ from billing.invoice_pdf_services import (
 )
 from billing.delivery_services import (
     calculate_haversine_distance,
-    get_authoritative_delivery_charge
+    get_authoritative_delivery_charge,
+    seed_default_distance_bands_if_empty
 )
 
 User = get_user_model()
@@ -86,6 +87,7 @@ class InvoiceThermalAndDeliveryTestCase(TestCase):
 
         # Create active origin and bands
         self.origin = DeliveryOriginSetting.get_active_origin()
+        seed_default_distance_bands_if_empty()
         # Origin is Bhanpuri, Raipur (21.3060, 81.6500)
 
         # Create order for Customer A

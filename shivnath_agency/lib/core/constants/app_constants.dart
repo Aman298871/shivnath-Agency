@@ -1,4 +1,6 @@
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class AppConstants {
   static const String appName = 'Water Wala';
   static const String brandShortName = 'Water Wala';
@@ -33,12 +35,55 @@ class AppConstants {
 
   static const String userSessionKey = 'logged_in_user';
   static const String selectedRoleKey = 'selected_role';
+  static const String customBaseUrlKey = 'custom_api_base_url';
 
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
   static const String _envName = String.fromEnvironment('APP_ENV', defaultValue: '');
 
-  /// Centralized API base URL. Defaults to Render production, configurable via --dart-define=API_BASE_URL=...
+  static String? _customBaseUrl;
+
+  /// Loads saved custom base URL from persistent storage on startup
+  static Future<void> loadSavedBaseUrl() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(customBaseUrlKey);
+      if (saved != null && saved.trim().isNotEmpty) {
+        _customBaseUrl = saved.trim().replaceAll(RegExp(r'/+$'), '');
+      }
+    } catch (_) {}
+  }
+
+  /// Sets custom base URL in memory
+  static void setCustomBaseUrl(String? url) {
+    if (url != null && url.trim().isNotEmpty) {
+      _customBaseUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
+    } else {
+      _customBaseUrl = null;
+    }
+  }
+
+  /// Persists custom base URL across app restarts
+  static Future<void> saveCustomBaseUrl(String? url) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (url != null && url.trim().isNotEmpty) {
+        final clean = url.trim().replaceAll(RegExp(r'/+$'), '');
+        _customBaseUrl = clean;
+        await prefs.setString(customBaseUrlKey, clean);
+      } else {
+        _customBaseUrl = null;
+        await prefs.remove(customBaseUrlKey);
+      }
+    } catch (_) {
+      setCustomBaseUrl(url);
+    }
+  }
+
+  /// Centralized API base URL. Defaults to Render production, configurable via runtime override or --dart-define=API_BASE_URL=...
   static String get apiBaseUrl {
+    if (_customBaseUrl != null && _customBaseUrl!.isNotEmpty) {
+      return _customBaseUrl!;
+    }
     if (_envBaseUrl.isNotEmpty) {
       return _envBaseUrl;
     }

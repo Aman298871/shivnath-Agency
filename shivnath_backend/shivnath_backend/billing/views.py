@@ -353,7 +353,7 @@ class DealerStockPaymentReconciliationAPIView(views.APIView):
 
 
 class CompanyBillingProfileAPIView(views.APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated, DenyStockManager]
 
     def get(self, request):
         profile = CompanyBillingProfile.objects.first()
@@ -1180,7 +1180,12 @@ class DeliveryOriginSettingsAPIView(views.APIView):
 
         serializer = DeliveryOriginSettingSerializer(origin, data=data, partial=True)
         if not serializer.is_valid():
-            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            first_err = "Validation error."
+            for k, v in serializer.errors.items():
+                msg_val = v[0] if isinstance(v, list) and v else str(v)
+                first_err = f"{k}: {msg_val}" if k != 'non_field_errors' else str(msg_val)
+                break
+            return Response({'success': False, 'message': first_err, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
         return Response({
             'success': True,
@@ -1204,10 +1209,23 @@ class DeliveryDistanceBandListCreateView(views.APIView):
     Enforces strict slab validation, non-negative fees, and overlap detection.
     """
     def get_permissions(self):
-        if self.request.method == 'POST':
+        if self.request.method in ['POST', 'DELETE']:
             from accounts.permissions import IsAdminRole
             return [IsAdminRole()]
         return [permissions.AllowAny()]
+
+    def delete(self, request):
+        from accounts.permissions import IsAdminRole
+        if not IsAdminRole().has_permission(request, self):
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+        from billing.models import DeliveryDistanceBand
+        count, _ = DeliveryDistanceBand.objects.all().delete()
+        return Response({
+            'success': True,
+            'message': f"All distance bands ({count} deleted) have been removed successfully.",
+            'count': 0,
+            'bands': []
+        })
 
     def get(self, request):
         from billing.models import DeliveryDistanceBand
@@ -1238,8 +1256,17 @@ class DeliveryDistanceBandListCreateView(views.APIView):
         from decimal import Decimal
 
         data = dict(request.data)
-        if 'label' in data and 'name' not in data:
-            data['name'] = data['label']
+        min_k_val = data.get('min_distance_km', '0')
+        max_k_val = data.get('max_distance_km')
+
+        name_val = (data.get('name') or data.get('label') or '').strip()
+        if not name_val:
+            if max_k_val is not None and str(max_k_val).strip() != '':
+                name_val = f"{min_k_val} - {max_k_val} km Delivery"
+            else:
+                name_val = f"Above {min_k_val} km Delivery"
+        data['name'] = name_val
+        data['label'] = name_val
 
         try:
             min_k = Decimal(str(data.get('min_distance_km', '0')))
@@ -1296,7 +1323,12 @@ class DeliveryDistanceBandListCreateView(views.APIView):
 
         serializer = DeliveryDistanceBandSerializer(data=data)
         if not serializer.is_valid():
-            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            first_err = "Validation error."
+            for k, v in serializer.errors.items():
+                msg_val = v[0] if isinstance(v, list) and v else str(v)
+                first_err = f"{k}: {msg_val}" if k != 'non_field_errors' else str(msg_val)
+                break
+            return Response({'success': False, 'message': first_err, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         band = serializer.save()
         return Response({
             'success': True,
@@ -1325,7 +1357,12 @@ class DeliveryDistanceBandDetailView(views.APIView):
         band = self.get_object(pk)
         serializer = DeliveryDistanceBandSerializer(band, data=request.data, partial=True)
         if not serializer.is_valid():
-            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            first_err = "Validation error."
+            for k, v in serializer.errors.items():
+                msg_val = v[0] if isinstance(v, list) and v else str(v)
+                first_err = f"{k}: {msg_val}" if k != 'non_field_errors' else str(msg_val)
+                break
+            return Response({'success': False, 'message': first_err, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
         return Response({
             'success': True,

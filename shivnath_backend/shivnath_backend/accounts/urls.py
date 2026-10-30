@@ -55,9 +55,31 @@ from .views import (
     AdminZoneDetailView,
     AdminZoneAreaManagementView,
 )
+from .customer_views import (
+    AdminCustomerListView,
+    AdminCustomerDetailView,
+    AdminDashboardStatsView,
+)
 
 
 urlpatterns = [
+    # Admin Customer Management CRM & Dashboard Global Aggregates
+    path(
+        'admin/customers/',
+        AdminCustomerListView.as_view(),
+        name='admin-customers-list'
+    ),
+    path(
+        'admin/customers/<int:user_id>/',
+        AdminCustomerDetailView.as_view(),
+        name='admin-customer-detail'
+    ),
+    path(
+        'admin/dashboard-stats/',
+        AdminDashboardStatsView.as_view(),
+        name='admin-dashboard-stats'
+    ),
+
     # Registration
     path(
         'register/customer/',

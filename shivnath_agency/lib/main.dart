@@ -13,6 +13,7 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppConstants.loadSavedBaseUrl();
 
   try {
     if (Firebase.apps.isEmpty) {

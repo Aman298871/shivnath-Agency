@@ -775,7 +775,15 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
 
         serializer = MinimumOrderPackagingRuleSerializer(data=data)
         if not serializer.is_valid():
-            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            first_err_val = next(iter(serializer.errors.values()), None)
+            first_key = next(iter(serializer.errors.keys()), "Error")
+            err_msg = f"{first_key}: {first_err_val[0]}" if isinstance(first_err_val, list) and first_err_val else f"{first_key}: {first_err_val}"
+            return Response({
+                'success': False,
+                'message': f"Validation error: {err_msg}",
+                'error': err_msg,
+                'errors': serializer.errors,
+            }, status=status.HTTP_400_BAD_REQUEST)
         rule = serializer.save()
         return Response({
             'success': True,
@@ -838,7 +846,15 @@ class MinimumOrderPackagingRuleDetailView(APIView):
 
         serializer = MinimumOrderPackagingRuleSerializer(rule, data=request.data, partial=True)
         if not serializer.is_valid():
-            return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            first_err_val = next(iter(serializer.errors.values()), None)
+            first_key = next(iter(serializer.errors.keys()), "Error")
+            err_msg = f"{first_key}: {first_err_val[0]}" if isinstance(first_err_val, list) and first_err_val else f"{first_key}: {first_err_val}"
+            return Response({
+                'success': False,
+                'message': f"Validation error: {err_msg}",
+                'error': err_msg,
+                'errors': serializer.errors,
+            }, status=status.HTTP_400_BAD_REQUEST)
         rule = serializer.save()
         return Response({
             'success': True,

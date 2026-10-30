@@ -212,6 +212,11 @@ def generate_thermal_invoice_html(invoice, width='80mm', paper_width_mm=None):
     customer_email = order.created_by.email if order and order.created_by and order.created_by.email else ''
     customer_gstin = invoice.billed_to_gstin or (order.gstin if order else '')
     delivery_address = invoice.billed_to_address or (order.delivery_address if order else '')
+    if not delivery_address and order and order.created_by:
+        prof = getattr(order.created_by, 'profile', None) or getattr(order.created_by, 'userprofile', None)
+        if prof:
+            parts = [getattr(prof, 'address', ''), getattr(prof, 'city', ''), getattr(prof, 'district', ''), getattr(prof, 'pincode', '')]
+            delivery_address = ', '.join([p for p in parts if p])
 
     order_code = order.order_code if order else f"ORD-{invoice.id}"
     order_date = order.created_at.strftime('%d-%b-%Y %I:%M %p') if order and order.created_at else invoice.issued_at.strftime('%d-%b-%Y %I:%M %p')
@@ -627,6 +632,11 @@ def generate_pure_pdf_document(invoice):
     customer_email = order.created_by.email if order and order.created_by and order.created_by.email else ''
     customer_gstin = invoice.billed_to_gstin or (order.gstin if order else '')
     delivery_address = invoice.billed_to_address or (order.delivery_address if order else '')
+    if not delivery_address and order and order.created_by:
+        prof = getattr(order.created_by, 'profile', None) or getattr(order.created_by, 'userprofile', None)
+        if prof:
+            parts = [getattr(prof, 'address', ''), getattr(prof, 'city', ''), getattr(prof, 'district', ''), getattr(prof, 'pincode', '')]
+            delivery_address = ', '.join([p for p in parts if p])
 
     order_code = order.order_code if order else f"ORD-{invoice.id}"
     inv_date = invoice.issued_at.strftime('%d-%b-%Y %I:%M %p')
@@ -726,21 +736,25 @@ def generate_pure_pdf_document(invoice):
     def wrap_lines(text, max_len=45):
         if not text:
             return []
-        words = str(text).split()
         lines = []
-        current = []
-        curr_len = 0
-        for w in words:
-            if curr_len + len(w) + (1 if current else 0) <= max_len:
-                current.append(w)
-                curr_len += len(w) + (1 if len(current) > 1 else 0)
-            else:
-                if current:
-                    lines.append(' '.join(current))
-                current = [w]
-                curr_len = len(w)
-        if current:
-            lines.append(' '.join(current))
+        for raw_line in str(text).splitlines():
+            raw_line = raw_line.strip()
+            if not raw_line:
+                continue
+            words = raw_line.split()
+            current = []
+            curr_len = 0
+            for w in words:
+                if curr_len + len(w) + (1 if current else 0) <= max_len:
+                    current.append(w)
+                    curr_len += len(w) + (1 if len(current) > 1 else 0)
+                else:
+                    if current:
+                        lines.append(' '.join(current))
+                    current = [w]
+                    curr_len = len(w)
+            if current:
+                lines.append(' '.join(current))
         return lines
 
     # Construct PDF Stream instructions
@@ -812,16 +826,17 @@ def generate_pure_pdf_document(invoice):
         stream_lines.append(f"BT /F1 8 Tf 40 {y_cust} Td (Customer GSTIN: {clean(customer_gstin)}) Tj ET")
         y_cust -= 11
     if delivery_address:
-        cust_addr_lines = wrap_lines(delivery_address, max_len=60)
-        stream_lines.append(f"BT /F1 8 Tf 40 {y_cust} Td (Delivery Address: {clean(cust_addr_lines[0])}) Tj ET")
-        y_cust -= 11
-        for cal in cust_addr_lines[1:3]:
-            stream_lines.append(f"BT /F1 8 Tf 108 {y_cust} Td ({clean(cal)}) Tj ET")
+        cust_addr_lines = wrap_lines(delivery_address, max_len=55)
+        if cust_addr_lines:
+            stream_lines.append(f"BT /F1 8 Tf 40 {y_cust} Td (Delivery Address: {clean(cust_addr_lines[0])}) Tj ET")
             y_cust -= 11
+            for cal in cust_addr_lines[1:5]:
+                stream_lines.append(f"BT /F1 8 Tf 108 {y_cust} Td ({clean(cal)}) Tj ET")
+                y_cust -= 11
 
-    # Table Header Box (Height: 18, positioned strictly below all customer & delivery address lines)
+    # Table Header Box (Height: 18, positioned strictly below all customer & delivery address lines with 10pt margin)
     table_header_h = 18
-    y_table = y_cust - table_header_h - 6
+    y_table = y_cust - table_header_h - 10
     stream_lines.append("0.9 0.94 0.98 rg")
     stream_lines.append(f"30 {y_table} 535 {table_header_h} re f")
     stream_lines.append("0 0 0 rg")

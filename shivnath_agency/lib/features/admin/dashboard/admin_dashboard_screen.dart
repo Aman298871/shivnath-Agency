@@ -25,6 +25,7 @@ class AdminDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenUsers;
   final VoidCallback? onOpenNotifications;
   final VoidCallback? onOpenStockRequests;
+  final VoidCallback? onOpenCustomers;
   final void Function(String? batchNumber)? onOpenInventoryWithBatch;
   final void Function(String? orderCode)? onOpenOrdersWithCode;
 
@@ -41,6 +42,7 @@ class AdminDashboardScreen extends StatefulWidget {
     this.onOpenUsers,
     this.onOpenNotifications,
     this.onOpenStockRequests,
+    this.onOpenCustomers,
     this.onOpenInventoryWithBatch,
     this.onOpenOrdersWithCode,
   });
@@ -55,6 +57,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final InventoryRepository _inventoryRepository = InventoryRepository();
   final OrderRepository _orderRepository = OrderRepository();
   final NotificationService _notificationService = NotificationService();
+  final CustomerRepository _customerRepository = CustomerRepository();
 
   List<Map<String, dynamic>> _pendingStockAlerts = [];
   bool _pendingStockDialogShown = false;
@@ -75,49 +78,65 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<Map<String, dynamic>> _stats = [
     {
       'title': 'Total Leads',
-      'value': '0',
-      'change': '0 active',
+      'value': '--',
+      'change': 'Global leads',
       'icon': Icons.people_alt_outlined,
       'color': const Color(0xFF0284C7),
       'bgColor': const Color(0xFFE0F2FE),
     },
     {
       'title': 'Customer Orders',
-      'value': '0',
-      'change': '0 placed',
+      'value': '--',
+      'change': 'Pending review',
       'icon': Icons.shopping_bag_outlined,
       'color': const Color(0xFF2563EB),
       'bgColor': const Color(0xFFEFF6FF),
     },
     {
-      'title': 'Franchise Stock Reqs',
-      'value': '0',
-      'change': '0 requests',
+      'title': 'Customers CRM',
+      'value': '--',
+      'change': 'CRM directory',
+      'icon': Icons.groups_outlined,
+      'color': const Color(0xFF0891B2),
+      'bgColor': const Color(0xFFECFEFF),
+    },
+    {
+      'title': 'Franchises',
+      'value': '--',
+      'change': 'Dealer network',
       'icon': Icons.storefront_outlined,
+      'color': const Color(0xFF059669),
+      'bgColor': const Color(0xFFECFDF5),
+    },
+    {
+      'title': 'Stock Requests',
+      'value': '--',
+      'change': 'Stock requisitions',
+      'icon': Icons.move_to_inbox_outlined,
       'color': const Color(0xFF7C3AED),
       'bgColor': const Color(0xFFF5F3FF),
     },
     {
       'title': 'Hot Leads',
-      'value': '0',
-      'change': '0 priority',
+      'value': '--',
+      'change': 'High priority',
       'icon': Icons.local_fire_department_outlined,
       'color': const Color(0xFFEF4444),
       'bgColor': const Color(0xFFFEF2F2),
     },
     {
       'title': 'Follow-ups Today',
-      'value': '0',
-      'change': '0 pending',
+      'value': '--',
+      'change': 'Scheduled today',
       'icon': Icons.calendar_month_outlined,
       'color': const Color(0xFFD97706),
       'bgColor': const Color(0xFFFFFBEB),
     },
     {
       'title': 'Confirmed Dealers',
-      'value': '0',
-      'change': '0 confirmed',
-      'icon': Icons.storefront_outlined,
+      'value': '--',
+      'change': 'Verified partners',
+      'icon': Icons.verified_outlined,
       'color': const Color(0xFF10B981),
       'bgColor': const Color(0xFFECFDF5),
     },
@@ -603,6 +622,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _loadDashboardData() async {
     try {
+      // 1. Fetch Authoritative Global Dashboard Stats across all DB models
+      final adminStatsResult = await _customerRepository.getAdminDashboardStats();
+      Map<String, dynamic> adminStats = {};
+      bool hasAuthoritativeStats = false;
+      if (adminStatsResult['success'] == true && adminStatsResult['data'] is Map) {
+        adminStats = Map<String, dynamic>.from(adminStatsResult['data']);
+        hasAuthoritativeStats = true;
+      }
+
+      final leadsStats = adminStats['leads'] as Map? ?? {};
+      final ordersStats = adminStats['orders'] as Map? ?? {};
+      final customersStats = adminStats['customers'] as Map? ?? {};
+      final franchisesStats = adminStats['franchises'] as Map? ?? {};
+      final stockReqStats = adminStats['stock_requests'] as Map? ?? {};
+      final followupsStats = adminStats['followups'] as Map? ?? {};
+
+      // 2. Fetch individual service records for lists and fallbacks
       final leadStatsResult = await _leadService.getLeadStats();
       final fuStatsResult = await _followupService.getStats();
       final leadsResult = await _leadService.getLeads();
@@ -615,9 +651,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       int prepCount = 0;
       int dispCount = 0;
       int delivCount = 0;
+      bool ordersSuccess = false;
       try {
         final orderRes = await _orderRepository.getOrders();
         if (orderRes['success'] == true) {
+          ordersSuccess = true;
           final dynamic ordData = orderRes['data'];
           List rawOrders = [];
           if (ordData is List) {
@@ -627,7 +665,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           } else if (orderRes['orders'] is List) {
             rawOrders = orderRes['orders'] as List;
           }
-          ordersCount = rawOrders.length;
+          ordersCount = (ordData is Map && ordData.containsKey('count') && ordData['count'] is int)
+              ? ordData['count'] as int
+              : rawOrders.length;
           for (final ord in rawOrders) {
             if (ord is Map) {
               final mapped = _orderRepository.mapOrder(Map<String, dynamic>.from(ord));
@@ -636,7 +676,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               if (status.contains('deliv')) {
                 delivCount++;
               } else if (status.contains('cancel') || status.contains('reject')) {
-                // Cancelled orders not counted as pending or new
+                // Cancelled orders
               } else if (status.contains('place') || status.contains('new') || status.contains('created')) {
                 newCount++;
               } else if (status.contains('pending') || status.contains('approval')) {
@@ -651,6 +691,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
       } catch (_) {}
 
+      // Authoritative status breakdown or fallback
+      if (hasAuthoritativeStats) {
+        newCount = ordersStats['new_orders'] ?? newCount;
+        pendingCount = ordersStats['pending_orders'] ?? pendingCount;
+        prepCount = ordersStats['preparing_orders'] ?? prepCount;
+        dispCount = ordersStats['dispatch_orders'] ?? dispCount;
+        delivCount = ordersStats['delivered_orders'] ?? delivCount;
+      }
+
       if (mounted) {
         setState(() {
           _recentOrders = parsedOrders.take(6).toList();
@@ -663,9 +712,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
 
       int franchiseReqCount = 0;
+      bool franchiseReqSuccess = false;
       try {
         final reqRes = await _inventoryRepository.getDealerStockRequests();
         if (reqRes['success'] == true) {
+          franchiseReqSuccess = true;
           final dynamic reqData = reqRes['data'];
           if (reqData is List) {
             franchiseReqCount = reqData.length;
@@ -675,104 +726,164 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
       } catch (_) {}
 
-      if (leadStatsResult['success'] == true && leadStatsResult['data'] is Map) {
-        final statsData = leadStatsResult['data']['stats'] ?? {};
-        final totalLeads = statsData['total_leads'] ?? 0;
-        final hotLeads = statsData['hot_leads'] ?? 0;
-        final confirmed = statsData['confirmed'] ?? 0;
-        final pipelineMap = statsData['pipeline'] is Map ? statsData['pipeline'] as Map : {};
+      final leadsSuccess = leadStatsResult['success'] == true && leadStatsResult['data'] is Map;
+      final statsData = leadsSuccess ? (leadStatsResult['data']['stats'] ?? {}) : {};
+      final totalLeads = hasAuthoritativeStats
+          ? (leadsStats['total_leads'] ?? 0)
+          : (statsData['total_leads'] ?? 0);
+      final hotLeads = hasAuthoritativeStats
+          ? (leadsStats['hot_leads'] ?? 0)
+          : (statsData['hot_leads'] ?? 0);
+      final confirmed = hasAuthoritativeStats
+          ? (leadsStats['confirmed_dealers'] ?? 0)
+          : (statsData['confirmed'] ?? 0);
+      final pipelineMap = hasAuthoritativeStats
+          ? (leadsStats['pipeline'] is Map ? leadsStats['pipeline'] as Map : {})
+          : (statsData['pipeline'] is Map ? statsData['pipeline'] as Map : {});
 
-        int todayFu = 0;
-        if (fuStatsResult['success'] == true && fuStatsResult['data'] is Map) {
-          todayFu = fuStatsResult['data']['stats']?['today'] ?? 0;
-        }
+      final totalOrdersCount = hasAuthoritativeStats
+          ? (ordersStats['total_orders'] ?? 0)
+          : ordersCount;
+      final pendingOrdersCount = hasAuthoritativeStats
+          ? (ordersStats['pending_orders'] ?? 0)
+          : pendingCount;
 
-        _stats = [
-          {
-            'title': 'Total Leads',
-            'value': '$totalLeads',
-            'change': 'Live',
-            'icon': Icons.people_alt_outlined,
-            'color': const Color(0xFF0284C7),
-            'bgColor': const Color(0xFFE0F2FE),
-          },
-          {
-            'title': 'Customer Orders',
-            'value': '$ordersCount',
-            'change': 'Database orders',
-            'icon': Icons.shopping_bag_outlined,
-            'color': const Color(0xFF2563EB),
-            'bgColor': const Color(0xFFEFF6FF),
-          },
-          {
-            'title': 'Franchise Stock Reqs',
-            'value': '$franchiseReqCount',
-            'change': 'Stock Requests',
-            'icon': Icons.storefront_outlined,
-            'color': const Color(0xFF7C3AED),
-            'bgColor': const Color(0xFFF5F3FF),
-          },
-          {
-            'title': 'Hot Leads',
-            'value': '$hotLeads',
-            'change': 'Priority',
-            'icon': Icons.local_fire_department_outlined,
-            'color': const Color(0xFFEF4444),
-            'bgColor': const Color(0xFFFEF2F2),
-          },
-          {
-            'title': 'Follow-ups Today',
-            'value': '$todayFu',
-            'change': '$todayFu pending',
-            'icon': Icons.calendar_month_outlined,
-            'color': const Color(0xFFD97706),
-            'bgColor': const Color(0xFFFFFBEB),
-          },
-          {
-            'title': 'Confirmed Dealers',
-            'value': '$confirmed',
-            'change': 'Confirmed',
-            'icon': Icons.storefront_outlined,
-            'color': const Color(0xFF10B981),
-            'bgColor': const Color(0xFFECFDF5),
-          },
-        ];
+      final totalCustomersCount = hasAuthoritativeStats
+          ? (customersStats['total_customers'] ?? 0)
+          : 0;
+      final activeCustomersCount = hasAuthoritativeStats
+          ? (customersStats['active_customers'] ?? 0)
+          : 0;
 
-        _pipeline = [
-          {'name': 'New Lead', 'value': pipelineMap['new_lead'] ?? 0},
-          {'name': 'Contacted', 'value': pipelineMap['contacted'] ?? 0},
-          {'name': 'Follow-up', 'value': (pipelineMap['followup_1'] ?? 0) + (pipelineMap['followup_2'] ?? 0)},
-          {'name': 'Interested', 'value': pipelineMap['interested'] ?? 0},
-          {'name': 'Site Visit', 'value': pipelineMap['site_visit_scheduled'] ?? 0},
-          {'name': 'Agreement', 'value': pipelineMap['agreement_pending'] ?? 0},
-          {'name': 'Confirmed', 'value': pipelineMap['franchise_confirmed'] ?? 0},
-        ];
+      final totalFranchisesCount = hasAuthoritativeStats
+          ? (franchisesStats['total_franchises'] ?? 0)
+          : 0;
+      final pendingFranchisesCount = hasAuthoritativeStats
+          ? (franchisesStats['pending_franchises'] ?? 0)
+          : 0;
+
+      final franchiseReqsTotal = hasAuthoritativeStats
+          ? (stockReqStats['franchise_stock_requests'] ?? 0)
+          : franchiseReqCount;
+      final pendingStockReqCount = hasAuthoritativeStats
+          ? (stockReqStats['pending_stock_requests'] ?? 0)
+          : 0;
+
+      int todayFu = 0;
+      final fuSuccess = fuStatsResult['success'] == true && fuStatsResult['data'] is Map;
+      if (hasAuthoritativeStats) {
+        todayFu = followupsStats['today'] ?? 0;
+      } else if (fuSuccess) {
+        todayFu = fuStatsResult['data']['stats']?['today'] ?? 0;
       }
 
-      if (fuResult['success'] == true && fuResult['data'] is Map) {
-        final List rawFu = fuResult['data']['followups'] ?? [];
-        _followups = rawFu.take(5).map((f) {
-          return {
-            'time': '${f['time'] ?? '10:00 AM'}',
-            'name': '${f['lead'] ?? 'Lead'}',
-            'text': '${f['note'] ?? f['followup_type'] ?? 'Follow-up'}',
-          };
-        }).toList();
-      }
+      if (mounted) {
+        setState(() {
+          _stats = [
+            {
+              'title': 'Total Leads',
+              'value': (hasAuthoritativeStats || leadsSuccess) ? '$totalLeads' : '--',
+              'change': (hasAuthoritativeStats || leadsSuccess) ? 'Global leads' : 'Sync error',
+              'icon': Icons.people_alt_outlined,
+              'color': const Color(0xFF0284C7),
+              'bgColor': const Color(0xFFE0F2FE),
+            },
+            {
+              'title': 'Customer Orders',
+              'value': (hasAuthoritativeStats || ordersSuccess) ? '$totalOrdersCount' : '--',
+              'change': (hasAuthoritativeStats || ordersSuccess) ? '$pendingOrdersCount pending' : 'Sync error',
+              'icon': Icons.shopping_bag_outlined,
+              'color': const Color(0xFF2563EB),
+              'bgColor': const Color(0xFFEFF6FF),
+            },
+            {
+              'title': 'Customers CRM',
+              'value': hasAuthoritativeStats ? '$totalCustomersCount' : '--',
+              'change': hasAuthoritativeStats ? '$activeCustomersCount active' : 'CRM database',
+              'icon': Icons.groups_outlined,
+              'color': const Color(0xFF0891B2),
+              'bgColor': const Color(0xFFECFEFF),
+            },
+            {
+              'title': 'Franchises',
+              'value': hasAuthoritativeStats ? '$totalFranchisesCount' : '--',
+              'change': hasAuthoritativeStats ? '$pendingFranchisesCount pending' : 'Dealer network',
+              'icon': Icons.storefront_outlined,
+              'color': const Color(0xFF059669),
+              'bgColor': const Color(0xFFECFDF5),
+            },
+            {
+              'title': 'Stock Requests',
+              'value': (hasAuthoritativeStats || franchiseReqSuccess) ? '$franchiseReqsTotal' : '--',
+              'change': (hasAuthoritativeStats || franchiseReqSuccess) ? '$pendingStockReqCount pending' : 'Sync error',
+              'icon': Icons.move_to_inbox_outlined,
+              'color': const Color(0xFF7C3AED),
+              'bgColor': const Color(0xFFF5F3FF),
+            },
+            {
+              'title': 'Hot Leads',
+              'value': (hasAuthoritativeStats || leadsSuccess) ? '$hotLeads' : '--',
+              'change': 'High priority',
+              'icon': Icons.local_fire_department_outlined,
+              'color': const Color(0xFFEF4444),
+              'bgColor': const Color(0xFFFEF2F2),
+            },
+            {
+              'title': 'Follow-ups Today',
+              'value': (hasAuthoritativeStats || fuSuccess) ? '$todayFu' : '--',
+              'change': '$todayFu scheduled',
+              'icon': Icons.calendar_month_outlined,
+              'color': const Color(0xFFD97706),
+              'bgColor': const Color(0xFFFFFBEB),
+            },
+            {
+              'title': 'Confirmed Dealers',
+              'value': (hasAuthoritativeStats || leadsSuccess) ? '$confirmed' : '--',
+              'change': 'Verified partners',
+              'icon': Icons.verified_outlined,
+              'color': const Color(0xFF10B981),
+              'bgColor': const Color(0xFFECFDF5),
+            },
+          ];
 
-      if (leadsResult['success'] == true && leadsResult['data'] is Map) {
-        final List rawLeads = leadsResult['data']['leads'] ?? [];
-        _leads = rawLeads.take(5).map((l) {
-          final mapped = _leadService.mapLead(l);
-          return {
-            'name': '${mapped['name']}',
-            'phone': '${mapped['phone']}',
-            'city': '${mapped['city']}',
-            'budget': '${mapped['budget']}',
-            'score': '${mapped['score']}',
-            'status': '${mapped['status']}',
-          };
-        }).toList();
+          if (hasAuthoritativeStats || leadsSuccess) {
+            _pipeline = [
+              {'name': 'New Lead', 'value': pipelineMap['new_lead'] ?? 0},
+              {'name': 'Contacted', 'value': pipelineMap['contacted'] ?? 0},
+              {'name': 'Follow-up', 'value': (pipelineMap['followup_1'] ?? 0) + (pipelineMap['followup_2'] ?? 0)},
+              {'name': 'Interested', 'value': pipelineMap['interested'] ?? 0},
+              {'name': 'Site Visit', 'value': pipelineMap['site_visit_scheduled'] ?? 0},
+              {'name': 'Agreement', 'value': pipelineMap['agreement_pending'] ?? 0},
+              {'name': 'Confirmed', 'value': pipelineMap['franchise_confirmed'] ?? 0},
+            ];
+          }
+
+          if (fuResult['success'] == true && fuResult['data'] is Map) {
+            final List rawFu = fuResult['data']['followups'] ?? [];
+            _followups = rawFu.take(5).map((f) {
+              return {
+                'time': '${f['time'] ?? '10:00 AM'}',
+                'name': '${f['lead'] ?? 'Lead'}',
+                'text': '${f['note'] ?? f['followup_type'] ?? 'Follow-up'}',
+              };
+            }).toList();
+          }
+
+          if (leadsResult['success'] == true && leadsResult['data'] is Map) {
+            final List rawLeads = leadsResult['data']['leads'] ?? [];
+            _leads = rawLeads.take(5).map((l) {
+              final mapped = _leadService.mapLead(l);
+              return {
+                'name': '${mapped['name']}',
+                'phone': '${mapped['phone']}',
+                'city': '${mapped['city']}',
+                'budget': '${mapped['budget']}',
+                'score': '${mapped['score']}',
+                'status': '${mapped['status']}',
+              };
+            }).toList();
+          }
+        });
       }
     } catch (_) {}
 
@@ -2050,54 +2161,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         case 1:
           return _handlePendingOrdersTap;
         case 2:
-          return widget.onOpenStockRequests ?? widget.onOpenInventory;
+          return widget.onOpenCustomers;
         case 3:
-          return widget.onOpenLeads;
+          return widget.onOpenFranchises;
         case 4:
-          return widget.onOpenFollowups;
+          return widget.onOpenStockRequests ?? widget.onOpenInventory;
         case 5:
+          return widget.onOpenLeads;
+        case 6:
+          return widget.onOpenFollowups;
+        case 7:
           return widget.onOpenFranchises;
         default:
           return null;
       }
     }
 
-    if (desktop) {
-      return Row(
-        children: List.generate(
-          _stats.length,
-          (index) {
-            return Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  right: index == _stats.length - 1 ? 0 : 14,
-                ),
-                child: _StatCard(
-                  item: _stats[index],
-                  onTap: getTapAction(index),
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isVerySmall = constraints.maxWidth < 340;
-        final crossAxisCount = isVerySmall ? 1 : 2;
-        final childAspectRatio = isVerySmall
-            ? 3.2
-            : (constraints.maxWidth < 380 ? 1.35 : 1.45);
+        final crossAxisCount = desktop ? 4 : (constraints.maxWidth < 360 ? 1 : 2);
+        final childAspectRatio = desktop
+            ? 2.3
+            : (constraints.maxWidth < 360 ? 3.0 : 1.38);
 
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
             childAspectRatio: childAspectRatio,
           ),
           itemCount: _stats.length,

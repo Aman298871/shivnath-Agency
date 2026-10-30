@@ -154,6 +154,9 @@ elif DATABASE_URL:
             ssl_require=should_require_ssl,
         )
         if parsed_db and parsed_db.get('ENGINE'):
+            options = dict(parsed_db.get('OPTIONS') or {})
+            options.setdefault('connect_timeout', 5)
+            parsed_db['OPTIONS'] = options
             DATABASES = {'default': parsed_db}
         else:
             raise ValueError("Failed to parse valid database engine from DATABASE_URL")
@@ -307,4 +310,4 @@ RAZORPAY_ENVIRONMENT = os.getenv('RAZORPAY_ENVIRONMENT', 'LIVE').strip().upper()
 # EMAIL
 # --------------------------------------------------
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

@@ -1359,7 +1359,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header badge row
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1384,7 +1387,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -1401,7 +1403,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                       ),
                     ),
-                    const Spacer(),
                     if (reqNum.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

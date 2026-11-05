@@ -373,7 +373,7 @@ class AuthService {
     String locality = '',
     String pincode = '',
   }) async {
-    return _post(
+    final res = await _post(
       '/api/auth/register/customer/',
       {
         'name': name,

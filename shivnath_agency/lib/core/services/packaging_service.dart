@@ -16,6 +16,19 @@ class PackagingService {
   List<Map<String, dynamic>> _inMemoryRules = [];
   List<Map<String, dynamic>> get rules => List.unmodifiable(_inMemoryRules);
 
+  int? _currentServingFranchiseId;
+  int? get currentServingFranchiseId => _currentServingFranchiseId;
+
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  String? _lastError;
+  String? get lastError => _lastError;
+
+  void setCurrentServingFranchise(int? franchiseId) {
+    _currentServingFranchiseId = franchiseId;
+  }
+
   Future<void> loadCachedRules() async {
     try {
       final cached = await _getCachedRules();
@@ -25,19 +38,72 @@ class PackagingService {
     } catch (_) {}
   }
 
-  Map<String, dynamic>? getRuleForProduct(dynamic productId, {String channel = 'CUSTOMER'}) {
+  /// Resolves the effective packaging & MOQ rule using Policy A:
+  /// Effective MOQ = max(Admin Baseline MOQ, Serving Franchise MOQ).
+  /// Admin baseline is mandatory; a franchise may increase MOQ but never lower it.
+  Map<String, dynamic>? getRuleForProduct(
+    dynamic productId, {
+    String channel = 'CUSTOMER',
+    int? franchiseId,
+  }) {
     final pidStr = productId?.toString().trim();
     if (pidStr == null || pidStr.isEmpty) return null;
+
+    final targetFranchiseId = franchiseId ?? _currentServingFranchiseId;
+    final chUpper = channel.toUpperCase();
+
+    // 1. Find Admin Baseline rule (where franchise is null)
+    Map<String, dynamic>? baselineRule;
     for (final r in _inMemoryRules) {
       if (r['is_active'] == false) continue;
       final appliesTo = (r['applies_to'] ?? r['channel'] ?? 'ALL').toString().toUpperCase();
-      if (appliesTo != 'ALL' && appliesTo != channel.toUpperCase()) continue;
+      if (appliesTo != 'ALL' && appliesTo != chUpper) continue;
+
+      final isFranchiseSpecific = r['franchise'] != null || r['franchise_id'] != null;
+      if (isFranchiseSpecific) continue;
+
       final rPid = (r['product'] ?? r['product_id'])?.toString().trim();
       if (rPid == pidStr) {
-        return r;
+        baselineRule = r;
+        break;
       }
     }
-    return null;
+
+    // 2. If a serving franchise is specified and baseline allows override, evaluate franchise override
+    if (targetFranchiseId != null && baselineRule != null && baselineRule['allow_franchise_override'] == true) {
+      Map<String, dynamic>? franchiseRule;
+      for (final r in _inMemoryRules) {
+        if (r['is_active'] == false) continue;
+        final appliesTo = (r['applies_to'] ?? r['channel'] ?? 'ALL').toString().toUpperCase();
+        if (appliesTo != 'ALL' && appliesTo != chUpper) continue;
+
+        final fId = (r['franchise'] ?? r['franchise_id'])?.toString().trim();
+        if (fId == targetFranchiseId.toString().trim()) {
+          final rPid = (r['product'] ?? r['product_id'])?.toString().trim();
+          if (rPid == pidStr) {
+            franchiseRule = r;
+            break;
+          }
+        }
+      }
+
+      if (franchiseRule != null) {
+        final bMoq = (baselineRule['min_order_quantity'] as num?)?.toInt() ?? 1;
+        final fMoq = (franchiseRule['min_order_quantity'] as num?)?.toInt() ?? 1;
+        final maxFMoq = (baselineRule['max_franchise_moq'] as num?)?.toInt();
+
+        // Policy A Invariant: Franchise can increase minimum, but CANNOT reduce Admin minimum
+        if (fMoq >= bMoq) {
+          if (maxFMoq == null || fMoq <= maxFMoq) {
+            return franchiseRule;
+          }
+        }
+        // If franchise tried to lower MOQ below baseline or exceed max ceiling, fall back to Admin baseline
+        return baselineRule;
+      }
+    }
+
+    return baselineRule;
   }
 
   Future<void> _cacheRules(List<dynamic> rules) async {
@@ -95,33 +161,45 @@ class PackagingService {
     return 'HTTP $statusCode: $fallback';
   }
 
-  Future<Map<String, dynamic>> getPackagingRules() async {
+  Future<Map<String, dynamic>> getPackagingRules({int? franchiseId, String? channel}) async {
+    _isLoading = true;
+    _lastError = null;
     try {
-      final url = Uri.parse('${AppConstants.apiBaseUrl}/api/products/packaging-rules/');
-      final res = await ApiClient.get(url, headers: await _authHeaders()).timeout(const Duration(seconds: 12));
+      final queryParams = <String, String>{};
+      if (channel != null && channel.isNotEmpty) queryParams['channel'] = channel;
+      final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/products/packaging-rules/').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+      final res = await ApiClient.get(uri, headers: await _authHeaders()).timeout(const Duration(seconds: 12));
       final decoded = jsonDecode(res.body);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final list = decoded is List ? decoded : (decoded['rules'] ?? decoded['data'] ?? []);
         final listTyped = list is List ? list : [];
         _inMemoryRules = listTyped.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
         await _cacheRules(listTyped);
+        _isLoading = false;
         return {'success': true, 'rules': listTyped};
       }
+      final err = _extractErrorMessage(decoded, res.statusCode, 'Failed to load rules.');
+      _lastError = err;
       final cached = await _getCachedRules();
       if (cached != null) {
         _inMemoryRules = cached.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
       }
+      _isLoading = false;
       return {
         'success': false,
-        'message': _extractErrorMessage(decoded, res.statusCode, 'Failed to load rules.${cached != null ? " Showing saved local cache." : ""}'),
+        'message': '$err${cached != null ? " Showing saved local cache." : ""}',
         'rules': cached ?? [],
         'is_cached': cached != null,
       };
     } catch (e) {
+      _lastError = 'Network/Server Error: $e';
       final cached = await _getCachedRules();
       if (cached != null) {
         _inMemoryRules = cached.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
       }
+      _isLoading = false;
       return {
         'success': false,
         'message': 'Network/Server Error: $e.${cached != null ? " Showing saved local cache." : ""}',

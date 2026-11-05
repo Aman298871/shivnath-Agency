@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
+import '../../firebase_options.dart';
 import 'api_client.dart';
 import 'session_service.dart';
 import '../widgets/app_toast.dart';
@@ -17,7 +18,9 @@ import '../../routes/app_routes.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     }
   } catch (_) {}
   debugPrint(
@@ -108,6 +111,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         icon: '@mipmap/ic_launcher',
         styleInformation: BigTextStyleInformation(body, contentTitle: title),
         channelShowBadge: true,
+        visibility: NotificationVisibility.private,
       );
       final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       await flutterLocalNotificationsPlugin.show(
@@ -127,6 +131,9 @@ class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
+
+  static bool _backgroundHandlerRegistered = false;
+  static bool _isRegisteringDeviceToken = false;
 
   FirebaseMessaging get _fcm => FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
@@ -153,7 +160,9 @@ class NotificationService {
     try {
       // 1. Initialize Firebase App (guard against duplicate default app)
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
       }
       debugPrint('FCM: Firebase app ready.');
 
@@ -237,8 +246,11 @@ class NotificationService {
       });
 
       // 7. Background & Killed state handling (native only)
-      if (!kIsWeb) {
-        FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      if (!kIsWeb && !_backgroundHandlerRegistered) {
+        try {
+          FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+          _backgroundHandlerRegistered = true;
+        } catch (_) {}
       }
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
@@ -468,40 +480,46 @@ class NotificationService {
 
   /// Register FCM Token with Backend for the logged-in user with strict deduplication
   Future<bool> registerDeviceTokenWithBackend({bool force = false}) async {
-    if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
-      try {
-        _currentFcmToken = await _fcm.getToken();
-        debugPrint('FCM: Fetched token dynamically: $_currentFcmToken');
-      } catch (e) {
-        debugPrint('FCM: Failed to fetch token dynamically: $e');
-      }
-    }
-
-    if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
-      debugPrint('FCM: No token available to register.');
+    if (_isRegisteringDeviceToken) {
+      debugPrint('FCM: Token registration already in progress. Skipping concurrent request.');
       return false;
     }
-
-    final session = SessionService();
-    final isLoggedIn = await session.isLoggedIn();
-    if (!isLoggedIn) {
-      debugPrint(
-        'FCM: User not logged in. Token saved locally for future registration.',
-      );
-      return false;
-    }
-
-    final user = await session.getUser();
-    final token = await session.getAccessToken();
-    if (token == null || token.isEmpty) return false;
-
-    final currentKey = '${user?.id}_$_currentFcmToken';
-    if (!force && _lastRegisteredUserKey == currentKey) {
-      debugPrint('FCM: Token already registered for current session ($currentKey). Skipping duplicate request.');
-      return true;
-    }
+    _isRegisteringDeviceToken = true;
 
     try {
+      if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
+        try {
+          _currentFcmToken = await _fcm.getToken();
+          debugPrint('FCM: Fetched token dynamically: $_currentFcmToken');
+        } catch (e) {
+          debugPrint('FCM: Failed to fetch token dynamically: $e');
+        }
+      }
+
+      if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
+        debugPrint('FCM: No token available to register.');
+        return false;
+      }
+
+      final session = SessionService();
+      final isLoggedIn = await session.isLoggedIn();
+      if (!isLoggedIn) {
+        debugPrint(
+          'FCM: User not logged in. Token saved locally for future registration.',
+        );
+        return false;
+      }
+
+      final user = await session.getUser();
+      var token = await session.getAccessToken();
+      if (token == null || token.isEmpty) return false;
+
+      final currentKey = '${user?.id}_$_currentFcmToken';
+      if (!force && _lastRegisteredUserKey == currentKey) {
+        debugPrint('FCM: Token already registered for current session ($currentKey). Skipping duplicate request.');
+        return true;
+      }
+
       final deviceType = Platform.isAndroid
           ? 'android'
           : (Platform.isIOS ? 'ios' : 'web');
@@ -512,7 +530,7 @@ class NotificationService {
 
       for (final endpoint in candidates) {
         final url = Uri.parse(endpoint);
-        final response = await ApiClient.post(
+        var response = await ApiClient.post(
           url,
           headers: {
             'Content-Type': 'application/json',
@@ -524,6 +542,27 @@ class NotificationService {
             'device_type': deviceType,
           }),
         );
+
+        // If access token expired (401), attempt JWT refresh and retry registration exactly once
+        if (response.statusCode == 401) {
+          debugPrint('FCM: Token registration returned 401 Unauthorized. Attempting session token refresh...');
+          final refreshedAccess = await session.refreshAccessToken();
+          if (refreshedAccess != null && refreshedAccess.isNotEmpty) {
+            token = refreshedAccess;
+            response = await ApiClient.post(
+              url,
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode({
+                'token': _currentFcmToken,
+                'device_type': deviceType,
+              }),
+            );
+          }
+        }
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
           _lastRegisteredUserKey = currentKey;
@@ -539,6 +578,8 @@ class NotificationService {
     } catch (e) {
       debugPrint('FCM: Exception registering device token: $e');
       return false;
+    } finally {
+      _isRegisteringDeviceToken = false;
     }
   }
 

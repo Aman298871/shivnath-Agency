@@ -326,3 +326,78 @@ class NotificationRoleIsolationAndPerformanceTests(TestCase):
         cust_tokens = list(DeviceToken.objects.filter(user=self.customer_user, is_active=True))
         self.assertEqual(len(cust_tokens), 1)
         self.assertEqual(cust_tokens[0].token, shared_device_token)
+
+    def test_multi_device_logout_isolation_and_security(self):
+        """
+        Multi-device logout isolation tests:
+        1. User has two registered device tokens (Token A and Token B).
+        2. Logging out from device A deactivates ONLY token A.
+        3. Token B remains active.
+        4. An unauthorized user cannot deactivate another user's token.
+        5. Repeated logout requests are safe and idempotent.
+        """
+        client_admin = self._client_for(self.admin_user)
+        client_cust = self._client_for(self.customer_user)
+
+        token_a = 'fcm_admin_phone_token_aaa_111'
+        token_b = 'fcm_admin_tablet_token_bbb_222'
+
+        # 1. Admin registers Device A and Device B
+        res1 = client_admin.post('/api/accounts/register-device/', {'token': token_a, 'device_type': 'android'})
+        self.assertEqual(res1.status_code, 200)
+        res2 = client_admin.post('/api/accounts/register-device/', {'token': token_b, 'device_type': 'android'})
+        self.assertEqual(res2.status_code, 200)
+
+        dt_a = DeviceToken.objects.get(token=token_a)
+        dt_b = DeviceToken.objects.get(token=token_b)
+        self.assertTrue(dt_a.is_active)
+        self.assertTrue(dt_b.is_active)
+        self.assertEqual(dt_a.user, self.admin_user)
+        self.assertEqual(dt_b.user, self.admin_user)
+
+        # 4. Unauthorized User (Customer) attempts to deactivate Admin's Token A
+        res_hacker = client_cust.post('/api/accounts/unregister-device/', {'token': token_a})
+        self.assertEqual(res_hacker.status_code, 200)
+        self.assertEqual(res_hacker.data.get('deactivated_count'), 0)
+        dt_a.refresh_from_db()
+        self.assertTrue(dt_a.is_active, "Admin Token A must NOT be deactivated by another user")
+
+        # 2. Admin logs out from Device A ONLY
+        res_logout_a = client_admin.post('/api/accounts/unregister-device/', {'token': token_a})
+        self.assertEqual(res_logout_a.status_code, 200)
+        self.assertEqual(res_logout_a.data.get('deactivated_count'), 1)
+
+        dt_a.refresh_from_db()
+        dt_b.refresh_from_db()
+
+        # Token A is deactivated
+        self.assertFalse(dt_a.is_active)
+
+        # 3. Token B REMAINS ACTIVE!
+        self.assertTrue(dt_b.is_active, "Token B on Tablet must remain active after Phone logout")
+
+        # Verify active device tokens query for admin returns exactly 1 (Token B)
+        active_admin_tokens = list(DeviceToken.objects.filter(user=self.admin_user, is_active=True))
+        self.assertEqual(len(active_admin_tokens), 1)
+        self.assertEqual(active_admin_tokens[0].token, token_b)
+
+        # 5. Repeated logout requests are safe and idempotent
+        res_repeat = client_admin.post('/api/accounts/unregister-device/', {'token': token_a})
+        self.assertEqual(res_repeat.status_code, 200)
+        self.assertEqual(res_repeat.data.get('deactivated_count'), 0)
+        self.assertTrue(res_repeat.data.get('success'))
+
+        # 6. Missing or empty token logout request MUST NOT deactivate any remaining device tokens
+        res_empty = client_admin.post('/api/accounts/unregister-device/', {'token': ''})
+        self.assertEqual(res_empty.status_code, 200)
+        self.assertEqual(res_empty.data.get('deactivated_count'), 0)
+        dt_b.refresh_from_db()
+        self.assertTrue(dt_b.is_active, "Token B must remain active when logout request has empty token")
+
+        res_none = client_admin.post('/api/accounts/unregister-device/', {})
+        self.assertEqual(res_none.status_code, 200)
+        self.assertEqual(res_none.data.get('deactivated_count'), 0)
+        dt_b.refresh_from_db()
+        self.assertTrue(dt_b.is_active, "Token B must remain active when logout request omits token field")
+
+

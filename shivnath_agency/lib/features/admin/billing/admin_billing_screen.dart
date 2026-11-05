@@ -1952,6 +1952,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
         await file.writeAsBytes(res.bodyBytes, flush: true);
 
         String savedPath = '';
+        String? saveError;
         if (!isPrint) {
           try {
             savedPath = await FileSaver.instance.saveFile(
@@ -1961,22 +1962,37 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
               mimeType: MimeType.pdf,
             );
           } catch (saveErr) {
+            saveError = saveErr.toString().replaceAll('Exception: ', '');
             debugPrint('FileSaver error: $saveErr');
           }
         }
 
+        final bool saveSucceeded = isPrint || (savedPath.trim().isNotEmpty && saveError == null);
+
         if (mounted) {
-          AppToast.success(
-            context,
-            isPrint ? 'Document ready for print.' : 'Saved to Downloads: Invoice_$safeName.pdf',
-            title: isPrint ? 'Print Ready' : 'PDF Saved',
-          );
+          if (saveSucceeded) {
+            AppToast.success(
+              context,
+              isPrint ? 'Document ready for print.' : 'Saved to Downloads: Invoice_$safeName.pdf',
+              title: isPrint ? 'Print Ready' : 'PDF Saved',
+            );
+          } else {
+            AppToast.error(
+              context,
+              saveError != null
+                  ? 'Failed to save to Downloads: $saveError'
+                  : 'Failed to save to Downloads. Please check storage permissions.',
+              title: 'Save Failed',
+            );
+          }
         }
 
-        final pathOpen = (savedPath.isNotEmpty && File(savedPath).existsSync()) ? savedPath : file.path;
-        final openRes = await OpenFilex.open(pathOpen);
-        if (openRes.type != ResultType.done) {
-          await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'WATER WALA Invoice: $invoiceNumber'));
+        if (saveSucceeded) {
+          final pathOpen = (savedPath.isNotEmpty && File(savedPath).existsSync()) ? savedPath : file.path;
+          final openRes = await OpenFilex.open(pathOpen);
+          if (openRes.type != ResultType.done) {
+            await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'WATER WALA Invoice: $invoiceNumber'));
+          }
         }
       } else {
         if (mounted) {

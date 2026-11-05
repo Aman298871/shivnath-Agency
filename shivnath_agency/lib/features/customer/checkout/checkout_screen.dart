@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/repositories/app_repositories.dart';
 import '../../../core/services/api_client.dart';
+import '../../../core/services/packaging_service.dart';
 import '../../../core/services/session_service.dart';
 import '../cart/cart_provider.dart';
 import '../wallet/customer_wallet_screen.dart';
@@ -924,6 +925,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           selectedFranchiseId = null;
           orderSource = 'DIRECT_COMPANY';
         }
+        Provider.of<CartProvider>(context, listen: false).setServingFranchise(selectedFranchiseId);
+        PackagingService().getPackagingRules(franchiseId: selectedFranchiseId);
       });
       if (addressController.text.trim().isNotEmpty) {
         _calculateDeliveryCharges();
@@ -2860,6 +2863,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         }).toList(),
                         onChanged: (val) {
                           setState(() => selectedFranchiseId = val);
+                          Provider.of<CartProvider>(context, listen: false).setServingFranchise(val);
+                          PackagingService().getPackagingRules(franchiseId: val);
                         },
                       ),
                     ],
@@ -2871,7 +2876,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       value: 'DIRECT_COMPANY',
                       groupValue: orderSource,
                       onChanged: (val) {
-                        setState(() => orderSource = val);
+                        setState(() {
+                          orderSource = val;
+                          if (val == 'DIRECT_COMPANY') {
+                            selectedFranchiseId = null;
+                          }
+                        });
+                        Provider.of<CartProvider>(context, listen: false).setServingFranchise(selectedFranchiseId);
                       },
                     ),
                   ] else if (hasCustomerTerritory) ...[

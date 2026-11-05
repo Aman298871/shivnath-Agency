@@ -400,6 +400,7 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
         final safeName = _invoiceNumber.replaceAll(RegExp(r'[\\/*?:"<>|]'), '_');
 
         String savedPath = '';
+        String? saveError;
         try {
           savedPath = await FileSaver.instance.saveFile(
             name: 'Invoice_$safeName',
@@ -408,21 +409,40 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
             mimeType: MimeType.pdf,
           );
         } catch (saveErr) {
+          saveError = saveErr.toString().replaceAll('Exception: ', '');
           debugPrint('FileSaver error: $saveErr');
         }
 
+        final bool saveSucceeded = savedPath.trim().isNotEmpty && saveError == null;
+
         if (mounted) {
-          AppToast.success(
-            context,
-            'Saved to Downloads: Invoice_$safeName.pdf',
-            title: 'PDF Saved',
-          );
+          if (saveSucceeded) {
+            AppToast.success(
+              context,
+              'Saved to Downloads: Invoice_$safeName.pdf',
+              title: 'PDF Saved',
+            );
+          } else {
+            AppToast.error(
+              context,
+              saveError != null
+                  ? 'Failed to save to Downloads: $saveError'
+                  : 'Failed to save to Downloads. Please check storage permissions.',
+              title: 'Save Failed',
+            );
+          }
         }
 
-        final pathOpen = (savedPath.isNotEmpty && File(savedPath).existsSync()) ? savedPath : file.path;
-        final openRes = await OpenFilex.open(pathOpen);
-        if (openRes.type != ResultType.done) {
-          await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'WATER WALA Invoice: $_invoiceNumber'));
+        if (saveSucceeded) {
+          final pathOpen = (savedPath.isNotEmpty && File(savedPath).existsSync()) ? savedPath : file.path;
+          final openRes = await OpenFilex.open(pathOpen);
+          if (openRes.type != ResultType.done) {
+            await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'WATER WALA Invoice: $_invoiceNumber'));
+          }
+        }
+      } else {
+        if (mounted) {
+          AppToast.error(context, 'Unable to download invoice PDF from server.', title: 'Download Failed');
         }
       }
     } catch (e) {

@@ -88,8 +88,8 @@ class MoqConfirmationDialog extends StatelessWidget {
       return true;
     }
 
-    // Resolve dynamic packaging / MOQ rule for customer
-    final rule = PackagingService().getRuleForProduct(prodId, channel: 'CUSTOMER');
+    // Resolve dynamic packaging / MOQ rule for customer (Policy A: max(Admin Baseline, Serving Franchise MOQ))
+    final rule = PackagingService().getRuleForProduct(prodId, channel: 'CUSTOMER', franchiseId: cart.servingFranchiseId);
     int minUnits = isJar ? 5 : (5 * unitsPerCase);
     int minBoxesOrUnits = 5;
     String unitName = isJar ? 'jars' : 'boxes';

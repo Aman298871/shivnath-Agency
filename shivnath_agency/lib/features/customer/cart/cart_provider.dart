@@ -269,6 +269,17 @@ class CartProvider extends ChangeNotifier {
   double _customDeliveryCharge = 0.0;
   bool _hasCustomDeliveryCharge = false;
 
+  int? _servingFranchiseId;
+  int? get servingFranchiseId => _servingFranchiseId;
+
+  void setServingFranchise(int? id) {
+    if (_servingFranchiseId != id) {
+      _servingFranchiseId = id;
+      PackagingService().setCurrentServingFranchise(id);
+      notifyListeners();
+    }
+  }
+
   void setDeliveryCharge(double charge) {
     _customDeliveryCharge = charge;
     _hasCustomDeliveryCharge = true;

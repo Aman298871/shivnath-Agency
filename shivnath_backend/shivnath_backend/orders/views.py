@@ -266,9 +266,10 @@ class OrderListCreateView(APIView):
                 except Product.DoesNotExist:
                     continue
 
-                # Packaging and MOQ validation
+                # Packaging and MOQ validation (Policy A: max(Admin Baseline, Serving Franchise MOQ))
                 try:
-                    pkg_rule = validate_order_item_packaging(prod, qty, channel=channel, franchise=creator_fp)
+                    eval_franchise = creator_fp if creator_fp else serving_franchise
+                    pkg_rule = validate_order_item_packaging(prod, qty, channel=channel, franchise=eval_franchise)
                 except (DjangoValidationError, DRFValidationError) as p_err:
                     msg = p_err.message if hasattr(p_err, 'message') else str(p_err)
                     if isinstance(msg, list):

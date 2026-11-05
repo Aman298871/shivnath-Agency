@@ -738,11 +738,11 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
                 return Response({'success': False, 'message': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
 
             # Check baseline rule for this product
-            baseline = MinimumOrderPackagingRule.objects.filter(product=prod, franchise__isnull=True, is_active=True).first()
+            baseline = MinimumOrderPackagingRule.objects.filter(product=prod, franchise__isnull=True, is_active=True).order_by('-priority', '-id').first()
             if not baseline:
                 cat = getattr(prod, 'category_ref', None)
                 if cat:
-                    baseline = MinimumOrderPackagingRule.objects.filter(category=cat, franchise__isnull=True, is_active=True).first()
+                    baseline = MinimumOrderPackagingRule.objects.filter(category=cat, franchise__isnull=True, is_active=True).order_by('-priority', '-id').first()
 
             if not baseline or not baseline.allow_franchise_override:
                 msg = f"Product '{prod.name}' does not permit franchise-level overrides by Administrator policy. Franchise overrides are disabled."
@@ -828,7 +828,7 @@ class MinimumOrderPackagingRuleDetailView(APIView):
                 return Response({'success': False, 'message': 'You do not have permission to modify this rule.'}, status=status.HTTP_403_FORBIDDEN)
 
             # Franchise editing their override: check baseline bounds
-            baseline = MinimumOrderPackagingRule.objects.filter(product=rule.product, franchise__isnull=True, is_active=True).first()
+            baseline = MinimumOrderPackagingRule.objects.filter(product=rule.product, franchise__isnull=True, is_active=True).order_by('-priority', '-id').first()
             if baseline and not baseline.allow_franchise_override:
                 return Response({'success': False, 'message': 'Franchise overrides are disabled for this product.'}, status=status.HTTP_403_FORBIDDEN)
 

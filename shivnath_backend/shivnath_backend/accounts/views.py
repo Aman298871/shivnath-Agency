@@ -5301,9 +5301,14 @@ class UnregisterDeviceTokenView(APIView):
         from accounts.models import DeviceToken
         count = 0
         if token:
-            count += DeviceToken.objects.filter(token=token).update(is_active=False)
-        if request.user and request.user.is_authenticated:
-            count += DeviceToken.objects.filter(user=request.user).update(is_active=False)
+            qs = DeviceToken.objects.filter(token=token, is_active=True)
+            if request.user and request.user.is_authenticated:
+                # Security: Authenticated user can only unregister their own device token
+                qs = qs.filter(user=request.user)
+            count = qs.update(is_active=False)
+        else:
+            # Safety: If token is missing or empty, do NOT deactivate all user devices
+            logger.info("FCM: [TOKEN_UNREGISTERED] No specific token provided in unregister request. Preserving active devices.")
 
         username = request.user.username if (request.user and request.user.is_authenticated) else 'Anonymous/TokenOnly'
         logger.info(

@@ -9,8 +9,7 @@ class DeliveryPricingService {
   static final DeliveryPricingService _instance = DeliveryPricingService._internal();
   factory DeliveryPricingService() => _instance;
   DeliveryPricingService._internal();
-
-  static const Duration _timeoutDuration = Duration(seconds: 10);
+  static const Duration _timeoutDuration = Duration(seconds: 25);
 
   static const Map<String, dynamic> fallbackOrigin = {
     'name': 'Shivnath Agency Central Dispatch',

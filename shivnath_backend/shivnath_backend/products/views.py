@@ -694,6 +694,7 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
         if is_active is not None and is_active != '':
             qs = qs.filter(is_active=str(is_active).lower() in ['true', '1'])
 
+        qs = qs.order_by('-priority', '-id')
         serializer = MinimumOrderPackagingRuleSerializer(qs, many=True)
         return Response({
             'success': True,
@@ -844,7 +845,19 @@ class MinimumOrderPackagingRuleDetailView(APIView):
                         'message': f"Franchise MOQ cannot exceed company maximum limit ({baseline.max_franchise_moq})."
                     }, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = MinimumOrderPackagingRuleSerializer(rule, data=request.data, partial=True)
+        data = request.data.copy()
+        if 'product_id' in data and 'product' not in data:
+            data['product'] = data['product_id']
+        if 'channel' in data and 'applies_to' not in data:
+            data['applies_to'] = data['channel']
+        if 'carton_pack_size' in data and 'units_per_carton' not in data:
+            data['units_per_carton'] = data['carton_pack_size']
+        if 'enforce_carton_multiples' in data and 'allow_partial_carton' not in data:
+            data['allow_partial_carton'] = not (data['enforce_carton_multiples'] in [True, 'true', 'True', 1, '1'])
+        if data.get('sales_unit') == 'PIECE':
+            data['sales_unit'] = 'BOTTLE'
+
+        serializer = MinimumOrderPackagingRuleSerializer(rule, data=data, partial=True)
         if not serializer.is_valid():
             first_err_val = next(iter(serializer.errors.values()), None)
             first_key = next(iter(serializer.errors.keys()), "Error")

@@ -7,9 +7,38 @@ import 'session_service.dart';
 class PackagingService {
   static final PackagingService _instance = PackagingService._internal();
   factory PackagingService() => _instance;
-  PackagingService._internal();
+  PackagingService._internal() {
+    loadCachedRules();
+  }
 
   static const String _rulesCacheKey = 'cached_moq_packaging_rules_v1';
+
+  List<Map<String, dynamic>> _inMemoryRules = [];
+  List<Map<String, dynamic>> get rules => List.unmodifiable(_inMemoryRules);
+
+  Future<void> loadCachedRules() async {
+    try {
+      final cached = await _getCachedRules();
+      if (cached != null) {
+        _inMemoryRules = cached.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+    } catch (_) {}
+  }
+
+  Map<String, dynamic>? getRuleForProduct(dynamic productId, {String channel = 'CUSTOMER'}) {
+    final pidStr = productId?.toString().trim();
+    if (pidStr == null || pidStr.isEmpty) return null;
+    for (final r in _inMemoryRules) {
+      if (r['is_active'] == false) continue;
+      final appliesTo = (r['applies_to'] ?? r['channel'] ?? 'ALL').toString().toUpperCase();
+      if (appliesTo != 'ALL' && appliesTo != channel.toUpperCase()) continue;
+      final rPid = (r['product'] ?? r['product_id'])?.toString().trim();
+      if (rPid == pidStr) {
+        return r;
+      }
+    }
+    return null;
+  }
 
   Future<void> _cacheRules(List<dynamic> rules) async {
     try {
@@ -74,10 +103,14 @@ class PackagingService {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final list = decoded is List ? decoded : (decoded['rules'] ?? decoded['data'] ?? []);
         final listTyped = list is List ? list : [];
+        _inMemoryRules = listTyped.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
         await _cacheRules(listTyped);
         return {'success': true, 'rules': listTyped};
       }
       final cached = await _getCachedRules();
+      if (cached != null) {
+        _inMemoryRules = cached.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      }
       return {
         'success': false,
         'message': _extractErrorMessage(decoded, res.statusCode, 'Failed to load rules.${cached != null ? " Showing saved local cache." : ""}'),
@@ -86,6 +119,9 @@ class PackagingService {
       };
     } catch (e) {
       final cached = await _getCachedRules();
+      if (cached != null) {
+        _inMemoryRules = cached.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      }
       return {
         'success': false,
         'message': 'Network/Server Error: $e.${cached != null ? " Showing saved local cache." : ""}',
@@ -101,6 +137,7 @@ class PackagingService {
       final res = await ApiClient.post(url, headers: await _authHeaders(), body: jsonEncode(data)).timeout(const Duration(seconds: 12));
       final decoded = jsonDecode(res.body);
       if (res.statusCode >= 200 && res.statusCode < 300) {
+        await getPackagingRules();
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': _extractErrorMessage(decoded, res.statusCode, 'Failed to create rule')};
@@ -115,6 +152,7 @@ class PackagingService {
       final res = await ApiClient.patch(url, headers: await _authHeaders(), body: jsonEncode(data)).timeout(const Duration(seconds: 12));
       final decoded = jsonDecode(res.body);
       if (res.statusCode >= 200 && res.statusCode < 300) {
+        await getPackagingRules();
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': _extractErrorMessage(decoded, res.statusCode, 'Failed to update rule')};
@@ -128,6 +166,7 @@ class PackagingService {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/api/products/packaging-rules/$id/');
       final res = await ApiClient.delete(url, headers: await _authHeaders()).timeout(const Duration(seconds: 12));
       if (res.statusCode >= 200 && res.statusCode < 300) {
+        await getPackagingRules();
         return {'success': true};
       }
       dynamic decoded;

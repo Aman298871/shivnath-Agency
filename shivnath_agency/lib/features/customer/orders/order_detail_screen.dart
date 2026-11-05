@@ -470,29 +470,47 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         String val = selected;
         return StatefulBuilder(
           builder: (context, setDlgState) => AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
             actionsOverflowDirection: VerticalDirection.down,
             actionsOverflowButtonSpacing: 8,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('Update Order Status', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Select target lifecycle stage:', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: statuses.contains(val) ? val : statuses.first,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 480,
+                maxHeight: MediaQuery.of(context).size.height * 0.72,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Select target lifecycle stage:', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: statuses.contains(val) ? val : statuses.first,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      items: statuses
+                          .map((s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(
+                                  _orderRepository.getStatusLabel(s),
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (nv) {
+                        if (nv != null) setDlgState(() => val = nv);
+                      },
                     ),
-                    items: statuses.map((s) => DropdownMenuItem(value: s, child: Text(_orderRepository.getStatusLabel(s), style: const TextStyle(fontWeight: FontWeight.w600)))).toList(),
-                    onChanged: (nv) {
-                      if (nv != null) setDlgState(() => val = nv);
-                    },
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [

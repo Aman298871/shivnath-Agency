@@ -252,7 +252,7 @@ class _MobileCartItem extends StatelessWidget {
                     ),
                     child: Text(
                       item.isBottle
-                          ? 'Min: 5 boxes (${item.minOrderQuantity} btls)'
+                          ? 'Min: ${item.minOrderBoxes} boxes (${item.minOrderQuantity} btls)'
                           : 'Min: ${item.minOrderQuantity} ${item.moqUnitLabel}',
                       style: TextStyle(
                         fontSize: 9.5,

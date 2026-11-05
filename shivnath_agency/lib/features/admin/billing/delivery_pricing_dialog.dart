@@ -53,22 +53,8 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
   bool _userInteractedWithSliders = false;
 
   double get _maxRadiusCeiling {
-    if (_maxRadiusSlider <= 50.0) return 50.0;
-    if (_maxRadiusSlider <= 100.0) return 100.0;
-    if (_maxRadiusSlider <= 250.0) return 250.0;
-    if (_maxRadiusSlider <= 500.0) return 500.0;
-    if (_maxRadiusSlider <= 1000.0) return 1000.0;
-    return (((_maxRadiusSlider + 200.0) / 200.0).ceil() * 200.0).toDouble().clamp(500.0, 9999.0);
-  }
-
-  int get _maxRadiusDivisions {
-    final ceiling = _maxRadiusCeiling;
-    if (ceiling <= 50.0) return 50;
-    if (ceiling <= 100.0) return 100;
-    if (ceiling <= 250.0) return 125;
-    if (ceiling <= 500.0) return 100;
-    if (ceiling <= 1000.0) return 100;
-    return 100;
+    if (_maxRadiusSlider > 500.0) return _maxRadiusSlider;
+    return 500.0;
   }
 
   // Persisted snapshot for comparing and display
@@ -1359,7 +1345,6 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                       value: _maxRadiusSlider.clamp(0.0, _maxRadiusCeiling),
                       min: 0.0,
                       max: _maxRadiusCeiling,
-                      divisions: _maxRadiusDivisions,
                       label: '${_maxRadiusSlider.toStringAsFixed(1)} km',
                       onChanged: (val) {
                         _userInteractedWithSliders = true;

@@ -1,7 +1,7 @@
 import logging
 import math
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth.models import User
 from django.db.models import (
@@ -656,9 +656,13 @@ class AdminDashboardStatsView(APIView):
             pipeline_items = Lead.objects.values('status').annotate(count=Count('id')).order_by()
             pipeline = {item['status']: item['count'] for item in pipeline_items}
 
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
+
             # 2. Authoritative Follow-ups
             followups_today = FollowUp.objects.filter(
-                followup_datetime__date=today,
+                followup_datetime__gte=today_start,
+                followup_datetime__lt=today_end,
                 status__iexact='pending'
             ).count()
 
@@ -718,41 +722,115 @@ class AdminDashboardStatsView(APIView):
                 status__in=['REQUESTED', 'PENDING', 'SUBMITTED']
             ).count()
 
+            leads_dict = {
+                'total': total_leads,
+                'total_leads': total_leads,
+                'hot': hot_leads,
+                'hot_leads': hot_leads,
+                'warm': warm_leads,
+                'warm_leads': warm_leads,
+                'cold': cold_leads,
+                'cold_leads': cold_leads,
+                'confirmed_dealers': confirmed_dealers,
+                'followups_today': followups_today,
+                'pipeline': pipeline,
+            }
+
+            orders_dict = {
+                'total': total_orders,
+                'total_orders': total_orders,
+                'pending': pending_orders,
+                'pending_orders': pending_orders,
+                'delivered': delivered_orders,
+                'delivered_orders': delivered_orders,
+                'cancelled': cancelled_orders,
+                'cancelled_orders': cancelled_orders,
+                'new': new_orders,
+                'new_orders': new_orders,
+                'preparing': preparing_orders,
+                'preparing_orders': preparing_orders,
+                'dispatch': dispatch_orders,
+                'dispatch_orders': dispatch_orders,
+                'total_value': total_order_value,
+                'total_order_value': total_order_value,
+            }
+
+            customers_dict = {
+                'total': total_customers,
+                'total_customers': total_customers,
+                'active': active_customers,
+                'active_customers': active_customers,
+            }
+
+            franchises_dict = {
+                'total': total_franchises,
+                'total_franchises': total_franchises,
+                'pending': pending_franchises,
+                'pending_franchises': pending_franchises,
+                'all': all_franchises_count,
+                'all_franchises': all_franchises_count,
+            }
+
+            stock_requests_dict = {
+                'total': total_stock_requests,
+                'franchise_stock_requests': total_stock_requests,
+                'pending': pending_stock_requests,
+                'pending_stock_requests': pending_stock_requests,
+            }
+
+            followups_dict = {
+                'today': followups_today,
+                'pending': followups_today,
+            }
+
+            stats_payload = {
+                # Grouped dictionaries (for Flutter admin_dashboard_screen nested access)
+                'leads': leads_dict,
+                'orders': orders_dict,
+                'customers': customers_dict,
+                'franchises': franchises_dict,
+                'stock_requests': stock_requests_dict,
+                'followups': followups_dict,
+
+                # Flat keys (for backward compatibility and direct access)
+                'total_leads': total_leads,
+                'hot_leads': hot_leads,
+                'warm_leads': warm_leads,
+                'cold_leads': cold_leads,
+                'confirmed_dealers': confirmed_dealers,
+                'followups_today': followups_today,
+                'pipeline': pipeline,
+
+                'total_orders': total_orders,
+                'pending_orders': pending_orders,
+                'delivered_orders': delivered_orders,
+                'cancelled_orders': cancelled_orders,
+                'new_orders': new_orders,
+                'preparing_orders': preparing_orders,
+                'dispatch_orders': dispatch_orders,
+                'total_order_value': total_order_value,
+
+                'total_customers': total_customers,
+                'active_customers': active_customers,
+
+                'total_franchises': total_franchises,
+                'pending_franchises': pending_franchises,
+                'all_franchises': all_franchises_count,
+
+                'franchise_stock_requests': total_stock_requests,
+                'pending_stock_requests': pending_stock_requests,
+            }
+
             return Response({
                 'success': True,
-                'stats': {
-                    # Leads
-                    'total_leads': total_leads,
-                    'hot_leads': hot_leads,
-                    'warm_leads': warm_leads,
-                    'cold_leads': cold_leads,
-                    'confirmed_dealers': confirmed_dealers,
-                    'followups_today': followups_today,
-                    'pipeline': pipeline,
-
-                    # Orders
-                    'total_orders': total_orders,
-                    'pending_orders': pending_orders,
-                    'delivered_orders': delivered_orders,
-                    'cancelled_orders': cancelled_orders,
-                    'new_orders': new_orders,
-                    'preparing_orders': preparing_orders,
-                    'dispatch_orders': dispatch_orders,
-                    'total_order_value': total_order_value,
-
-                    # Customers
-                    'total_customers': total_customers,
-                    'active_customers': active_customers,
-
-                    # Franchises
-                    'total_franchises': total_franchises,
-                    'pending_franchises': pending_franchises,
-                    'all_franchises': all_franchises_count,
-
-                    # Stock Requests
-                    'franchise_stock_requests': total_stock_requests,
-                    'pending_stock_requests': pending_stock_requests,
-                }
+                'stats': stats_payload,
+                # Top level convenience access
+                'leads': leads_dict,
+                'orders': orders_dict,
+                'customers': customers_dict,
+                'franchises': franchises_dict,
+                'stock_requests': stock_requests_dict,
+                'followups': followups_dict,
             }, status=status.HTTP_200_OK)
 
         except Exception as e:

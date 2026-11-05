@@ -48,20 +48,37 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final isExplicitFranchise = targetRole.contains('franchise') || screen.startsWith('franchise') || notifType.startsWith('franchise');
     final isExplicitCustomer = targetRole.contains('customer') || screen.startsWith('customer') || notifType.startsWith('customer');
 
+    // Strict Role Suppression: Return immediately on role mismatch or missing session
     if (isExplicitAdmin && !isExplicitFranchise && !isExplicitCustomer) {
-      if (role.isNotEmpty && role != 'admin' && role != 'super_admin') {
-        debugPrint('FCM [Background]: Suppressing admin alert for non-admin role ($role).');
+      if (role.isEmpty || (role != 'admin' && role != 'super_admin')) {
+        debugPrint('FCM [Background]: Suppressing admin notification - active session is "$role".');
         return;
       }
     } else if (isExplicitFranchise && !isExplicitAdmin && !isExplicitCustomer) {
-      if (role.isNotEmpty && role != 'franchise' && role != 'dealer') {
-        debugPrint('FCM [Background]: Suppressing franchise alert for non-franchise role ($role).');
+      if (role.isEmpty || (role != 'franchise' && role != 'dealer')) {
+        debugPrint('FCM [Background]: Suppressing franchise notification - active session is "$role".');
         return;
       }
     } else if (isExplicitCustomer && !isExplicitAdmin && !isExplicitFranchise) {
-      if (role.isNotEmpty && role != 'customer') {
-        debugPrint('FCM [Background]: Suppressing customer alert for non-customer role ($role).');
+      if (role.isEmpty || role != 'customer') {
+        debugPrint('FCM [Background]: Suppressing customer notification - active session is "$role".');
         return;
+      }
+    }
+
+    // Recipient Identity Verification if specified in payload
+    final targetUserId = message.data['recipient_id']?.toString() ?? message.data['user_id']?.toString();
+    if (targetUserId != null && targetUserId.isNotEmpty) {
+      final userRaw = prefs.getString(AppConstants.userSessionKey);
+      if (userRaw != null && userRaw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(userRaw);
+          final currentUserId = decoded['id']?.toString();
+          if (currentUserId != null && currentUserId.isNotEmpty && currentUserId != targetUserId) {
+            debugPrint('FCM [Background]: Suppressing notification for user $targetUserId - active user is $currentUserId.');
+            return;
+          }
+        } catch (_) {}
       }
     }
   } catch (e) {
@@ -295,18 +312,26 @@ class NotificationService {
     final isExplicitCustomer = targetRole.contains('customer') || screen.startsWith('customer') || notifType.startsWith('customer');
 
     if (isExplicitAdmin && !isExplicitFranchise && !isExplicitCustomer) {
-      if (userRole.isNotEmpty && userRole != 'admin' && userRole != 'super_admin') {
-        debugPrint('FCM: Suppressing Admin alert for non-admin user (role: $userRole, event: $notifType).');
+      if (userRole.isEmpty || (userRole != 'admin' && userRole != 'super_admin')) {
+        debugPrint('FCM: Received Admin alert for non-admin session ($userRole). Suppressing notification for security.');
         return;
       }
     } else if (isExplicitFranchise && !isExplicitAdmin && !isExplicitCustomer) {
-      if (userRole.isNotEmpty && userRole != 'franchise' && userRole != 'dealer') {
-        debugPrint('FCM: Suppressing Franchise alert for non-franchise user (role: $userRole, event: $notifType).');
+      if (userRole.isEmpty || (userRole != 'franchise' && userRole != 'dealer')) {
+        debugPrint('FCM: Received Franchise alert for non-franchise session ($userRole). Suppressing notification for security.');
         return;
       }
     } else if (isExplicitCustomer && !isExplicitAdmin && !isExplicitFranchise) {
-      if (userRole.isNotEmpty && userRole != 'customer') {
-        debugPrint('FCM: Suppressing Customer alert for non-customer user (role: $userRole, event: $notifType).');
+      if (userRole.isEmpty || userRole != 'customer') {
+        debugPrint('FCM: Received Customer alert for non-customer session ($userRole). Suppressing notification for security.');
+        return;
+      }
+    }
+
+    final targetUserId = message.data['recipient_id']?.toString() ?? message.data['user_id']?.toString();
+    if (targetUserId != null && targetUserId.isNotEmpty && user != null) {
+      if (user.id.toString() != targetUserId) {
+        debugPrint('FCM: Received alert for user $targetUserId while session is ${user.id}. Suppressing notification.');
         return;
       }
     }
@@ -334,7 +359,7 @@ class NotificationService {
         icon: '@mipmap/ic_launcher',
         styleInformation: BigTextStyleInformation(body, contentTitle: title),
         channelShowBadge: true,
-        visibility: NotificationVisibility.public,
+        visibility: NotificationVisibility.private,
         fullScreenIntent: false,
       ),
       iOS: const DarwinNotificationDetails(

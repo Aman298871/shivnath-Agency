@@ -17,6 +17,7 @@ import '../../../core/widgets/product_thumbnail.dart';
 import '../../../core/providers/wallet_provider.dart';
 import '../wallet/customer_wallet_screen.dart';
 import '../../../core/widgets/moq_confirmation_dialog.dart';
+import '../../../core/services/packaging_service.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   final VoidCallback? onOpenProducts;
@@ -54,6 +55,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         _currentUser = user;
       });
     }
+
+    try {
+      PackagingService().getPackagingRules();
+    } catch (_) {}
 
     try {
       final notifRes = await AuthRepository().getCustomerNotifications();

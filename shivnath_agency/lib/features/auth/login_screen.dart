@@ -146,12 +146,11 @@ class _LoginScreenState extends State<LoginScreen> {
       await _sessionService.saveUser(user);
       await _sessionService.saveRole(user.role);
 
-      // Non-fatal FCM token registration
-      try {
-        await NotificationService().registerDeviceTokenWithBackend(force: true);
-      } catch (fcmErr) {
+      // Non-blocking background FCM token registration (decoupled from login latency)
+      NotificationService().registerDeviceTokenWithBackend(force: true).catchError((fcmErr) {
         debugPrint('FCM token registration warning: $fcmErr');
-      }
+        return false;
+      });
 
       if (!mounted) return;
 

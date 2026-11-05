@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/services/packaging_service.dart';
 import '../../../models/product_model.dart';
 
 class CartItem {
@@ -114,7 +115,16 @@ class CartItem {
         nm.contains('carton');
   }
 
+  Map<String, dynamic>? get packagingRule {
+    return PackagingService().getRuleForProduct(id, channel: 'CUSTOMER');
+  }
+
   int get unitsPerCase {
+    final rule = packagingRule;
+    if (rule != null) {
+      final upc = (rule['units_per_carton'] as num?)?.toInt();
+      if (upc != null && upc > 0) return upc;
+    }
     if (product is ProductModel) {
       final upc = (product as ProductModel).unitsPerCase;
       if (upc > 0) return upc;
@@ -139,16 +149,55 @@ class CartItem {
     return quantity;
   }
 
-  int get minOrderBoxes => 5;
+  int get minOrderBoxes {
+    final rule = packagingRule;
+    if (rule != null) {
+      final moq = (rule['min_order_quantity'] as num?)?.toInt() ?? 1;
+      final salesUnit = (rule['sales_unit'] ?? 'CARTON').toString().toUpperCase();
+      if (salesUnit == 'CARTON') {
+        return moq;
+      }
+      return (moq / unitsPerCase).ceil();
+    }
+    return 5;
+  }
 
   int get minOrderQuantity {
+    final rule = packagingRule;
+    if (rule != null) {
+      final moq = (rule['min_order_quantity'] as num?)?.toInt() ?? 1;
+      final salesUnit = (rule['sales_unit'] ?? 'CARTON').toString().toUpperCase();
+      if (salesUnit == 'CARTON') {
+        final upc = (rule['units_per_carton'] as num?)?.toInt() ?? unitsPerCase;
+        return moq * upc;
+      }
+      return moq;
+    }
     if (product is ProductModel) return (product as ProductModel).minOrderQuantity;
     if (isJar) return 5;
     if (isBottle) return 5 * unitsPerCase;
     return 1;
   }
 
+  bool get allowPartialCarton {
+    final rule = packagingRule;
+    if (rule != null) {
+      return rule['allow_partial_carton'] == true;
+    }
+    return isJar;
+  }
+
   String get moqUnitLabel {
+    final rule = packagingRule;
+    if (rule != null) {
+      final salesUnit = (rule['sales_unit'] ?? 'CARTON').toString().toUpperCase();
+      if (salesUnit == 'CARTON') {
+        return 'boxes ($unitsPerCase bottles/box)';
+      } else if (salesUnit == 'JAR') {
+        return 'jars';
+      }
+      return 'units';
+    }
     if (product is ProductModel) return (product as ProductModel).moqUnitLabel;
     if (isJar) return 'jars';
     if (isBottle) return 'boxes ($unitsPerCase bottles/box)';
@@ -156,6 +205,13 @@ class CartItem {
   }
 
   bool get meetsMoq {
+    final rule = packagingRule;
+    if (rule != null) {
+      final minUnits = minOrderQuantity;
+      if (quantity < minUnits) return false;
+      if (!allowPartialCarton && (quantity % unitsPerCase != 0)) return false;
+      return true;
+    }
     if (isJar) return quantity >= 5;
     if (isBottle) return quantity >= (5 * unitsPerCase) && (quantity % unitsPerCase == 0);
     return quantity >= 1;
@@ -233,6 +289,24 @@ class CartProvider extends ChangeNotifier {
   /// Returns null if valid, or an error message explaining the shortfall.
   String? validateCartMoq() {
     for (final item in _items) {
+      final rule = item.packagingRule;
+      if (rule != null) {
+        final minUnits = item.minOrderQuantity;
+        final salesUnit = (rule['sales_unit'] ?? 'CARTON').toString().toUpperCase();
+        final ruleMoq = (rule['min_order_quantity'] as num?)?.toInt() ?? 1;
+        if (item.quantity < minUnits) {
+          if (salesUnit == 'CARTON') {
+            final boxes = (item.quantity / item.unitsPerCase).toStringAsFixed(1);
+            return 'Minimum order requirement for "${item.name}" is $ruleMoq boxes ($minUnits bottles). Current quantity is $boxes boxes (${item.quantity} bottles).';
+          } else {
+            return 'Minimum order requirement for "${item.name}" is $ruleMoq ${item.moqUnitLabel}. Current quantity is ${item.quantity}.';
+          }
+        }
+        if (!item.allowPartialCarton && (item.quantity % item.unitsPerCase != 0)) {
+          return '"${item.name}" must be ordered in full boxes (${item.unitsPerCase} bottles per box). Current quantity: ${item.quantity} bottles.';
+        }
+        continue;
+      }
       if (item.isJar && item.quantity < 5) {
         return 'Minimum order requirement for "${item.name}" is 5 water jars. Current quantity is ${item.quantity}.';
       }

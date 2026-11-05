@@ -177,10 +177,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _startLiveOrderWatcher() {
-    _initialAlertTimer = Timer(const Duration(seconds: 2), () {
+    _initialAlertTimer = Timer(const Duration(seconds: 15), () {
       if (mounted) _checkLiveOrdersAndStockRequests();
     });
-    _liveAlertTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+    _liveAlertTimer = Timer.periodic(const Duration(seconds: 40), (_) {
       if (mounted) _checkLiveOrdersAndStockRequests();
     });
   }
@@ -625,24 +625,52 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       // 1. Fetch Authoritative Global Dashboard Stats across all DB models
       final adminStatsResult = await _customerRepository.getAdminDashboardStats();
       Map<String, dynamic> adminStats = {};
+      Map<String, dynamic> rawStatsMap = {};
       bool hasAuthoritativeStats = false;
       if (adminStatsResult['success'] == true && adminStatsResult['data'] is Map) {
-        adminStats = Map<String, dynamic>.from(adminStatsResult['data']);
+        final dataMap = Map<String, dynamic>.from(adminStatsResult['data']);
+        if (dataMap['stats'] is Map) {
+          rawStatsMap = Map<String, dynamic>.from(dataMap['stats']);
+        }
+        adminStats = dataMap;
         hasAuthoritativeStats = true;
       }
 
-      final leadsStats = adminStats['leads'] as Map? ?? {};
-      final ordersStats = adminStats['orders'] as Map? ?? {};
-      final customersStats = adminStats['customers'] as Map? ?? {};
-      final franchisesStats = adminStats['franchises'] as Map? ?? {};
-      final stockReqStats = adminStats['stock_requests'] as Map? ?? {};
-      final followupsStats = adminStats['followups'] as Map? ?? {};
+      final leadsStats = (adminStats['leads'] is Map)
+          ? adminStats['leads'] as Map
+          : ((rawStatsMap['leads'] is Map) ? rawStatsMap['leads'] as Map : rawStatsMap);
+      final ordersStats = (adminStats['orders'] is Map)
+          ? adminStats['orders'] as Map
+          : ((rawStatsMap['orders'] is Map) ? rawStatsMap['orders'] as Map : rawStatsMap);
+      final customersStats = (adminStats['customers'] is Map)
+          ? adminStats['customers'] as Map
+          : ((rawStatsMap['customers'] is Map) ? rawStatsMap['customers'] as Map : rawStatsMap);
+      final franchisesStats = (adminStats['franchises'] is Map)
+          ? adminStats['franchises'] as Map
+          : ((rawStatsMap['franchises'] is Map) ? rawStatsMap['franchises'] as Map : rawStatsMap);
+      final stockReqStats = (adminStats['stock_requests'] is Map)
+          ? adminStats['stock_requests'] as Map
+          : ((rawStatsMap['stock_requests'] is Map) ? rawStatsMap['stock_requests'] as Map : rawStatsMap);
+      final followupsStats = (adminStats['followups'] is Map)
+          ? adminStats['followups'] as Map
+          : ((rawStatsMap['followups'] is Map) ? rawStatsMap['followups'] as Map : rawStatsMap);
 
-      // 2. Fetch individual service records for lists and fallbacks
-      final leadStatsResult = await _leadService.getLeadStats();
-      final fuStatsResult = await _followupService.getStats();
-      final leadsResult = await _leadService.getLeads();
-      final fuResult = await _followupService.getFollowups();
+      // 2. Fetch individual service records in parallel for lists and fallbacks
+      final secondaryFutures = await Future.wait([
+        _leadService.getLeadStats().catchError((_) => <String, dynamic>{'success': false}),
+        _followupService.getStats().catchError((_) => <String, dynamic>{'success': false}),
+        _leadService.getLeads().catchError((_) => <String, dynamic>{'success': false}),
+        _followupService.getFollowups().catchError((_) => <String, dynamic>{'success': false}),
+        _orderRepository.getOrders().catchError((_) => <String, dynamic>{'success': false}),
+        _inventoryRepository.getDealerStockRequests().catchError((_) => <String, dynamic>{'success': false}),
+      ]);
+
+      final leadStatsResult = secondaryFutures[0];
+      final fuStatsResult = secondaryFutures[1];
+      final leadsResult = secondaryFutures[2];
+      final fuResult = secondaryFutures[3];
+      final orderRes = secondaryFutures[4];
+      final reqRes = secondaryFutures[5];
 
       int ordersCount = 0;
       List<Map<String, dynamic>> parsedOrders = [];
@@ -653,7 +681,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       int delivCount = 0;
       bool ordersSuccess = false;
       try {
-        final orderRes = await _orderRepository.getOrders();
         if (orderRes['success'] == true) {
           ordersSuccess = true;
           final dynamic ordData = orderRes['data'];
@@ -714,7 +741,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       int franchiseReqCount = 0;
       bool franchiseReqSuccess = false;
       try {
-        final reqRes = await _inventoryRepository.getDealerStockRequests();
         if (reqRes['success'] == true) {
           franchiseReqSuccess = true;
           final dynamic reqData = reqRes['data'];
@@ -1719,6 +1745,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           builder: (dialogCtx, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              actionsOverflowDirection: VerticalDirection.down,
+              actionsOverflowButtonSpacing: 8,
               title: Row(
                 children: [
                   Container(
@@ -1734,90 +1763,107 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     child: Text(
                       'Fulfill Order $ordCode',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],
               ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Text('Current: ', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(6),
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 480,
+                  maxHeight: MediaQuery.of(dialogCtx).size.height * 0.72,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('Current: ', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                currentStatus.toUpperCase(),
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: Color(0xFF0F172A)),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            currentStatus.toUpperCase(),
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: Color(0xFF0F172A)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (targetStatuses.isEmpty) ...[
+                        const Text(
+                          'This order is in a terminal status. No further state transitions are permitted.',
+                          style: TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+                        ),
+                      ] else ...[
+                        DropdownButtonFormField<String>(
+                          initialValue: targetStatuses.any((s) => s['value'] == selectedStatus)
+                              ? selectedStatus
+                              : targetStatuses.first['value'],
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: 'Next Fulfillment Status *',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          items: targetStatuses.map((s) {
+                            return DropdownMenuItem<String>(
+                              value: s['value'],
+                              child: Text(
+                                s['label']!,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: isUpdating
+                              ? null
+                              : (val) {
+                                  if (val != null) {
+                                    setDialogState(() {
+                                      selectedStatus = val;
+                                      dialogErrorMessage = null;
+                                    });
+                                  }
+                                },
+                        ),
+                      ],
+                      if (dialogErrorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFCA5A5)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  dialogErrorMessage!,
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w600, height: 1.4),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (targetStatuses.isEmpty) ...[
-                      const Text(
-                        'This order is in a terminal status. No further state transitions are permitted.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
-                      ),
-                    ] else ...[
-                      DropdownButtonFormField<String>(
-                        initialValue: targetStatuses.any((s) => s['value'] == selectedStatus)
-                            ? selectedStatus
-                            : targetStatuses.first['value'],
-                        decoration: InputDecoration(
-                          labelText: 'Next Fulfillment Status *',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        ),
-                        items: targetStatuses.map((s) {
-                          return DropdownMenuItem<String>(
-                            value: s['value'],
-                            child: Text(s['label']!),
-                          );
-                        }).toList(),
-                        onChanged: isUpdating
-                            ? null
-                            : (val) {
-                                if (val != null) {
-                                  setDialogState(() {
-                                    selectedStatus = val;
-                                    dialogErrorMessage = null;
-                                  });
-                                }
-                              },
-                      ),
                     ],
-                    if (dialogErrorMessage != null) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEE2E2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFCA5A5)),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                dialogErrorMessage!,
-                                style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w600, height: 1.4),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
               actions: [
@@ -2632,6 +2678,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _quickActionsGrid(bool desktop) {
     final actions = [
       {'title': 'Leads', 'icon': Icons.people_alt_outlined, 'color': const Color(0xFF0284C7), 'action': widget.onOpenLeads},
+      {'title': 'Customer CRM', 'icon': Icons.groups_outlined, 'color': const Color(0xFF0891B2), 'action': widget.onOpenCustomers},
       {'title': 'Follow-ups', 'icon': Icons.calendar_month_outlined, 'color': const Color(0xFF0EA5E9), 'action': widget.onOpenFollowups},
       {'title': 'Users', 'icon': Icons.manage_accounts_outlined, 'color': const Color(0xFF6366F1), 'action': widget.onOpenUsers},
       {'title': 'Orders', 'icon': Icons.shopping_cart_outlined, 'color': const Color(0xFFF59E0B), 'action': widget.onOpenOrders},

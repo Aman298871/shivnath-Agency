@@ -147,26 +147,6 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
     # 2. Query active device tokens for these users
     from accounts.models import DeviceToken
     device_tokens_qs = DeviceToken.objects.filter(user__in=valid_users, is_active=True)
-
-    # Role-based cross-contamination safeguard:
-    # If this push is targeted for admins, strictly exclude any tokens currently active for non-admin users.
-    # If targeted for customers, strictly exclude tokens active for admins.
-    is_admin_push = (notification_type in ['admin', 'admin_order', 'admin_alert']) or (data and str(data.get('recipient_role', '')).lower() == 'admin')
-    is_cust_push = (notification_type in ['customer', 'customer_order', 'status_update', 'order_status']) or (data and str(data.get('recipient_role', '')).lower() == 'customer')
-
-    if is_admin_push:
-        non_admin_tokens = DeviceToken.objects.filter(
-            is_active=True,
-            user__profile__role__in=['customer', 'franchise', 'dealer']
-        ).values_list('token', flat=True)
-        device_tokens_qs = device_tokens_qs.exclude(token__in=non_admin_tokens)
-    elif is_cust_push:
-        admin_tokens = DeviceToken.objects.filter(
-            is_active=True,
-            user__profile__role__in=['admin', 'super_admin']
-        ).values_list('token', flat=True)
-        device_tokens_qs = device_tokens_qs.exclude(token__in=admin_tokens)
-
     tokens = list(device_tokens_qs.values_list('token', flat=True).distinct())
 
     if not tokens:

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:file_saver/file_saver.dart';
 
 import '../constants/app_constants.dart';
 import '../services/session_service.dart';
@@ -345,13 +346,8 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
 
     Directory targetDir;
     if (Platform.isAndroid) {
-      final publicDownloadDir = Directory('/storage/emulated/0/Download');
-      if (publicDownloadDir.existsSync()) {
-        targetDir = publicDownloadDir;
-      } else {
-        final ext = await getExternalStorageDirectory();
-        targetDir = ext ?? await getApplicationDocumentsDirectory();
-      }
+      final ext = await getExternalStorageDirectory();
+      targetDir = ext ?? await getApplicationDocumentsDirectory();
     } else {
       targetDir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
     }
@@ -400,14 +396,34 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
       AppToast.info(context, 'Downloading official PDF...', title: 'Downloading');
       final file = await _fetchInvoicePdfWithTimeout();
       if (file != null && file.existsSync()) {
+        final bytes = await file.readAsBytes();
+        final safeName = _invoiceNumber.replaceAll(RegExp(r'[\\/*?:"<>|]'), '_');
+
+        String savedPath = '';
+        try {
+          savedPath = await FileSaver.instance.saveFile(
+            name: 'Invoice_$safeName',
+            bytes: bytes,
+            ext: 'pdf',
+            mimeType: MimeType.pdf,
+          );
+        } catch (saveErr) {
+          debugPrint('FileSaver error: $saveErr');
+        }
+
         if (mounted) {
           AppToast.success(
             context,
-            'Saved to Downloads: ${file.path.split('/').last}',
+            'Saved to Downloads: Invoice_$safeName.pdf',
             title: 'PDF Saved',
           );
         }
-        await OpenFilex.open(file.path);
+
+        final pathOpen = (savedPath.isNotEmpty && File(savedPath).existsSync()) ? savedPath : file.path;
+        final openRes = await OpenFilex.open(pathOpen);
+        if (openRes.type != ResultType.done) {
+          await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'WATER WALA Invoice: $_invoiceNumber'));
+        }
       }
     } catch (e) {
       if (mounted) {

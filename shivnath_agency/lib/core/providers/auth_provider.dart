@@ -133,6 +133,8 @@ class AuthProvider extends ChangeNotifier {
             ? data['franchiseId'] as int
             : int.tryParse(data['franchiseId']?.toString() ?? ''),
         address: data['address']?.toString() ?? '',
+        locality: data['locality']?.toString() ?? '',
+        pincode: data['pincode']?.toString() ?? '',
       );
       _isLoading = false;
       if (res['success'] != true) {

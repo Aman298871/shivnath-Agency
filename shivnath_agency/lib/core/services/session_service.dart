@@ -159,22 +159,25 @@ class SessionService {
 
   Future<void> logout() async {
     _sessionEpoch++;
+
+    // 1. Attempt backend token unregistration while authentication token is still valid
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_userKey);
-      await prefs.remove(_roleKey);
-      await prefs.remove(_accessTokenKey);
-      await prefs.remove(_refreshTokenKey);
+      await NotificationService()
+          .unregisterDeviceTokenWithBackend()
+          .timeout(const Duration(milliseconds: 1500), onTimeout: () => false);
     } catch (_) {}
 
     try {
       NotificationService().resetRegistrationCache();
     } catch (_) {}
 
+    // 2. Always complete local credential wipe regardless of network unregistration outcome
     try {
-      await NotificationService()
-          .unregisterDeviceTokenWithBackend()
-          .timeout(const Duration(milliseconds: 1000), onTimeout: () => false);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userKey);
+      await prefs.remove(_roleKey);
+      await prefs.remove(_accessTokenKey);
+      await prefs.remove(_refreshTokenKey);
     } catch (_) {}
   }
 }

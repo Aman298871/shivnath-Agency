@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:file_saver/file_saver.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/services/session_service.dart';
@@ -1940,13 +1941,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
       if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
         Directory targetDir;
         if (Platform.isAndroid) {
-          final publicDownloadDir = Directory('/storage/emulated/0/Download');
-          if (publicDownloadDir.existsSync()) {
-            targetDir = publicDownloadDir;
-          } else {
-            final ext = await getExternalStorageDirectory();
-            targetDir = ext ?? await getApplicationDocumentsDirectory();
-          }
+          final ext = await getExternalStorageDirectory();
+          targetDir = ext ?? await getApplicationDocumentsDirectory();
         } else {
           targetDir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
         }
@@ -1955,11 +1951,30 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
         final file = File('${targetDir.path}/Invoice_$safeName.pdf');
         await file.writeAsBytes(res.bodyBytes, flush: true);
 
-        if (mounted) {
-          AppToast.success(context, 'Invoice saved to ${targetDir.path.split('/').last}.', title: isPrint ? 'Print Ready' : 'PDF Saved');
+        String savedPath = '';
+        if (!isPrint) {
+          try {
+            savedPath = await FileSaver.instance.saveFile(
+              name: 'Invoice_$safeName',
+              bytes: res.bodyBytes,
+              ext: 'pdf',
+              mimeType: MimeType.pdf,
+            );
+          } catch (saveErr) {
+            debugPrint('FileSaver error: $saveErr');
+          }
         }
 
-        final openRes = await OpenFilex.open(file.path);
+        if (mounted) {
+          AppToast.success(
+            context,
+            isPrint ? 'Document ready for print.' : 'Saved to Downloads: Invoice_$safeName.pdf',
+            title: isPrint ? 'Print Ready' : 'PDF Saved',
+          );
+        }
+
+        final pathOpen = (savedPath.isNotEmpty && File(savedPath).existsSync()) ? savedPath : file.path;
+        final openRes = await OpenFilex.open(pathOpen);
         if (openRes.type != ResultType.done) {
           await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'WATER WALA Invoice: $invoiceNumber'));
         }

@@ -28,11 +28,13 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
 
-  // Territory and Franchise state
+  // Territory, Area/Locality and Franchise state
   List<Map<String, dynamic>> territories = [];
   bool isLoadingTerritories = false;
   int? selectedTerritoryId;
   String? selectedTerritoryName;
+  String? selectedLocality;
+  List<String> availableLocalities = [];
 
   bool isLoadingFranchises = false;
   List<Map<String, dynamic>> exactFranchises = [];
@@ -42,6 +44,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   bool isFallbackFranchise = false;
   bool showFallbackList = false;
   String? supportContactPhone;
+  bool _hasUnconfirmedAttempt = false;
 
   List<String> availableDistricts = [
     'Balod',
@@ -156,6 +159,8 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
       territories = [];
       selectedTerritoryId = null;
       selectedTerritoryName = null;
+      selectedLocality = null;
+      availableLocalities = [];
       exactFranchises = [];
       fallbackFranchises = [];
       selectedFranchiseId = null;
@@ -257,6 +262,11 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
       return;
     }
 
+    if (availableLocalities.isNotEmpty && (selectedLocality == null || selectedLocality!.trim().isEmpty)) {
+      _showMessage('Please select your area / locality within $selectedTerritoryName.');
+      return;
+    }
+
     setState(() {
       isLoading = true;
     });
@@ -270,6 +280,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
       zoneId: selectedTerritoryId!,
       franchiseId: selectedFranchiseId,
       address: addressController.text.trim(),
+      locality: selectedLocality ?? '',
       password: passwordController.text,
       confirmPassword: confirmPasswordController.text,
     );
@@ -281,7 +292,33 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
     });
 
     if (result['success'] != true) {
-      _showMessage(result['message']?.toString() ?? 'Registration failed.');
+      if (result['unconfirmed'] == true) {
+        _hasUnconfirmedAttempt = true;
+        _showUnconfirmedDialog(
+          title: 'Registration Status Unconfirmed',
+          message: result['message']?.toString() ??
+              'Registration request was submitted, but the server response timed out. '
+              'Your account may have been created. Would you like to try logging in?',
+        );
+        return;
+      }
+
+      final msg = result['message']?.toString() ?? 'Registration failed.';
+      final isDuplicate = msg.toLowerCase().contains('already exists') ||
+          msg.toLowerCase().contains('already registered') ||
+          msg.toLowerCase().contains('already taken');
+
+      if (isDuplicate && _hasUnconfirmedAttempt) {
+        _showUnconfirmedDialog(
+          title: 'Account Already Created',
+          message: 'An account with your details already exists. '
+              'Your previous registration was processed successfully by the server. '
+              'Please proceed to Login.',
+        );
+        return;
+      }
+
+      _showMessage(msg);
       return;
     }
 
@@ -291,6 +328,50 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
 
     if (!mounted) return;
     Navigator.pop(context);
+  }
+
+  void _showUnconfirmedDialog({required String title, required String message}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline_rounded, color: Color(0xFF0284C7)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13.5, color: Color(0xFF334155), height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Stay Here'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+            child: const Text('Go to Login'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showMessage(String message) {
@@ -573,17 +654,24 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                                 (t) => t['id'] == id,
                                 orElse: () => {},
                               );
+                              final rawAreas = found['areas'] as List? ?? [];
+                              final locs = rawAreas
+                                  .map((e) => e.toString().trim())
+                                  .where((e) => e.isNotEmpty)
+                                  .toSet()
+                                  .toList();
                               setState(() {
                                 selectedTerritoryId = id;
-                                selectedTerritoryName = found['name']
-                                    ?.toString();
+                                selectedTerritoryName = found['name']?.toString();
+                                availableLocalities = locs;
+                                selectedLocality = null; // Phase 3: Changing zone clears incompatible previously selected area
                               });
                               _loadEligibleFranchises(id);
                             }
                           },
                         ),
                       if (selectedTerritoryId != null) ...[
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         Builder(
                           builder: (context) {
                             final sel = territories.firstWhere(
@@ -628,6 +716,67 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                             );
                           },
                         ),
+                        const SizedBox(height: 12),
+                        if (availableLocalities.isNotEmpty) ...[
+                          DropdownButtonFormField<String>(
+                            key: ValueKey('area_${selectedTerritoryId}_$selectedLocality'),
+                            value: (selectedLocality != null && availableLocalities.contains(selectedLocality))
+                                ? selectedLocality
+                                : null,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'Select Area / Locality in $selectedTerritoryName *',
+                              hintText: 'Choose your locality',
+                              prefixIcon: const Icon(Icons.location_on_outlined, color: Color(0xFF0284C7)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
+                            items: availableLocalities.map((area) {
+                              return DropdownMenuItem<String>(
+                                value: area,
+                                child: Text(
+                                  area,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                              );
+                            }).toList(),
+                            validator: (val) {
+                              if (availableLocalities.isNotEmpty && (val == null || val.trim().isEmpty)) {
+                                return 'Please select your area / locality.';
+                              }
+                              return null;
+                            },
+                            onChanged: (val) {
+                              setState(() {
+                                selectedLocality = val;
+                              });
+                            },
+                          ),
+                        ] else ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFCBD5E1)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline, color: Color(0xFF64748B), size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'No specific pre-configured localities in $selectedTerritoryName. Central municipal delivery applies.',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ],
                   ),

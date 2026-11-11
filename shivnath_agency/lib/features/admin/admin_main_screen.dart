@@ -59,6 +59,8 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   final AuthRepository _authRepository = AuthRepository();
   int _lastMaxStockRequestId = 0;
   bool _baselineStockRequestsLoaded = false;
+  bool _isPollingOrders = false;
+  bool _isPollingStock = false;
 
   @override
   void initState() {
@@ -79,21 +81,33 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   void _startOrderPolling() {
     _pollOrders();
     _pollStockRequests();
-    _orderPollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    // 60-second periodic poll to avoid overwhelming backend workers while FCM provides instant push alerts
+    _orderPollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       _pollOrders();
       _pollStockRequests();
     });
   }
 
   Future<void> _pollOrders() async {
+    if (_isPollingOrders) return;
+    _isPollingOrders = true;
     final sessionEpoch = SessionService.currentSessionEpoch;
-    if (_isLoggingOut || !mounted) return;
+    if (_isLoggingOut || !mounted) {
+      _isPollingOrders = false;
+      return;
+    }
     try {
       final res = await _orderService.getOrders();
-      if (!mounted || _isLoggingOut || !SessionService.isSessionActive(sessionEpoch)) return;
+      if (!mounted || _isLoggingOut || !SessionService.isSessionActive(sessionEpoch)) {
+        _isPollingOrders = false;
+        return;
+      }
       try {
         final auth = context.read<AuthProvider>();
-        if (!auth.isAuthenticated || (auth.currentUser?.role != 'admin' && auth.currentUser?.role != 'super_admin')) return;
+        if (!auth.isAuthenticated || (auth.currentUser?.role != 'admin' && auth.currentUser?.role != 'super_admin')) {
+          _isPollingOrders = false;
+          return;
+        }
       } catch (_) {}
 
       if (res['success'] == true && res['data'] != null) {
@@ -147,7 +161,10 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           _showNewOrderAlert(latestNewOrder);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isPollingOrders = false;
+    }
   }
 
   void _showNewOrderAlert(
@@ -258,14 +275,25 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   }
 
   Future<void> _pollStockRequests() async {
+    if (_isPollingStock) return;
+    _isPollingStock = true;
     final sessionEpoch = SessionService.currentSessionEpoch;
-    if (_isLoggingOut || !mounted) return;
+    if (_isLoggingOut || !mounted) {
+      _isPollingStock = false;
+      return;
+    }
     try {
       final res = await _inventoryService.getDealerStockRequests();
-      if (!mounted || _isLoggingOut || !SessionService.isSessionActive(sessionEpoch)) return;
+      if (!mounted || _isLoggingOut || !SessionService.isSessionActive(sessionEpoch)) {
+        _isPollingStock = false;
+        return;
+      }
       try {
         final auth = context.read<AuthProvider>();
-        if (!auth.isAuthenticated || (auth.currentUser?.role != 'admin' && auth.currentUser?.role != 'super_admin')) return;
+        if (!auth.isAuthenticated || (auth.currentUser?.role != 'admin' && auth.currentUser?.role != 'super_admin')) {
+          _isPollingStock = false;
+          return;
+        }
       } catch (_) {}
       if (res['success'] == true && res['data'] is List) {
         final List items = res['data'] as List;
@@ -295,7 +323,10 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           _showNewStockRequestDialog(latestNewRequest);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isPollingStock = false;
+    }
   }
 
   void _showNewStockRequestDialog(Map<String, dynamic> req) {
@@ -459,6 +490,11 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         ),
         _AdminMenuItem(
           index: 5,
+          title: 'Products & Pricing',
+          icon: Icons.local_offer_outlined,
+        ),
+        _AdminMenuItem(
+          index: 22,
           title: 'BOM Recipes',
           icon: Icons.science_outlined,
         ),
@@ -514,8 +550,8 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       ),
       const _AdminMenuItem(
         index: 5,
-        title: 'Products & Packaging MOQ',
-        icon: Icons.inventory_2_outlined,
+        title: 'Products & Pricing',
+        icon: Icons.local_offer_outlined,
       ),
       const _AdminMenuItem(
         index: 22,

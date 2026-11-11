@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -1205,8 +1206,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         final dir = await getTemporaryDirectory();
         final file = File('${dir.path}/Invoice_$invId.pdf');
         await file.writeAsBytes(res.bodyBytes, flush: true);
+        try {
+          await FileSaver.instance.saveFile(
+            name: 'Invoice_$invId',
+            bytes: res.bodyBytes,
+            ext: 'pdf',
+            mimeType: MimeType.pdf,
+          );
+        } catch (_) {}
         if (mounted) {
-          AppToast.success(context, 'Invoice downloaded successfully.', title: 'PDF Ready');
+          AppToast.success(context, 'Invoice saved to Downloads & ready.', title: 'PDF Ready');
         }
         await OpenFilex.open(file.path);
       } else {
@@ -1241,8 +1250,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         final dir = await getTemporaryDirectory();
         final file = File('${dir.path}/Order_${orderId}_Invoice.pdf');
         await file.writeAsBytes(res.bodyBytes, flush: true);
+        try {
+          await FileSaver.instance.saveFile(
+            name: 'Order_${orderId}_Invoice',
+            bytes: res.bodyBytes,
+            ext: 'pdf',
+            mimeType: MimeType.pdf,
+          );
+        } catch (_) {}
         if (mounted) {
-          AppToast.success(context, 'Invoice downloaded successfully.', title: 'PDF Ready');
+          AppToast.success(context, 'Invoice saved to Downloads & ready.', title: 'PDF Ready');
         }
         await OpenFilex.open(file.path);
       } else {

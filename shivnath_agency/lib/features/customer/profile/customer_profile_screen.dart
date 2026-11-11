@@ -40,8 +40,19 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   /// Phase 1 – show UI immediately from local session cache (no network).
   Future<void> _loadUserDataInstant() async {
-    final user = await _authRepository.getCachedUser();
     final prefs = await SharedPreferences.getInstance();
+    final isGuest = prefs.getBool('is_guest_mode') ?? false;
+    if (isGuest) {
+      if (mounted) {
+        setState(() {
+          _currentUser = null;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    final user = await _authRepository.getCachedUser();
     final address = prefs.getString('customer_delivery_address');
 
     if (mounted) {
@@ -60,6 +71,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   /// Phase 2 – silent background network refresh; updates UI when data arrives.
   Future<void> _refreshFromNetwork() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('is_guest_mode') ?? false) return;
+    if (!mounted) return;
+
     try {
       final authProvider = context.read<AuthProvider>();
       await authProvider.refreshUser();
@@ -1264,6 +1279,17 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final isGuest = authProvider.isGuestMode ||
+        _currentUser == null ||
+        authProvider.currentUser == null ||
+        authProvider.token == null ||
+        authProvider.token!.isEmpty;
+
+    if (isGuest) {
+      return _buildGuestProfileScreen(context);
+    }
+
     if (_isLoading) {
       return const Scaffold(
         body: Center(
@@ -1280,6 +1306,207 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         }
         return _mobile(context);
       },
+    );
+  }
+
+  Widget _buildGuestProfileScreen(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text(
+          'My Profile',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Column(
+              children: [
+                // Welcome Guest Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFE0F2FE),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.account_circle_outlined,
+                          size: 46,
+                          color: Color(0xFF0284C7),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Welcome, Guest!',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Sign in or register to manage your water delivery addresses, track empty jar deposits, check wallet balance, and review past orders.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: Color(0xFF64748B),
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 13),
+                                side: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () => Navigator.pushNamed(context, AppRoutes.customerRegister),
+                              child: const Text(
+                                'Register',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Color(0xFF0284C7),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 13),
+                                backgroundColor: const Color(0xFF0284C7),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () => Navigator.pushNamed(
+                                context,
+                                AppRoutes.login,
+                                arguments: AppConstants.customerRole,
+                              ),
+                              child: const Text(
+                                'Login',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Guest Support & Information Cards
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.help_outline_rounded, color: Color(0xFF16A34A)),
+                        ),
+                        title: const Text('Help & Customer Support', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                        subtitle: const Text('Contact Shivnath Water Wala helpdesk', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                        trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+                        onTap: () => SupportDeskModal.show(context),
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.privacy_tip_outlined, color: Color(0xFF0284C7)),
+                        ),
+                        title: const Text('Privacy Policy & Terms', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                        subtitle: const Text('Read customer rights & service policies', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                        trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+                        onTap: _openPrivacyPolicy,
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.info_outline_rounded, color: Color(0xFFD97706)),
+                        ),
+                        title: const Text('About Shivnath Agency', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                        subtitle: const Text('${AppConstants.appName} • Enterprise Water Logistics', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                        trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+                        onTap: () {
+                          showAboutDialog(
+                            context: context,
+                            applicationName: AppConstants.appName,
+                            applicationVersion: '1.0.0 (Build 5)',
+                            applicationLegalese: '© 2026 Shivnath Agency. All rights reserved.',
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                const Text(
+                  '${AppConstants.appName} • Version 1.0.0+5',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/product_model.dart';
+import '../../../core/services/packaging_service.dart';
 import '../../../core/widgets/product_thumbnail.dart';
 import '../../../core/widgets/moq_confirmation_dialog.dart';
 
@@ -14,6 +15,27 @@ class ProductDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rule = PackagingService().getRuleForProduct(product.id, channel: 'CUSTOMER');
+    final String moqPolicyDescription;
+    if (rule != null) {
+      final moq = (rule['min_order_quantity'] as num?)?.toInt() ?? 1;
+      final salesUnit = (rule['sales_unit'] ?? 'CARTON').toString().toUpperCase();
+      final upc = (rule['units_per_carton'] as num?)?.toInt() ?? product.unitsPerCase;
+      if (salesUnit == 'CARTON') {
+        moqPolicyDescription = 'Minimum order: $moq boxes (${moq * upc} bottles). Sold in full cartons ($upc bottles/box).';
+      } else if (salesUnit == 'JAR') {
+        moqPolicyDescription = 'Minimum order: $moq water jars per delivery.';
+      } else {
+        moqPolicyDescription = 'Minimum order: $moq $salesUnit.';
+      }
+    } else {
+      moqPolicyDescription = product.isJar
+          ? 'Minimum order: 5 water jars per delivery.'
+          : (product.isBottle
+              ? 'Minimum order: 5 boxes (${product.unitsPerCase * 5} bottles). Sold in full cartons.'
+              : 'Minimum order: ${product.minOrderQuantity} ${product.unit}.');
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Product Details'),
@@ -102,11 +124,7 @@ class ProductDetailScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          product.isJar
-                              ? 'Minimum order: 5 water jars per delivery.'
-                              : (product.isBottle
-                                  ? 'Minimum order: 5 boxes (${product.unitsPerCase * 5} bottles). Sold in full cartons.'
-                                  : 'Minimum order: ${product.minOrderQuantity} ${product.unit}.'),
+                          moqPolicyDescription,
                           style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w500),
                         ),
                       ],

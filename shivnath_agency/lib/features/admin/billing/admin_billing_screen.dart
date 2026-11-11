@@ -47,8 +47,17 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
     });
     try {
       final res = await InventoryRepository().getInvoices();
-      if (res['success'] == true && res['data'] is List) {
-        final list = (res['data'] as List).cast<Map<String, dynamic>>();
+      List<dynamic>? rawList;
+      if (res['success'] == true) {
+        if (res['data'] is List) {
+          rawList = res['data'] as List;
+        } else if (res['data'] is Map && res['data']['results'] is List) {
+          rawList = res['data']['results'] as List;
+        }
+      }
+
+      if (rawList != null) {
+        final list = rawList.cast<Map<String, dynamic>>();
         final mapped = list.map((item) {
           final total = _asInt(item['grand_total'] ?? item['total_amount'] ?? item['total']);
           final paid = _asInt(item['amount_paid'] ?? item['paid']);
@@ -324,12 +333,28 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   }
 
   Widget _stats(bool desktop) {
+    final String invCountStr = _isLoading
+        ? '...'
+        : (_billingError != null && invoices.isEmpty ? '—' : '${invoices.length}');
+    final String totalBillStr = _isLoading
+        ? '...'
+        : (_billingError != null && invoices.isEmpty ? '—' : _currency(totalBilling));
+    final String collectedStr = _isLoading
+        ? '...'
+        : (_billingError != null && invoices.isEmpty ? '—' : _currency(totalCollected));
+    final String outstandingStr = _isLoading
+        ? '...'
+        : (_billingError != null && invoices.isEmpty ? '—' : _currency(totalOutstanding));
+    final String unpaidStr = _isLoading
+        ? '...'
+        : (_billingError != null && invoices.isEmpty ? '—' : '$unpaidCount');
+
     final data = [
-      ['Total Invoices', '${invoices.length}', Icons.receipt_long_outlined],
-      ['Total Billing', _currency(totalBilling), Icons.currency_rupee],
-      ['Collected', _currency(totalCollected), Icons.check_circle_outline],
-      ['Outstanding', _currency(totalOutstanding), Icons.schedule_outlined],
-      ['Payment Due', '$unpaidCount', Icons.notifications_active_outlined],
+      ['Total Invoices', invCountStr, Icons.receipt_long_outlined],
+      ['Total Billing', totalBillStr, Icons.currency_rupee],
+      ['Collected', collectedStr, Icons.check_circle_outline],
+      ['Outstanding', outstandingStr, Icons.schedule_outlined],
+      ['Payment Due', unpaidStr, Icons.notifications_active_outlined],
     ];
 
     if (!desktop) {

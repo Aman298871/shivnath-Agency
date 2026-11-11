@@ -111,6 +111,11 @@ def transition_order_status(order, new_status, actor=None, notes='', bypass_vali
             Invoice.objects.filter(order=order).update(status='CANCELLED')
         except Exception as ie:
             logger.warning("Invoice status cancellation warning: %s", ie)
+        try:
+            from accounts.models import CustomerStockCycle
+            CustomerStockCycle.objects.filter(order=order).update(service_status='completed')
+        except Exception as sce:
+            logger.warning("CustomerStockCycle cancellation warning: %s", sce)
     else:
         order.status = new_clean
         order.save(update_fields=['status', 'updated_at'])

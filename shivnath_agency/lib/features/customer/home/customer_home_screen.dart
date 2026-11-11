@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/product_provider.dart';
 import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/ai_chatbot_modal.dart';
 import '../../../models/product_model.dart';
 import '../../../models/user_model.dart';
+import '../../../routes/app_routes.dart';
 import '../notifications/customer_notifications_screen.dart';
 import '../products/category_products_screen.dart';
 import '../products/product_detail_screen.dart';
@@ -49,7 +52,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    final user = await AuthRepository().getCachedUser();
+    final prefs = await SharedPreferences.getInstance();
+    final isGuest = prefs.getBool('is_guest_mode') ?? false;
+    final user = isGuest ? null : await AuthRepository().getCachedUser();
     if (mounted) {
       setState(() {
         _currentUser = user;
@@ -218,10 +223,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
 
+  bool get _isGuest {
+    final auth = context.watch<AuthProvider>();
+    return auth.isGuestMode || _currentUser == null || auth.currentUser == null || auth.token == null || auth.token!.isEmpty;
+  }
+
   String get _userName {
     final name = _currentUser?.name.trim();
     if (name != null && name.isNotEmpty) return name;
-    return 'Valued Customer';
+    return _isGuest ? 'Guest' : 'Valued Customer';
   }
 
   @override
@@ -300,6 +310,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ],
         ),
         actions: [
+          if (_isGuest)
+            TextButton.icon(
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.login, arguments: AppConstants.customerRole),
+              icon: const Icon(Icons.login_rounded, size: 16, color: Color(0xFF0284C7)),
+              label: const Text(
+                'Login',
+                style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0284C7), fontSize: 13),
+              ),
+            ),
           IconButton(
             onPressed: () async {
               await Navigator.push(
@@ -358,6 +377,38 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     : const Icon(Icons.tune_rounded),
               ),
             ),
+
+            if (_isGuest)
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.explore_outlined, color: Color(0xFF16A34A), size: 18),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Browsing as Guest',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.login, arguments: AppConstants.customerRole),
+                      child: const Text(
+                        'Sign In',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7), decoration: TextDecoration.underline),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
             const SizedBox(height: 20),
 

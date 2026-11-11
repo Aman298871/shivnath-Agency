@@ -170,7 +170,7 @@ class PackagingService {
       final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/products/packaging-rules/').replace(
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
-      final res = await ApiClient.get(uri, headers: await _authHeaders()).timeout(const Duration(seconds: 12));
+      final res = await ApiClient.get(uri, headers: await _authHeaders()).timeout(const Duration(seconds: 35));
       final decoded = jsonDecode(res.body);
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final list = decoded is List ? decoded : (decoded['rules'] ?? decoded['data'] ?? []);
@@ -212,10 +212,11 @@ class PackagingService {
   Future<Map<String, dynamic>> createPackagingRule(Map<String, dynamic> data) async {
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/api/products/packaging-rules/');
-      final res = await ApiClient.post(url, headers: await _authHeaders(), body: jsonEncode(data)).timeout(const Duration(seconds: 12));
+      final res = await ApiClient.post(url, headers: await _authHeaders(), body: jsonEncode(data)).timeout(const Duration(seconds: 35));
       final decoded = jsonDecode(res.body);
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        await getPackagingRules();
+        // Refresh rules in background to keep in-memory cache synchronized without blocking caller
+        getPackagingRules().catchError((_) => <String, dynamic>{});
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': _extractErrorMessage(decoded, res.statusCode, 'Failed to create rule')};
@@ -227,10 +228,11 @@ class PackagingService {
   Future<Map<String, dynamic>> updatePackagingRule(int id, Map<String, dynamic> data) async {
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/api/products/packaging-rules/$id/');
-      final res = await ApiClient.patch(url, headers: await _authHeaders(), body: jsonEncode(data)).timeout(const Duration(seconds: 12));
+      final res = await ApiClient.patch(url, headers: await _authHeaders(), body: jsonEncode(data)).timeout(const Duration(seconds: 35));
       final decoded = jsonDecode(res.body);
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        await getPackagingRules();
+        // Refresh rules in background to keep in-memory cache synchronized without blocking caller
+        getPackagingRules().catchError((_) => <String, dynamic>{});
         return {'success': true, 'data': decoded};
       }
       return {'success': false, 'message': _extractErrorMessage(decoded, res.statusCode, 'Failed to update rule')};
@@ -242,9 +244,9 @@ class PackagingService {
   Future<Map<String, dynamic>> deletePackagingRule(int id) async {
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/api/products/packaging-rules/$id/');
-      final res = await ApiClient.delete(url, headers: await _authHeaders()).timeout(const Duration(seconds: 12));
+      final res = await ApiClient.delete(url, headers: await _authHeaders()).timeout(const Duration(seconds: 35));
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        await getPackagingRules();
+        getPackagingRules().catchError((_) => <String, dynamic>{});
         return {'success': true};
       }
       dynamic decoded;

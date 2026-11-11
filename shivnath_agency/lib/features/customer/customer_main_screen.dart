@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/auth_provider.dart';
@@ -38,6 +39,16 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   }
 
   Future<void> _loadCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isGuest = prefs.getBool('is_guest_mode') ?? false;
+    if (isGuest) {
+      if (mounted) {
+        setState(() {
+          _currentUser = null;
+        });
+      }
+      return;
+    }
     final user = await SessionService().getUser();
     if (mounted && user != null) {
       setState(() {
@@ -673,12 +684,47 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                             });
                           }
 
-                          // LOGOUT
+                          // LOGOUT or LOGIN
                           if (value == 'logout') {
                             await _logoutCustomer();
                           }
+                          if (!mounted) return;
+                          if (value == 'login') {
+                            Navigator.pushNamed(context, AppRoutes.login, arguments: AppConstants.customerRole);
+                          }
+                          if (value == 'register') {
+                            Navigator.pushNamed(context, AppRoutes.customerRegister);
+                          }
                         },
                         itemBuilder: (context) {
+                          final authProvider = context.read<AuthProvider>();
+                          final isGuest = _currentUser == null && (authProvider.currentUser == null || authProvider.token == null || authProvider.token!.isEmpty);
+
+                          if (isGuest) {
+                            return [
+                              const PopupMenuItem<String>(
+                                value: 'login',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.login_rounded, size: 20, color: Color(0xFF0284C7)),
+                                    SizedBox(width: 12),
+                                    Text('Sign In', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0284C7))),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem<String>(
+                                value: 'register',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.person_add_outlined, size: 20, color: Color(0xFF16A34A)),
+                                    SizedBox(width: 12),
+                                    Text('Register', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF16A34A))),
+                                  ],
+                                ),
+                              ),
+                            ];
+                          }
+
                           return [
                             // =========================================
                             // PROFILE
@@ -790,7 +836,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                   Text(
                                     _currentUser?.name.trim().isNotEmpty == true
                                         ? _currentUser!.name.trim()
-                                        : 'Customer',
+                                        : 'Guest User',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -800,9 +846,9 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 2),
-                                  const Text(
-                                    'Customer',
-                                    style: TextStyle(
+                                  Text(
+                                    _currentUser != null ? 'Customer' : 'Tap to Sign In',
+                                    style: const TextStyle(
                                       fontSize: 9,
                                       color: Color(0xFF64748B),
                                     ),

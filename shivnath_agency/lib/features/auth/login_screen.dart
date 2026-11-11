@@ -220,6 +220,21 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.pushNamed(context, AppRoutes.franchiseRegister);
   }
 
+  Future<void> _continueAsGuest() async {
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.enterGuestMode();
+    if (!mounted) return;
+    final roleProvider = Provider.of<RoleThemeProvider>(context, listen: false);
+    roleProvider.setRole(AppConstants.customerRole);
+    await _sessionService.saveRole(AppConstants.customerRole);
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRoutes.customerDashboard,
+      (_) => false,
+    );
+  }
+
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -473,6 +488,33 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                 ),
+
+                // Browse as Guest option for Customer (App Store Guideline 4.3 / 5.1.1 compliant)
+                if (role == AppConstants.customerRole) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: BrandColors.primaryBlue,
+                        side: const BorderSide(color: Color(0xFFBAE6FD), width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: isLoading ? null : _continueAsGuest,
+                      icon: const Icon(Icons.explore_outlined, size: 19),
+                      label: const Text(
+                        'Browse Products as Guest',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 24),
 

@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/constants/app_constants.dart';
 import 'core/providers/app_providers.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/packaging_service.dart';
 import 'core/widgets/app_toast.dart';
 import 'firebase_options.dart';
 import 'routes/app_routes.dart';
@@ -110,6 +111,11 @@ void main() async {
   };
 
   runApp(const WaterBusinessApp());
+
+  // Warm up packaging and MOQ rules asynchronously
+  PackagingService().loadCachedRules().then((_) {
+    PackagingService().getPackagingRules().catchError((_) => <String, dynamic>{});
+  });
 
   // Initialize notification service asynchronously without blocking splash screen or app startup
   NotificationService().initialize(navKey: rootNavigatorKey).catchError((e) {

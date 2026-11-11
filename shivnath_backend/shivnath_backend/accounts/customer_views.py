@@ -66,11 +66,14 @@ class AdminCustomerListView(APIView):
         try:
             # 1. Base Customer Queryset (Exclude internal admins, franchises, staff, stock managers)
             base_customers = User.objects.filter(
-                Q(profile__role='customer') | Q(profile__isnull=True)
+                Q(profile__role__iexact='customer') | Q(profile__isnull=True)
             ).exclude(
                 is_superuser=True
             ).exclude(
-                profile__role__in=['admin', 'super_admin', 'franchise', 'staff', 'stock_manager', 'sales_executive']
+                profile__role__in=[
+                    'admin', 'super_admin', 'franchise', 'staff', 'stock_manager', 'sales_executive',
+                    'ADMIN', 'SUPER_ADMIN', 'FRANCHISE', 'STAFF', 'STOCK_MANAGER', 'SALES_EXECUTIVE'
+                ]
             ).exclude(
                 franchise_profile__isnull=False
             ).select_related(
@@ -197,16 +200,31 @@ class AdminCustomerListView(APIView):
                 is_active=True
             ).exclude(profile__status__in=['inactive', 'suspended']).count()
 
-            # Summary totals
-            total_orders_all = annotated_customers.aggregate(
-                total_orders=Sum('total_orders_count'),
-                total_revenue=Sum('total_spent')
-            )
+            # Summary totals with robust fallback for all database engines
+            try:
+                total_orders_all = annotated_customers.aggregate(
+                    total_orders=Sum('total_orders_count'),
+                    total_revenue=Sum('total_spent')
+                )
+                total_orders_val = total_orders_all.get('total_orders') or 0
+                total_rev_val = float(total_orders_all.get('total_revenue') or 0.0)
+            except Exception:
+                # Direct Order aggregate fallback for engines that reject nested annotations
+                customer_user_ids = list(base_customers.values_list('id', flat=True))
+                order_agg = Order.objects.filter(
+                    created_by_id__in=customer_user_ids
+                ).exclude(status='cancelled').aggregate(
+                    tot_orders=Count('id'),
+                    tot_rev=Coalesce(Sum('grand_total'), Sum('amount'), Value(Decimal('0.00')), output_field=DecimalField())
+                )
+                total_orders_val = order_agg.get('tot_orders') or 0
+                total_rev_val = float(order_agg.get('tot_rev') or 0.0)
+
             summary = {
                 'total_customers': total_count,
                 'active_customers': total_active,
-                'total_orders': total_orders_all.get('total_orders') or 0,
-                'total_revenue': float(total_orders_all.get('total_revenue') or 0.0),
+                'total_orders': total_orders_val,
+                'total_revenue': total_rev_val,
             }
 
             # 8. Pagination

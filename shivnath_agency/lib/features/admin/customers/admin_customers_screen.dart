@@ -225,39 +225,49 @@ class _AdminCustomersScreenState extends State<AdminCustomersScreen> {
   }
 
   Widget _buildKpiCards(bool desktop) {
-    final totalCustomers = _summary['total_customers'] ?? 0;
-    final activeCustomers = _summary['active_customers'] ?? 0;
-    final totalOrders = _summary['total_orders'] ?? 0;
-    final totalRevenue = (_summary['total_revenue'] as num?)?.toDouble() ?? 0.0;
+    final String custVal = _isLoading
+        ? '...'
+        : (_errorMessage != null && _totalCount == 0 ? '—' : '${_summary['total_customers'] ?? 0}');
+    final String activeVal = _isLoading
+        ? '...'
+        : (_errorMessage != null && _totalCount == 0 ? '—' : '${_summary['active_customers'] ?? 0}');
+    final String ordersVal = _isLoading
+        ? '...'
+        : (_errorMessage != null && _totalCount == 0 ? '—' : '${_summary['total_orders'] ?? 0}');
+    final String revVal = _isLoading
+        ? '...'
+        : (_errorMessage != null && _totalCount == 0
+            ? '—'
+            : '₹${((_summary['total_revenue'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2)}');
 
     final cards = [
       _kpiCard(
         title: 'Total Customers',
-        value: totalCustomers.toString(),
+        value: custVal,
         icon: Icons.groups_outlined,
         color: const Color(0xFF0284C7),
-        subtitle: 'Registered consumer accounts',
+        subtitle: _isLoading ? 'Loading customers...' : 'Registered consumer accounts',
       ),
       _kpiCard(
         title: 'Active Accounts',
-        value: activeCustomers.toString(),
+        value: activeVal,
         icon: Icons.verified_user_outlined,
         color: const Color(0xFF10B981),
-        subtitle: 'Verified & active service',
+        subtitle: _isLoading ? 'Loading accounts...' : 'Verified & active service',
       ),
       _kpiCard(
         title: 'Total Orders Placed',
-        value: totalOrders.toString(),
+        value: ordersVal,
         icon: Icons.shopping_bag_outlined,
         color: const Color(0xFF8B5CF6),
-        subtitle: 'Across all channels & dealers',
+        subtitle: _isLoading ? 'Loading orders...' : 'Across all channels & dealers',
       ),
       _kpiCard(
         title: 'Total CRM Spend',
-        value: '₹${totalRevenue.toStringAsFixed(2)}',
+        value: revVal,
         icon: Icons.currency_rupee,
         color: const Color(0xFFF59E0B),
-        subtitle: 'Customer lifetime gross revenue',
+        subtitle: _isLoading ? 'Loading spend...' : 'Customer lifetime gross revenue',
       ),
     ];
 
@@ -998,7 +1008,7 @@ class _AdminCustomersScreenState extends State<AdminCustomersScreen> {
     final end = (_currentPage * _pageSize) > _totalCount ? _totalCount : (_currentPage * _pageSize);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1007,14 +1017,21 @@ class _AdminCustomersScreenState extends State<AdminCustomersScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Showing $start to $end of $_totalCount customers',
-            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+          Expanded(
+            child: Text(
+              'Showing $start-$end of $_totalCount',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                icon: const Icon(Icons.chevron_left, size: 20),
                 onPressed: _currentPage > 1
                     ? () {
                         setState(() => _currentPage--);
@@ -1022,12 +1039,18 @@ class _AdminCustomersScreenState extends State<AdminCustomersScreen> {
                       }
                     : null,
               ),
-              Text(
-                'Page $_currentPage of $_totalPages',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text(
+                  '$_currentPage / $_totalPages',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
+                ),
               ),
               IconButton(
-                icon: const Icon(Icons.chevron_right),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                icon: const Icon(Icons.chevron_right, size: 20),
                 onPressed: _currentPage < _totalPages
                     ? () {
                         setState(() => _currentPage++);

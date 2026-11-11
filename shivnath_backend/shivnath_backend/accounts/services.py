@@ -110,6 +110,19 @@ def trigger_daily_low_stock_alerts(target_date=None):
                         stock_cycle=cycle,
                         reference_id=cycle.id,
                     )
+                    try:
+                        from accounts.fcm_services import enqueue_notification
+                        enqueue_notification(
+                            users=cust,
+                            title="⚠️ Water Stock Refill Reminder",
+                            body=f"Your water stock will finish in {days_remaining} day{'s' if days_remaining != 1 else ''}. Tap to place a refill order.",
+                            data={'screen': 'customer_orders', 'cycle_id': cycle.id, 'days_remaining': days_remaining},
+                            notification_type='low_stock',
+                            reference_id=cycle.id,
+                            idempotency_key=f"stock_alert_cust_{cycle.id}_{today}"
+                        )
+                    except Exception:
+                        pass
                     StockAlertLog.objects.create(
                         stock_cycle=cycle,
                         alert_date=today,
@@ -149,6 +162,21 @@ def trigger_daily_low_stock_alerts(target_date=None):
                         notification_type='stock_alert',
                         reference_id=cycle.id,
                     )
+                    try:
+                        fran_user = getattr(serving_f, 'user', None)
+                        if fran_user:
+                            from accounts.fcm_services import enqueue_notification
+                            enqueue_notification(
+                                users=fran_user,
+                                title=f"Low Stock Alert: {cust_name} ({days_remaining}d left)",
+                                body=f"Customer {cust_name}'s water stock will finish in {days_remaining} day{'s' if days_remaining != 1 else ''}. Follow up for refill.",
+                                data={'screen': 'franchise_customers', 'cycle_id': cycle.id, 'customer_id': cust.id},
+                                notification_type='stock_alert',
+                                reference_id=cycle.id,
+                                idempotency_key=f"stock_alert_fran_{cycle.id}_{today}"
+                            )
+                    except Exception:
+                        pass
                     StockAlertLog.objects.create(
                         stock_cycle=cycle,
                         alert_date=today,
@@ -187,6 +215,19 @@ def trigger_daily_low_stock_alerts(target_date=None):
                         notification_type='stock_alert',
                         reference_id=cycle.id,
                     )
+                    try:
+                        from accounts.fcm_services import enqueue_notification
+                        enqueue_notification(
+                            role_target='admin',
+                            title=f"Low Stock Alert: {cust_name}",
+                            body=f"Customer {cust_name} in Zone {zone_name} has stock ending in {days_remaining} days.",
+                            data={'screen': 'admin_customers', 'cycle_id': cycle.id},
+                            notification_type='stock_alert',
+                            reference_id=cycle.id,
+                            idempotency_key=f"stock_alert_admin_{cycle.id}_{today}"
+                        )
+                    except Exception:
+                        pass
                     StockAlertLog.objects.create(
                         stock_cycle=cycle,
                         alert_date=today,

@@ -774,7 +774,22 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
             data['sales_unit'] = baseline.sales_unit
             data['units_per_carton'] = baseline.units_per_carton
 
-        serializer = MinimumOrderPackagingRuleSerializer(data=data)
+        # For Admin baseline rules: If an active baseline rule already exists for this product and channel, update it in-place
+        existing_rule = None
+        if is_admin and data.get('product'):
+            prod_val = data.get('product')
+            applies_to_val = data.get('applies_to', 'CUSTOMER')
+            existing_rule = MinimumOrderPackagingRule.objects.filter(
+                product_id=prod_val,
+                franchise__isnull=True,
+                applies_to=applies_to_val
+            ).order_by('-priority', '-id').first()
+
+        if existing_rule:
+            serializer = MinimumOrderPackagingRuleSerializer(existing_rule, data=data, partial=True)
+        else:
+            serializer = MinimumOrderPackagingRuleSerializer(data=data)
+
         if not serializer.is_valid():
             first_err_val = next(iter(serializer.errors.values()), None)
             first_key = next(iter(serializer.errors.keys()), "Error")
@@ -788,9 +803,9 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
         rule = serializer.save()
         return Response({
             'success': True,
-            'message': f"Packaging rule '{rule.name}' created successfully.",
+            'message': f"Packaging rule '{rule.name}' saved successfully.",
             'rule': serializer.data,
-        }, status=status.HTTP_201_CREATED)
+        }, status=status.HTTP_201_CREATED if not existing_rule else status.HTTP_200_OK)
 
 
 class MinimumOrderPackagingRuleDetailView(APIView):

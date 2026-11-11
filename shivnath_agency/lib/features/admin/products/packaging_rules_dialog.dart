@@ -20,13 +20,15 @@ class PackagingRulesDialog extends StatefulWidget {
   State<PackagingRulesDialog> createState() => _PackagingRulesDialogState();
 }
 
-class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
+class _PackagingRulesDialogState extends State<PackagingRulesDialog> with SingleTickerProviderStateMixin {
   final PackagingService _service = PackagingService();
+  late TabController _tabController;
   List<dynamic> _rules = [];
   List<Map<String, dynamic>> _productList = [];
   bool _loading = true;
   bool _creating = false;
   bool _isRulesCached = false;
+  bool _rulesLoadedFromServer = false;
   String? _rulesError;
   int? _editingRuleId;
 
@@ -124,6 +126,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _productList = List<Map<String, dynamic>>.from(widget.products);
     if (_productList.isEmpty && ProductRepository.cachedProducts.isNotEmpty) {
       _productList = ProductRepository.cachedProducts.map((p) => {
@@ -189,6 +192,28 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
   }
 
   void _applySmartDefaults(Map<String, dynamic> product) {
+    final pid = product['id'] is int ? product['id'] as int : int.tryParse(product['id']?.toString() ?? '0') ?? 0;
+
+    // Check if an existing rule exists for this product and channel in _rules:
+    Map<String, dynamic>? existingRule;
+    for (final r in _rules) {
+      final rPid = r['product'] ?? r['product_id'];
+      final rPidInt = rPid is int ? rPid : int.tryParse(rPid?.toString() ?? '0') ?? 0;
+      final rChan = (r['applies_to'] ?? r['channel'] ?? 'ALL').toString().toUpperCase();
+      if (rPidInt == pid && (rChan == 'ALL' || rChan == _channel.toUpperCase())) {
+        existingRule = Map<String, dynamic>.from(r as Map);
+        break;
+      }
+    }
+
+    if (existingRule != null) {
+      // Auto-load the existing rule into edit mode so the user sees and modifies current values!
+      _startEditRule(existingRule);
+      return;
+    }
+
+    // Otherwise fresh defaults
+    _editingRuleId = null;
     final name = (product['name'] ?? '').toString().toUpperCase();
     final sku = (product['sku'] ?? '').toString().toUpperCase();
     final size = (product['size'] ?? '').toString().toUpperCase();
@@ -234,6 +259,9 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
         }
       }
     });
+    if (_tabController.index != 0) {
+      _tabController.animateTo(0);
+    }
   }
 
   void _cancelEdit() {
@@ -253,6 +281,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _nameCtrl.dispose();
     _minQtyCtrl.dispose();
     _cartonSizeCtrl.dispose();
@@ -269,6 +298,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
     if (mounted) {
       setState(() {
         _loading = false;
+        _rulesLoadedFromServer = res['success'] == true;
         _isRulesCached = res['is_cached'] == true;
         _rules = res['rules'] as List? ?? [];
         if (res['success'] == true) {
@@ -332,6 +362,9 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
         );
         _cancelEdit();
         _loadRules();
+        if (_tabController.index != 1) {
+          _tabController.animateTo(1);
+        }
       } else {
         AppToast.error(context, res['message']?.toString() ?? 'Failed to save rule');
       }
@@ -448,30 +481,29 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                   builder: (context, constraints) {
                     final isNarrow = constraints.maxWidth < 650;
                     if (isNarrow) {
-                      return DefaultTabController(
-                        length: 2,
-                        child: Column(
-                          children: [
-                            TabBar(
-                              labelColor: const Color(0xFF0284C7),
-                              unselectedLabelColor: const Color(0xFF64748B),
-                              indicatorColor: const Color(0xFF0284C7),
-                              tabs: [
-                                const Tab(text: 'Rule Form'),
-                                Tab(text: 'Active Rules (${_rules.length})'),
+                      return Column(
+                        children: [
+                          TabBar(
+                            controller: _tabController,
+                            labelColor: const Color(0xFF0284C7),
+                            unselectedLabelColor: const Color(0xFF64748B),
+                            indicatorColor: const Color(0xFF0284C7),
+                            tabs: [
+                              Tab(text: _editingRuleId != null ? 'Edit Rule #$_editingRuleId' : 'Rule Form'),
+                              Tab(text: _loading ? 'Active Rules (...)' : 'Active Rules (${_rules.length})'),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                SingleChildScrollView(child: _buildForm()),
+                                _buildRulesList(),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            Expanded(
-                              child: TabBarView(
-                                children: [
-                                  SingleChildScrollView(child: _buildForm()),
-                                  _buildRulesList(),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       );
                     }
                     return Row(
@@ -841,29 +873,55 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
               spacing: 8,
               runSpacing: 4,
               children: [
-                Text('Active Rules (${_rules.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(_loading ? 'Active Rules (...)' : 'Active Rules (${_rules.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _isRulesCached ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7),
+                    color: _loading
+                        ? const Color(0xFFE0F2FE)
+                        : (_rulesLoadedFromServer
+                            ? const Color(0xFFDCFCE7)
+                            : (_isRulesCached ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2))),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: _isRulesCached ? const Color(0xFFFDE68A) : const Color(0xFFBBF7D0)),
+                    border: Border.all(
+                      color: _loading
+                          ? const Color(0xFFBAE6FD)
+                          : (_rulesLoadedFromServer
+                              ? const Color(0xFFBBF7D0)
+                              : (_isRulesCached ? const Color(0xFFFDE68A) : const Color(0xFFFECACA))),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _isRulesCached ? Icons.cloud_off_rounded : Icons.cloud_done_rounded,
+                        _loading
+                            ? Icons.sync_rounded
+                            : (_rulesLoadedFromServer
+                                ? Icons.cloud_done_rounded
+                                : (_isRulesCached ? Icons.cloud_off_rounded : Icons.error_outline_rounded)),
                         size: 12,
-                        color: _isRulesCached ? const Color(0xFFB45309) : const Color(0xFF15803D),
+                        color: _loading
+                            ? const Color(0xFF0284C7)
+                            : (_rulesLoadedFromServer
+                                ? const Color(0xFF15803D)
+                                : (_isRulesCached ? const Color(0xFFB45309) : const Color(0xFFDC2626))),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _isRulesCached ? 'Local Cache (Offline)' : 'Server Synced',
+                        _loading
+                            ? 'Syncing...'
+                            : (_rulesLoadedFromServer
+                                ? 'Server Synced'
+                                : (_isRulesCached ? 'Local Cache (Offline)' : 'Sync Failed')),
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: _isRulesCached ? const Color(0xFFB45309) : const Color(0xFF15803D),
+                          color: _loading
+                              ? const Color(0xFF0284C7)
+                              : (_rulesLoadedFromServer
+                                  ? const Color(0xFF15803D)
+                                  : (_isRulesCached ? const Color(0xFFB45309) : const Color(0xFFDC2626))),
                         ),
                       ),
                     ],

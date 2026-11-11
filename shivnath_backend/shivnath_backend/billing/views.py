@@ -40,7 +40,15 @@ class InvoiceListAPIView(generics.ListAPIView):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Stock managers are forbidden from accessing financial invoices and billing.")
 
-        qs = Invoice.objects.all()
+        qs = Invoice.objects.all().select_related(
+            'order',
+            'order__serving_franchise',
+            'order__created_by',
+            'stock_request',
+            'stock_request__dealer'
+        ).prefetch_related(
+            'payments'
+        ).order_by('-issued_at', '-id')
 
         # Role / Data Scoping
 
@@ -58,7 +66,7 @@ class InvoiceListAPIView(generics.ListAPIView):
         elif hasattr(user, 'profile') and user.profile.role == 'customer':
             qs = qs.filter(order__created_by=user)
 
-        invoice_type = self.request.query_params.get('invoice_type')
+        invoice_type = self.request.query_params.get('invoice_type') or self.request.query_params.get('type')
         if invoice_type:
             qs = qs.filter(invoice_type=invoice_type)
 
@@ -1138,7 +1146,7 @@ class DeliveryOriginSettingsAPIView(views.APIView):
         if self.request.method in ['POST', 'PATCH', 'PUT']:
             from accounts.permissions import IsAdminRole
             return [IsAdminRole()]
-        return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
 
     def get(self, request):
         from billing.models import DeliveryOriginSetting

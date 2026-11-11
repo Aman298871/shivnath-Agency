@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../checkout/checkout_screen.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/widgets/product_thumbnail.dart';
+import '../../../routes/app_routes.dart';
 import 'cart_provider.dart';
 
 class CustomerCartScreen extends StatelessWidget {
@@ -93,8 +96,41 @@ class CustomerCartScreen extends StatelessWidget {
   }
 
   Widget _mobileCartContent(BuildContext context, CartProvider cart) {
+    final auth = context.watch<AuthProvider>();
+    final isGuest = auth.isGuestMode || auth.currentUser == null || auth.token == null || auth.token!.isEmpty;
+
     return Column(
       children: [
+        if (isGuest)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.account_circle_outlined, color: Color(0xFF16A34A), size: 22),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Browsing as Guest. Login or register to complete your order.',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                  ),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () => Navigator.pushNamed(context, AppRoutes.login, arguments: AppConstants.customerRole),
+                  child: const Text('Login', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0284C7))),
+                ),
+              ],
+            ),
+          ),
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
@@ -156,6 +192,14 @@ class CustomerCartScreen extends StatelessWidget {
   }
 
   void _checkout(BuildContext context, CartProvider cart) {
+    final auth = context.read<AuthProvider>();
+    final isGuest = auth.isGuestMode || auth.currentUser == null || auth.token == null || auth.token!.isEmpty;
+
+    if (isGuest) {
+      _showGuestAuthModal(context, actionText: 'to place your order and set delivery address');
+      return;
+    }
+
     final moqError = cart.validateCartMoq();
     if (moqError != null) {
       showDialog(
@@ -195,6 +239,90 @@ class CustomerCartScreen extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (_) => const CheckoutScreen(),
+      ),
+    );
+  }
+
+  void _showGuestAuthModal(BuildContext context, {required String actionText}) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE0F2FE),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person_pin_rounded, color: Color(0xFF0284C7), size: 36),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Sign In Required',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please log in or create an account $actionText.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13.5, color: Color(0xFF64748B), height: 1.4),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        side: const BorderSide(color: Color(0xFF0284C7)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.pushNamed(context, AppRoutes.customerRegister);
+                      },
+                      child: const Text('Register', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.pushNamed(context, AppRoutes.login, arguments: AppConstants.customerRole);
+                      },
+                      child: const Text('Login', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -580,31 +708,118 @@ class _EmptyCart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.shopping_cart_outlined,
-            size: 75,
-            color: Color(0xFFCBD5E1),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Your cart is empty',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
+    final auth = context.watch<AuthProvider>();
+    final isGuest = auth.isGuestMode || auth.currentUser == null || auth.token == null || auth.token!.isEmpty;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.shopping_cart_outlined,
+              size: 75,
+              color: Color(0xFFCBD5E1),
             ),
-          ),
-          SizedBox(height: 5),
-          Text(
-            'Add some water products to continue',
-            style: TextStyle(
-              color: Color(0xFF64748B),
+            const SizedBox(height: 16),
+            const Text(
+              'Your cart is empty',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            const Text(
+              'Add fresh water jars & bottle packs to continue',
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 13.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (isGuest) ...[
+              const SizedBox(height: 24),
+              Container(
+                constraints: const BoxConstraints(maxWidth: 340),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.person_outline_rounded, color: Color(0xFF0284C7), size: 18),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Browsing as Guest',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Log in or register to view your previous cart items, bottle deposits, and fast re-orders.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0284C7),
+                              side: const BorderSide(color: Color(0xFF0284C7)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                            onPressed: () => Navigator.pushNamed(context, AppRoutes.customerRegister),
+                            child: const Text('Register', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0284C7),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                            onPressed: () => Navigator.pushNamed(context, AppRoutes.login, arguments: AppConstants.customerRole),
+                            child: const Text('Login', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

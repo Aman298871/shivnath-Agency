@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 class UserProfile(models.Model):
@@ -209,15 +210,18 @@ class DeviceToken(models.Model):
         on_delete=models.CASCADE,
         related_name='device_tokens'
     )
-    token = models.CharField(max_length=255, unique=True)
+    token = models.CharField(max_length=500, unique=True)
     device_type = models.CharField(
         max_length=20,
         default='android',
         choices=[('android', 'Android'), ('ios', 'iOS'), ('web', 'Web')]
     )
+    device_name = models.CharField(max_length=100, blank=True, default='')
+    app_version = models.CharField(max_length=50, blank=True, default='')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-updated_at']
@@ -228,6 +232,59 @@ class DeviceToken(models.Model):
 
     def __str__(self):
         return f"{self.user.username} ({self.device_type}) - {self.token[:12]}..."
+
+
+class NotificationOutbox(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('PROCESSING', 'Processing'),
+        ('DELIVERED', 'Delivered'),
+        ('RETRY', 'Retry Scheduled'),
+        ('FAILED', 'Failed / Dead'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+
+    recipient = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notification_outbox_items'
+    )
+    role_target = models.CharField(max_length=30, blank=True, default='')
+    title = models.CharField(max_length=255)
+    body = models.TextField()
+    data = models.JSONField(default=dict, blank=True)
+    notification_type = models.CharField(max_length=50, default='general')
+    reference_id = models.PositiveIntegerField(null=True, blank=True)
+    idempotency_key = models.CharField(max_length=150, unique=True, db_index=True)
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING', db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    max_attempts = models.PositiveIntegerField(default=5)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    next_retry_at = models.DateTimeField(default=timezone.now, db_index=True)
+    locked_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    locked_by = models.CharField(max_length=100, blank=True, default='')
+
+    fcm_response_code = models.CharField(max_length=100, blank=True, default='')
+    fcm_message_id = models.CharField(max_length=255, blank=True, default='')
+    error_message = models.TextField(blank=True, default='')
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['status', 'next_retry_at']),
+            models.Index(fields=['status', 'locked_at']),
+            models.Index(fields=['recipient', 'status']),
+            models.Index(fields=['reference_id', 'notification_type']),
+        ]
+
+    def __str__(self):
+        return f"Outbox #{self.id} [{self.status}] {self.title[:30]} -> {self.recipient or self.role_target}"
 
 
 

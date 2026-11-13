@@ -20,13 +20,15 @@ class PackagingRulesDialog extends StatefulWidget {
   State<PackagingRulesDialog> createState() => _PackagingRulesDialogState();
 }
 
-class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
+class _PackagingRulesDialogState extends State<PackagingRulesDialog> with SingleTickerProviderStateMixin {
   final PackagingService _service = PackagingService();
+  late TabController _tabController;
   List<dynamic> _rules = [];
   List<Map<String, dynamic>> _productList = [];
   bool _loading = true;
   bool _creating = false;
   bool _isRulesCached = false;
+  bool _rulesLoadedFromServer = false;
   String? _rulesError;
   int? _editingRuleId;
 
@@ -36,6 +38,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
   final _minQtyCtrl = TextEditingController(text: '5');
   final _cartonSizeCtrl = TextEditingController(text: '24');
   final _maxFranchiseMoqCtrl = TextEditingController();
+  String? _selectedCategory;
   int? _selectedProductId;
   String _channel = 'CUSTOMER';
   String _salesUnit = 'CARTON';
@@ -43,9 +46,87 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
   bool _allowFranchiseOverride = false;
   bool _isActive = true;
 
+  static const List<Map<String, dynamic>> defaultCatalogProducts = [
+    {
+      'id': 2,
+      'name': 'Shivnath 200ml Event Bottle',
+      'sku': 'SHV-200',
+      'size': '200 ML',
+      'category': 'Water Bottles',
+      'units_per_case': 24,
+    },
+    {
+      'id': 3,
+      'name': 'Shivnath 250ml Mini Bottle',
+      'sku': 'SHV-250',
+      'size': '250 ML',
+      'category': 'Water Bottles',
+      'units_per_case': 24,
+    },
+    {
+      'id': 4,
+      'name': 'Shivnath 500ml Travel Bottle',
+      'sku': 'SHV-500',
+      'size': '500 ML',
+      'category': 'Water Bottles',
+      'units_per_case': 24,
+    },
+    {
+      'id': 5,
+      'name': 'Shivnath 1 Litre Premium Mineral Bottle',
+      'sku': 'SHV-1L',
+      'size': '1 Litre',
+      'category': 'Water Bottles',
+      'units_per_case': 12,
+    },
+    {
+      'id': 6,
+      'name': 'Shivnath 20 Litre Dispenser Jar',
+      'sku': 'SHV-20L',
+      'size': '20 Litre Jar',
+      'category': 'Water Jars',
+      'units_per_case': 1,
+    },
+  ];
+
+  bool _isLoadingProducts = false;
+
+  String _categoryOfProduct(Map<String, dynamic> product) {
+    final cat = (product['category'] ?? '').toString().trim();
+    if (cat.isNotEmpty && cat != 'Bottle' && cat != 'Jar') {
+      return cat;
+    }
+    final name = (product['name'] ?? '').toString().toLowerCase();
+    final sku = (product['sku'] ?? '').toString().toLowerCase();
+    final size = (product['size'] ?? '').toString().toLowerCase();
+    if (name.contains('jar') || name.contains('20l') || sku.contains('jar') || size.contains('20l')) {
+      return 'Water Jars';
+    }
+    return 'Water Bottles';
+  }
+
+  List<String> get _availableCategories {
+    final sourceList = _productList.isNotEmpty ? _productList : defaultCatalogProducts;
+    final cats = <String>{};
+    for (final p in sourceList) {
+      cats.add(_categoryOfProduct(p));
+    }
+    if (cats.isEmpty) {
+      cats.addAll(['Water Bottles', 'Water Jars']);
+    }
+    return cats.toList()..sort();
+  }
+
+  List<Map<String, dynamic>> get _availableVariantsForSelectedCategory {
+    if (_selectedCategory == null) return [];
+    final sourceList = _productList.isNotEmpty ? _productList : defaultCatalogProducts;
+    return sourceList.where((p) => _categoryOfProduct(p) == _selectedCategory).toList();
+  }
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _productList = List<Map<String, dynamic>>.from(widget.products);
     if (_productList.isEmpty && ProductRepository.cachedProducts.isNotEmpty) {
       _productList = ProductRepository.cachedProducts.map((p) => {
@@ -53,18 +134,19 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
         'name': p.name,
         'sku': p.sku,
         'size': p.size,
+        'category': p.category,
         'units_per_case': p.unitsPerCase,
       }).toList();
     }
-    _loadRules();
-    if (_productList.isNotEmpty) {
-      _selectedProductId = _productList.first['id'] as int?;
-      _applySmartDefaults(_productList.first);
+    if (_productList.isEmpty) {
+      _productList = List<Map<String, dynamic>>.from(defaultCatalogProducts);
     }
+    _loadRules();
     _loadProducts();
   }
 
   Future<void> _loadProducts() async {
+    setState(() => _isLoadingProducts = true);
     try {
       final res = await ProductRepository().getProducts();
       if (res['success'] == true) {
@@ -83,6 +165,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                 'name': item.name,
                 'sku': item.sku,
                 'size': item.size,
+                'category': item.category,
                 'units_per_case': item.unitsPerCase,
               });
             }
@@ -91,26 +174,56 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
         if (mounted && list.isNotEmpty) {
           setState(() {
             _productList = list;
-            if (_selectedProductId == null || !_productList.any((p) => p['id'] == _selectedProductId)) {
-              _selectedProductId = _productList.first['id'] as int?;
-              _applySmartDefaults(_productList.first);
+            if (_selectedProductId != null) {
+              final prod = _productList.firstWhere((p) => p['id'] == _selectedProductId, orElse: () => {});
+              if (prod.isNotEmpty) {
+                _selectedCategory = _categoryOfProduct(prod);
+              }
             }
           });
         }
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingProducts = false);
+      }
+    }
   }
 
   void _applySmartDefaults(Map<String, dynamic> product) {
+    final pid = product['id'] is int ? product['id'] as int : int.tryParse(product['id']?.toString() ?? '0') ?? 0;
+
+    // Check if an existing rule exists for this product and channel in _rules:
+    Map<String, dynamic>? existingRule;
+    for (final r in _rules) {
+      final rPid = r['product'] ?? r['product_id'];
+      final rPidInt = rPid is int ? rPid : int.tryParse(rPid?.toString() ?? '0') ?? 0;
+      final rChan = (r['applies_to'] ?? r['channel'] ?? 'ALL').toString().toUpperCase();
+      if (rPidInt == pid && (rChan == 'ALL' || rChan == _channel.toUpperCase())) {
+        existingRule = Map<String, dynamic>.from(r as Map);
+        break;
+      }
+    }
+
+    if (existingRule != null) {
+      // Auto-load the existing rule into edit mode so the user sees and modifies current values!
+      _startEditRule(existingRule);
+      return;
+    }
+
+    // Otherwise fresh defaults
+    _editingRuleId = null;
     final name = (product['name'] ?? '').toString().toUpperCase();
     final sku = (product['sku'] ?? '').toString().toUpperCase();
-    final isJar = name.contains('JAR') || name.contains('20L') || sku.contains('JAR');
+    final size = (product['size'] ?? '').toString().toUpperCase();
+    final isJar = name.contains('JAR') || name.contains('20L') || sku.contains('JAR') || size.contains('20L');
     if (isJar) {
       _salesUnit = 'JAR';
       _minQtyCtrl.text = '5';
       _cartonSizeCtrl.text = '1';
       _allowPartialCarton = true;
-      _nameCtrl.text = '20L Water Jar Minimum 5 Jars Policy';
+      _nameCtrl.text = '${product['name'] ?? '20L Water Jar'} Minimum 5 Jars Policy';
     } else {
       _salesUnit = 'CARTON';
       _minQtyCtrl.text = '5';
@@ -126,7 +239,9 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
       _editingRuleId = rule['id'] as int?;
       _nameCtrl.text = rule['name']?.toString() ?? '';
       _channel = rule['applies_to']?.toString() ?? rule['channel']?.toString() ?? 'CUSTOMER';
-      _salesUnit = rule['sales_unit']?.toString() ?? 'CARTON';
+      String unit = (rule['sales_unit']?.toString() ?? 'CARTON').toUpperCase();
+      if (unit == 'PIECE') unit = 'BOTTLE';
+      _salesUnit = unit;
       _minQtyCtrl.text = (rule['min_order_quantity'] ?? 5).toString();
       _cartonSizeCtrl.text = (rule['units_per_carton'] ?? rule['carton_pack_size'] ?? 24).toString();
       _allowPartialCarton = rule['allow_partial_carton'] ?? false;
@@ -135,9 +250,18 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
       _isActive = rule['is_active'] ?? true;
       final pid = rule['product'] ?? rule['product_id'];
       if (pid != null) {
-        _selectedProductId = int.tryParse(pid.toString());
+        final parsedPid = int.tryParse(pid.toString());
+        _selectedProductId = parsedPid;
+        final sourceList = _productList.isNotEmpty ? _productList : defaultCatalogProducts;
+        final prod = sourceList.firstWhere((p) => p['id'] == parsedPid, orElse: () => {});
+        if (prod.isNotEmpty) {
+          _selectedCategory = _categoryOfProduct(prod);
+        }
       }
     });
+    if (_tabController.index != 0) {
+      _tabController.animateTo(0);
+    }
   }
 
   void _cancelEdit() {
@@ -150,15 +274,14 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
       _allowPartialCarton = false;
       _allowFranchiseOverride = false;
       _isActive = true;
-      if (_productList.isNotEmpty) {
-        _selectedProductId = _productList.first['id'] as int?;
-        _applySmartDefaults(_productList.first);
-      }
+      _selectedCategory = null;
+      _selectedProductId = null;
     });
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _nameCtrl.dispose();
     _minQtyCtrl.dispose();
     _cartonSizeCtrl.dispose();
@@ -175,6 +298,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
     if (mounted) {
       setState(() {
         _loading = false;
+        _rulesLoadedFromServer = res['success'] == true;
         _isRulesCached = res['is_cached'] == true;
         _rules = res['rules'] as List? ?? [];
         if (res['success'] == true) {
@@ -192,8 +316,8 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
       return;
     }
 
-    if (_selectedProductId == null) {
-      AppToast.error(context, 'Please select an assigned product for this packaging rule.');
+    if (_selectedCategory == null || _selectedProductId == null) {
+      AppToast.warning(context, 'Please select both product category and bottle size/variant.');
       return;
     }
 
@@ -238,6 +362,9 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
         );
         _cancelEdit();
         _loadRules();
+        if (_tabController.index != 1) {
+          _tabController.animateTo(1);
+        }
       } else {
         AppToast.error(context, res['message']?.toString() ?? 'Failed to save rule');
       }
@@ -354,30 +481,29 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                   builder: (context, constraints) {
                     final isNarrow = constraints.maxWidth < 650;
                     if (isNarrow) {
-                      return DefaultTabController(
-                        length: 2,
-                        child: Column(
-                          children: [
-                            TabBar(
-                              labelColor: const Color(0xFF0284C7),
-                              unselectedLabelColor: const Color(0xFF64748B),
-                              indicatorColor: const Color(0xFF0284C7),
-                              tabs: [
-                                const Tab(text: 'Rule Form'),
-                                Tab(text: 'Active Rules (${_rules.length})'),
+                      return Column(
+                        children: [
+                          TabBar(
+                            controller: _tabController,
+                            labelColor: const Color(0xFF0284C7),
+                            unselectedLabelColor: const Color(0xFF64748B),
+                            indicatorColor: const Color(0xFF0284C7),
+                            tabs: [
+                              Tab(text: _editingRuleId != null ? 'Edit Rule #$_editingRuleId' : 'Rule Form'),
+                              Tab(text: _loading ? 'Active Rules (...)' : 'Active Rules (${_rules.length})'),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                SingleChildScrollView(child: _buildForm()),
+                                _buildRulesList(),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            Expanded(
-                              child: TabBarView(
-                                children: [
-                                  SingleChildScrollView(child: _buildForm()),
-                                  _buildRulesList(),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       );
                     }
                     return Row(
@@ -448,7 +574,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             key: ValueKey('channel_$_channel'),
-            initialValue: _channel,
+            initialValue: ['CUSTOMER', 'FRANCHISE', 'ADMIN', 'ALL'].contains(_channel) ? _channel : 'CUSTOMER',
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Applicable Channel',
@@ -458,6 +584,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
             items: const [
               DropdownMenuItem(value: 'CUSTOMER', child: Text('Customer Direct Orders', overflow: TextOverflow.ellipsis)),
               DropdownMenuItem(value: 'FRANCHISE', child: Text('Wholesale Franchise / Dealer', overflow: TextOverflow.ellipsis)),
+              DropdownMenuItem(value: 'ADMIN', child: Text('Admin Direct Orders', overflow: TextOverflow.ellipsis)),
               DropdownMenuItem(value: 'ALL', child: Text('All Channels', overflow: TextOverflow.ellipsis)),
             ],
             onChanged: (val) {
@@ -465,35 +592,100 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
             },
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            key: ValueKey('prod_${_selectedProductId}_${_productList.length}'),
-            initialValue: _productList.any((p) => p['id'] == _selectedProductId) ? _selectedProductId : null,
+          // Step 1: Product Category / Type
+          DropdownButtonFormField<String>(
+            key: ValueKey('cat_${_selectedCategory}_${_availableCategories.length}'),
+            value: _availableCategories.contains(_selectedCategory) ? _selectedCategory : null,
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Assigned Product *',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: '1. Product Category / Type *',
+              hintText: 'Select category (Water Bottles or Water Jars)',
+              border: const OutlineInputBorder(),
               isDense: true,
+              prefixIcon: const Icon(Icons.category_outlined, size: 20),
+              suffixIcon: _isLoadingProducts
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : null,
             ),
-            items: _productList.map((p) {
+            items: _availableCategories.map((cat) {
+              return DropdownMenuItem<String>(
+                value: cat,
+                child: Text(cat, overflow: TextOverflow.ellipsis),
+              );
+            }).toList(),
+            onChanged: (val) {
+              if (val != null) {
+                setState(() {
+                  _selectedCategory = val;
+                  _selectedProductId = null; // Do not silently pick first variant
+                  _nameCtrl.clear();
+                });
+              }
+            },
+            validator: (val) {
+              if (val == null || val.isEmpty) return 'Please select a product category';
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          // Step 2: Available Bottle Size / Variant
+          DropdownButtonFormField<int>(
+            key: ValueKey('variant_${_selectedCategory}_${_selectedProductId}_${_availableVariantsForSelectedCategory.length}'),
+            value: _availableVariantsForSelectedCategory.any((p) => p['id'] == _selectedProductId)
+                ? _selectedProductId
+                : null,
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: '2. Available Bottle Size / Variant *',
+              hintText: _selectedCategory == null
+                  ? 'Select category above first'
+                  : 'Choose size (200ml, 250ml, 500ml, 1L, 20L...)',
+              helperText: _selectedCategory == null
+                  ? 'Displays catalogue sizes for the selected category'
+                  : '${_availableVariantsForSelectedCategory.length} catalogue variant(s) available',
+              border: const OutlineInputBorder(),
+              isDense: true,
+              prefixIcon: const Icon(Icons.liquor_outlined, size: 20),
+            ),
+            items: _availableVariantsForSelectedCategory.map((p) {
               final id = p['id'] is int ? p['id'] as int : int.tryParse(p['id'].toString()) ?? 0;
+              final size = p['size'] ?? p['sku'] ?? 'Standard';
+              final name = p['name'] ?? '';
+              final upc = p['units_per_case'] ?? 1;
               return DropdownMenuItem<int>(
                 value: id,
                 child: Text(
-                  '${p['name']} (${p['size'] ?? p['sku'] ?? 'Standard'})',
+                  '$size — $name ($upc units/case)',
                   overflow: TextOverflow.ellipsis,
                 ),
               );
             }).toList(),
-            onChanged: (val) {
-              setState(() {
-                _selectedProductId = val;
-                final prod = _productList.firstWhere((p) => p['id'] == val, orElse: () => {});
-                if (prod.isNotEmpty) {
-                  _applySmartDefaults(prod);
-                }
-              });
+            onChanged: _selectedCategory == null
+                ? null
+                : (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedProductId = val;
+                        final sourceList = _productList.isNotEmpty ? _productList : defaultCatalogProducts;
+                        final prod = sourceList.firstWhere((p) => p['id'] == val, orElse: () => {});
+                        if (prod.isNotEmpty) {
+                          _applySmartDefaults(prod);
+                        }
+                      });
+                    }
+                  },
+            validator: (val) {
+              if (_selectedCategory == null) return 'Select category first';
+              if (val == null && _selectedProductId == null) return 'Please select a bottle size / variant';
+              return null;
             },
-            validator: (val) => val == null ? 'Please select a product' : null,
           ),
           const SizedBox(height: 12),
           Row(
@@ -503,7 +695,7 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                 flex: 5,
                 child: DropdownButtonFormField<String>(
                   key: ValueKey('unit_$_salesUnit'),
-                  initialValue: _salesUnit,
+                  initialValue: ['CARTON', 'JAR', 'BOTTLE', 'PIECE'].contains(_salesUnit) ? _salesUnit : 'CARTON',
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Sales / Ordering Unit',
@@ -513,7 +705,8 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                   items: const [
                     DropdownMenuItem(value: 'CARTON', child: Text('Carton / Box (Peti)', overflow: TextOverflow.ellipsis)),
                     DropdownMenuItem(value: 'JAR', child: Text('20L Water Jar', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'PIECE', child: Text('Individual Bottle', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'BOTTLE', child: Text('Individual Bottle', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'PIECE', child: Text('Individual Piece', overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) {
                     if (val != null) {
@@ -526,6 +719,9 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
                         } else if (val == 'CARTON') {
                           if (_cartonSizeCtrl.text == '1') _cartonSizeCtrl.text = '24';
                           _allowPartialCarton = false;
+                        } else if (val == 'BOTTLE' || val == 'PIECE') {
+                          if (_cartonSizeCtrl.text == '1') _cartonSizeCtrl.text = '24';
+                          _allowPartialCarton = true;
                         }
                       });
                     }
@@ -677,29 +873,55 @@ class _PackagingRulesDialogState extends State<PackagingRulesDialog> {
               spacing: 8,
               runSpacing: 4,
               children: [
-                Text('Active Rules (${_rules.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(_loading ? 'Active Rules (...)' : 'Active Rules (${_rules.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _isRulesCached ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7),
+                    color: _loading
+                        ? const Color(0xFFE0F2FE)
+                        : (_rulesLoadedFromServer
+                            ? const Color(0xFFDCFCE7)
+                            : (_isRulesCached ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2))),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: _isRulesCached ? const Color(0xFFFDE68A) : const Color(0xFFBBF7D0)),
+                    border: Border.all(
+                      color: _loading
+                          ? const Color(0xFFBAE6FD)
+                          : (_rulesLoadedFromServer
+                              ? const Color(0xFFBBF7D0)
+                              : (_isRulesCached ? const Color(0xFFFDE68A) : const Color(0xFFFECACA))),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _isRulesCached ? Icons.cloud_off_rounded : Icons.cloud_done_rounded,
+                        _loading
+                            ? Icons.sync_rounded
+                            : (_rulesLoadedFromServer
+                                ? Icons.cloud_done_rounded
+                                : (_isRulesCached ? Icons.cloud_off_rounded : Icons.error_outline_rounded)),
                         size: 12,
-                        color: _isRulesCached ? const Color(0xFFB45309) : const Color(0xFF15803D),
+                        color: _loading
+                            ? const Color(0xFF0284C7)
+                            : (_rulesLoadedFromServer
+                                ? const Color(0xFF15803D)
+                                : (_isRulesCached ? const Color(0xFFB45309) : const Color(0xFFDC2626))),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _isRulesCached ? 'Local Cache (Offline)' : 'Server Synced',
+                        _loading
+                            ? 'Syncing...'
+                            : (_rulesLoadedFromServer
+                                ? 'Server Synced'
+                                : (_isRulesCached ? 'Local Cache (Offline)' : 'Sync Failed')),
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: _isRulesCached ? const Color(0xFFB45309) : const Color(0xFF15803D),
+                          color: _loading
+                              ? const Color(0xFF0284C7)
+                              : (_rulesLoadedFromServer
+                                  ? const Color(0xFF15803D)
+                                  : (_isRulesCached ? const Color(0xFFB45309) : const Color(0xFFDC2626))),
                         ),
                       ),
                     ],

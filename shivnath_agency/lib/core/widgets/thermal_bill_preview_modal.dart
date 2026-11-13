@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:file_saver/file_saver.dart';
 
 import '../constants/app_constants.dart';
 import '../services/session_service.dart';
@@ -345,13 +346,8 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
 
     Directory targetDir;
     if (Platform.isAndroid) {
-      final publicDownloadDir = Directory('/storage/emulated/0/Download');
-      if (publicDownloadDir.existsSync()) {
-        targetDir = publicDownloadDir;
-      } else {
-        final ext = await getExternalStorageDirectory();
-        targetDir = ext ?? await getApplicationDocumentsDirectory();
-      }
+      final ext = await getExternalStorageDirectory();
+      targetDir = ext ?? await getApplicationDocumentsDirectory();
     } else {
       targetDir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
     }
@@ -400,14 +396,54 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
       AppToast.info(context, 'Downloading official PDF...', title: 'Downloading');
       final file = await _fetchInvoicePdfWithTimeout();
       if (file != null && file.existsSync()) {
-        if (mounted) {
-          AppToast.success(
-            context,
-            'Saved to Downloads: ${file.path.split('/').last}',
-            title: 'PDF Saved',
+        final bytes = await file.readAsBytes();
+        final safeName = _invoiceNumber.replaceAll(RegExp(r'[\\/*?:"<>|]'), '_');
+
+        String savedPath = '';
+        String? saveError;
+        try {
+          savedPath = await FileSaver.instance.saveFile(
+            name: 'Invoice_$safeName',
+            bytes: bytes,
+            ext: 'pdf',
+            mimeType: MimeType.pdf,
           );
+        } catch (saveErr) {
+          saveError = saveErr.toString().replaceAll('Exception: ', '');
+          debugPrint('FileSaver error: $saveErr');
         }
-        await OpenFilex.open(file.path);
+
+        final bool saveSucceeded = savedPath.trim().isNotEmpty && saveError == null;
+
+        if (mounted) {
+          if (saveSucceeded) {
+            AppToast.success(
+              context,
+              'Saved to Downloads: Invoice_$safeName.pdf',
+              title: 'PDF Saved',
+            );
+          } else {
+            AppToast.error(
+              context,
+              saveError != null
+                  ? 'Failed to save to Downloads: $saveError'
+                  : 'Failed to save to Downloads. Please check storage permissions.',
+              title: 'Save Failed',
+            );
+          }
+        }
+
+        if (saveSucceeded) {
+          final pathOpen = (savedPath.isNotEmpty && File(savedPath).existsSync()) ? savedPath : file.path;
+          final openRes = await OpenFilex.open(pathOpen);
+          if (openRes.type != ResultType.done) {
+            await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'WATER WALA Invoice: $_invoiceNumber'));
+          }
+        }
+      } else {
+        if (mounted) {
+          AppToast.error(context, 'Unable to download invoice PDF from server.', title: 'Download Failed');
+        }
       }
     } catch (e) {
       if (mounted) {

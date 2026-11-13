@@ -30,14 +30,18 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
   bool _creatingBand = false;
   bool _isOriginCached = false;
   bool _isBandsCached = false;
+  bool _originLoadedFromServer = false;
+  bool _bandsLoadedFromServer = false;
 
   // Origin Controllers
   final _originFormKey = GlobalKey<FormState>();
-  final _depotNameCtrl =
-      TextEditingController(text: 'Shivnath Agency Central Dispatch');
+  final _depotNameCtrl = TextEditingController(
+    text: 'Shivnath Agency Central Dispatch',
+  );
   final _addressCtrl = TextEditingController(
-      text:
-          'Ekta Nagar, Pragati Nagar, LIC Colony, near Mowa Thana, Raipur, Chhattisgarh');
+    text:
+        'Ekta Nagar, Pragati Nagar, LIC Colony, near Mowa Thana, Raipur, Chhattisgarh',
+  );
   final _pincodeCtrl = TextEditingController(text: '492014');
   final _latCtrl = TextEditingController(text: '21.267800');
   final _lngCtrl = TextEditingController(text: '81.671100');
@@ -53,22 +57,8 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
   bool _userInteractedWithSliders = false;
 
   double get _maxRadiusCeiling {
-    if (_maxRadiusSlider <= 50.0) return 50.0;
-    if (_maxRadiusSlider <= 100.0) return 100.0;
-    if (_maxRadiusSlider <= 250.0) return 250.0;
-    if (_maxRadiusSlider <= 500.0) return 500.0;
-    if (_maxRadiusSlider <= 1000.0) return 1000.0;
-    return (((_maxRadiusSlider + 200.0) / 200.0).ceil() * 200.0).toDouble().clamp(500.0, 9999.0);
-  }
-
-  int get _maxRadiusDivisions {
-    final ceiling = _maxRadiusCeiling;
-    if (ceiling <= 50.0) return 50;
-    if (ceiling <= 100.0) return 100;
-    if (ceiling <= 250.0) return 125;
-    if (ceiling <= 500.0) return 100;
-    if (ceiling <= 1000.0) return 100;
-    return 100;
+    if (_maxRadiusSlider > 500.0) return _maxRadiusSlider;
+    return 500.0;
   }
 
   // Persisted snapshot for comparing and display
@@ -104,7 +94,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     _maxRadiusCtrl.addListener(() {
       if (_isInternalSliderUpdate) return;
       final v = double.tryParse(_maxRadiusCtrl.text);
-      if (v != null && v >= 0 && v <= 9999.0 && (v - _maxRadiusSlider).abs() > 0.1) {
+      if (v != null &&
+          v >= 0 &&
+          v <= 9999.0 &&
+          (v - _maxRadiusSlider).abs() > 0.1) {
         _userInteractedWithSliders = true;
         setState(() => _maxRadiusSlider = v);
       }
@@ -113,7 +106,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     _freeRadiusCtrl.addListener(() {
       if (_isInternalSliderUpdate) return;
       final v = double.tryParse(_freeRadiusCtrl.text);
-      if (v != null && v >= 0 && v <= 30 && (v - _freeRadiusSlider).abs() > 0.1) {
+      if (v != null &&
+          v >= 0 &&
+          v <= 30 &&
+          (v - _freeRadiusSlider).abs() > 0.1) {
         _userInteractedWithSliders = true;
         setState(() => _freeRadiusSlider = v);
       }
@@ -151,22 +147,37 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     if (mounted) {
       setState(() {
         _loadingOrigin = false;
+        _originLoadedFromServer = originRes['success'] == true;
         _isOriginCached = originRes['is_cached'] == true;
-        if ((originRes['success'] == true || originRes['is_cached'] == true) && originRes['origin'] is Map) {
+        if ((originRes['success'] == true || originRes['is_cached'] == true) &&
+            originRes['origin'] is Map) {
           var o = originRes['origin'] as Map;
           if (o.containsKey('origin') && o['origin'] is Map) {
             o = o['origin'] as Map;
           }
           if (o['name'] != null) _depotNameCtrl.text = o['name'].toString();
-          if (o['depot_name'] != null) _depotNameCtrl.text = o['depot_name'].toString();
+          if (o['depot_name'] != null)
+            _depotNameCtrl.text = o['depot_name'].toString();
           if (o['address'] != null) _addressCtrl.text = o['address'].toString();
           if (o['pincode'] != null) _pincodeCtrl.text = o['pincode'].toString();
           if (o['latitude'] != null) _latCtrl.text = o['latitude'].toString();
           if (o['longitude'] != null) _lngCtrl.text = o['longitude'].toString();
 
-          final freeVal = double.tryParse(o['free_delivery_radius_km']?.toString() ?? '0') ?? 0.0;
-          final maxVal = double.tryParse(o['max_serviceable_radius_km']?.toString() ?? '25') ?? 25.0;
-          final feeVal = double.tryParse(o['default_delivery_charge']?.toString() ?? '30') ?? 30.0;
+          final freeVal =
+              double.tryParse(
+                o['free_delivery_radius_km']?.toString() ?? '0',
+              ) ??
+              0.0;
+          final maxVal =
+              double.tryParse(
+                o['max_serviceable_radius_km']?.toString() ?? '25',
+              ) ??
+              25.0;
+          final feeVal =
+              double.tryParse(
+                o['default_delivery_charge']?.toString() ?? '30',
+              ) ??
+              30.0;
 
           _savedFreeRadius = freeVal;
           _savedMaxRadius = maxVal;
@@ -184,10 +195,14 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
           }
 
           _originActive = o['is_active'] ?? true;
-          _originError = originRes['success'] == true ? null : originRes['message']?.toString();
+          _originError = originRes['success'] == true
+              ? null
+              : originRes['message']?.toString();
         } else {
           // Preserve previously loaded valid data; surface error clearly
-          _originError = originRes['message']?.toString() ?? 'Failed to load delivery origin settings. Please retry.';
+          _originError =
+              originRes['message']?.toString() ??
+              'Failed to load delivery origin settings. Please retry.';
         }
       });
     }
@@ -202,12 +217,15 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     if (mounted) {
       setState(() {
         _loadingBands = false;
+        _bandsLoadedFromServer = bandsRes['success'] == true;
         _isBandsCached = bandsRes['is_cached'] == true;
         if (bandsRes['bands'] is List) {
           _bands = List<dynamic>.from(bandsRes['bands'] as List);
         }
         if (bandsRes['success'] != true) {
-          _bandsError = bandsRes['message']?.toString() ?? 'Failed to load distance bands.';
+          _bandsError =
+              bandsRes['message']?.toString() ??
+              'Failed to load distance bands.';
         } else {
           _bandsError = null;
         }
@@ -221,7 +239,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
 
   Future<void> _saveOrigin() async {
     if (_originError != null && _savedDepotName.isEmpty) {
-      AppToast.error(context, 'Cannot save: Delivery origin settings are unavailable. Please retry.');
+      AppToast.error(
+        context,
+        'Cannot save: Delivery origin settings are unavailable. Please retry.',
+      );
       return;
     }
     if (!_originFormKey.currentState!.validate()) return;
@@ -229,7 +250,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     final lat = double.tryParse(_latCtrl.text.trim());
     final lng = double.tryParse(_lngCtrl.text.trim());
     if (lat == null || lng == null) {
-      AppToast.error(context, 'Valid depot latitude and longitude coordinates are required.');
+      AppToast.error(
+        context,
+        'Valid depot latitude and longitude coordinates are required.',
+      );
       return;
     }
 
@@ -265,10 +289,16 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         }
       });
       if (res['success'] == true) {
-        AppToast.success(context, 'Delivery origin & radius settings persisted.');
+        AppToast.success(
+          context,
+          'Delivery origin & radius settings persisted.',
+        );
         await _loadAllData();
       } else {
-        AppToast.error(context, res['message']?.toString() ?? 'Failed to save delivery origin');
+        AppToast.error(
+          context,
+          res['message']?.toString() ?? 'Failed to save delivery origin',
+        );
       }
     }
   }
@@ -283,7 +313,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     final charge = double.tryParse(_chargeCtrl.text.trim()) ?? 0.0;
     String label = _labelCtrl.text.trim();
     if (label.isEmpty) {
-      label = maxKm != null ? '$minKm - $maxKm km Delivery' : 'Above $minKm km Delivery';
+      label = maxKm != null
+          ? '$minKm - $maxKm km Delivery'
+          : 'Above $minKm km Delivery';
     }
 
     final Map<String, dynamic> bandData = {
@@ -308,7 +340,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         _labelCtrl.clear();
         await _loadBandsData();
       } else {
-        AppToast.error(context, res['message']?.toString() ?? 'Failed to add band');
+        AppToast.error(
+          context,
+          res['message']?.toString() ?? 'Failed to add band',
+        );
       }
     }
   }
@@ -330,7 +365,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         AppToast.success(context, 'Distance band removed.');
         await _loadBandsData();
       } else {
-        AppToast.error(context, res['message']?.toString() ?? 'Failed to delete band');
+        AppToast.error(
+          context,
+          res['message']?.toString() ?? 'Failed to delete band',
+        );
         await _loadBandsData();
       }
     }
@@ -345,7 +383,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
           children: [
             Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444)),
             SizedBox(width: 8),
-            Text('Delete All Bands?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'Delete All Bands?',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: const Text(
@@ -362,7 +403,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete All'),
@@ -429,7 +472,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               title: Row(
                 children: [
                   Container(
@@ -438,13 +483,20 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                       color: const Color(0xFFE0F2FE),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.edit_note_rounded, color: Color(0xFF0284C7), size: 20),
+                    child: const Icon(
+                      Icons.edit_note_rounded,
+                      color: Color(0xFF0284C7),
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   const Expanded(
                     child: Text(
                       'Edit Distance Band',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -463,7 +515,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Name is required'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -476,8 +530,14 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                                 border: OutlineInputBorder(),
                                 isDense: true,
                               ),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              validator: (v) => (double.tryParse(v ?? '') == null) ? 'Required' : null,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              validator: (v) =>
+                                  (double.tryParse(v ?? '') == null)
+                                  ? 'Required'
+                                  : null,
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -490,12 +550,16 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                                 border: OutlineInputBorder(),
                                 isDense: true,
                               ),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty) return null;
                                 final val = double.tryParse(v.trim());
                                 if (val == null) return 'Invalid';
-                                final minV = double.tryParse(minCtrl.text.trim()) ?? 0.0;
+                                final minV =
+                                    double.tryParse(minCtrl.text.trim()) ?? 0.0;
                                 if (val <= minV) return '> Min';
                                 return null;
                               },
@@ -508,14 +572,20 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                         controller: chargeCtrl,
                         decoration: const InputDecoration(
                           labelText: 'Delivery Charge (₹) *',
-                          prefixIcon: Icon(Icons.currency_rupee_rounded, size: 16),
+                          prefixIcon: Icon(
+                            Icons.currency_rupee_rounded,
+                            size: 16,
+                          ),
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         validator: (v) {
                           final parsed = double.tryParse(v ?? '');
-                          if (parsed == null || parsed < 0) return 'Valid fee required';
+                          if (parsed == null || parsed < 0)
+                            return 'Valid fee required';
                           return null;
                         },
                       ),
@@ -532,7 +602,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   onPressed: isSubmitting
                       ? null
@@ -540,10 +612,14 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                           if (!formKey.currentState!.validate()) return;
                           setDialogState(() => isSubmitting = true);
 
-                          final minVal = double.tryParse(minCtrl.text.trim()) ?? 0.0;
+                          final minVal =
+                              double.tryParse(minCtrl.text.trim()) ?? 0.0;
                           final maxValStr = maxCtrl.text.trim();
-                          final maxVal = maxValStr.isEmpty ? null : double.tryParse(maxValStr);
-                          final feeVal = double.tryParse(chargeCtrl.text.trim()) ?? 0.0;
+                          final maxVal = maxValStr.isEmpty
+                              ? null
+                              : double.tryParse(maxValStr);
+                          final feeVal =
+                              double.tryParse(chargeCtrl.text.trim()) ?? 0.0;
 
                           final patchData = <String, dynamic>{
                             'name': nameCtrl.text.trim(),
@@ -556,21 +632,38 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                             patchData['max_distance_km'] = null;
                           }
 
-                          final res = await _service.updateDistanceBand(id, patchData);
+                          final res = await _service.updateDistanceBand(
+                            id,
+                            patchData,
+                          );
                           if (!mounted) return;
                           if (ctx.mounted) {
                             setDialogState(() => isSubmitting = false);
                             if (res['success'] == true) {
                               Navigator.pop(ctx);
-                              AppToast.success(context, 'Distance band updated successfully.');
+                              AppToast.success(
+                                context,
+                                'Distance band updated successfully.',
+                              );
                               await _loadBandsData();
                             } else {
-                              AppToast.error(context, res['message']?.toString() ?? 'Failed to update band');
+                              AppToast.error(
+                                context,
+                                res['message']?.toString() ??
+                                    'Failed to update band',
+                              );
                             }
                           }
                         },
                   icon: isSubmitting
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Icon(Icons.check_rounded, size: 16),
                   label: const Text('Save Changes'),
                 ),
@@ -608,10 +701,68 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
             _simErrorMessage = null;
           }
         } else {
-          _simErrorMessage = res['message']?.toString() ?? 'Simulation request failed.';
+          _simErrorMessage =
+              res['message']?.toString() ?? 'Simulation request failed.';
         }
       });
     }
+  }
+
+  Widget _buildSyncStatusBadge({
+    required bool isLoading,
+    required bool isServerSynced,
+    required bool isCached,
+    required String? error,
+  }) {
+    final String label;
+    final Color textColor;
+    final Color bgColor;
+    final IconData icon;
+
+    if (isLoading) {
+      label = 'SYNCING...';
+      textColor = const Color(0xFF0284C7);
+      bgColor = const Color(0xFFE0F2FE);
+      icon = Icons.sync_rounded;
+    } else if (isServerSynced) {
+      label = 'SERVER SYNCED';
+      textColor = const Color(0xFF15803D);
+      bgColor = const Color(0xFFDCFCE7);
+      icon = Icons.cloud_done_rounded;
+    } else if (isCached) {
+      label = 'LOCAL CACHE';
+      textColor = const Color(0xFFB45309);
+      bgColor = const Color(0xFFFEF3C7);
+      icon = Icons.cloud_off_rounded;
+    } else {
+      label = 'SYNC FAILED';
+      textColor = const Color(0xFFDC2626);
+      bgColor = const Color(0xFFFEE2E2);
+      icon = Icons.error_outline_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: textColor),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -619,20 +770,22 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 640;
-        final dialogWidth = isMobile ? constraints.maxWidth * 0.96 : 840.0;
-        final dialogHeight = isMobile ? constraints.maxHeight * 0.92 : 740.0;
+        final dialogWidth = isMobile ? constraints.maxWidth * 0.98 : 840.0;
+        final dialogHeight = isMobile ? constraints.maxHeight * 0.98 : 740.0;
 
         return Dialog(
           insetPadding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 8 : 24,
-            vertical: isMobile ? 16 : 24,
+            horizontal: isMobile ? 4 : 24,
+            vertical: isMobile ? 6 : 24,
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(isMobile ? 14 : 20),
+          ),
           child: SizedBox(
             width: dialogWidth,
             height: dialogHeight,
             child: Padding(
-              padding: EdgeInsets.all(isMobile ? 16 : 24),
+              padding: EdgeInsets.all(isMobile ? 10 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -641,29 +794,33 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
-                        width: 44,
-                        height: 44,
+                        width: isMobile ? 36 : 44,
+                        height: isMobile ? 36 : 44,
                         decoration: BoxDecoration(
                           color: const Color(0xFFE0F2FE),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(isMobile ? 8 : 12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.radar_rounded,
-                          color: Color(0xFF0284C7),
-                          size: 24,
+                          color: const Color(0xFF0284C7),
+                          size: isMobile ? 20 : 24,
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      SizedBox(width: isMobile ? 8 : 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Delivery Origin & Radius Distance Pricing',
+                            Text(
+                              isMobile
+                                  ? 'Delivery Radius & Distance Pricing'
+                                  : 'Delivery Origin & Radius Distance Pricing',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 17,
+                                fontSize: isMobile ? 13 : 17,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A),
+                                color: const Color(0xFF0F172A),
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -671,29 +828,42 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                               isMobile
                                   ? 'Configure dispatch radius & distance fee bands.'
                                   : 'Configure base dispatch coordinates, straight-line Haversine radius, and distance pricing bands.',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: isMobile ? 10 : 12,
+                                color: const Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
                         tooltip: 'Reload All Data',
-                        icon: const Icon(Icons.refresh_rounded),
+                        icon: Icon(Icons.refresh_rounded, size: isMobile ? 18 : 22),
+                        padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(8),
+                        constraints: isMobile ? const BoxConstraints() : null,
                         onPressed: _loadAllData,
                       ),
+                      if (isMobile) const SizedBox(width: 4),
                       IconButton(
                         tooltip: 'Close',
-                        icon: const Icon(Icons.close_rounded),
+                        icon: Icon(Icons.close_rounded, size: isMobile ? 18 : 22),
+                        padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(8),
+                        constraints: isMobile ? const BoxConstraints() : null,
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 12),
+                  SizedBox(height: isMobile ? 6 : 12),
 
                   if (isMobile)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(8),
@@ -705,24 +875,19 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                           Flexible(
                             child: Text(
                               '$_savedDepotName (${_savedMaxRadius.toStringAsFixed(0)}km max)',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF475569),
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _isOriginCached ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              _isOriginCached ? 'LOCAL CACHE' : 'SERVER SYNCED',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: _isOriginCached ? const Color(0xFFB45309) : const Color(0xFF15803D),
-                              ),
-                            ),
+                          _buildSyncStatusBadge(
+                            isLoading: _loadingOrigin,
+                            isServerSynced: _originLoadedFromServer,
+                            isCached: _isOriginCached,
+                            error: _originError,
                           ),
                         ],
                       ),
@@ -730,7 +895,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   else
                     // Prominent Saved Radius & Status Banner
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(12),
@@ -760,11 +928,12 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                           _buildStatusBadge(
                             Icons.card_giftcard_rounded,
                             'Free Delivery Radius',
-                            ((_freeRadiusSlider - _savedFreeRadius).abs() > 0.05)
+                            ((_freeRadiusSlider - _savedFreeRadius).abs() >
+                                    0.05)
                                 ? '${_freeRadiusSlider.toStringAsFixed(1)} km (Draft)'
                                 : (_freeRadiusSlider > 0
-                                    ? '${_freeRadiusSlider.toStringAsFixed(1)} km'
-                                    : '0.0 km (None)'),
+                                      ? '${_freeRadiusSlider.toStringAsFixed(1)} km'
+                                      : '0.0 km (None)'),
                             const Color(0xFF16A34A),
                             const Color(0xFFDCFCE7),
                           ),
@@ -776,9 +945,14 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                             const Color(0xFFFEF3C7),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: _originActive ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                              color: _originActive
+                                  ? const Color(0xFFDCFCE7)
+                                  : const Color(0xFFFEE2E2),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -786,36 +960,17 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
-                                color: _originActive ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                                color: _originActive
+                                    ? const Color(0xFF166534)
+                                    : const Color(0xFF991B1B),
                               ),
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _isOriginCached ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: _isOriginCached ? const Color(0xFFFDE68A) : const Color(0xFFBBF7D0)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _isOriginCached ? Icons.cloud_off_rounded : Icons.cloud_done_rounded,
-                                  size: 12,
-                                  color: _isOriginCached ? const Color(0xFFB45309) : const Color(0xFF15803D),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _isOriginCached ? 'LOCAL CACHE' : 'SERVER SYNCED',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    color: _isOriginCached ? const Color(0xFFB45309) : const Color(0xFF15803D),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          _buildSyncStatusBadge(
+                            isLoading: _loadingOrigin,
+                            isServerSynced: _originLoadedFromServer,
+                            isCached: _isOriginCached,
+                            error: _originError,
                           ),
                         ],
                       ),
@@ -827,20 +982,34 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   TabBar(
                     controller: _tabController,
                     isScrollable: isMobile,
-                    tabAlignment: isMobile ? TabAlignment.start : TabAlignment.fill,
+                    tabAlignment: isMobile
+                        ? TabAlignment.start
+                        : TabAlignment.fill,
                     labelColor: const Color(0xFF0284C7),
                     unselectedLabelColor: const Color(0xFF64748B),
                     indicatorColor: const Color(0xFF0284C7),
-                    indicatorWeight: 3,
-                    labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                    tabs: const [
-                      Tab(icon: Icon(Icons.hub_outlined, size: 18), text: 'Dispatch & Radius'),
-                      Tab(icon: Icon(Icons.linear_scale_rounded, size: 18), text: 'Distance Bands'),
-                      Tab(icon: Icon(Icons.science_outlined, size: 18), text: 'Fee Simulator'),
+                    indicatorWeight: isMobile ? 2 : 3,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: isMobile ? 11 : 13,
+                    ),
+                    tabs: [
+                      Tab(
+                        icon: Icon(Icons.hub_outlined, size: isMobile ? 15 : 18),
+                        text: isMobile ? 'Dispatch' : 'Dispatch & Radius',
+                      ),
+                      Tab(
+                        icon: Icon(Icons.linear_scale_rounded, size: isMobile ? 15 : 18),
+                        text: isMobile ? 'Bands' : 'Distance Bands',
+                      ),
+                      Tab(
+                        icon: Icon(Icons.science_outlined, size: isMobile ? 15 : 18),
+                        text: isMobile ? 'Simulator' : 'Fee Simulator',
+                      ),
                     ],
                   ),
 
-                  const SizedBox(height: 14),
+                  SizedBox(height: isMobile ? 6 : 14),
 
                   // Tab Views - persistent mount so switching tabs is instant and never gets stuck
                   Expanded(
@@ -855,34 +1024,53 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   ),
 
                   // Explicit Action Bottom Bar
-                  const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                  Divider(height: isMobile ? 10 : 20, color: const Color(0xFFE2E8F0)),
                   Wrap(
                     alignment: WrapAlignment.end,
                     spacing: 8,
-                    runSpacing: 8,
+                    runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       if (_tabController.index == 0) ...[
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 12 : 18,
+                              vertical: isMobile ? 8 : 12,
+                            ),
                             side: const BorderSide(color: Color(0xFFCBD5E1)),
                           ),
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel', style: TextStyle(color: Color(0xFF475569), fontWeight: FontWeight.w700)),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: Color(0xFF475569),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                         if (_originError != null) ...[
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF0284C7),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isMobile ? 10 : 14,
+                                vertical: isMobile ? 8 : 12,
+                              ),
                               side: const BorderSide(color: Color(0xFF0284C7)),
                             ),
                             onPressed: _loadingOrigin ? null : _loadOriginData,
                             icon: const Icon(Icons.refresh_rounded, size: 16),
-                            label: const Text('Retry Load', style: TextStyle(fontWeight: FontWeight.w700)),
+                            label: const Text(
+                              'Retry',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
                           ),
                         ],
                         ElevatedButton.icon(
@@ -890,70 +1078,134 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                             backgroundColor: const Color(0xFF0284C7),
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 14 : 22,
+                              vertical: isMobile ? 8 : 12,
+                            ),
                           ),
-                          onPressed: (_loadingOrigin || _savingOrigin) ? null : _saveOrigin,
+                          onPressed: (_loadingOrigin || _savingOrigin)
+                              ? null
+                              : _saveOrigin,
                           icon: (_savingOrigin || _loadingOrigin)
                               ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
-                              : const Icon(Icons.check_circle_outline_rounded, size: 18),
+                              : const Icon(
+                                  Icons.check_circle_outline_rounded,
+                                  size: 16,
+                                ),
                           label: Text(
                             _savingOrigin
-                                ? 'Saving Changes...'
-                                : (_loadingOrigin ? 'Loading Configuration...' : 'Save Radius & Origin'),
-                            style: const TextStyle(fontWeight: FontWeight.w800),
+                                ? 'Saving...'
+                                : (_loadingOrigin
+                                      ? 'Loading...'
+                                      : (isMobile ? 'Save Radius' : 'Save Radius & Origin')),
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: isMobile ? 12 : 14),
                           ),
                         ),
                       ] else if (_tabController.index == 1) ...[
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
                             side: const BorderSide(color: Color(0xFFCBD5E1)),
                           ),
                           onPressed: _loadingBands ? null : _loadBandsData,
-                          icon: const Icon(Icons.refresh_rounded, size: 16, color: Color(0xFF0284C7)),
-                          label: const Text('Refresh Bands', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w700)),
+                          icon: const Icon(
+                            Icons.refresh_rounded,
+                            size: 16,
+                            color: Color(0xFF0284C7),
+                          ),
+                          label: const Text(
+                            'Refresh Bands',
+                            style: TextStyle(
+                              color: Color(0xFF0284C7),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0284C7),
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 22,
+                              vertical: 12,
+                            ),
                           ),
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.done_all_rounded, size: 18),
-                          label: const Text('Done', style: TextStyle(fontWeight: FontWeight.w800)),
+                          label: const Text(
+                            'Done',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
                         ),
                       ] else ...[
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 12,
+                            ),
                             side: const BorderSide(color: Color(0xFFCBD5E1)),
                           ),
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Close', style: TextStyle(color: Color(0xFF475569), fontWeight: FontWeight.w700)),
+                          child: const Text(
+                            'Close',
+                            style: TextStyle(
+                              color: Color(0xFF475569),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0284C7),
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 22,
+                              vertical: 12,
+                            ),
                           ),
                           onPressed: _isSimulating ? null : _testCalculate,
                           icon: _isSimulating
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
                               : const Icon(Icons.play_arrow_rounded, size: 18),
-                          label: const Text('Run Simulator', style: TextStyle(fontWeight: FontWeight.w800)),
+                          label: const Text(
+                            'Run Simulator',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
                         ),
                       ],
                     ],
@@ -991,11 +1243,19 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                 children: [
                   TextSpan(
                     text: '$label: ',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textColor),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
                   ),
                   TextSpan(
                     text: value,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                    ),
                   ),
                 ],
               ),
@@ -1024,11 +1284,19 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 36),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFDC2626),
+            size: 36,
+          ),
           const SizedBox(height: 10),
           Text(
             title,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF991B1B)),
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
+              color: Color(0xFF991B1B),
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -1041,11 +1309,16 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: onRetry,
             icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: const Text('Retry', style: TextStyle(fontWeight: FontWeight.w700)),
+            label: const Text(
+              'Retry',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -1053,19 +1326,26 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
   }
 
   Widget _buildOriginTab(bool isMobile) {
-    if (_loadingOrigin && _latCtrl.text.isEmpty && _depotNameCtrl.text.isEmpty) {
+    if (_loadingOrigin &&
+        _latCtrl.text.isEmpty &&
+        _depotNameCtrl.text.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 12),
-            Text('Loading delivery origin...', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+            Text(
+              'Loading delivery origin...',
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+            ),
           ],
         ),
       );
     }
-    if (_originError != null && _latCtrl.text.isEmpty && _depotNameCtrl.text.isEmpty) {
+    if (_originError != null &&
+        _latCtrl.text.isEmpty &&
+        _depotNameCtrl.text.isEmpty) {
       return Center(
         child: _buildErrorWidget(
           title: 'Delivery Origin Unavailable',
@@ -1094,7 +1374,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
             if (_originError != null) ...[
               Container(
                 margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(10),
@@ -1102,12 +1385,20 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Color(0xFFDC2626),
+                      size: 20,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'Server response slow / cold start. Showing fallback central dispatch.\n${_originError!}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF991B1B),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1115,14 +1406,25 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFFDC2626),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                       ),
                       onPressed: _loadOriginData,
                       icon: const Icon(Icons.refresh_rounded, size: 14),
-                      label: const Text('Retry', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                      label: const Text(
+                        'Retry',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1139,7 +1441,11 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
               child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF1D4ED8)),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: Color(0xFF1D4ED8),
+                  ),
                   SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1147,12 +1453,20 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                       children: [
                         Text(
                           'Straight-Line Haversine Distance Engine',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF1E3A8A)),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                            color: Color(0xFF1E3A8A),
+                          ),
                         ),
                         SizedBox(height: 2),
                         Text(
                           'Distance is calculated as the straight-line radial distance (in kilometers) between the base depot coordinates and the customer delivery location. Customer addresses exceeding the Max Serviceable Radius are prevented from ordering or flagged for special dispatch.',
-                          style: TextStyle(fontSize: 11, height: 1.45, color: Color(0xFF1E40AF)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.45,
+                            color: Color(0xFF1E40AF),
+                          ),
                         ),
                       ],
                     ),
@@ -1166,7 +1480,11 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
             // Base Dispatch Coordinates
             const Text(
               'Base Dispatch Depot Coordinates',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A)),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: Color(0xFF0F172A),
+              ),
             ),
             const SizedBox(height: 10),
 
@@ -1178,7 +1496,8 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                 isDense: true,
                 prefixIcon: Icon(Icons.storefront_outlined, size: 18),
               ),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
             const SizedBox(height: 10),
 
@@ -1192,7 +1511,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   prefixIcon: Icon(Icons.my_location_rounded, size: 18),
                 ),
                 keyboardType: TextInputType.number,
-                validator: (v) => (double.tryParse(v ?? '') == null) ? 'Invalid latitude' : null,
+                validator: (v) => (double.tryParse(v ?? '') == null)
+                    ? 'Invalid latitude'
+                    : null,
               ),
               const SizedBox(height: 10),
               TextFormField(
@@ -1204,7 +1525,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   prefixIcon: Icon(Icons.location_on_outlined, size: 18),
                 ),
                 keyboardType: TextInputType.number,
-                validator: (v) => (double.tryParse(v ?? '') == null) ? 'Invalid longitude' : null,
+                validator: (v) => (double.tryParse(v ?? '') == null)
+                    ? 'Invalid longitude'
+                    : null,
               ),
             ] else ...[
               Row(
@@ -1219,7 +1542,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                         prefixIcon: Icon(Icons.my_location_rounded, size: 18),
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (v) => (double.tryParse(v ?? '') == null) ? 'Invalid latitude' : null,
+                      validator: (v) => (double.tryParse(v ?? '') == null)
+                          ? 'Invalid latitude'
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1233,7 +1558,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                         prefixIcon: Icon(Icons.location_on_outlined, size: 18),
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (v) => (double.tryParse(v ?? '') == null) ? 'Invalid longitude' : null,
+                      validator: (v) => (double.tryParse(v ?? '') == null)
+                          ? 'Invalid longitude'
+                          : null,
                     ),
                   ),
                 ],
@@ -1315,15 +1642,25 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                         spacing: 8,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Icon(Icons.radar_rounded, color: Color(0xFF0284C7), size: 20),
+                          Icon(
+                            Icons.radar_rounded,
+                            color: Color(0xFF0284C7),
+                            size: 20,
+                          ),
                           Text(
                             'Maximum Serviceable Radius',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE0F2FE),
                           borderRadius: BorderRadius.circular(8),
@@ -1352,14 +1689,15 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                       activeTrackColor: const Color(0xFF0284C7),
                       inactiveTrackColor: const Color(0xFFE2E8F0),
                       thumbColor: const Color(0xFF0284C7),
-                      overlayColor: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                      overlayColor: const Color(
+                        0xFF0284C7,
+                      ).withValues(alpha: 0.12),
                       valueIndicatorColor: const Color(0xFF0284C7),
                     ),
                     child: Slider(
                       value: _maxRadiusSlider.clamp(0.0, _maxRadiusCeiling),
                       min: 0.0,
                       max: _maxRadiusCeiling,
-                      divisions: _maxRadiusDivisions,
                       label: '${_maxRadiusSlider.toStringAsFixed(1)} km',
                       onChanged: (val) {
                         _userInteractedWithSliders = true;
@@ -1381,10 +1719,20 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                         alignment: WrapAlignment.spaceBetween,
                         runSpacing: 4,
                         children: [
-                          const Text('Presets:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                          const Text(
+                            'Presets:',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
                           Text(
                             'Scale: 0 - ${_maxRadiusCeiling.toStringAsFixed(0)} km (Max: 9,999 km)',
-                            style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
                         ],
                       ),
@@ -1429,22 +1777,34 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                         spacing: 8,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Icon(Icons.card_giftcard_rounded, color: Color(0xFF16A34A), size: 20),
+                          Icon(
+                            Icons.card_giftcard_rounded,
+                            color: Color(0xFF16A34A),
+                            size: 20,
+                          ),
                           Text(
                             'Free Delivery Radius',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFDCFCE7),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: const Color(0xFFBBF7D0)),
                         ),
                         child: Text(
-                          _freeRadiusSlider > 0 ? '${_freeRadiusSlider.toStringAsFixed(1)} km' : 'FREE (0 km)',
+                          _freeRadiusSlider > 0
+                              ? '${_freeRadiusSlider.toStringAsFixed(1)} km'
+                              : 'FREE (0 km)',
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 14,
@@ -1466,7 +1826,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                       activeTrackColor: const Color(0xFF16A34A),
                       inactiveTrackColor: const Color(0xFFE2E8F0),
                       thumbColor: const Color(0xFF16A34A),
-                      overlayColor: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                      overlayColor: const Color(
+                        0xFF16A34A,
+                      ).withValues(alpha: 0.12),
                       valueIndicatorColor: const Color(0xFF16A34A),
                     ),
                     child: Slider(
@@ -1491,7 +1853,14 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Presets:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                      const Text(
+                        'Presets:',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 6,
@@ -1517,21 +1886,25 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
               controller: _defaultFeeCtrl,
               decoration: const InputDecoration(
                 labelText: 'Fallback Delivery Fee (₹) *',
-                hintText: 'Default fee if distance band is not explicitly matched',
+                hintText:
+                    'Default fee if distance band is not explicitly matched',
                 border: OutlineInputBorder(),
                 isDense: true,
                 prefixIcon: Icon(Icons.currency_rupee_rounded, size: 18),
               ),
               keyboardType: TextInputType.number,
-              validator: (v) => (double.tryParse(v ?? '') == null) ? 'Required' : null,
+              validator: (v) =>
+                  (double.tryParse(v ?? '') == null) ? 'Required' : null,
             ),
 
             const SizedBox(height: 10),
 
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Origin Active & Distance Enforcement Enabled',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              title: const Text(
+                'Origin Active & Distance Enforcement Enabled',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
               subtitle: const Text(
                 'When enabled, order placement calculates delivery fee based on GPS distance.',
                 style: TextStyle(fontSize: 11),
@@ -1570,7 +1943,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isMaxRadius ? const Color(0xFF0284C7) : const Color(0xFF16A34A))
+              ? (isMaxRadius
+                    ? const Color(0xFF0284C7)
+                    : const Color(0xFF16A34A))
               : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
@@ -1597,7 +1972,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 12),
-            Text('Loading distance bands...', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+            Text(
+              'Loading distance bands...',
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+            ),
           ],
         ),
       );
@@ -1614,12 +1992,20 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
             ),
             child: Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Network warning: ${_bandsError!}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF991B1B),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1627,17 +2013,32 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   style: TextButton.styleFrom(
                     backgroundColor: const Color(0xFFDC2626),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                   ),
                   onPressed: _loadBandsData,
                   icon: const Icon(Icons.refresh_rounded, size: 14),
-                  label: const Text('Retry', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  label: const Text(
+                    'Retry',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ],
             ),
+          )
+        : const SizedBox.shrink();
+
+    final loadingProgress = _loadingBands && _bands.isNotEmpty
+        ? const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: LinearProgressIndicator(minHeight: 3),
           )
         : const SizedBox.shrink();
 
@@ -1645,6 +2046,7 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
       return SingleChildScrollView(
         child: Column(
           children: [
+            loadingProgress,
             errorBanner,
             _buildBandCreateForm(),
             const SizedBox(height: 20),
@@ -1659,12 +2061,16 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        loadingProgress,
         errorBanner,
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(flex: 5, child: SingleChildScrollView(child: _buildBandCreateForm())),
+              Expanded(
+                flex: 5,
+                child: SingleChildScrollView(child: _buildBandCreateForm()),
+              ),
               const VerticalDivider(width: 32),
               Expanded(flex: 6, child: _buildBandsList()),
             ],
@@ -1680,19 +2086,29 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Add Distance Band', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+          const Text(
+            'Add Distance Band',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+          ),
           const SizedBox(height: 4),
-          const Text('Define progressive delivery charge steps for straight-line distance ranges.',
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+          const Text(
+            'Define progressive delivery charge steps for straight-line distance ranges.',
+            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: TextFormField(
                   controller: _minKmCtrl,
-                  decoration: const InputDecoration(labelText: 'Min Distance (km)', border: OutlineInputBorder(), isDense: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Min Distance (km)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
                   keyboardType: TextInputType.number,
-                  validator: (v) => (double.tryParse(v ?? '') == null) ? 'Required' : null,
+                  validator: (v) =>
+                      (double.tryParse(v ?? '') == null) ? 'Required' : null,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1710,7 +2126,8 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                     if (v == null || v.trim().isEmpty) return null;
                     final parsed = double.tryParse(v.trim());
                     if (parsed == null) return 'Invalid number';
-                    final minVal = double.tryParse(_minKmCtrl.text.trim()) ?? 0.0;
+                    final minVal =
+                        double.tryParse(_minKmCtrl.text.trim()) ?? 0.0;
                     if (parsed <= minVal) return 'Must be > min';
                     return null;
                   },
@@ -1728,7 +2145,8 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
               prefixIcon: Icon(Icons.currency_rupee_rounded, size: 18),
             ),
             keyboardType: TextInputType.number,
-            validator: (v) => (double.tryParse(v ?? '') == null) ? 'Required' : null,
+            validator: (v) =>
+                (double.tryParse(v ?? '') == null) ? 'Required' : null,
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -1749,13 +2167,25 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0284C7),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               onPressed: _creatingBand ? null : _createBand,
               icon: _creatingBand
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Add Distance Band', style: TextStyle(fontWeight: FontWeight.w700)),
+              label: const Text(
+                'Add Distance Band',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
           ),
         ],
@@ -1783,27 +2213,57 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   TextButton.icon(
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFFEF4444),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     onPressed: _deleteAllBands,
                     icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-                    label: const Text('Delete All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    label: const Text(
+                      'Delete All',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: _isBandsCached ? const Color(0xFFFEF3C7) : const Color(0xFFE0F2FE),
+                    color: _loadingBands
+                        ? const Color(0xFFE0F2FE)
+                        : (_bandsLoadedFromServer
+                              ? const Color(0xFFDCFCE7)
+                              : (_isBandsCached
+                                    ? const Color(0xFFFEF3C7)
+                                    : const Color(0xFFF1F5F9))),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    _isBandsCached ? '${_bands.length} Cached' : '${_bands.length} Active',
+                    _loadingBands
+                        ? '${_bands.length} Syncing...'
+                        : (_bandsLoadedFromServer
+                              ? '${_bands.length} Server Synced'
+                              : (_isBandsCached
+                                    ? '${_bands.length} Cached'
+                                    : '${_bands.length} Active')),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      color: _isBandsCached ? const Color(0xFFB45309) : const Color(0xFF0284C7),
+                      color: _loadingBands
+                          ? const Color(0xFF0284C7)
+                          : (_bandsLoadedFromServer
+                                ? const Color(0xFF15803D)
+                                : (_isBandsCached
+                                      ? const Color(0xFFB45309)
+                                      : const Color(0xFF475569))),
                     ),
                   ),
                 ),
@@ -1819,12 +2279,27 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.linear_scale_rounded, size: 36, color: Color(0xFF94A3B8)),
+                      const Icon(
+                        Icons.linear_scale_rounded,
+                        size: 36,
+                        color: Color(0xFF94A3B8),
+                      ),
                       const SizedBox(height: 8),
-                      const Text('No distance bands configured.', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                      const Text(
+                        'No distance bands configured.',
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text('Default fallback pricing of ₹${_defaultFeeCtrl.text} applies.',
-                          style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                      Text(
+                        'Default fallback pricing of ₹${_defaultFeeCtrl.text} applies.',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 11,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1843,12 +2318,17 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   final isFallback = b['is_fallback'] == true;
 
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: isFallback ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0),
+                        color: isFallback
+                            ? const Color(0xFFFDE68A)
+                            : const Color(0xFFE2E8F0),
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -1864,13 +2344,17 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: isFallback ? const Color(0xFFFEF3C7) : const Color(0xFFEFF6FF),
+                            color: isFallback
+                                ? const Color(0xFFFEF3C7)
+                                : const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
                             Icons.straighten_rounded,
                             size: 18,
-                            color: isFallback ? const Color(0xFFD97706) : const Color(0xFF0284C7),
+                            color: isFallback
+                                ? const Color(0xFFD97706)
+                                : const Color(0xFF0284C7),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1884,27 +2368,53 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Text(
-                                    maxKm == null ? 'Above $minKm km' : '$minKm km – $maxKm km',
-                                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                                    maxKm == null
+                                        ? 'Above $minKm km'
+                                        : '$minKm km – $maxKm km',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                      color: Color(0xFF0F172A),
+                                    ),
                                   ),
                                   if (isFallback)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 1,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFFEF3C7),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
-                                      child: const Text('Default Template', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+                                      child: const Text(
+                                        'Default Template',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFB45309),
+                                        ),
+                                      ),
                                     ),
                                 ],
                               ),
-                              Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                              Text(
+                                label,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
                             ],
                           ),
                         ),
                         Text(
                           '₹$charge',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0284C7)),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                            color: Color(0xFF0284C7),
+                          ),
                         ),
                         const SizedBox(width: 6),
                         if (!isFallback && b['id'] is int)
@@ -1915,16 +2425,25 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                               color: Color(0xFF0284C7),
                               size: 18,
                             ),
-                            onPressed: () => _showEditBandDialog(Map<String, dynamic>.from(b as Map)),
+                            onPressed: () => _showEditBandDialog(
+                              Map<String, dynamic>.from(b as Map),
+                            ),
                           ),
                         IconButton(
-                          tooltip: isFallback ? 'Remove template band' : 'Delete band',
+                          tooltip: isFallback
+                              ? 'Remove template band'
+                              : 'Delete band',
                           icon: Icon(
                             Icons.delete_outline_rounded,
-                            color: isFallback ? const Color(0xFF94A3B8) : const Color(0xFFEF4444),
+                            color: isFallback
+                                ? const Color(0xFF94A3B8)
+                                : const Color(0xFFEF4444),
                             size: 18,
                           ),
-                          onPressed: () => _deleteBand(b['id'] as int, isFallback: isFallback),
+                          onPressed: () => _deleteBand(
+                            b['id'] as int,
+                            isFallback: isFallback,
+                          ),
                         ),
                       ],
                     ),
@@ -1959,14 +2478,24 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.science_outlined, size: 20, color: Color(0xFF0284C7)),
+                child: const Icon(
+                  Icons.science_outlined,
+                  size: 20,
+                  color: Color(0xFF0284C7),
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Delivery Fee Calculation Simulator', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    Text(
+                      'Delivery Fee Calculation Simulator',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
                     Text(
                       'Preview authoritative backend delivery charges using currently saved distance bands & radius.',
                       style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
@@ -1991,9 +2520,20 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.hub_outlined, size: 14, color: Color(0xFF0284C7)),
+                    Icon(
+                      Icons.hub_outlined,
+                      size: 14,
+                      color: Color(0xFF0284C7),
+                    ),
                     SizedBox(width: 6),
-                    Text('Authoritative Dispatch Hub', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                    Text(
+                      'Authoritative Dispatch Hub',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -2001,11 +2541,44 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   spacing: 12,
                   runSpacing: 4,
                   children: [
-                    Text('Hub: ${_depotNameCtrl.text}', style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
-                    Text('Coords: (${_latCtrl.text}, ${_lngCtrl.text})', style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
-                    Text('Free Radius: ${_freeRadiusSlider.toStringAsFixed(1)} km', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF16A34A))),
-                    Text('Max Radius: ${_maxRadiusSlider.toStringAsFixed(1)} km', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
-                    Text('Base Fee: ₹${_defaultFeeCtrl.text}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+                    Text(
+                      'Hub: ${_depotNameCtrl.text}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                    Text(
+                      'Coords: (${_latCtrl.text}, ${_lngCtrl.text})',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                    Text(
+                      'Free Radius: ${_freeRadiusSlider.toStringAsFixed(1)} km',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF16A34A),
+                      ),
+                    ),
+                    Text(
+                      'Max Radius: ${_maxRadiusSlider.toStringAsFixed(1)} km',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0284C7),
+                      ),
+                    ),
+                    Text(
+                      'Base Fee: ₹${_defaultFeeCtrl.text}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -2015,18 +2588,37 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
           const SizedBox(height: 14),
 
           // Quick Destination Presets for CG testing
-          const Text('Quick Test Destination Presets:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+          const Text(
+            'Quick Test Destination Presets:',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF334155),
+            ),
+          ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 6,
             runSpacing: 6,
             children: [
-              _buildSimPresetChip('Mowa / Local (~1.2 km)', '21.2720', '81.6750'),
+              _buildSimPresetChip(
+                'Mowa / Local (~1.2 km)',
+                '21.2720',
+                '81.6750',
+              ),
               _buildSimPresetChip('Telibandha (~6.1 km)', '21.2330', '81.6720'),
-              _buildSimPresetChip('Naya Raipur (~18.5 km)', '21.1600', '81.7800'),
+              _buildSimPresetChip(
+                'Naya Raipur (~18.5 km)',
+                '21.1600',
+                '81.7800',
+              ),
               _buildSimPresetChip('Durg/Bhilai (~35 km)', '21.2100', '81.3800'),
               _buildSimPresetChip('Bilaspur (~115 km)', '22.0800', '82.1400'),
-              _buildSimPresetChip('Beyond Radius (550 km)', '25.5941', '85.1376'),
+              _buildSimPresetChip(
+                'Beyond Radius (550 km)',
+                '25.5941',
+                '85.1376',
+              ),
             ],
           ),
 
@@ -2035,14 +2627,26 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
           if (isMobile) ...[
             TextFormField(
               controller: _simLatCtrl,
-              decoration: const InputDecoration(labelText: 'Customer Destination Latitude *', border: OutlineInputBorder(), isDense: true),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Customer Destination Latitude *',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 10),
             TextFormField(
               controller: _simLngCtrl,
-              decoration: const InputDecoration(labelText: 'Customer Destination Longitude *', border: OutlineInputBorder(), isDense: true),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Customer Destination Longitude *',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -2052,13 +2656,25 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0284C7),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: _isSimulating ? null : _testCalculate,
                 icon: _isSimulating
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Icon(Icons.play_arrow_rounded, size: 20),
-                label: Text(_isSimulating ? 'Calculating...' : 'Run Pricing Simulation', style: const TextStyle(fontWeight: FontWeight.w700)),
+                label: Text(
+                  _isSimulating ? 'Calculating...' : 'Run Pricing Simulation',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ] else ...[
@@ -2067,16 +2683,28 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                 Expanded(
                   child: TextFormField(
                     controller: _simLatCtrl,
-                    decoration: const InputDecoration(labelText: 'Destination Latitude *', border: OutlineInputBorder(), isDense: true),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Destination Latitude *',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _simLngCtrl,
-                    decoration: const InputDecoration(labelText: 'Destination Longitude *', border: OutlineInputBorder(), isDense: true),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Destination Longitude *',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -2084,14 +2712,29 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
                   ),
                   onPressed: _isSimulating ? null : _testCalculate,
                   icon: _isSimulating
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Icon(Icons.play_arrow_rounded, size: 20),
-                  label: Text(_isSimulating ? 'Calculating...' : 'Run Simulation', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  label: Text(
+                    _isSimulating ? 'Calculating...' : 'Run Simulation',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
               ],
             ),
@@ -2109,12 +2752,20 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       _simErrorMessage!,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF991B1B)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF991B1B),
+                      ),
                     ),
                   ),
                 ],
@@ -2128,10 +2779,14 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isSupported ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+                color: isSupported
+                    ? const Color(0xFFF0FDF4)
+                    : const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSupported ? const Color(0xFF86EFAC) : const Color(0xFFFECACA),
+                  color: isSupported
+                      ? const Color(0xFF86EFAC)
+                      : const Color(0xFFFECACA),
                 ),
               ),
               child: Column(
@@ -2143,25 +2798,38 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                       Row(
                         children: [
                           Icon(
-                            isSupported ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                            color: isSupported ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                            isSupported
+                                ? Icons.check_circle_rounded
+                                : Icons.cancel_rounded,
+                            color: isSupported
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFDC2626),
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            isSupported ? 'Serviceable Destination' : 'Outside Service Radius',
+                            isSupported
+                                ? 'Serviceable Destination'
+                                : 'Outside Service Radius',
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 14,
-                              color: isSupported ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                              color: isSupported
+                                  ? const Color(0xFF166534)
+                                  : const Color(0xFF991B1B),
                             ),
                           ),
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: isSupported ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                          color: isSupported
+                              ? const Color(0xFFDCFCE7)
+                              : const Color(0xFFFEE2E2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -2169,7 +2837,9 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
-                            color: isSupported ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                            color: isSupported
+                                ? const Color(0xFF166534)
+                                : const Color(0xFF991B1B),
                           ),
                         ),
                       ),
@@ -2180,14 +2850,22 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                     spacing: 16,
                     runSpacing: 8,
                     children: [
-                      _buildSimDetailItem('Straight-Line Distance', '$distanceKm km (Haversine)'),
-                      _buildSimDetailItem('Matched Distance Band', '$bandName ${bandId != null ? "(ID: $bandId)" : ""}'),
+                      _buildSimDetailItem(
+                        'Straight-Line Distance',
+                        '$distanceKm km (Haversine)',
+                      ),
+                      _buildSimDetailItem(
+                        'Matched Distance Band',
+                        '$bandName ${bandId != null ? "(ID: $bandId)" : ""}',
+                      ),
                       _buildSimDetailItem('Calculated Delivery Fee', '₹$fee'),
                       _buildSimDetailItem(
                         'Free Delivery Rule',
                         isFreeApplied
                             ? 'APPLIED (≤ ${_freeRadiusCtrl.text} km free radius)'
-                            : (freeRadius > 0 ? 'Not applied (> ${_freeRadiusCtrl.text} km)' : 'None configured (0 km)'),
+                            : (freeRadius > 0
+                                  ? 'Not applied (> ${_freeRadiusCtrl.text} km)'
+                                  : 'None configured (0 km)'),
                       ),
                     ],
                   ),
@@ -2202,13 +2880,21 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF0284C7)),
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 16,
+                          color: Color(0xFF0284C7),
+                        ),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'ADMINISTRATIVE PREVIEW: This calculation uses the server\'s active delivery configuration. '
                             'Customer orders at checkout execute this identical backend calculation and persist the charge on the invoice.',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF334155), height: 1.4),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF334155),
+                              height: 1.4,
+                            ),
                           ),
                         ),
                       ],
@@ -2225,7 +2911,10 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
 
   Widget _buildSimPresetChip(String label, String lat, String lng) {
     return ActionChip(
-      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+      ),
       backgroundColor: const Color(0xFFF1F5F9),
       side: const BorderSide(color: Color(0xFFCBD5E1)),
       onPressed: () {
@@ -2243,9 +2932,23 @@ class _DeliveryPricingDialogState extends State<DeliveryPricingDialog>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF64748B),
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF0F172A),
+          ),
+        ),
       ],
     );
   }

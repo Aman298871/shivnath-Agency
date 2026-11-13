@@ -5256,6 +5256,8 @@ class RegisterDeviceTokenView(APIView):
     def post(self, request):
         token = request.data.get('token', '').strip()
         device_type = request.data.get('device_type', 'android').strip().lower()
+        device_name = request.data.get('device_name', '').strip()
+        app_version = request.data.get('app_version', '').strip()
 
         if not token:
             return Response(
@@ -5264,6 +5266,7 @@ class RegisterDeviceTokenView(APIView):
             )
 
         from accounts.models import DeviceToken
+        from django.utils import timezone
         # Security Guard: Deactivate this token for any previous user to prevent wrong-role notifications
         DeviceToken.objects.filter(token=token).exclude(user=request.user).update(is_active=False)
 
@@ -5272,7 +5275,10 @@ class RegisterDeviceTokenView(APIView):
             defaults={
                 'user': request.user,
                 'device_type': device_type,
+                'device_name': device_name,
+                'app_version': app_version,
                 'is_active': True,
+                'last_seen_at': timezone.now(),
             }
         )
 
@@ -5301,9 +5307,14 @@ class UnregisterDeviceTokenView(APIView):
         from accounts.models import DeviceToken
         count = 0
         if token:
-            count += DeviceToken.objects.filter(token=token).update(is_active=False)
-        if request.user and request.user.is_authenticated:
-            count += DeviceToken.objects.filter(user=request.user).update(is_active=False)
+            qs = DeviceToken.objects.filter(token=token, is_active=True)
+            if request.user and request.user.is_authenticated:
+                # Security: Authenticated user can only unregister their own device token
+                qs = qs.filter(user=request.user)
+            count = qs.update(is_active=False)
+        else:
+            # Safety: If token is missing or empty, do NOT deactivate all user devices
+            logger.info("FCM: [TOKEN_UNREGISTERED] No specific token provided in unregister request. Preserving active devices.")
 
         username = request.user.username if (request.user and request.user.is_authenticated) else 'Anonymous/TokenOnly'
         logger.info(
@@ -5337,6 +5348,254 @@ class SendTestPushNotificationView(APIView):
         )
 
         return Response(res)
+
+
+class AdminNotificationOutboxStatsView(APIView):
+    """
+    Returns aggregated metrics and health statistics of the Notification Outbox queue.
+    Strictly role-protected for Admin and Super Admin users.
+    """
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        from accounts.models import NotificationOutbox, DeviceToken
+        now = timezone.now()
+
+        total = NotificationOutbox.objects.count()
+        pending = NotificationOutbox.objects.filter(status='PENDING').count()
+        processing = NotificationOutbox.objects.filter(status='PROCESSING').count()
+        delivered = NotificationOutbox.objects.filter(status='DELIVERED').count()
+        retry_scheduled = NotificationOutbox.objects.filter(status='RETRY').count()
+        failed = NotificationOutbox.objects.filter(status='FAILED').count()
+
+        active_tokens = DeviceToken.objects.filter(is_active=True).count()
+        deactivated_tokens = DeviceToken.objects.filter(is_active=False).count()
+
+        return Response({
+            'success': True,
+            'summary': {
+                'total_outbox_items': total,
+                'pending': pending,
+                'processing': processing,
+                'delivered': delivered,
+                'retry_scheduled': retry_scheduled,
+                'failed': failed,
+            },
+            'tokens': {
+                'active_devices': active_tokens,
+                'deactivated_dead_tokens': deactivated_tokens,
+            },
+            'timestamp': now.isoformat(),
+        })
+
+
+class AdminNotificationOutboxListView(APIView):
+    """
+    Paginated audit log of outbox delivery records with masked tokens and recipient details.
+    """
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        from accounts.models import NotificationOutbox
+        status_filter = request.query_params.get('status', '').strip().upper()
+        limit = min(100, int(request.query_params.get('limit', 30)))
+
+        qs = NotificationOutbox.objects.select_related('recipient').order_by('-created_at')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        items = []
+        for item in qs[:limit]:
+            items.append({
+                'id': item.id,
+                'recipient': item.recipient.username if item.recipient else (item.role_target or 'Broadcast'),
+                'title': item.title,
+                'body': item.body[:100] + ('...' if len(item.body) > 100 else ''),
+                'notification_type': item.notification_type,
+                'reference_id': item.reference_id,
+                'status': item.status,
+                'attempts': item.attempts,
+                'max_attempts': item.max_attempts,
+                'next_retry_at': item.next_retry_at.isoformat() if item.next_retry_at else None,
+                'last_attempt_at': item.last_attempt_at.isoformat() if item.last_attempt_at else None,
+                'fcm_response_code': item.fcm_response_code,
+                'error_message': item.error_message[:200] if item.error_message else '',
+                'created_at': item.created_at.isoformat(),
+            })
+
+        return Response({
+            'success': True,
+            'count': len(items),
+            'items': items,
+        })
+
+
+class AdminNotificationOutboxRetryFailedView(APIView):
+    """
+    Allows authorized administrators to reset FAILED/DEAD outbox items back to PENDING for re-dispatch.
+    """
+    permission_classes = [IsAdminRole]
+
+    def post(self, request):
+        from accounts.models import NotificationOutbox
+        outbox_id = request.data.get('id')
+
+        qs = NotificationOutbox.objects.filter(status='FAILED')
+        if outbox_id:
+            qs = qs.filter(id=outbox_id)
+
+        count = qs.update(
+            status='PENDING',
+            attempts=0,
+            locked_at=None,
+            locked_by='',
+            next_retry_at=timezone.now(),
+            error_message=''
+        )
+
+        return Response({
+            'success': True,
+            'message': f'Re-enqueued {count} failed notification(s) for immediate delivery.',
+            'reset_count': count,
+        })
+
+
+class NotificationOutboxSweepWebhookView(APIView):
+    """
+    Hardened webhook / maintenance endpoint to trigger outbox sweeping and stale lock recovery.
+    Security Architecture:
+    1. Authenticated Admin user session (Bearer JWT) OR
+    2. Secret Maintenance Token passed strictly through secure headers:
+       - Authorization: Bearer <MAINTENANCE_CRON_SECRET>
+       - X-Sweeper-Secret: <MAINTENANCE_CRON_SECRET>
+       - X-Maintenance-Secret: <MAINTENANCE_CRON_SECRET>
+    3. Uses hmac.compare_digest for constant-time secret comparison.
+    4. State mutations are restricted strictly to POST requests (GET is rejected with 405).
+    5. Query parameter secrets are rejected in production to prevent leakage in server access logs.
+    6. Built-in rate limiting prevents concurrent sweep thrashing.
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def _is_authorized(self, request):
+        import hmac
+        from django.conf import settings
+
+        configured_secret = getattr(settings, 'MAINTENANCE_CRON_SECRET', None)
+        if not configured_secret:
+            import hashlib
+            configured_secret = hashlib.sha256((settings.SECRET_KEY + '_sweeper').encode('utf-8')).hexdigest()[:32]
+
+        # 1. Secret maintenance token verification via secure headers ONLY
+        candidate_secret = (
+            request.headers.get('X-Sweeper-Secret') or
+            request.headers.get('X-Maintenance-Secret') or
+            ''
+        ).strip()
+        if candidate_secret and hmac.compare_digest(candidate_secret, configured_secret):
+            return True
+
+        auth_header = request.headers.get('Authorization', '').strip()
+        if auth_header.startswith('Bearer '):
+            token_part = auth_header[7:].strip()
+            if token_part and hmac.compare_digest(token_part, configured_secret):
+                return True
+            # Check if it's a valid admin JWT
+            try:
+                from rest_framework_simplejwt.authentication import JWTAuthentication
+                jwt_auth = JWTAuthentication()
+                validated_token = jwt_auth.get_validated_token(token_part)
+                user = jwt_auth.get_user(validated_token)
+                if user and user.is_authenticated:
+                    profile = getattr(user, 'profile', None)
+                    role = (getattr(profile, 'role', '') or '').lower()
+                    if role in ['admin', 'super_admin'] or user.is_staff or user.is_superuser:
+                        return True
+            except Exception:
+                pass
+
+        # 2. Authenticated Admin / Super Admin from active session
+        if request.user and request.user.is_authenticated:
+            profile = getattr(request.user, 'profile', None)
+            role = (getattr(profile, 'role', '') or '').lower()
+            if role in ['admin', 'super_admin'] or request.user.is_staff or request.user.is_superuser:
+                return True
+
+        auth_header = request.headers.get('Authorization', '').strip()
+        if auth_header.startswith('Bearer '):
+            token_part = auth_header[7:].strip()
+            # If not a standard user JWT (or matches configured secret), test against maintenance secret
+            if token_part and hmac.compare_digest(token_part, configured_secret):
+                return True
+
+        if candidate_secret and hmac.compare_digest(candidate_secret, configured_secret):
+            return True
+
+        # In testing/development only: allow query parameter fallback with deprecation
+        if getattr(settings, 'DEBUG', False) or 'test' in sys.argv:
+            query_token = (request.query_params.get('key') or request.query_params.get('token') or '').strip()
+            if query_token and hmac.compare_digest(query_token, configured_secret):
+                return True
+
+        return False
+
+    def get(self, request):
+        return Response(
+            {
+                'success': False,
+                'message': 'HTTP GET is not permitted for state-modifying maintenance tasks. Please use POST with X-Sweeper-Secret header.',
+                'error_code': 'METHOD_NOT_ALLOWED'
+            },
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def post(self, request):
+        if not self._is_authorized(request):
+            return Response(
+                {
+                    'success': False,
+                    'message': 'Unauthorized: Valid Admin session or secure maintenance header required.',
+                    'error_code': 'FORBIDDEN'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        from django.core.cache import cache
+        rate_limit_key = 'outbox_sweep_last_execution'
+        last_exec = cache.get(rate_limit_key)
+        now_ts = timezone.now().timestamp()
+        if last_exec and (now_ts - float(last_exec)) < 2.0:
+            return Response(
+                {
+                    'success': True,
+                    'message': 'Sweep recently completed. Cooldown active.',
+                    'stats': {'throttled': True},
+                    'timestamp': timezone.now().isoformat()
+                },
+                status=status.HTTP_200_OK
+            )
+        cache.set(rate_limit_key, now_ts, timeout=10)
+
+        from accounts.fcm_services import process_notification_outbox
+        payload = request.data if isinstance(request.data, dict) else {}
+        batch_size = int(payload.get('batch_size') or request.query_params.get('batch_size') or 50)
+        stale_timeout = int(payload.get('stale_timeout') or request.query_params.get('stale_timeout') or 5)
+
+        stats = process_notification_outbox(batch_size=batch_size, stale_timeout_minutes=stale_timeout)
+
+        refill_alerts = []
+        should_check_refills = bool(payload.get('check_refills') or request.query_params.get('check_refills') in ['1', 'true', 'True'])
+        if should_check_refills:
+            from accounts.services import trigger_daily_low_stock_alerts
+            refill_alerts = trigger_daily_low_stock_alerts()
+
+        return Response({
+            'success': True,
+            'message': 'Outbox sweep completed successfully.',
+            'stats': stats,
+            'refill_alerts_dispatched': len(refill_alerts),
+            'timestamp': timezone.now().isoformat()
+        })
 
 
 # =====================================================================

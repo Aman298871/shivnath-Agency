@@ -694,6 +694,7 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
         if is_active is not None and is_active != '':
             qs = qs.filter(is_active=str(is_active).lower() in ['true', '1'])
 
+        qs = qs.order_by('-priority', '-id')
         serializer = MinimumOrderPackagingRuleSerializer(qs, many=True)
         return Response({
             'success': True,
@@ -737,11 +738,11 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
                 return Response({'success': False, 'message': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
 
             # Check baseline rule for this product
-            baseline = MinimumOrderPackagingRule.objects.filter(product=prod, franchise__isnull=True, is_active=True).first()
+            baseline = MinimumOrderPackagingRule.objects.filter(product=prod, franchise__isnull=True, is_active=True).order_by('-priority', '-id').first()
             if not baseline:
                 cat = getattr(prod, 'category_ref', None)
                 if cat:
-                    baseline = MinimumOrderPackagingRule.objects.filter(category=cat, franchise__isnull=True, is_active=True).first()
+                    baseline = MinimumOrderPackagingRule.objects.filter(category=cat, franchise__isnull=True, is_active=True).order_by('-priority', '-id').first()
 
             if not baseline or not baseline.allow_franchise_override:
                 msg = f"Product '{prod.name}' does not permit franchise-level overrides by Administrator policy. Franchise overrides are disabled."
@@ -773,7 +774,22 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
             data['sales_unit'] = baseline.sales_unit
             data['units_per_carton'] = baseline.units_per_carton
 
-        serializer = MinimumOrderPackagingRuleSerializer(data=data)
+        # For Admin baseline rules: If an active baseline rule already exists for this product and channel, update it in-place
+        existing_rule = None
+        if is_admin and data.get('product'):
+            prod_val = data.get('product')
+            applies_to_val = data.get('applies_to', 'CUSTOMER')
+            existing_rule = MinimumOrderPackagingRule.objects.filter(
+                product_id=prod_val,
+                franchise__isnull=True,
+                applies_to=applies_to_val
+            ).order_by('-priority', '-id').first()
+
+        if existing_rule:
+            serializer = MinimumOrderPackagingRuleSerializer(existing_rule, data=data, partial=True)
+        else:
+            serializer = MinimumOrderPackagingRuleSerializer(data=data)
+
         if not serializer.is_valid():
             first_err_val = next(iter(serializer.errors.values()), None)
             first_key = next(iter(serializer.errors.keys()), "Error")
@@ -787,9 +803,9 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
         rule = serializer.save()
         return Response({
             'success': True,
-            'message': f"Packaging rule '{rule.name}' created successfully.",
+            'message': f"Packaging rule '{rule.name}' saved successfully.",
             'rule': serializer.data,
-        }, status=status.HTTP_201_CREATED)
+        }, status=status.HTTP_201_CREATED if not existing_rule else status.HTTP_200_OK)
 
 
 class MinimumOrderPackagingRuleDetailView(APIView):
@@ -827,7 +843,7 @@ class MinimumOrderPackagingRuleDetailView(APIView):
                 return Response({'success': False, 'message': 'You do not have permission to modify this rule.'}, status=status.HTTP_403_FORBIDDEN)
 
             # Franchise editing their override: check baseline bounds
-            baseline = MinimumOrderPackagingRule.objects.filter(product=rule.product, franchise__isnull=True, is_active=True).first()
+            baseline = MinimumOrderPackagingRule.objects.filter(product=rule.product, franchise__isnull=True, is_active=True).order_by('-priority', '-id').first()
             if baseline and not baseline.allow_franchise_override:
                 return Response({'success': False, 'message': 'Franchise overrides are disabled for this product.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -844,7 +860,19 @@ class MinimumOrderPackagingRuleDetailView(APIView):
                         'message': f"Franchise MOQ cannot exceed company maximum limit ({baseline.max_franchise_moq})."
                     }, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = MinimumOrderPackagingRuleSerializer(rule, data=request.data, partial=True)
+        data = request.data.copy()
+        if 'product_id' in data and 'product' not in data:
+            data['product'] = data['product_id']
+        if 'channel' in data and 'applies_to' not in data:
+            data['applies_to'] = data['channel']
+        if 'carton_pack_size' in data and 'units_per_carton' not in data:
+            data['units_per_carton'] = data['carton_pack_size']
+        if 'enforce_carton_multiples' in data and 'allow_partial_carton' not in data:
+            data['allow_partial_carton'] = not (data['enforce_carton_multiples'] in [True, 'true', 'True', 1, '1'])
+        if data.get('sales_unit') == 'PIECE':
+            data['sales_unit'] = 'BOTTLE'
+
+        serializer = MinimumOrderPackagingRuleSerializer(rule, data=data, partial=True)
         if not serializer.is_valid():
             first_err_val = next(iter(serializer.errors.values()), None)
             first_key = next(iter(serializer.errors.keys()), "Error")

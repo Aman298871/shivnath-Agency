@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/services/session_service.dart';
 import '../../core/theme/brand_colors.dart';
 import '../../core/theme/role_theme.dart';
@@ -40,6 +41,22 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       context,
       AppRoutes.login,
       arguments: roleToUse,
+    );
+  }
+
+  Future<void> _continueAsGuest() async {
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.enterGuestMode();
+    if (!mounted) return;
+    Provider.of<RoleThemeProvider>(context, listen: false).setRole(AppConstants.customerRole);
+    await _sessionService.saveRole(AppConstants.customerRole);
+
+    if (!mounted) return;
+
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRoutes.customerDashboard,
+      (route) => false,
     );
   }
 
@@ -169,6 +186,32 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                               const SizedBox(width: 8),
                               const Icon(Icons.arrow_forward_rounded, size: 18),
                             ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Explore Catalog as Guest (App Store Guideline 4.3 / 5.1.1 compliant)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: BrandColors.primaryBlue,
+                            side: const BorderSide(color: Color(0xFFBAE6FD), width: 1.5),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          onPressed: () => _continueAsGuest(),
+                          icon: const Icon(Icons.explore_outlined, size: 20),
+                          label: const Text(
+                            'Explore Catalog as Guest',
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),

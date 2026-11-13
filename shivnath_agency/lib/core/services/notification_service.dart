@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -7,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
+import '../../firebase_options.dart';
 import 'api_client.dart';
 import 'session_service.dart';
 import '../widgets/app_toast.dart';
@@ -17,7 +20,9 @@ import '../../routes/app_routes.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     }
   } catch (_) {}
   debugPrint(
@@ -48,20 +53,37 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final isExplicitFranchise = targetRole.contains('franchise') || screen.startsWith('franchise') || notifType.startsWith('franchise');
     final isExplicitCustomer = targetRole.contains('customer') || screen.startsWith('customer') || notifType.startsWith('customer');
 
+    // Strict Role Suppression: Return immediately on role mismatch or missing session
     if (isExplicitAdmin && !isExplicitFranchise && !isExplicitCustomer) {
-      if (role.isNotEmpty && role != 'admin' && role != 'super_admin') {
-        debugPrint('FCM [Background]: Suppressing admin alert for non-admin role ($role).');
+      if (role.isEmpty || (role != 'admin' && role != 'super_admin')) {
+        debugPrint('FCM [Background]: Suppressing admin notification - active session is "$role".');
         return;
       }
     } else if (isExplicitFranchise && !isExplicitAdmin && !isExplicitCustomer) {
-      if (role.isNotEmpty && role != 'franchise' && role != 'dealer') {
-        debugPrint('FCM [Background]: Suppressing franchise alert for non-franchise role ($role).');
+      if (role.isEmpty || (role != 'franchise' && role != 'dealer')) {
+        debugPrint('FCM [Background]: Suppressing franchise notification - active session is "$role".');
         return;
       }
     } else if (isExplicitCustomer && !isExplicitAdmin && !isExplicitFranchise) {
-      if (role.isNotEmpty && role != 'customer') {
-        debugPrint('FCM [Background]: Suppressing customer alert for non-customer role ($role).');
+      if (role.isEmpty || role != 'customer') {
+        debugPrint('FCM [Background]: Suppressing customer notification - active session is "$role".');
         return;
+      }
+    }
+
+    // Recipient Identity Verification if specified in payload
+    final targetUserId = message.data['recipient_id']?.toString() ?? message.data['user_id']?.toString();
+    if (targetUserId != null && targetUserId.isNotEmpty) {
+      final userRaw = prefs.getString(AppConstants.userSessionKey);
+      if (userRaw != null && userRaw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(userRaw);
+          final currentUserId = decoded['id']?.toString();
+          if (currentUserId != null && currentUserId.isNotEmpty && currentUserId != targetUserId) {
+            debugPrint('FCM [Background]: Suppressing notification for user $targetUserId - active user is $currentUserId.');
+            return;
+          }
+        } catch (_) {}
       }
     }
   } catch (e) {
@@ -91,6 +113,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         icon: '@mipmap/ic_launcher',
         styleInformation: BigTextStyleInformation(body, contentTitle: title),
         channelShowBadge: true,
+        visibility: NotificationVisibility.private,
       );
       final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       await flutterLocalNotificationsPlugin.show(
@@ -106,10 +129,21 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
-class NotificationService {
+class NotificationService with WidgetsBindingObserver {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
+
+  static bool _backgroundHandlerRegistered = false;
+  static bool _isRegisteringDeviceToken = false;
+  Timer? _retryTimer;
+  int _retryAttempt = 0;
+
+  static const String _keyFcmLastAckToken = 'fcm_last_ack_token';
+  static const String _keyFcmLastAckUserId = 'fcm_last_ack_user_id';
+  static const String _keyFcmPendingRegistration = 'fcm_pending_registration';
+  static const String _keyFcmPendingToken = 'fcm_pending_token';
+  static const String _keyFcmRetryCount = 'fcm_retry_count';
 
   FirebaseMessaging get _fcm => FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
@@ -126,17 +160,59 @@ class NotificationService {
   static const String channelDescription =
       'Used for Shivnath Agency business, order, and payment notifications.';
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('FCM: App resumed. Checking token sync and notification permissions...');
+      _checkAndRecoverOnResume();
+    }
+  }
+
+  Future<void> _checkAndRecoverOnResume() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isPending = prefs.getBool(_keyFcmPendingRegistration) ?? false;
+
+      final settings = await _fcm.getNotificationSettings();
+      debugPrint('FCM [Resume]: Authorization status: ${settings.authorizationStatus}');
+
+      if (isPending) {
+        debugPrint('FCM [Resume]: Pending token registration detected in storage. Triggering sync...');
+        await registerDeviceTokenWithBackend();
+        return;
+      }
+
+      final session = SessionService();
+      final user = await session.getUser();
+      final lastAckUserId = prefs.getString(_keyFcmLastAckUserId);
+      final lastAckToken = prefs.getString(_keyFcmLastAckToken);
+
+      final currentToken = _currentFcmToken ?? await _fcm.getToken();
+      if (user != null && currentToken != null && currentToken.isNotEmpty) {
+        if (lastAckUserId != user.id.toString() || lastAckToken != currentToken) {
+          debugPrint('FCM [Resume]: User or token mismatch detected. Triggering re-registration.');
+          await registerDeviceTokenWithBackend(force: true);
+        }
+      }
+    } catch (e) {
+      debugPrint('FCM [Resume]: Verification failed: $e');
+    }
+  }
+
   /// Initialize Firebase Cloud Messaging, local notification channels & listeners
   Future<void> initialize({GlobalKey<NavigatorState>? navKey}) async {
     if (_isInitialized) return;
     if (navKey != null) {
       navigatorKey = navKey;
     }
+    WidgetsBinding.instance.addObserver(this);
 
     try {
       // 1. Initialize Firebase App (guard against duplicate default app)
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
       }
       debugPrint('FCM: Firebase app ready.');
 
@@ -220,8 +296,11 @@ class NotificationService {
       });
 
       // 7. Background & Killed state handling (native only)
-      if (!kIsWeb) {
-        FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      if (!kIsWeb && !_backgroundHandlerRegistered) {
+        try {
+          FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+          _backgroundHandlerRegistered = true;
+        } catch (_) {}
       }
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
@@ -295,18 +374,26 @@ class NotificationService {
     final isExplicitCustomer = targetRole.contains('customer') || screen.startsWith('customer') || notifType.startsWith('customer');
 
     if (isExplicitAdmin && !isExplicitFranchise && !isExplicitCustomer) {
-      if (userRole.isNotEmpty && userRole != 'admin' && userRole != 'super_admin') {
-        debugPrint('FCM: Suppressing Admin alert for non-admin user (role: $userRole, event: $notifType).');
+      if (userRole.isEmpty || (userRole != 'admin' && userRole != 'super_admin')) {
+        debugPrint('FCM: Received Admin alert for non-admin session ($userRole). Suppressing notification for security.');
         return;
       }
     } else if (isExplicitFranchise && !isExplicitAdmin && !isExplicitCustomer) {
-      if (userRole.isNotEmpty && userRole != 'franchise' && userRole != 'dealer') {
-        debugPrint('FCM: Suppressing Franchise alert for non-franchise user (role: $userRole, event: $notifType).');
+      if (userRole.isEmpty || (userRole != 'franchise' && userRole != 'dealer')) {
+        debugPrint('FCM: Received Franchise alert for non-franchise session ($userRole). Suppressing notification for security.');
         return;
       }
     } else if (isExplicitCustomer && !isExplicitAdmin && !isExplicitFranchise) {
-      if (userRole.isNotEmpty && userRole != 'customer') {
-        debugPrint('FCM: Suppressing Customer alert for non-customer user (role: $userRole, event: $notifType).');
+      if (userRole.isEmpty || userRole != 'customer') {
+        debugPrint('FCM: Received Customer alert for non-customer session ($userRole). Suppressing notification for security.');
+        return;
+      }
+    }
+
+    final targetUserId = message.data['recipient_id']?.toString() ?? message.data['user_id']?.toString();
+    if (targetUserId != null && targetUserId.isNotEmpty && user != null) {
+      if (user.id.toString() != targetUserId) {
+        debugPrint('FCM: Received alert for user $targetUserId while session is ${user.id}. Suppressing notification.');
         return;
       }
     }
@@ -334,7 +421,7 @@ class NotificationService {
         icon: '@mipmap/ic_launcher',
         styleInformation: BigTextStyleInformation(body, contentTitle: title),
         channelShowBadge: true,
-        visibility: NotificationVisibility.public,
+        visibility: NotificationVisibility.private,
         fullScreenIntent: false,
       ),
       iOS: const DarwinNotificationDetails(
@@ -441,118 +528,214 @@ class NotificationService {
     _lastRegisteredUserKey = null;
   }
 
-  /// Register FCM Token with Backend for the logged-in user with strict deduplication
+  /// Register FCM Token with Backend for the logged-in user with persistent self-healing state
   Future<bool> registerDeviceTokenWithBackend({bool force = false}) async {
-    if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
-      try {
-        _currentFcmToken = await _fcm.getToken();
-        debugPrint('FCM: Fetched token dynamically: $_currentFcmToken');
-      } catch (e) {
-        debugPrint('FCM: Failed to fetch token dynamically: $e');
-      }
-    }
-
-    if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
-      debugPrint('FCM: No token available to register.');
+    if (_isRegisteringDeviceToken) {
+      debugPrint('FCM: Token registration already in progress. Skipping concurrent request.');
       return false;
     }
-
-    final session = SessionService();
-    final isLoggedIn = await session.isLoggedIn();
-    if (!isLoggedIn) {
-      debugPrint(
-        'FCM: User not logged in. Token saved locally for future registration.',
-      );
-      return false;
-    }
-
-    final user = await session.getUser();
-    final token = await session.getAccessToken();
-    if (token == null || token.isEmpty) return false;
-
-    final currentKey = '${user?.id}_$_currentFcmToken';
-    if (!force && _lastRegisteredUserKey == currentKey) {
-      debugPrint('FCM: Token already registered for current session ($currentKey). Skipping duplicate request.');
-      return true;
-    }
+    _isRegisteringDeviceToken = true;
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+
+      if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
+        try {
+          _currentFcmToken = await _fcm.getToken();
+          debugPrint('FCM: Fetched token dynamically: $_currentFcmToken');
+        } catch (e) {
+          debugPrint('FCM: Failed to fetch token dynamically: $e');
+        }
+      }
+
+      if (_currentFcmToken == null || _currentFcmToken!.isEmpty) {
+        debugPrint('FCM: No token available to register.');
+        return false;
+      }
+
+      final session = SessionService();
+      final isLoggedIn = await session.isLoggedIn();
+      if (!isLoggedIn) {
+        debugPrint(
+          'FCM: User not logged in. Token marked pending in persistent storage.',
+        );
+        await prefs.setBool(_keyFcmPendingRegistration, true);
+        await prefs.setString(_keyFcmPendingToken, _currentFcmToken!);
+        return false;
+      }
+
+      final user = await session.getUser();
+      var token = await session.getAccessToken();
+      if (token == null || token.isEmpty) {
+        await prefs.setBool(_keyFcmPendingRegistration, true);
+        await prefs.setString(_keyFcmPendingToken, _currentFcmToken!);
+        return false;
+      }
+
+      final currentKey = '${user?.id}_$_currentFcmToken';
+      final lastAckToken = prefs.getString(_keyFcmLastAckToken);
+      final lastAckUserId = prefs.getString(_keyFcmLastAckUserId);
+      final isPending = prefs.getBool(_keyFcmPendingRegistration) ?? false;
+
+      if (!force && !isPending && _lastRegisteredUserKey == currentKey && lastAckUserId == user?.id?.toString() && lastAckToken == _currentFcmToken) {
+        debugPrint('FCM: Token already verified and acknowledged for current session ($currentKey). Skipping duplicate request.');
+        return true;
+      }
+
+      // Mark registration as pending while in-flight
+      await prefs.setBool(_keyFcmPendingRegistration, true);
+      await prefs.setString(_keyFcmPendingToken, _currentFcmToken!);
+
       final deviceType = Platform.isAndroid
           ? 'android'
           : (Platform.isIOS ? 'ios' : 'web');
+      final deviceName = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}'.trim();
+      final appVersion = AppConstants.appVersion;
+
+      final payload = jsonEncode({
+        'token': _currentFcmToken,
+        'device_type': deviceType,
+        'device_name': deviceName,
+        'app_version': appVersion,
+      });
+
       final candidates = [
-        '${AppConstants.apiBaseUrl}/api/auth/notifications/register-device/',
         '${AppConstants.apiBaseUrl}/api/notifications/register-device/',
+        '${AppConstants.apiBaseUrl}/api/auth/notifications/register-device/',
       ];
 
+      bool registrationSuccess = false;
       for (final endpoint in candidates) {
-        final url = Uri.parse(endpoint);
-        final response = await ApiClient.post(
-          url,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode({
-            'token': _currentFcmToken,
-            'device_type': deviceType,
-          }),
-        );
-
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          _lastRegisteredUserKey = currentKey;
-          debugPrint(
-            'FCM: Device token successfully registered with backend via $endpoint',
+        try {
+          final url = Uri.parse(endpoint);
+          var response = await ApiClient.post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: payload,
           );
-          return true;
-        } else {
-          debugPrint('FCM: Attempt via $endpoint gave ${response.statusCode}');
+
+          // If access token expired (401), attempt JWT refresh and retry registration exactly once
+          if (response.statusCode == 401) {
+            debugPrint('FCM: Token registration returned 401 Unauthorized. Attempting session token refresh...');
+            final refreshedAccess = await session.refreshAccessToken();
+            if (refreshedAccess != null && refreshedAccess.isNotEmpty) {
+              token = refreshedAccess;
+              response = await ApiClient.post(
+                url,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                  'Authorization': 'Bearer $token',
+                },
+                body: payload,
+              );
+            }
+          }
+
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            registrationSuccess = true;
+            _lastRegisteredUserKey = currentKey;
+            debugPrint(
+              'FCM: Device token successfully registered with backend via $endpoint',
+            );
+            break;
+          } else {
+            debugPrint('FCM: Attempt via $endpoint gave ${response.statusCode}');
+          }
+        } catch (netEx) {
+          debugPrint('FCM: Endpoint $endpoint connection error: $netEx');
         }
       }
-      return false;
+
+      if (registrationSuccess) {
+        // Persist successful ACK state
+        await prefs.setString(_keyFcmLastAckToken, _currentFcmToken!);
+        await prefs.setString(_keyFcmLastAckUserId, user?.id?.toString() ?? '');
+        await prefs.setBool(_keyFcmPendingRegistration, false);
+        await prefs.setInt(_keyFcmRetryCount, 0);
+        _retryAttempt = 0;
+        _retryTimer?.cancel();
+        _retryTimer = null;
+        return true;
+      } else {
+        // Registration failed: schedule bounded exponential backoff retry with jitter
+        _scheduleRetryRegistration();
+        return false;
+      }
     } catch (e) {
       debugPrint('FCM: Exception registering device token: $e');
+      _scheduleRetryRegistration();
       return false;
+    } finally {
+      _isRegisteringDeviceToken = false;
     }
+  }
+
+  void _scheduleRetryRegistration() {
+    _retryTimer?.cancel();
+    _retryAttempt++;
+    final baseDelay = min(300, (1 << min(_retryAttempt, 7)) * 3);
+    final jitter = Random().nextInt(4);
+    final delaySeconds = baseDelay + jitter;
+
+    debugPrint('FCM: Registration failed. Scheduled retry in $delaySeconds seconds (attempt $_retryAttempt)...');
+    _retryTimer = Timer(Duration(seconds: delaySeconds), () {
+      registerDeviceTokenWithBackend();
+    });
   }
 
   /// Unregister FCM Token when user logs out
   Future<void> unregisterDeviceTokenWithBackend() async {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _retryAttempt = 0;
     resetRegistrationCache();
 
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_keyFcmLastAckToken);
+      await prefs.remove(_keyFcmLastAckUserId);
+      await prefs.remove(_keyFcmPendingRegistration);
+      await prefs.remove(_keyFcmPendingToken);
+      await prefs.remove(_keyFcmRetryCount);
+    } catch (_) {}
+
     final fcmTokenToUnregister = _currentFcmToken ?? await _fcm.getToken();
-    if (fcmTokenToUnregister == null || fcmTokenToUnregister.isEmpty) return;
+    if (fcmTokenToUnregister != null && fcmTokenToUnregister.isNotEmpty) {
+      final session = SessionService();
+      final token = await session.getAccessToken();
 
-    final session = SessionService();
-    final token = await session.getAccessToken();
+      final candidates = [
+        '${AppConstants.apiBaseUrl}/api/notifications/unregister-device/',
+        '${AppConstants.apiBaseUrl}/api/auth/notifications/unregister-device/',
+      ];
 
-    final candidates = [
-      '${AppConstants.apiBaseUrl}/api/auth/notifications/unregister-device/',
-      '${AppConstants.apiBaseUrl}/api/notifications/unregister-device/',
-    ];
+      final Map<String, String> headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
 
-    final Map<String, String> headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-    if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
-    }
-
-    for (final endpoint in candidates) {
-      try {
-        final url = Uri.parse(endpoint);
-        final response = await ApiClient.post(
-          url,
-          headers: headers,
-          body: jsonEncode({'token': fcmTokenToUnregister}),
-        );
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          debugPrint('FCM: Device token unregistered successfully via $endpoint.');
-          break;
-        }
-      } catch (_) {}
+      for (final endpoint in candidates) {
+        try {
+          final url = Uri.parse(endpoint);
+          final response = await ApiClient.post(
+            url,
+            headers: headers,
+            body: jsonEncode({'token': fcmTokenToUnregister}),
+          );
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            debugPrint('FCM: Device token unregistered successfully via $endpoint.');
+            break;
+          }
+        } catch (_) {}
+      }
     }
 
     try {

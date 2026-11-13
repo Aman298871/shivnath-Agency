@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/product_model.dart';
 import '../../features/customer/cart/cart_provider.dart';
+import '../services/packaging_service.dart';
 
 class MoqConfirmationDialog extends StatelessWidget {
   final bool isJar;
@@ -87,9 +88,33 @@ class MoqConfirmationDialog extends StatelessWidget {
       return true;
     }
 
+    // Resolve dynamic packaging / MOQ rule for customer (Policy A: max(Admin Baseline, Serving Franchise MOQ))
+    final rule = PackagingService().getRuleForProduct(prodId, channel: 'CUSTOMER', franchiseId: cart.servingFranchiseId);
+    int minUnits = isJar ? 5 : (5 * unitsPerCase);
+    int minBoxesOrUnits = 5;
+    String unitName = isJar ? 'jars' : 'boxes';
+
+    if (rule != null) {
+      final ruleMoq = (rule['min_order_quantity'] as num?)?.toInt() ?? 1;
+      final salesUnit = (rule['sales_unit'] ?? (isJar ? 'JAR' : 'CARTON')).toString().toUpperCase();
+      final upc = (rule['units_per_carton'] as num?)?.toInt() ?? unitsPerCase;
+      unitsPerCase = upc;
+      minBoxesOrUnits = ruleMoq;
+
+      if (salesUnit == 'CARTON') {
+        minUnits = ruleMoq * upc;
+        unitName = 'boxes';
+      } else if (salesUnit == 'JAR') {
+        minUnits = ruleMoq;
+        unitName = 'jars';
+      } else {
+        minUnits = ruleMoq;
+        unitName = 'units';
+      }
+    }
+
     // Item is not yet in cart:
-    // If requested quantity is already >= 5 units (jars or boxes), add directly
-    final minUnits = isJar ? 5 : (5 * unitsPerCase);
+    // If requested quantity is already >= MOQ units, add directly
     if (requestedQty != null && requestedQty >= minUnits) {
       final error = cart.addProduct(product, qty: requestedQty);
       if (error != null) {
@@ -113,7 +138,7 @@ class MoqConfirmationDialog extends StatelessWidget {
       context,
       isJar: isJar,
       productName: name,
-      minQty: 5,
+      minQty: minBoxesOrUnits,
     );
 
     if (confirmed && context.mounted) {
@@ -128,7 +153,7 @@ class MoqConfirmationDialog extends StatelessWidget {
         );
         return false;
       }
-      final unitLabel = isJar ? '5 jars' : '5 boxes';
+      final unitLabel = '$minBoxesOrUnits $unitName';
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(

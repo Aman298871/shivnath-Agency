@@ -1,35 +1,27 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import 'api_client.dart';
 import 'session_service.dart';
 
 class CustomerService {
   final SessionService _sessionService = SessionService();
 
-  Future<String?> _getToken() async {
-    return await _sessionService.getAccessToken();
-  }
-
   Future<Map<String, String>> _headers() async {
-    final token = await _getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
+    return await _sessionService.getAuthHeaders();
   }
 
   String _errorMessage(http.Response response) {
     try {
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) {
-        if (decoded.containsKey('message')) {
+        if (decoded.containsKey('message') && decoded['message'] != null) {
           return decoded['message'].toString();
         }
-        if (decoded.containsKey('detail')) {
+        if (decoded.containsKey('detail') && decoded['detail'] != null) {
           return decoded['detail'].toString();
         }
-        if (decoded.containsKey('error')) {
+        if (decoded.containsKey('error') && decoded['error'] != null) {
           return decoded['error'].toString();
         }
       }
@@ -76,11 +68,9 @@ class CustomerService {
       final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/auth/admin/customers/')
           .replace(queryParameters: queryParams);
 
-      final response = await http
-          .get(uri, headers: await _headers())
-          .timeout(const Duration(seconds: 15));
+      final response = await ApiClient.get(uri, headers: await _headers());
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = jsonDecode(response.body);
         return {
           'success': true,
@@ -115,11 +105,9 @@ class CustomerService {
       final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/auth/admin/customers/$customerId/')
           .replace(queryParameters: queryParams);
 
-      final response = await http
-          .get(uri, headers: await _headers())
-          .timeout(const Duration(seconds: 15));
+      final response = await ApiClient.get(uri, headers: await _headers());
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = jsonDecode(response.body);
         return {
           'success': true,
@@ -144,11 +132,9 @@ class CustomerService {
     try {
       final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/auth/admin/dashboard-stats/');
 
-      final response = await http
-          .get(uri, headers: await _headers())
-          .timeout(const Duration(seconds: 15));
+      final response = await ApiClient.get(uri, headers: await _headers());
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final decoded = jsonDecode(response.body);
         return {
           'success': true,

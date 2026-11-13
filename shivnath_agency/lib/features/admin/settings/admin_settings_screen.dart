@@ -6,6 +6,7 @@ import '../../../core/services/session_service.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../billing/delivery_pricing_dialog.dart';
 import '../products/packaging_rules_dialog.dart';
+import '../../../core/repositories/product_repository.dart';
 
 class AdminSettingsScreen extends StatefulWidget {
   const AdminSettingsScreen({super.key});
@@ -1476,7 +1477,16 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                     style: TextStyle(fontSize: 11),
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                  onTap: () => PackagingRulesDialog.show(context, products: const []),
+                  onTap: () => PackagingRulesDialog.show(
+                    context,
+                    products: ProductRepository.cachedProducts.map((p) => {
+                      'id': int.tryParse(p.id) ?? 0,
+                      'name': p.name,
+                      'sku': p.sku,
+                      'size': p.size,
+                      'units_per_case': p.unitsPerCase,
+                    }).toList(),
+                  ),
                 ),
 
                 const SizedBox(height: 10),

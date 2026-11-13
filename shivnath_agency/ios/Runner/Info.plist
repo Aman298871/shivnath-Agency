@@ -41,9 +41,13 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Shivnath Agency requires access to your camera to capture document receipts and invoices.</string>
+	<string>Water Wala requires access to your camera to capture document receipts and invoices.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Shivnath Agency requires access to your photo library to select invoices, receipts, and profile pictures.</string>
+	<string>Water Wala requires access to your photo library to select invoices, receipts, and profile pictures.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Water Wala requires your location to determine delivery serviceability and calculate distance-based delivery charges.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Water Wala requires your location to accurately calculate delivery fees from our dispatch origin.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

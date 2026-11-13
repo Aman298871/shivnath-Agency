@@ -70,6 +70,8 @@ class AuthRepository {
     required int zoneId,
     int? franchiseId,
     String address = '',
+    String locality = '',
+    String pincode = '',
   }) async {
     return await _authService.registerCustomer(
       name: name,
@@ -82,6 +84,8 @@ class AuthRepository {
       zoneId: zoneId,
       franchiseId: franchiseId,
       address: address,
+      locality: locality,
+      pincode: pincode,
     );
   }
 

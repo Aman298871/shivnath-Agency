@@ -141,6 +141,7 @@ class AuthService {
         'password': password,
         'role': role,
       },
+      allowRetry: true,
     );
   }
 
@@ -152,6 +153,7 @@ class AuthService {
       {
         'email_or_phone': emailOrPhone.trim(),
       },
+      allowRetry: false,
     );
   }
 
@@ -169,6 +171,7 @@ class AuthService {
         'new_password': newPassword,
         'confirm_password': confirmPassword,
       },
+      allowRetry: false,
     );
   }
 
@@ -367,8 +370,10 @@ class AuthService {
     required int zoneId,
     int? franchiseId,
     String address = '',
+    String locality = '',
+    String pincode = '',
   }) async {
-    return _post(
+    final res = await _post(
       '/api/auth/register/customer/',
       {
         'name': name,
@@ -381,8 +386,25 @@ class AuthService {
         'zone_id': zoneId,
         'franchise_id': ?franchiseId,
         if (address.isNotEmpty) 'address': address,
+        if (locality.isNotEmpty) 'locality': locality,
+        if (pincode.isNotEmpty) 'pincode': pincode,
       },
+      allowRetry: false,
     );
+
+    if (res['success'] != true &&
+        (res['timeout'] == true ||
+         res['message']?.toString().toLowerCase().contains('timed out') == true)) {
+      return {
+        'success': false,
+        'unconfirmed': true,
+        'message': 'Registration request was submitted, but the cloud server response timed out. '
+                   'If your details were processed, your account may already be created. '
+                   'Please try logging in with your credentials, or wait a minute before retrying.',
+        'data': res['data'],
+      };
+    }
+    return res;
   }
 
   Future<Map<String, dynamic>> registerFranchise({
@@ -469,66 +491,90 @@ class AuthService {
 }
   Future<Map<String, dynamic>> _post(
     String endpoint,
-    Map<String, dynamic> body,
-  ) async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse(
-              '$baseUrl$endpoint',
-            ),
-            headers: {
-              'Content-Type':
-                  'application/json',
-              'Accept':
-                  'application/json',
-            },
-            body: jsonEncode(body),
-          )
-          .timeout(defaultTimeout);
-
-      dynamic decoded;
-
+    Map<String, dynamic> body, {
+    bool allowRetry = false,
+  }) async {
+    final int maxAttempts = allowRetry ? 2 : 1;
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        decoded =
-            jsonDecode(response.body);
-      } catch (_) {
-        decoded = {};
-      }
+        final timeoutDuration = attempt == 1 ? const Duration(seconds: 15) : const Duration(seconds: 20);
+        final response = await http
+            .post(
+              Uri.parse(
+                '$baseUrl$endpoint',
+              ),
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+              body: jsonEncode(body),
+            )
+            .timeout(timeoutDuration);
 
-      final Map<String, dynamic> data =
-          decoded
-                  is Map<String, dynamic>
-              ? decoded
-              : {};
+        dynamic decoded;
+        try {
+          decoded = jsonDecode(response.body);
+        } catch (_) {
+          decoded = {};
+        }
 
-      if (response.statusCode >= 200 &&
-          response.statusCode < 300) {
+        final Map<String, dynamic> data =
+            decoded is Map<String, dynamic> ? decoded : {};
+
+        // If cloud host returns 502/503/504 while spinning up, retry once with backoff
+        if ((response.statusCode == 502 || response.statusCode == 503 || response.statusCode == 504) && attempt < maxAttempts) {
+          await Future.delayed(const Duration(seconds: 2));
+          continue;
+        }
+
+        if (response.statusCode == 502 || response.statusCode == 503 || response.statusCode == 504) {
+          return {
+            'success': false,
+            'message':
+                'Cloud server is starting up (cold start). Please wait a few seconds and try again.',
+            'data': data,
+          };
+        }
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return {
+            'success': true,
+            'data': data,
+          };
+        }
+
         return {
-          'success': true,
+          'success': false,
+          'message': _extractError(data),
           'data': data,
         };
+      } on TimeoutException {
+        if (attempt < maxAttempts) {
+          continue;
+        }
+        return {
+          'success': false,
+          'timeout': true,
+          'message':
+              'Request timed out. Please check your connection and try again.',
+        };
+      } catch (_) {
+        if (attempt < maxAttempts) {
+          await Future.delayed(const Duration(seconds: 2));
+          continue;
+        }
+        return {
+          'success': false,
+          'message':
+              'Unable to connect to server. Please check your internet connection and try again.',
+        };
       }
-
-      return {
-        'success': false,
-        'message':
-            _extractError(data),
-        'data': data,
-      };
-    } on TimeoutException {
-      return {
-        'success': false,
-        'message':
-            'Cloud server is starting up (cold start). Please wait a few seconds and try again.',
-      };
-    } catch (_) {
-      return {
-        'success': false,
-        'message':
-            'Unable to connect to server. Please check your internet connection and try again.',
-      };
     }
+    return {
+      'success': false,
+      'timeout': true,
+      'message': 'Request timed out. Please try again.',
+    };
   }
 
   String _extractError(
@@ -716,6 +762,7 @@ class AuthService {
         'pincode': pincode.trim(),
         if (locality.trim().isNotEmpty) 'locality': locality.trim(),
       },
+      allowRetry: true,
     );
   }
 

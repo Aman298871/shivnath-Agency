@@ -3,6 +3,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/cancel_order_dialog.dart';
+import '../../../core/widgets/thermal_bill_preview_modal.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
   final String? initialOrderCode;
@@ -705,6 +706,18 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             child: const Text('View Items', maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFFF0F9FF),
+                            foregroundColor: const Color(0xFF0284C7),
+                            side: const BorderSide(color: Color(0xFFBAE6FD)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          tooltip: 'Invoice PDF',
+                          onPressed: () => ThermalBillPreviewModal.show(context, orderData: order),
+                          icon: const Icon(Icons.receipt_rounded, size: 18),
+                        ),
                         if (canCollect) ...[
                           const SizedBox(width: 8),
                           Expanded(
@@ -1363,6 +1376,21 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0284C7),
+                        side: const BorderSide(color: Color(0xFF0284C7)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () {
+                        ThermalBillPreviewModal.show(context, orderData: order);
+                      },
+                      icon: const Icon(Icons.receipt_rounded, size: 18),
+                      label: const Text('Invoice'),
+                    ),
+                    const SizedBox(width: 8),
                     if (!isPaid) ...[
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
@@ -1810,16 +1838,17 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
                           initialValue: selectedMethod,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Payment Method',
                             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             border: OutlineInputBorder(),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                            DropdownMenuItem(value: 'UPI', child: Text('UPI / QR')),
-                            DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Bank Transfer (NEFT/RTGS)')),
-                            DropdownMenuItem(value: 'CHEQUE', child: Text('Cheque')),
+                            DropdownMenuItem(value: 'CASH', child: Text('Cash', overflow: TextOverflow.ellipsis)),
+                            DropdownMenuItem(value: 'UPI', child: Text('UPI / QR', overflow: TextOverflow.ellipsis)),
+                            DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Bank Transfer (NEFT/RTGS)', overflow: TextOverflow.ellipsis)),
+                            DropdownMenuItem(value: 'CHEQUE', child: Text('Cheque', overflow: TextOverflow.ellipsis)),
                           ],
                           onChanged: (val) {
                             if (val != null) setDialogState(() => selectedMethod = val);

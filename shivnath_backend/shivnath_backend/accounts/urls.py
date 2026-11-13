@@ -51,6 +51,10 @@ from .views import (
     RegisterDeviceTokenView,
     UnregisterDeviceTokenView,
     SendTestPushNotificationView,
+    AdminNotificationOutboxStatsView,
+    AdminNotificationOutboxListView,
+    AdminNotificationOutboxRetryFailedView,
+    NotificationOutboxSweepWebhookView,
     AdminZoneManagementView,
     AdminZoneDetailView,
     AdminZoneAreaManagementView,
@@ -398,6 +402,26 @@ urlpatterns = [
         'notifications/test-push/',
         SendTestPushNotificationView.as_view(),
         name='send_test_push'
+    ),
+    path(
+        'notifications/outbox/stats/',
+        AdminNotificationOutboxStatsView.as_view(),
+        name='admin_notification_outbox_stats'
+    ),
+    path(
+        'notifications/outbox/items/',
+        AdminNotificationOutboxListView.as_view(),
+        name='admin_notification_outbox_items'
+    ),
+    path(
+        'notifications/outbox/retry/',
+        AdminNotificationOutboxRetryFailedView.as_view(),
+        name='admin_notification_outbox_retry'
+    ),
+    path(
+        'notifications/outbox/sweep/',
+        NotificationOutboxSweepWebhookView.as_view(),
+        name='admin_notification_outbox_sweep'
     ),
     path(
         'register-device/',

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:file_saver/file_saver.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/services/session_service.dart';
@@ -46,8 +47,17 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
     });
     try {
       final res = await InventoryRepository().getInvoices();
-      if (res['success'] == true && res['data'] is List) {
-        final list = (res['data'] as List).cast<Map<String, dynamic>>();
+      List<dynamic>? rawList;
+      if (res['success'] == true) {
+        if (res['data'] is List) {
+          rawList = res['data'] as List;
+        } else if (res['data'] is Map && res['data']['results'] is List) {
+          rawList = res['data']['results'] as List;
+        }
+      }
+
+      if (rawList != null) {
+        final list = rawList.cast<Map<String, dynamic>>();
         final mapped = list.map((item) {
           final total = _asInt(item['grand_total'] ?? item['total_amount'] ?? item['total']);
           final paid = _asInt(item['amount_paid'] ?? item['paid']);
@@ -323,12 +333,28 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   }
 
   Widget _stats(bool desktop) {
+    final String invCountStr = _isLoading
+        ? '...'
+        : (_billingError != null && invoices.isEmpty ? '—' : '${invoices.length}');
+    final String totalBillStr = _isLoading
+        ? '...'
+        : (_billingError != null && invoices.isEmpty ? '—' : _currency(totalBilling));
+    final String collectedStr = _isLoading
+        ? '...'
+        : (_billingError != null && invoices.isEmpty ? '—' : _currency(totalCollected));
+    final String outstandingStr = _isLoading
+        ? '...'
+        : (_billingError != null && invoices.isEmpty ? '—' : _currency(totalOutstanding));
+    final String unpaidStr = _isLoading
+        ? '...'
+        : (_billingError != null && invoices.isEmpty ? '—' : '$unpaidCount');
+
     final data = [
-      ['Total Invoices', '${invoices.length}', Icons.receipt_long_outlined],
-      ['Total Billing', _currency(totalBilling), Icons.currency_rupee],
-      ['Collected', _currency(totalCollected), Icons.check_circle_outline],
-      ['Outstanding', _currency(totalOutstanding), Icons.schedule_outlined],
-      ['Payment Due', '$unpaidCount', Icons.notifications_active_outlined],
+      ['Total Invoices', invCountStr, Icons.receipt_long_outlined],
+      ['Total Billing', totalBillStr, Icons.currency_rupee],
+      ['Collected', collectedStr, Icons.check_circle_outline],
+      ['Outstanding', outstandingStr, Icons.schedule_outlined],
+      ['Payment Due', unpaidStr, Icons.notifications_active_outlined],
     ];
 
     if (!desktop) {
@@ -1940,13 +1966,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
       if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
         Directory targetDir;
         if (Platform.isAndroid) {
-          final publicDownloadDir = Directory('/storage/emulated/0/Download');
-          if (publicDownloadDir.existsSync()) {
-            targetDir = publicDownloadDir;
-          } else {
-            final ext = await getExternalStorageDirectory();
-            targetDir = ext ?? await getApplicationDocumentsDirectory();
-          }
+          final ext = await getExternalStorageDirectory();
+          targetDir = ext ?? await getApplicationDocumentsDirectory();
         } else {
           targetDir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
         }
@@ -1955,13 +1976,48 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
         final file = File('${targetDir.path}/Invoice_$safeName.pdf');
         await file.writeAsBytes(res.bodyBytes, flush: true);
 
-        if (mounted) {
-          AppToast.success(context, 'Invoice saved to ${targetDir.path.split('/').last}.', title: isPrint ? 'Print Ready' : 'PDF Saved');
+        String savedPath = '';
+        String? saveError;
+        if (!isPrint) {
+          try {
+            savedPath = await FileSaver.instance.saveFile(
+              name: 'Invoice_$safeName',
+              bytes: res.bodyBytes,
+              ext: 'pdf',
+              mimeType: MimeType.pdf,
+            );
+          } catch (saveErr) {
+            saveError = saveErr.toString().replaceAll('Exception: ', '');
+            debugPrint('FileSaver error: $saveErr');
+          }
         }
 
-        final openRes = await OpenFilex.open(file.path);
-        if (openRes.type != ResultType.done) {
-          await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'WATER WALA Invoice: $invoiceNumber'));
+        final bool saveSucceeded = isPrint || (savedPath.trim().isNotEmpty && saveError == null);
+
+        if (mounted) {
+          if (saveSucceeded) {
+            AppToast.success(
+              context,
+              isPrint ? 'Document ready for print.' : 'Saved to Downloads: Invoice_$safeName.pdf',
+              title: isPrint ? 'Print Ready' : 'PDF Saved',
+            );
+          } else {
+            AppToast.error(
+              context,
+              saveError != null
+                  ? 'Failed to save to Downloads: $saveError'
+                  : 'Failed to save to Downloads. Please check storage permissions.',
+              title: 'Save Failed',
+            );
+          }
+        }
+
+        if (saveSucceeded) {
+          final pathOpen = (savedPath.isNotEmpty && File(savedPath).existsSync()) ? savedPath : file.path;
+          final openRes = await OpenFilex.open(pathOpen);
+          if (openRes.type != ResultType.done) {
+            await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'WATER WALA Invoice: $invoiceNumber'));
+          }
         }
       } else {
         if (mounted) {

@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
 
+from unittest.mock import patch, MagicMock
 from products.models import Product, ProductCategory
 from inventory.models import ProductionBatch
 from orders.models import Order, OrderItem
@@ -335,13 +336,18 @@ class DeliveryRadiusAndCheckoutPricingTestCase(TestCase):
 
         # Client requests with authoritative grand total (420.00)
         # Server must accept and create order for 42000 paise
-        res_correct = self.client.post('/api/orders/razorpay/create-order/', {
-            'order_id': order.id,
-            'amount': 420.0
-        }, format='json')
-        self.assertEqual(res_correct.status_code, status.HTTP_200_OK)
-        amount_paise = (res_correct.data.get('data') or res_correct.data)['amount_in_paise']
-        self.assertEqual(amount_paise, 42000)
+        with patch('razorpay.Client') as mock_rzp:
+            mock_client = MagicMock()
+            mock_client.order.create.return_value = {'id': 'order_rzp_mock_420', 'amount': 42000}
+            mock_rzp.return_value = mock_client
+
+            res_correct = self.client.post('/api/orders/razorpay/create-order/', {
+                'order_id': order.id,
+                'amount': 420.0
+            }, format='json')
+            self.assertEqual(res_correct.status_code, status.HTTP_200_OK)
+            amount_paise = (res_correct.data.get('data') or res_correct.data)['amount_in_paise']
+            self.assertEqual(amount_paise, 42000)
 
     def test_11_admin_distance_slab_validation(self):
         """Admin panel distance band API rejects overlapping slabs and negative delivery charges."""
@@ -505,13 +511,18 @@ class DeliveryRadiusAndCheckoutPricingTestCase(TestCase):
         self.assertEqual(res_old.data['code'], 'AMOUNT_MISMATCH')
 
         # Razorpay initiation for updated total (₹820) succeeds
-        res_new = self.client.post('/api/orders/razorpay/create-order/', {
-            'order_id': order.id,
-            'amount': 820.0
-        }, format='json')
-        self.assertEqual(res_new.status_code, status.HTTP_200_OK)
-        amount_paise = (res_new.data.get('data') or res_new.data)['amount_in_paise']
-        self.assertEqual(amount_paise, 82000)
+        with patch('razorpay.Client') as mock_rzp:
+            mock_client = MagicMock()
+            mock_client.order.create.return_value = {'id': 'order_rzp_mock_820', 'amount': 82000}
+            mock_rzp.return_value = mock_client
+
+            res_new = self.client.post('/api/orders/razorpay/create-order/', {
+                'order_id': order.id,
+                'amount': 820.0
+            }, format='json')
+            self.assertEqual(res_new.status_code, status.HTTP_200_OK)
+            amount_paise = (res_new.data.get('data') or res_new.data)['amount_in_paise']
+            self.assertEqual(amount_paise, 82000)
 
     def test_17_direct_and_franchise_payment_flows_remain_separated(self):
         """Franchise orders use FRANCHISE_COLLECTION and cannot be routed through central Razorpay."""

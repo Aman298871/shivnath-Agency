@@ -1,7 +1,7 @@
 import logging
 import math
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth.models import User
 from django.db.models import (
@@ -66,11 +66,14 @@ class AdminCustomerListView(APIView):
         try:
             # 1. Base Customer Queryset (Exclude internal admins, franchises, staff, stock managers)
             base_customers = User.objects.filter(
-                Q(profile__role='customer') | Q(profile__isnull=True)
+                Q(profile__role__iexact='customer') | Q(profile__isnull=True)
             ).exclude(
                 is_superuser=True
             ).exclude(
-                profile__role__in=['admin', 'super_admin', 'franchise', 'staff', 'stock_manager', 'sales_executive']
+                profile__role__in=[
+                    'admin', 'super_admin', 'franchise', 'staff', 'stock_manager', 'sales_executive',
+                    'ADMIN', 'SUPER_ADMIN', 'FRANCHISE', 'STAFF', 'STOCK_MANAGER', 'SALES_EXECUTIVE'
+                ]
             ).exclude(
                 franchise_profile__isnull=False
             ).select_related(
@@ -197,16 +200,31 @@ class AdminCustomerListView(APIView):
                 is_active=True
             ).exclude(profile__status__in=['inactive', 'suspended']).count()
 
-            # Summary totals
-            total_orders_all = annotated_customers.aggregate(
-                total_orders=Sum('total_orders_count'),
-                total_revenue=Sum('total_spent')
-            )
+            # Summary totals with robust fallback for all database engines
+            try:
+                total_orders_all = annotated_customers.aggregate(
+                    total_orders=Sum('total_orders_count'),
+                    total_revenue=Sum('total_spent')
+                )
+                total_orders_val = total_orders_all.get('total_orders') or 0
+                total_rev_val = float(total_orders_all.get('total_revenue') or 0.0)
+            except Exception:
+                # Direct Order aggregate fallback for engines that reject nested annotations
+                customer_user_ids = list(base_customers.values_list('id', flat=True))
+                order_agg = Order.objects.filter(
+                    created_by_id__in=customer_user_ids
+                ).exclude(status='cancelled').aggregate(
+                    tot_orders=Count('id'),
+                    tot_rev=Coalesce(Sum('grand_total'), Sum('amount'), Value(Decimal('0.00')), output_field=DecimalField())
+                )
+                total_orders_val = order_agg.get('tot_orders') or 0
+                total_rev_val = float(order_agg.get('tot_rev') or 0.0)
+
             summary = {
                 'total_customers': total_count,
                 'active_customers': total_active,
-                'total_orders': total_orders_all.get('total_orders') or 0,
-                'total_revenue': float(total_orders_all.get('total_revenue') or 0.0),
+                'total_orders': total_orders_val,
+                'total_revenue': total_rev_val,
             }
 
             # 8. Pagination
@@ -656,9 +674,13 @@ class AdminDashboardStatsView(APIView):
             pipeline_items = Lead.objects.values('status').annotate(count=Count('id')).order_by()
             pipeline = {item['status']: item['count'] for item in pipeline_items}
 
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
+
             # 2. Authoritative Follow-ups
             followups_today = FollowUp.objects.filter(
-                followup_datetime__date=today,
+                followup_datetime__gte=today_start,
+                followup_datetime__lt=today_end,
                 status__iexact='pending'
             ).count()
 
@@ -718,41 +740,115 @@ class AdminDashboardStatsView(APIView):
                 status__in=['REQUESTED', 'PENDING', 'SUBMITTED']
             ).count()
 
+            leads_dict = {
+                'total': total_leads,
+                'total_leads': total_leads,
+                'hot': hot_leads,
+                'hot_leads': hot_leads,
+                'warm': warm_leads,
+                'warm_leads': warm_leads,
+                'cold': cold_leads,
+                'cold_leads': cold_leads,
+                'confirmed_dealers': confirmed_dealers,
+                'followups_today': followups_today,
+                'pipeline': pipeline,
+            }
+
+            orders_dict = {
+                'total': total_orders,
+                'total_orders': total_orders,
+                'pending': pending_orders,
+                'pending_orders': pending_orders,
+                'delivered': delivered_orders,
+                'delivered_orders': delivered_orders,
+                'cancelled': cancelled_orders,
+                'cancelled_orders': cancelled_orders,
+                'new': new_orders,
+                'new_orders': new_orders,
+                'preparing': preparing_orders,
+                'preparing_orders': preparing_orders,
+                'dispatch': dispatch_orders,
+                'dispatch_orders': dispatch_orders,
+                'total_value': total_order_value,
+                'total_order_value': total_order_value,
+            }
+
+            customers_dict = {
+                'total': total_customers,
+                'total_customers': total_customers,
+                'active': active_customers,
+                'active_customers': active_customers,
+            }
+
+            franchises_dict = {
+                'total': total_franchises,
+                'total_franchises': total_franchises,
+                'pending': pending_franchises,
+                'pending_franchises': pending_franchises,
+                'all': all_franchises_count,
+                'all_franchises': all_franchises_count,
+            }
+
+            stock_requests_dict = {
+                'total': total_stock_requests,
+                'franchise_stock_requests': total_stock_requests,
+                'pending': pending_stock_requests,
+                'pending_stock_requests': pending_stock_requests,
+            }
+
+            followups_dict = {
+                'today': followups_today,
+                'pending': followups_today,
+            }
+
+            stats_payload = {
+                # Grouped dictionaries (for Flutter admin_dashboard_screen nested access)
+                'leads': leads_dict,
+                'orders': orders_dict,
+                'customers': customers_dict,
+                'franchises': franchises_dict,
+                'stock_requests': stock_requests_dict,
+                'followups': followups_dict,
+
+                # Flat keys (for backward compatibility and direct access)
+                'total_leads': total_leads,
+                'hot_leads': hot_leads,
+                'warm_leads': warm_leads,
+                'cold_leads': cold_leads,
+                'confirmed_dealers': confirmed_dealers,
+                'followups_today': followups_today,
+                'pipeline': pipeline,
+
+                'total_orders': total_orders,
+                'pending_orders': pending_orders,
+                'delivered_orders': delivered_orders,
+                'cancelled_orders': cancelled_orders,
+                'new_orders': new_orders,
+                'preparing_orders': preparing_orders,
+                'dispatch_orders': dispatch_orders,
+                'total_order_value': total_order_value,
+
+                'total_customers': total_customers,
+                'active_customers': active_customers,
+
+                'total_franchises': total_franchises,
+                'pending_franchises': pending_franchises,
+                'all_franchises': all_franchises_count,
+
+                'franchise_stock_requests': total_stock_requests,
+                'pending_stock_requests': pending_stock_requests,
+            }
+
             return Response({
                 'success': True,
-                'stats': {
-                    # Leads
-                    'total_leads': total_leads,
-                    'hot_leads': hot_leads,
-                    'warm_leads': warm_leads,
-                    'cold_leads': cold_leads,
-                    'confirmed_dealers': confirmed_dealers,
-                    'followups_today': followups_today,
-                    'pipeline': pipeline,
-
-                    # Orders
-                    'total_orders': total_orders,
-                    'pending_orders': pending_orders,
-                    'delivered_orders': delivered_orders,
-                    'cancelled_orders': cancelled_orders,
-                    'new_orders': new_orders,
-                    'preparing_orders': preparing_orders,
-                    'dispatch_orders': dispatch_orders,
-                    'total_order_value': total_order_value,
-
-                    # Customers
-                    'total_customers': total_customers,
-                    'active_customers': active_customers,
-
-                    # Franchises
-                    'total_franchises': total_franchises,
-                    'pending_franchises': pending_franchises,
-                    'all_franchises': all_franchises_count,
-
-                    # Stock Requests
-                    'franchise_stock_requests': total_stock_requests,
-                    'pending_stock_requests': pending_stock_requests,
-                }
+                'stats': stats_payload,
+                # Top level convenience access
+                'leads': leads_dict,
+                'orders': orders_dict,
+                'customers': customers_dict,
+                'franchises': franchises_dict,
+                'stock_requests': stock_requests_dict,
+                'followups': followups_dict,
             }, status=status.HTTP_200_OK)
 
         except Exception as e:

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 
@@ -14,14 +15,38 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   bool _initialized = false;
+  bool _isGuestMode = false;
 
-  UserModel? get currentUser => _currentUser;
-  String? get token => _token;
-  String? get role => _role ?? _currentUser?.role;
+  UserModel? get currentUser => _isGuestMode ? null : _currentUser;
+  String? get token => _isGuestMode ? null : _token;
+  String? get role => _isGuestMode ? 'customer' : (_role ?? _currentUser?.role);
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  bool get isAuthenticated => _token != null && _token!.isNotEmpty && _currentUser != null;
+  bool get isAuthenticated => !_isGuestMode && _token != null && _token!.isNotEmpty && _currentUser != null;
   bool get isInitialized => _initialized;
+  bool get isGuestMode => _isGuestMode || _currentUser == null || _token == null || _token!.isEmpty;
+
+  Future<void> enterGuestMode() async {
+    _isGuestMode = true;
+    _currentUser = null;
+    _token = null;
+    _role = 'customer';
+    _errorMessage = null;
+    try {
+      await _authRepository.clearSession();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_guest_mode', true);
+      await prefs.setString('selected_role', 'customer');
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  Future<void> exitGuestMode() async {
+    _isGuestMode = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('is_guest_mode');
+    notifyListeners();
+  }
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -29,6 +54,19 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      _isGuestMode = prefs.getBool('is_guest_mode') ?? false;
+
+      if (_isGuestMode) {
+        _currentUser = null;
+        _token = null;
+        _role = 'customer';
+        _isLoading = false;
+        _initialized = true;
+        notifyListeners();
+        return;
+      }
+
       _token = await _authRepository.getAccessToken();
       _currentUser = await _authRepository.getCachedUser();
       _role = await _authRepository.getCachedRole();
@@ -95,6 +133,12 @@ class AuthProvider extends ChangeNotifier {
           );
         }
 
+        _isGuestMode = false;
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('is_guest_mode');
+        } catch (_) {}
+
         _isLoading = false;
         notifyListeners();
         return {'success': true, 'data': data};
@@ -133,6 +177,8 @@ class AuthProvider extends ChangeNotifier {
             ? data['franchiseId'] as int
             : int.tryParse(data['franchiseId']?.toString() ?? ''),
         address: data['address']?.toString() ?? '',
+        locality: data['locality']?.toString() ?? '',
+        pincode: data['pincode']?.toString() ?? '',
       );
       _isLoading = false;
       if (res['success'] != true) {
@@ -196,6 +242,9 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _authRepository.clearSession();
+      _isGuestMode = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('is_guest_mode');
       _currentUser = null;
       _token = null;
       _role = null;

@@ -789,7 +789,10 @@ class InventoryService {
   Future<Map<String, dynamic>> getInvoices({String? invoiceType, String? status}) async {
     try {
       final qp = <String, String>{};
-      if (invoiceType != null && invoiceType.isNotEmpty) qp['type'] = invoiceType;
+      if (invoiceType != null && invoiceType.isNotEmpty) {
+        qp['invoice_type'] = invoiceType;
+        qp['type'] = invoiceType;
+      }
       if (status != null && status.isNotEmpty) qp['status'] = status;
       final uri = Uri.parse('$baseUrl/api/billing/invoices/').replace(
         queryParameters: qp.isEmpty ? null : qp,

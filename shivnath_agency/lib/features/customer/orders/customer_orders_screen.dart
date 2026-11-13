@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/constants/app_constants.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/order_provider.dart';
 import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/customer_outstanding_breakdown_modal.dart';
+import '../../../routes/app_routes.dart';
 import 'order_detail_screen.dart';
 
 class CustomerOrdersScreen extends StatefulWidget {
@@ -38,6 +41,10 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
   }
 
   Future<void> _loadOrders({bool silent = false}) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.currentUser == null || auth.token == null || auth.token!.isEmpty) {
+      return;
+    }
     try {
       await context.read<OrderProvider>().loadOrders(forceRefresh: true);
     } catch (_) {}
@@ -51,6 +58,13 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final isGuest = authProvider.isGuestMode || authProvider.currentUser == null || authProvider.token == null || authProvider.token!.isEmpty;
+
+    if (isGuest) {
+      return _buildGuestOrdersScreen(context);
+    }
+
     final orderProvider = context.watch<OrderProvider>();
     _orders = orderProvider.orders;
     _isLoading = orderProvider.isLoading && _orders.isEmpty;
@@ -70,6 +84,114 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
 
         return _mobile(context);
       },
+    );
+  }
+
+  Widget _buildGuestOrdersScreen(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text(
+          'My Orders',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE0F2FE),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long_outlined,
+                    size: 44,
+                    color: Color(0xFF0284C7),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Track Your Orders',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Log in or register to view your drinking water order history, live driver delivery status, and official tax invoices.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: Color(0xFF64748B),
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pushNamed(context, AppRoutes.customerRegister),
+                        child: const Text(
+                          'Register',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: Color(0xFF0284C7),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          backgroundColor: const Color(0xFF0284C7),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.login,
+                          arguments: AppConstants.customerRole,
+                        ),
+                        child: const Text(
+                          'Login',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

@@ -1,7 +1,14 @@
 import os
+import json
 import logging
+import random
+import threading
+import uuid
+from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -104,85 +111,18 @@ def _get_all_admins():
     return resolved
 
 
-def send_fcm_notification(users, title, body, data=None, notification_type='general', reference_id=None):
+def _send_fcm_direct(tokens, title, body, data=None):
     """
-    Sends real Firebase Cloud Messaging (FCM) push notifications to one or multiple users.
-    Enforces structured logging:
-    - RECIPIENT_RESOLVED
-    - FCM_TOKEN_FOUND
-    - FCM_SEND_STARTED
-    - FCM_SEND_SUCCESS
-    - FCM_SEND_FAILURE
-    - INVALID_TOKEN_REMOVED
-    Automatically deactivates invalid/unregistered tokens.
+    Direct low-level FCM Multicast sender.
+    Handles MulticastMessage construction, APNs/Android payloads, error classification,
+    and automatic deactivation of dead/unregistered tokens.
     """
-    if not users:
-        logger.warning("FCM: [FCM_SEND_FAILURE] No recipient users specified for '%s'.", title)
-        return {'success': False, 'message': 'No users specified.'}
-
-    User = get_user_model()
-    if isinstance(users, User):
-        users = [users]
-    elif hasattr(users, '__iter__') and not isinstance(users, (list, tuple)):
-        users = list(users)
-
-    # Filter out None or invalid objects
-    valid_users = [u for u in users if u is not None and getattr(u, 'id', None) is not None]
-    if not valid_users:
-        logger.warning("FCM: [FCM_SEND_FAILURE] No valid user instances provided for '%s'.", title)
-        return {'success': False, 'message': 'No valid users provided.'}
-
-    logger.info(
-        "FCM: [RECIPIENT_RESOLVED] Target recipients for '%s': %s (count: %d)",
-        title,
-        [u.username for u in valid_users],
-        len(valid_users)
-    )
-
-    # 1. Ensure Firebase Admin is initialized
-    if not _init_firebase():
-        logger.warning("FCM: [FCM_SEND_FAILURE] Firebase Admin SDK not configured or credentials missing.")
-        return {'success': False, 'message': 'Firebase Admin SDK not configured.'}
-
-    # 2. Query active device tokens for these users
-    from accounts.models import DeviceToken
-    device_tokens_qs = DeviceToken.objects.filter(user__in=valid_users, is_active=True)
-
-    # Role-based cross-contamination safeguard:
-    # If this push is targeted for admins, strictly exclude any tokens currently active for non-admin users.
-    # If targeted for customers, strictly exclude tokens active for admins.
-    is_admin_push = (notification_type in ['admin', 'admin_order', 'admin_alert']) or (data and str(data.get('recipient_role', '')).lower() == 'admin')
-    is_cust_push = (notification_type in ['customer', 'customer_order', 'status_update', 'order_status']) or (data and str(data.get('recipient_role', '')).lower() == 'customer')
-
-    if is_admin_push:
-        non_admin_tokens = DeviceToken.objects.filter(
-            is_active=True,
-            user__profile__role__in=['customer', 'franchise', 'dealer']
-        ).values_list('token', flat=True)
-        device_tokens_qs = device_tokens_qs.exclude(token__in=non_admin_tokens)
-    elif is_cust_push:
-        admin_tokens = DeviceToken.objects.filter(
-            is_active=True,
-            user__profile__role__in=['admin', 'super_admin']
-        ).values_list('token', flat=True)
-        device_tokens_qs = device_tokens_qs.exclude(token__in=admin_tokens)
-
-    tokens = list(device_tokens_qs.values_list('token', flat=True).distinct())
-
     if not tokens:
-        logger.info(
-            "FCM: [FCM_TOKEN_FOUND] 0 active device tokens found for users: %s. Notification saved in DB only.",
-            [u.username for u in valid_users]
-        )
-        return {'success': True, 'delivered_count': 0, 'message': 'No registered active devices for user(s).'}
+        return {'success': True, 'delivered_count': 0, 'message': 'No tokens'}
 
-    logger.info(
-        "FCM: [FCM_TOKEN_FOUND] Found %d active token(s) across %d user(s).",
-        len(tokens),
-        len(valid_users)
-    )
+    if not _init_firebase():
+        return {'success': False, 'error': 'Firebase Admin SDK not configured'}
 
-    # 3. Build string data payload (FCM requirement: all values must be strings)
     clean_data = {}
     if data and isinstance(data, dict):
         for k, v in data.items():
@@ -190,15 +130,11 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
                 clean_data[str(k)] = str(v)
     clean_data['title'] = str(title)
     clean_data['body'] = str(body)
-    clean_data['notification_type'] = str(notification_type)
-    if reference_id:
-        clean_data['reference_id'] = str(reference_id)
     clean_data['click_action'] = 'FLUTTER_NOTIFICATION_CLICK'
-
-    logger.info("FCM: [FCM_SEND_STARTED] Dispatching push to %d device(s) | Title: '%s' | Type: %s", len(tokens), title, notification_type)
 
     try:
         from firebase_admin import messaging
+        from accounts.models import DeviceToken
 
         apns_config = None
         APNSConfigClass = getattr(messaging, 'APNSConfig', getattr(messaging, 'ApnsConfig', None))
@@ -253,7 +189,14 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
             title
         )
 
-        # 4. Handle expired / unregistered tokens
+        first_msg_id = ''
+        if response.responses:
+            for resp in response.responses:
+                if resp.success and getattr(resp, 'message_id', None):
+                    first_msg_id = resp.message_id
+                    break
+
+        # Process failures and purge permanent dead tokens
         if response.failure_count > 0:
             for idx, resp in enumerate(response.responses):
                 if not resp.success:
@@ -274,10 +217,253 @@ def send_fcm_notification(users, title, body, data=None, notification_type='gene
             'success_count': response.success_count,
             'failure_count': response.failure_count,
             'total_tokens': len(tokens),
+            'message_id': first_msg_id,
         }
     except Exception as e:
         logger.error("FCM: [FCM_SEND_FAILURE] Exception during multicast send: %s", e)
         return {'success': False, 'error': str(e)}
+
+
+def enqueue_notification(users, title, body, data=None, notification_type='general', reference_id=None, idempotency_key=None, role_target=''):
+    """
+    Enqueues notification(s) into the durable transactional NotificationOutbox table.
+    Guarantees that notifications are not lost on network/FCM outages or server restarts.
+    Dispatches immediately in non-blocking asynchronous thread after DB commit.
+    """
+    from accounts.models import NotificationOutbox
+
+    if not users and not role_target:
+        logger.warning("FCM: [OUTBOX] Neither users nor role_target specified for '%s'", title)
+        return []
+
+    User = get_user_model()
+    if isinstance(users, User):
+        users = [users]
+    elif hasattr(users, '__iter__') and not isinstance(users, (list, tuple)):
+        users = list(users)
+    elif not users:
+        users = [None]  # Targeted by role only
+
+    clean_data = {}
+    if data and isinstance(data, dict):
+        for k, v in data.items():
+            if v is not None:
+                clean_data[str(k)] = str(v)
+    clean_data['title'] = str(title)
+    clean_data['body'] = str(body)
+    clean_data['notification_type'] = str(notification_type)
+    if reference_id:
+        clean_data['reference_id'] = str(reference_id)
+    clean_data['click_action'] = 'FLUTTER_NOTIFICATION_CLICK'
+
+    outbox_records = []
+    for u in users:
+        u_id = getattr(u, 'id', 'role')
+        ref = reference_id or 'none'
+        base_idem = idempotency_key or f"{notification_type}:{ref}:{u_id}:{title[:20]}"
+        final_idem = f"{base_idem}:{u_id}" if idempotency_key and len(users) > 1 else (idempotency_key or f"{base_idem}:{uuid.uuid4().hex[:8]}")
+
+        existing = NotificationOutbox.objects.filter(idempotency_key=final_idem).first()
+        if existing:
+            outbox_records.append(existing)
+            continue
+
+        item = NotificationOutbox.objects.create(
+            recipient=u if isinstance(u, User) else None,
+            role_target=role_target,
+            title=title,
+            body=body,
+            data=clean_data,
+            notification_type=notification_type,
+            reference_id=reference_id,
+            idempotency_key=final_idem,
+            status='PENDING',
+            attempts=0,
+            max_attempts=5,
+            next_retry_at=timezone.now()
+        )
+        outbox_records.append(item)
+
+    # Schedule non-blocking async dispatch
+    for item in outbox_records:
+        if item.status == 'PENDING':
+            _trigger_async_dispatch(item.id)
+
+    return outbox_records
+
+
+def _trigger_async_dispatch(outbox_id):
+    def _runner():
+        try:
+            dispatch_outbox_item(outbox_id)
+        except Exception as e:
+            logger.error("FCM: Async dispatch worker error for outbox #%s: %s", outbox_id, e)
+
+    try:
+        transaction.on_commit(lambda: threading.Thread(target=_runner, daemon=True).start())
+    except Exception:
+        threading.Thread(target=_runner, daemon=True).start()
+
+
+def dispatch_outbox_item(outbox_id, worker_id='worker'):
+    """
+    Atomically claims and dispatches a single NotificationOutbox record.
+    Recovers from transient failures with bounded exponential backoff.
+    Deactivates dead tokens on permanent failures.
+    """
+    from accounts.models import NotificationOutbox, DeviceToken
+    now = timezone.now()
+
+    # Concurrency safe atomic lock
+    updated = NotificationOutbox.objects.filter(
+        id=outbox_id,
+        status__in=['PENDING', 'RETRY']
+    ).update(
+        status='PROCESSING',
+        locked_at=now,
+        locked_by=worker_id,
+        last_attempt_at=now
+    )
+    if not updated:
+        return {'success': False, 'message': 'Item already claimed or delivered'}
+
+    item = NotificationOutbox.objects.get(id=outbox_id)
+
+    # Resolve target recipients
+    recipients = []
+    if item.recipient:
+        recipients = [item.recipient]
+    elif item.role_target == 'admin':
+        recipients = _get_all_admins()
+
+    tokens = list(DeviceToken.objects.filter(user__in=recipients, is_active=True).values_list('token', flat=True).distinct())
+
+    if not tokens:
+        item.status = 'DELIVERED'
+        item.fcm_response_code = 'NO_ACTIVE_TOKENS'
+        item.error_message = 'No active FCM device tokens registered for recipient; saved in DB notifications.'
+        item.locked_at = None
+        item.save(update_fields=['status', 'fcm_response_code', 'error_message', 'locked_at', 'updated_at'])
+        return {'success': True, 'delivered_count': 0, 'message': 'No tokens'}
+
+    try:
+        result = _send_fcm_direct(tokens=tokens, title=item.title, body=item.body, data=item.data)
+    except Exception as e:
+        result = {'success': False, 'error': str(e)}
+
+    if result.get('success'):
+        item.status = 'DELIVERED'
+        item.attempts += 1
+        item.fcm_response_code = 'SUCCESS'
+        item.fcm_message_id = str(result.get('message_id') or 'MULTICAST_DELIVERED')
+        item.error_message = ''
+        item.locked_at = None
+        item.save(update_fields=['status', 'attempts', 'fcm_response_code', 'fcm_message_id', 'error_message', 'locked_at', 'updated_at'])
+        return result
+    else:
+        err = str(result.get('error', 'FCM send failed'))
+        item.attempts += 1
+        item.error_message = err
+
+        is_permanent = any(t in err.upper() for t in ['UNREGISTERED', 'INVALID_ARGUMENT', 'SENDER_ID_MISMATCH', 'NOT_FOUND'])
+        if is_permanent or item.attempts >= item.max_attempts:
+            item.status = 'FAILED'
+            item.fcm_response_code = 'PERMANENT_FAILURE' if is_permanent else 'RETRY_EXHAUSTED'
+            item.locked_at = None
+            item.save(update_fields=['status', 'attempts', 'fcm_response_code', 'error_message', 'locked_at', 'updated_at'])
+            if is_permanent and tokens:
+                DeviceToken.objects.filter(token__in=tokens).update(is_active=False)
+        else:
+            backoff_secs = min(3600, (2 ** item.attempts) * 15 + random.randint(1, 10))
+            item.status = 'RETRY'
+            item.next_retry_at = now + timedelta(seconds=backoff_secs)
+            item.fcm_response_code = 'TRANSIENT_RETRY'
+            item.locked_at = None
+            item.save(update_fields=['status', 'attempts', 'next_retry_at', 'fcm_response_code', 'error_message', 'locked_at', 'updated_at'])
+
+        return result
+
+
+def process_notification_outbox(batch_size=50, stale_timeout_minutes=5):
+    """
+    Self-healing background worker sweeper:
+    1. Recovers stale PROCESSING records where locked_at is older than stale_timeout_minutes.
+    2. Claims due PENDING and RETRY records with database concurrency safety.
+    3. Dispatches messages and records full audit trail.
+    """
+    from accounts.models import NotificationOutbox
+    now = timezone.now()
+    worker_id = f"sweeper_{os.getpid()}_{uuid.uuid4().hex[:6]}"
+
+    # 1. Recover stale leases
+    stale_cutoff = now - timedelta(minutes=stale_timeout_minutes)
+    stale_recovered = NotificationOutbox.objects.filter(
+        status='PROCESSING',
+        locked_at__lt=stale_cutoff
+    ).update(
+        status='RETRY',
+        locked_at=None,
+        locked_by='',
+        next_retry_at=now
+    )
+    if stale_recovered > 0:
+        logger.warning("FCM: [OUTBOX_RECOVERY] Recovered %d stale PROCESSING outbox records", stale_recovered)
+
+    # 2. Query candidate records
+    due_items = list(NotificationOutbox.objects.filter(
+        status__in=['PENDING', 'RETRY'],
+        next_retry_at__lte=now
+    ).order_by('created_at')[:batch_size].values_list('id', flat=True))
+
+    processed = 0
+    delivered = 0
+    failed = 0
+    retried = 0
+
+    for outbox_id in due_items:
+        res = dispatch_outbox_item(outbox_id, worker_id=worker_id)
+        processed += 1
+        if res.get('success'):
+            delivered += 1
+        elif res.get('message') == 'Item already claimed or delivered':
+            pass
+        else:
+            st = NotificationOutbox.objects.filter(id=outbox_id).values_list('status', flat=True).first()
+            if st == 'FAILED':
+                failed += 1
+            elif st == 'RETRY':
+                retried += 1
+
+    return {
+        'processed': processed,
+        'delivered': delivered,
+        'retried': retried,
+        'failed': failed,
+        'stale_recovered': stale_recovered
+    }
+
+
+def send_fcm_notification(users, title, body, data=None, notification_type='general', reference_id=None, idempotency_key=None, role_target=''):
+    """
+    Public entry point for sending real FCM notifications.
+    Transparently enqueues into the transactional NotificationOutbox for guaranteed durability.
+    Also executes immediate non-blocking dispatch.
+    """
+    records = enqueue_notification(
+        users=users,
+        title=title,
+        body=body,
+        data=data,
+        notification_type=notification_type,
+        reference_id=reference_id,
+        idempotency_key=idempotency_key,
+        role_target=role_target
+    )
+    return {
+        'success': True,
+        'enqueued_count': len(records),
+        'outbox_ids': [r.id for r in records if r],
+    }
 
 
 # =========================================================

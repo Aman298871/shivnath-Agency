@@ -7,6 +7,7 @@ class AppConstants {
   static const String brandMainTitle = 'WATER WALA — मुख्य ब्रांड';
   static const String brandSubtitle = 'ऐप, ऑनलाइन ऑर्डर और होम डिलीवरी';
   static const String appTagline = 'पानी चाहिए? Water Wala बुलाइए!';
+  static const String appVersion = '1.0.1+7';
 
   static const String customerRole = 'customer';
   static const String franchiseRole = 'franchise';
@@ -42,13 +43,24 @@ class AppConstants {
 
   static String? _customBaseUrl;
 
-  /// Loads saved custom base URL from persistent storage on startup
+  /// Loads saved custom base URL from persistent storage on startup.
+  /// Automatically purges loopback/localhost addresses (127.0.0.1, localhost, 10.0.2.2)
+  /// so physical devices never get trapped connecting to offline local PC databases.
   static Future<void> loadSavedBaseUrl() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(customBaseUrlKey);
       if (saved != null && saved.trim().isNotEmpty) {
-        _customBaseUrl = saved.trim().replaceAll(RegExp(r'/+$'), '');
+        final clean = saved.trim().replaceAll(RegExp(r'/+$'), '');
+        final isLoopback = clean.contains('127.0.0.1') ||
+            clean.contains('localhost') ||
+            clean.contains('10.0.2.2');
+        if (isLoopback) {
+          await prefs.remove(customBaseUrlKey);
+          _customBaseUrl = null;
+        } else {
+          _customBaseUrl = clean;
+        }
       }
     } catch (_) {}
   }

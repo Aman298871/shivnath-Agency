@@ -1,10 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/providers/app_providers.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/packaging_service.dart';
 import 'core/widgets/app_toast.dart';
 import 'firebase_options.dart';
 import 'routes/app_routes.dart';
@@ -20,6 +23,10 @@ void main() async {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+    }
+    // Register FCM top-level background handler before runApp
+    if (!kIsWeb) {
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     }
   } catch (e) {
     debugPrint('Firebase.initializeApp warning: $e');
@@ -104,6 +111,11 @@ void main() async {
   };
 
   runApp(const WaterBusinessApp());
+
+  // Warm up packaging and MOQ rules asynchronously
+  PackagingService().loadCachedRules().then((_) {
+    PackagingService().getPackagingRules().catchError((_) => <String, dynamic>{});
+  });
 
   // Initialize notification service asynchronously without blocking splash screen or app startup
   NotificationService().initialize(navKey: rootNavigatorKey).catchError((e) {

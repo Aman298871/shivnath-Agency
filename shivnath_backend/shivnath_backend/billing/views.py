@@ -36,6 +36,10 @@ class InvoiceListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        if not user.is_active or getattr(getattr(user, 'profile', None), 'status', 'active') != 'active':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Your account is deactivated or suspended. Access denied.")
+
         if hasattr(user, 'profile') and user.profile.role == 'stock_manager':
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Stock managers are forbidden from accessing financial invoices and billing.")
@@ -65,6 +69,14 @@ class InvoiceListAPIView(generics.ListAPIView):
                 qs = qs.none()
         elif hasattr(user, 'profile') and user.profile.role == 'customer':
             qs = qs.filter(order__created_by=user)
+        elif hasattr(user, 'profile') and user.profile.role == 'admin':
+            if not (user.is_superuser or user.profile.role == 'super_admin'):
+                from accounts.permissions import check_granular_permission
+                if not check_granular_permission(user, 'billing', 'view'):
+                    from rest_framework.exceptions import PermissionDenied
+                    raise PermissionDenied("Permission Denied: Missing 'billing:view' privilege.")
+            from accounts.scopes import apply_data_scope
+            qs = apply_data_scope(qs, user, 'invoice')
 
         invoice_type = self.request.query_params.get('invoice_type') or self.request.query_params.get('type')
         if invoice_type:
@@ -98,6 +110,11 @@ class RecordPaymentAPIView(views.APIView):
         if hasattr(user, 'profile') and user.profile.role == 'stock_manager':
             return Response({'success': False, 'message': 'Stock managers cannot record invoice payments.'}, status=status.HTTP_403_FORBIDDEN)
 
+        if not (user.is_superuser or (hasattr(user, 'profile') and user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(user, 'billing', 'edit'):
+                return Response({'success': False, 'message': "Permission Denied: Missing 'billing:edit' privilege."}, status=status.HTTP_403_FORBIDDEN)
+
         amount = request.data.get('amount')
         payment_method = request.data.get('payment_method', 'UPI')
         reference_number = request.data.get('reference_number', '')
@@ -117,6 +134,21 @@ class RecordPaymentAPIView(views.APIView):
             )
             is_pending = (txn.payment_status in ['PENDING', 'PENDING_VERIFICATION'])
             msg = 'Payment submitted. Awaiting Admin verification and approval.' if is_pending else 'Payment recorded and verified successfully.'
+            
+            from accounts.models import publish_system_event
+            publish_system_event(
+                event_type='payment.recorded',
+                payload={
+                    'invoice_id': invoice_id,
+                    'amount': str(amount),
+                    'payment_method': payment_method,
+                    'payment_status': txn.payment_status,
+                    'reference_number': reference_number,
+                },
+                target_scope='all',
+                franchise_id=getattr(txn.invoice, 'franchise_id', None)
+            )
+
             return Response({
                 'success': True,
                 'message': msg,
@@ -145,6 +177,14 @@ class VerifyPaymentAPIView(views.APIView):
                 'success': False,
                 'message': 'Unauthorized. Only administrators can verify and approve payments.'
             }, status=status.HTTP_403_FORBIDDEN)
+
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'billing', 'approve'):
+                return Response({
+                    'success': False,
+                    'message': "Permission Denied: Missing 'billing:approve' privilege."
+                }, status=status.HTTP_403_FORBIDDEN)
 
         try:
             txn = verify_payment_transaction(
@@ -682,6 +722,11 @@ class FranchiseCollectionsSummaryAPIView(views.APIView):
         if not is_admin:
             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'billing', 'approve'):
+                return Response({'error': "Permission Denied: Missing 'billing:approve' privilege."}, status=status.HTTP_403_FORBIDDEN)
+
         from django.db.models import Sum, Count, Q
         from orders.models import Order
         from accounts.models import FranchiseProfile
@@ -841,6 +886,11 @@ class PendingPaymentsAPIView(views.APIView):
         if not is_admin:
             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'billing', 'approve'):
+                return Response({'error': "Permission Denied: Missing 'billing:approve' privilege."}, status=status.HTTP_403_FORBIDDEN)
+
         pending_txns = PaymentTransaction.objects.filter(
             payment_status='PENDING_VERIFICATION'
         ).select_related('invoice', 'invoice__order', 'received_by').order_by('-payment_date')
@@ -899,8 +949,24 @@ class VerifyPaymentByTxnAPIView(views.APIView):
         if not is_admin:
             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'billing', 'approve'):
+                return Response({'error': "Permission Denied: Missing 'billing:approve' privilege."}, status=status.HTTP_403_FORBIDDEN)
+
         try:
             txn = _process_payment_verification(txn_id, 'approve', request.user, notes=request.data.get('notes', ''))
+            from accounts.models import publish_system_event
+            publish_system_event(
+                event_type='payment.verified',
+                payload={
+                    'txn_id': txn.id,
+                    'invoice_id': getattr(txn, 'invoice_id', None),
+                    'amount': str(txn.amount_paid),
+                    'payment_status': txn.payment_status,
+                },
+                target_scope='all'
+            )
             return Response({
                 'success': True,
                 'message': f'Payment of ₹{txn.amount_paid} approved and verified successfully. Ledger and credit updated.',
@@ -921,6 +987,11 @@ class RejectPaymentByTxnAPIView(views.APIView):
         )
         if not is_admin:
             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'billing', 'approve'):
+                return Response({'error': "Permission Denied: Missing 'billing:approve' privilege."}, status=status.HTTP_403_FORBIDDEN)
 
         reason = request.data.get('reason', request.data.get('notes', 'Payment could not be verified in bank statement.'))
         try:
@@ -1195,6 +1266,12 @@ class DeliveryOriginSettingsAPIView(views.APIView):
                 break
             return Response({'success': False, 'message': first_err, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
+        from accounts.models import publish_system_event
+        publish_system_event(
+            event_type='delivery.origin_updated',
+            payload=serializer.data,
+            target_scope='all'
+        )
         return Response({
             'success': True,
             'message': 'Delivery origin updated successfully.',
@@ -1372,6 +1449,12 @@ class DeliveryDistanceBandDetailView(views.APIView):
                 break
             return Response({'success': False, 'message': first_err, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
+        from accounts.models import publish_system_event
+        publish_system_event(
+            event_type='delivery.origin_updated',
+            payload=serializer.data,
+            target_scope='all'
+        )
         return Response({
             'success': True,
             'message': f"Distance band '{band.name}' updated successfully.",

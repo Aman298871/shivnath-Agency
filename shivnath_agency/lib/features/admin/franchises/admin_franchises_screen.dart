@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/repositories/franchise_repository.dart';
@@ -14,6 +16,36 @@ class AdminFranchisesScreen extends StatefulWidget {
 
 class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
   final FranchiseRepository _franchiseService = FranchiseRepository();
+
+  bool get _canApproveFranchise {
+    try {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user == null) return false;
+      return user.hasPermission('dealers', 'approve') || user.hasPermission('franchises', 'approve');
+    } catch (_) {
+      return true;
+    }
+  }
+
+  bool get _canEditFranchise {
+    try {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user == null) return false;
+      return user.hasPermission('dealers', 'edit') || user.hasPermission('franchises', 'edit');
+    } catch (_) {
+      return true;
+    }
+  }
+
+  bool get _canDeleteFranchise {
+    try {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user == null) return false;
+      return user.hasPermission('dealers', 'delete') || user.hasPermission('franchises', 'delete');
+    } catch (_) {
+      return true;
+    }
+  }
 
   final List<Map<String, dynamic>> franchises = [];
 
@@ -517,7 +549,7 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
                 ),
 
                 // APPROVE / REJECT ONLY FOR PENDING FRANCHISE
-                if (item['status'] == 'Pending') ...[
+                if (item['status'] == 'Pending' && _canApproveFranchise) ...[
                   IconButton(
                     tooltip: 'Approve Franchise',
                     onPressed: () {
@@ -565,25 +597,27 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
                   ),
                 ),
 
-                IconButton(
-                  tooltip: 'Edit Franchise',
-                  onPressed: () {
-                    _openForm(item: item);
-                  },
-                  icon: const Icon(Icons.edit_outlined, size: 17),
-                ),
-
-                IconButton(
-                  tooltip: 'Delete Franchise',
-                  onPressed: () {
-                    _delete(item);
-                  },
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    color: Colors.red,
-                    size: 17,
+                if (_canEditFranchise)
+                  IconButton(
+                    tooltip: 'Edit Franchise',
+                    onPressed: () {
+                      _openForm(item: item);
+                    },
+                    icon: const Icon(Icons.edit_outlined, size: 17),
                   ),
-                ),
+
+                if (_canDeleteFranchise)
+                  IconButton(
+                    tooltip: 'Delete Franchise',
+                    onPressed: () {
+                      _delete(item);
+                    },
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                      size: 17,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -673,7 +707,7 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
                     icon: const Icon(Icons.visibility_outlined),
                   ),
 
-                  if (item['status'] == 'Pending') ...[
+                  if (item['status'] == 'Pending' && _canApproveFranchise) ...[
                     IconButton(
                       tooltip: 'Approve',
                       onPressed: () {
@@ -719,21 +753,23 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
                     ),
                   ),
 
-                  IconButton(
-                    tooltip: 'Edit',
-                    onPressed: () {
-                      _openForm(item: item);
-                    },
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
+                  if (_canEditFranchise)
+                    IconButton(
+                      tooltip: 'Edit',
+                      onPressed: () {
+                        _openForm(item: item);
+                      },
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
 
-                  IconButton(
-                    tooltip: 'Delete',
-                    onPressed: () {
-                      _delete(item);
-                    },
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  ),
+                  if (_canDeleteFranchise)
+                    IconButton(
+                      tooltip: 'Delete',
+                      onPressed: () {
+                        _delete(item);
+                      },
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    ),
                 ],
               ),
             ],
@@ -1933,6 +1969,10 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
   }
 
   Future<void> _approveFranchise(Map<String, dynamic> item) async {
+    if (!_canApproveFranchise) {
+      AppToast.show(context, 'Access restricted: You do not have permission to approve franchises.');
+      return;
+    }
     final fssaiStatus = (item['fssaiStatus']?.toString() ?? 'PENDING_VERIFICATION').toUpperCase();
 
     if (fssaiStatus == 'FAILED' || fssaiStatus == 'EXPIRED') {
@@ -2165,6 +2205,10 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
   }
 
   Future<void> _rejectFranchise(Map<String, dynamic> item) async {
+    if (!_canApproveFranchise) {
+      AppToast.show(context, 'Access restricted: You do not have permission to reject franchises.');
+      return;
+    }
     final reasonController = TextEditingController();
 
     String? rejectionReason;
@@ -2308,6 +2352,10 @@ class _AdminFranchisesScreenState extends State<AdminFranchisesScreen> {
   }
 
   Future<void> _delete(Map<String, dynamic> item) async {
+    if (!_canDeleteFranchise) {
+      AppToast.show(context, 'Access restricted: You do not have permission to delete franchises.');
+      return;
+    }
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {

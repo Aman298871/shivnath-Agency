@@ -43,6 +43,12 @@ class OrderListCreateView(APIView):
     def get(self, request):
         user = request.user if (request.user and request.user.is_authenticated) else None
 
+        if user and (not user.is_active or getattr(getattr(user, 'profile', None), 'status', 'active') != 'active'):
+            return Response(
+                {'success': False, 'message': 'Your account is deactivated or suspended. Access denied.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         if not user:
             phone = request.query_params.get('phone', '').strip()
             if phone:
@@ -67,9 +73,16 @@ class OrderListCreateView(APIView):
                 role = 'franchise'
 
             if user.is_superuser or role in ['admin', 'super_admin'] or user.is_staff or role == 'sales_executive':
-                from accounts.services import apply_data_scope
+                if not (user.is_superuser or role == 'super_admin'):
+                    from accounts.permissions import check_granular_permission
+                    if not check_granular_permission(user, 'orders', 'view'):
+                        return Response(
+                            {'success': False, 'message': "Permission Denied: Missing 'orders:view' privilege."},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                from accounts.scopes import apply_data_scope
                 orders = Order.objects.select_related('created_by', 'serving_franchise').prefetch_related('items').all()
-                orders = apply_data_scope(user, orders, 'Order')
+                orders = apply_data_scope(orders, user, 'order')
             elif role == 'franchise':
                 if fp:
                     orders = Order.objects.filter(
@@ -711,6 +724,29 @@ class OrderListCreateView(APIView):
                 except Exception as notif_err:
                     logger.error("FCM: Order creation notification dispatch error: %s", notif_err, exc_info=True)
 
+                try:
+                    from accounts.models import publish_system_event
+                    publish_system_event(
+                        event_type='order.created',
+                        payload={
+                            'order_id': order.id,
+                            'order_code': getattr(order, 'order_code', str(order.id)),
+                            'customer_name': (creator.get_full_name() or creator.username) if creator else 'Guest',
+                            'customer_id': creator.id if creator else None,
+                            'franchise_id': getattr(serving_franchise, 'id', None),
+                            'franchise_name': getattr(serving_franchise, 'business_name', '') if serving_franchise else '',
+                            'grand_total': str(getattr(order, 'grand_total', None) or getattr(order, 'amount', '0.00')),
+                            'items_count': getattr(order, 'items_count', 1),
+                            'status': getattr(order, 'status', 'order_placement'),
+                            'payment_status': getattr(order, 'payment_status', 'pending'),
+                            'created_at': order.created_at.isoformat() if hasattr(order, 'created_at') and order.created_at else timezone.now().isoformat()
+                        },
+                        target_scope='global',
+                        franchise_id=getattr(serving_franchise, 'id', None)
+                    )
+                except Exception as pse_err:
+                    logger.warning("Failed to publish order.created event: %s", pse_err)
+
             transaction.on_commit(_dispatch_order_placed_notifs)
 
             # Authoritatively award reward points for eligible customer order
@@ -882,9 +918,26 @@ class OrderDetailView(APIView):
     def get(self, request, pk):
         order = get_object_or_404(Order.objects.prefetch_related('items'), pk=pk)
         user = request.user if request.user and request.user.is_authenticated else None
+        if user and (not user.is_active or getattr(getattr(user, 'profile', None), 'status', 'active') != 'active'):
+            return Response(
+                {'success': False, 'message': 'Your account is deactivated or suspended. Access denied.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         if user:
             role = getattr(getattr(user, 'profile', None), 'role', '')
             is_admin = user.is_superuser or user.is_staff or role in ['admin', 'super_admin']
+            if is_admin and not (user.is_superuser or role == 'super_admin'):
+                from accounts.permissions import check_granular_permission
+                if not check_granular_permission(user, 'orders', 'view'):
+                    return Response(
+                        {'success': False, 'message': "Permission Denied: Missing 'orders:view' privilege."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                from accounts.scopes import check_object_scope
+                try:
+                    check_object_scope(user, order, 'order')
+                except Exception as scope_err:
+                    return Response({'success': False, 'message': str(scope_err)}, status=status.HTTP_403_FORBIDDEN)
             is_franchise = role == 'franchise' or bool(getattr(user, 'franchise_profile', None))
             if not is_admin and is_franchise:
                 fp = getattr(user, 'franchise_profile', None)
@@ -913,6 +966,19 @@ class OrderDetailView(APIView):
         user = request.user if request.user and request.user.is_authenticated else None
         role = getattr(getattr(user, 'profile', None), 'role', '')
         is_admin = user and (user.is_superuser or user.is_staff or role in ['admin', 'super_admin'])
+
+        if is_admin and not (user.is_superuser or role == 'super_admin'):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(user, 'orders', 'edit'):
+                return Response(
+                    {'success': False, 'message': "Permission Denied: Missing 'orders:edit' privilege."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            from accounts.scopes import check_object_scope
+            try:
+                check_object_scope(user, order, 'order')
+            except Exception as scope_err:
+                return Response({'success': False, 'message': str(scope_err)}, status=status.HTTP_403_FORBIDDEN)
 
         if not is_admin and (role == 'franchise' or getattr(user, 'franchise_profile', None)):
             fp = getattr(user, 'franchise_profile', None)
@@ -1041,7 +1107,23 @@ class OrderDetailView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        if not (user.is_superuser or role == 'super_admin'):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(user, 'orders', 'delete'):
+                return Response(
+                    {'success': False, 'message': "Permission Denied: Missing 'orders:delete' privilege."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
         order = get_object_or_404(Order, pk=pk)
+
+        if not (user.is_superuser or role == 'super_admin'):
+            from accounts.scopes import check_object_scope
+            try:
+                check_object_scope(user, order, 'order')
+            except Exception as scope_err:
+                return Response({'success': False, 'message': str(scope_err)}, status=status.HTTP_403_FORBIDDEN)
+
         order_code = order.order_code
 
         with transaction.atomic():
@@ -1068,6 +1150,9 @@ class OrderDetailView(APIView):
 
 class OrderStatusUpdateView(APIView):
     permission_classes = [IsAdminOrApprovedFranchise]
+
+    def post(self, request, pk):
+        return self.patch(request, pk)
 
     def put(self, request, pk):
         return self.patch(request, pk)
@@ -1123,6 +1208,19 @@ class OrderStatusUpdateView(APIView):
                     'success': False,
                     'message': 'Order not found.'
                 }, status=status.HTTP_404_NOT_FOUND)
+
+            if role == 'admin' and not (user.is_superuser or role == 'super_admin'):
+                from accounts.permissions import check_granular_permission
+                if not check_granular_permission(user, 'orders', 'edit'):
+                    return Response({
+                        'success': False,
+                        'message': "Permission Denied: Missing 'orders:edit' privilege."
+                    }, status=status.HTTP_403_FORBIDDEN)
+                from accounts.scopes import check_object_scope
+                try:
+                    check_object_scope(user, order, 'order')
+                except Exception as scope_err:
+                    return Response({'success': False, 'message': str(scope_err)}, status=status.HTTP_403_FORBIDDEN)
 
             # Franchise must only update orders assigned to them, and NEVER wallet orders
             if role == 'franchise' and not user.is_superuser:

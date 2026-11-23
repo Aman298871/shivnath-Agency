@@ -4,8 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:shivnath_agency/core/providers/auth_provider.dart';
-import 'package:shivnath_agency/core/providers/product_provider.dart';
 import 'package:shivnath_agency/core/providers/wallet_provider.dart';
 import 'package:shivnath_agency/features/admin/billing/admin_billing_screen.dart';
 import 'package:shivnath_agency/features/admin/billing/delivery_pricing_dialog.dart';
@@ -16,10 +14,8 @@ import 'package:shivnath_agency/features/admin/leads/admin_leads_screen.dart';
 import 'package:shivnath_agency/features/admin/orders/admin_orders_screen.dart';
 import 'package:shivnath_agency/features/admin/products/packaging_rules_dialog.dart';
 import 'package:shivnath_agency/features/auth/customer_register_screen.dart';
-import 'package:shivnath_agency/features/auth/login_screen.dart';
 import 'package:shivnath_agency/features/customer/cart/cart_provider.dart';
 import 'package:shivnath_agency/features/customer/checkout/checkout_screen.dart';
-import 'package:shivnath_agency/features/franchise/franchise_main_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

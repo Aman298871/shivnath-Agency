@@ -7,6 +7,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/repositories/app_repositories.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/session_service.dart';
+import '../../core/services/realtime_sync_service.dart';
 import '../../core/widgets/ai_chatbot_modal.dart';
 import '../../core/widgets/support_desk_modal.dart';
 import '../../routes/app_routes.dart';
@@ -68,6 +69,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     _loadUser();
     _startOrderPolling();
     NotificationService().registerDeviceTokenWithBackend();
+    RealTimeSyncService().startSync(interval: const Duration(seconds: 8));
+    RealTimeSyncService().addProfileUpdatedListener(_handleProfileUpdated);
+    RealTimeSyncService().addDeactivatedListener(_handleAccountDeactivated);
   }
 
   @override
@@ -75,7 +79,35 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     _isLoggingOut = true;
     _orderPollTimer?.cancel();
     _orderPollTimer = null;
+    RealTimeSyncService().removeProfileUpdatedListener(_handleProfileUpdated);
+    RealTimeSyncService().removeDeactivatedListener(_handleAccountDeactivated);
     super.dispose();
+  }
+
+  void _handleProfileUpdated(UserModel updated) {
+    if (mounted) {
+      setState(() {
+        _currentUser = updated;
+        if (!_canAccessIndex(currentIndex)) {
+          final items = menuItems;
+          if (items.isNotEmpty) {
+            currentIndex = items.first.index;
+          }
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your permissions have been synchronized in real-time.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _handleAccountDeactivated() {
+    if (mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+    }
   }
 
   void _startOrderPolling() {
@@ -459,15 +491,157 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   }
 
   Future<void> _loadUser() async {
-    final u = await _authRepository.getSessionUser();
-    if (mounted && u != null) {
-      setState(() {
-        _currentUser = u;
-        if (u.isStockManager && currentIndex == 0) {
-          currentIndex = 4;
-        }
-      });
+    try {
+      final auth = context.read<AuthProvider>();
+      UserModel? u = auth.currentUser;
+      u ??= await _authRepository.getSessionUser();
+      final user = u;
+      if (mounted && user != null) {
+        setState(() {
+          _currentUser = user;
+          if (user.isStockManager && currentIndex == 0) {
+            currentIndex = 4;
+          } else if (!_canAccessIndex(currentIndex)) {
+            final items = menuItems;
+            if (items.isNotEmpty) {
+              currentIndex = items.first.index;
+            }
+          }
+        });
+      }
+    } catch (_) {
+      final u = await _authRepository.getSessionUser();
+      final user = u;
+      if (mounted && user != null) {
+        setState(() {
+          _currentUser = user;
+          if (user.isStockManager && currentIndex == 0) {
+            currentIndex = 4;
+          } else if (!_canAccessIndex(currentIndex)) {
+            final items = menuItems;
+            if (items.isNotEmpty) {
+              currentIndex = items.first.index;
+            }
+          }
+        });
+      }
     }
+  }
+
+  // =========================================================
+  // RBAC PERMISSION GATE
+  // =========================================================
+
+  bool _canAccessIndex(int index) {
+    final user = _currentUser;
+    if (user == null) return false;
+    if (user.isSuperAdmin) return true;
+
+    final isStockMgr = user.isStockManager;
+    if (isStockMgr) {
+      return [4, 21, 5, 22, 15, 16].contains(index);
+    }
+
+    switch (index) {
+      case 0: // Dashboard
+        return user.hasPermission('dashboard', 'view') ||
+            user.adminPermissions.isNotEmpty ||
+            user.isAdmin;
+      case 1: // Leads
+        return user.hasPermission('leads', 'view');
+      case 2: // Follow-ups
+        return user.hasPermission('followups', 'view') ||
+            user.hasPermission('leads', 'view');
+      case 3: // Franchises
+        return user.hasPermission('dealers', 'view') ||
+            user.hasPermission('franchises', 'view');
+      case 23: // Customer CRM
+        return user.hasPermission('customers', 'view');
+      case 4: // Plant Batches & Stock
+        return user.hasPermission('inventory', 'view') ||
+            user.hasPermission('production', 'view');
+      case 21: // Central Stock Requests
+        return user.hasPermission('stock_requests', 'view') ||
+            user.hasPermission('inventory', 'view');
+      case 5: // Products & Pricing
+        return user.hasPermission('products', 'view');
+      case 22: // BOM & Recipe Master
+        return user.hasPermission('production', 'view') ||
+            user.hasPermission('products', 'view');
+      case 6: // Suppliers
+        return user.hasPermission('suppliers', 'view') ||
+            user.hasPermission('inventory', 'view');
+      case 7: // Orders
+        return user.hasPermission('orders', 'view');
+      case 8: // Billing
+        return user.hasPermission('billing', 'view');
+      case 9: // Daily P&L Reports
+        return user.hasPermission('reports', 'view');
+      case 19: // Admin Management (Strictly Super Admin or explicit employee management)
+        return user.isSuperAdmin ||
+            user.hasPermission('employees', 'manage') ||
+            user.hasPermission('admin_management', 'manage');
+      case 20: // Staff Performance
+        return user.isSuperAdmin || user.hasPermission('employees', 'view');
+      case 10: // Chatbot Builder
+        return user.isSuperAdmin ||
+            user.hasPermission('chatbot', 'view') ||
+            user.hasPermission('settings', 'view');
+      case 11: // Quotations
+        return user.hasPermission('quotations', 'view') ||
+            user.hasPermission('billing', 'view') ||
+            user.hasPermission('orders', 'view');
+      case 13: // Customer Inquiries
+        return user.hasPermission('chat', 'view') ||
+            user.hasPermission('inquiries', 'view') ||
+            user.hasPermission('customers', 'view');
+      case 14: // User Directory
+        return user.isSuperAdmin ||
+            user.hasPermission('users', 'view') ||
+            user.hasPermission('employees', 'view');
+      case 15: // Notifications
+        return true;
+      case 16: // Settings
+        return user.isSuperAdmin || user.hasPermission('settings', 'view');
+      case 17: // Stock Management
+        return user.hasPermission('inventory', 'view');
+      case 18: // Profile
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  Widget _buildAccessDeniedScreen(int index) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEF2F2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock_person_outlined, size: 48, color: Color(0xFFEF4444)),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Access Restricted',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You do not have permission to access this module.\nPlease contact your Super Administrator.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // =========================================================
@@ -511,123 +685,157 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       ];
     }
 
-    final isSuperAdmin = _currentUser?.isSuperAdmin == true;
-    return [
-      const _AdminMenuItem(
+    final items = <_AdminMenuItem>[];
+
+    if (_canAccessIndex(0)) {
+      items.add(const _AdminMenuItem(
         index: 0,
         title: 'Dashboard',
         icon: Icons.dashboard_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(1)) {
+      items.add(const _AdminMenuItem(
         index: 1,
         title: 'Leads',
         icon: Icons.people_alt_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(2)) {
+      items.add(const _AdminMenuItem(
         index: 2,
         title: 'Follow-ups',
         icon: Icons.calendar_month_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(3)) {
+      items.add(const _AdminMenuItem(
         index: 3,
         title: 'Franchises',
         icon: Icons.storefront_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(23)) {
+      items.add(const _AdminMenuItem(
         index: 23,
         title: 'Customer CRM',
         icon: Icons.groups_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(4)) {
+      items.add(const _AdminMenuItem(
         index: 4,
         title: 'Plant Batches & Stock',
         icon: Icons.inventory_2_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(21)) {
+      items.add(const _AdminMenuItem(
         index: 21,
         title: 'Central Stock Requests',
         icon: Icons.move_to_inbox_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(5)) {
+      items.add(const _AdminMenuItem(
         index: 5,
         title: 'Products & Pricing',
         icon: Icons.local_offer_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(22)) {
+      items.add(const _AdminMenuItem(
         index: 22,
         title: 'BOM & Recipe Master',
         icon: Icons.science_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(6)) {
+      items.add(const _AdminMenuItem(
         index: 6,
         title: 'Suppliers',
         icon: Icons.local_shipping_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(7)) {
+      items.add(const _AdminMenuItem(
         index: 7,
         title: 'Orders',
         icon: Icons.shopping_cart_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(8)) {
+      items.add(const _AdminMenuItem(
         index: 8,
         title: 'Billing',
         icon: Icons.receipt_long_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(9)) {
+      items.add(const _AdminMenuItem(
         index: 9,
         title: 'Daily P&L Reports',
         icon: Icons.bar_chart_outlined,
-      ),
-      if (isSuperAdmin || _currentUser?.isAdmin == true) ...[
-        const _AdminMenuItem(
-          index: 19,
-          title: 'Admin Management',
-          icon: Icons.admin_panel_settings_outlined,
-        ),
-        const _AdminMenuItem(
-          index: 20,
-          title: 'Staff Performance',
-          icon: Icons.insights_outlined,
-        ),
-      ],
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(19)) {
+      items.add(const _AdminMenuItem(
+        index: 19,
+        title: 'Admin Management',
+        icon: Icons.admin_panel_settings_outlined,
+      ));
+    }
+    if (_canAccessIndex(20)) {
+      items.add(const _AdminMenuItem(
+        index: 20,
+        title: 'Staff Performance',
+        icon: Icons.insights_outlined,
+      ));
+    }
+    if (_canAccessIndex(10)) {
+      items.add(const _AdminMenuItem(
         index: 10,
         title: 'Chatbot Builder',
         icon: Icons.account_tree_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(11)) {
+      items.add(const _AdminMenuItem(
         index: 11,
         title: 'Quotations',
         icon: Icons.request_quote_outlined,
-      ),
-      // HIDDEN / COMMENTED OUT PER CLIENT REQUIREMENT (Can be re-enabled in future if needed):
-      // if (isSuperAdmin)
-      //   const _AdminMenuItem(
-      //     index: 12,
-      //     title: 'WhatsApp settings',
-      //     icon: Icons.chat_outlined,
-      //   ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(13)) {
+      items.add(const _AdminMenuItem(
         index: 13,
         title: 'Customer Inquiries',
         icon: Icons.forum_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(14)) {
+      items.add(const _AdminMenuItem(
         index: 14,
         title: 'User Directory',
         icon: Icons.manage_accounts_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(15)) {
+      items.add(const _AdminMenuItem(
         index: 15,
         title: 'Notifications',
         icon: Icons.notifications_none_outlined,
-      ),
-      const _AdminMenuItem(
+      ));
+    }
+    if (_canAccessIndex(16)) {
+      items.add(const _AdminMenuItem(
         index: 16,
         title: 'Settings',
         icon: Icons.settings_outlined,
-      ),
-    ];
+      ));
+    }
+
+    return items;
   }
 
   // =========================================================
@@ -635,6 +843,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   // =========================================================
 
   Widget _currentScreen() {
+    if (!_canAccessIndex(currentIndex)) {
+      return _buildAccessDeniedScreen(currentIndex);
+    }
     final isStockManager = _currentUser?.isStockManager == true;
     if (isStockManager && ![4, 21, 5, 15, 16, 22].contains(currentIndex)) {
       return CentralPlantInventoryScreen(highlightBatchNumber: _targetBatchNumber);
@@ -773,6 +984,15 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   // =========================================================
 
   void _selectMenu(int index) {
+    if (!_canAccessIndex(index)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Access restricted: You do not have permission to access this section.'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
     setState(() {
       currentIndex = index;
       if (index != 4) {
@@ -905,6 +1125,15 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
 
     for (final entry in searchMap.entries) {
       if (query.contains(entry.key)) {
+        if (!_canAccessIndex(entry.value)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Access restricted: You do not have permission for this section.'),
+              backgroundColor: Color(0xFFDC2626),
+            ),
+          );
+          return;
+        }
         setState(() {
           currentIndex = entry.value;
         });

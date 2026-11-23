@@ -21,6 +21,9 @@ class UserModel {
   final double? commissionPercentage;
   final String? dealerStatus;
   final bool mustChangePassword;
+  final List<String> adminPermissions;
+  final String dataScopeType;
+  final List<String> assignedScopeIds;
 
   const UserModel({
     required this.id,
@@ -45,6 +48,9 @@ class UserModel {
     this.commissionPercentage,
     this.dealerStatus,
     this.mustChangePassword = false,
+    this.adminPermissions = const [],
+    this.dataScopeType = 'all_data',
+    this.assignedScopeIds = const [],
   });
 
   bool get isApproved => status.toLowerCase() == 'approved';
@@ -58,6 +64,7 @@ class UserModel {
   bool get isSalesExecutive => role.toLowerCase() == 'sales_executive';
   bool get isStaffOrAdmin => isSuperAdmin || isAdmin || isSalesExecutive || isStockManager;
   bool get isDealer => role.toLowerCase() == 'franchise';
+  bool get isFranchise => role.toLowerCase() == 'franchise' || isDealer;
   bool get isCustomer => role.toLowerCase() == 'customer';
 
   String get roleDisplay {
@@ -68,6 +75,47 @@ class UserModel {
     if (isDealer) return 'Franchise';
     if (isCustomer) return 'Customer';
     return role;
+  }
+
+  /// Authoritative granular permission check for administrative staff
+  bool hasPermission(String module, [String action = 'view']) {
+    if (isSuperAdmin) return true;
+    if (!isAdmin && !isStaffOrAdmin) return false;
+
+    final mod = module.toLowerCase().trim();
+    final act = action.toLowerCase().trim();
+
+    // Default role baselines
+    if (isSalesExecutive && (mod == 'leads' || mod == 'customers' || mod == 'followups') && (act == 'view' || act == 'create' || act == 'edit')) {
+      return true;
+    }
+    if (isStockManager && (mod == 'inventory' || mod == 'products' || mod == 'production') && (act == 'view' || act == 'edit' || act == 'adjust')) {
+      return true;
+    }
+
+    final perms = Set<String>.from(adminPermissions.map((p) => p.toLowerCase().trim()));
+    if (perms.contains('*') || perms.contains('all')) return true;
+
+    // Check module wildcard or exact action
+    if (perms.contains(mod) || perms.contains('$mod:*') || perms.contains('$mod:$act')) return true;
+
+    // Module aliases
+    if (mod == 'dealers' || mod == 'franchises') {
+      if (perms.contains('dealers') || perms.contains('dealers:*') || perms.contains('dealers:$act')) return true;
+      if (perms.contains('franchises') || perms.contains('franchises:*') || perms.contains('franchises:$act')) return true;
+    }
+    if (mod == 'moq' || mod == 'pricing' || mod == 'delivery') {
+      if (perms.contains('moq') || perms.contains('moq:*') || perms.contains('moq:$act')) return true;
+      if (perms.contains('pricing') || perms.contains('pricing:*') || perms.contains('pricing:$act')) return true;
+      if (perms.contains('delivery') || perms.contains('delivery:*') || perms.contains('delivery:$act')) return true;
+    }
+    if (mod == 'employees' || mod == 'admin_management') {
+      if (perms.contains('employees') || perms.contains('employees:*') || perms.contains('employees:$act')) return true;
+      if (perms.contains('admin_management') || perms.contains('admin_management:*') || perms.contains('admin_management:$act')) return true;
+    }
+    if (mod == 'stock_requests' && (perms.contains('inventory') || perms.contains('inventory:*'))) return true;
+
+    return false;
   }
 
   factory UserModel.fromJson(
@@ -107,6 +155,16 @@ class UserModel {
     final commPct = json['commission_percentage'] != null ? double.tryParse(json['commission_percentage'].toString()) : null;
     final dStatus = json['dealer_status']?.toString();
 
+    List<String> perms = [];
+    if (json['admin_permissions'] is List) {
+      perms = (json['admin_permissions'] as List).map((e) => e.toString()).toList();
+    }
+    final dScope = json['data_scope_type']?.toString() ?? 'all_data';
+    List<String> scopes = [];
+    if (json['assigned_scope_ids'] is List) {
+      scopes = (json['assigned_scope_ids'] as List).map((e) => e.toString()).toList();
+    }
+
     return UserModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
@@ -132,6 +190,9 @@ class UserModel {
       commissionPercentage: commPct,
       dealerStatus: dStatus,
       mustChangePassword: json['must_change_password'] == true,
+      adminPermissions: perms,
+      dataScopeType: dScope,
+      assignedScopeIds: scopes,
     );
   }
 
@@ -159,6 +220,9 @@ class UserModel {
       'payment_terms_days': paymentTermsDays,
       'commission_percentage': commissionPercentage,
       'dealer_status': dealerStatus,
+      'admin_permissions': adminPermissions,
+      'data_scope_type': dataScopeType,
+      'assigned_scope_ids': assignedScopeIds,
     };
   }
 

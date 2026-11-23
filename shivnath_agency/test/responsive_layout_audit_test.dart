@@ -12,7 +12,6 @@ import 'package:shivnath_agency/core/providers/product_provider.dart';
 import 'package:shivnath_agency/features/customer/home/customer_home_screen.dart';
 import 'package:shivnath_agency/features/customer/wallet/customer_wallet_screen.dart';
 import 'package:shivnath_agency/core/providers/wallet_provider.dart';
-import 'package:shivnath_agency/features/admin/dashboard/admin_dashboard_screen.dart';
 import 'package:shivnath_agency/features/admin/products/packaging_rules_dialog.dart';
 import 'package:shivnath_agency/features/admin/billing/delivery_pricing_dialog.dart';
 

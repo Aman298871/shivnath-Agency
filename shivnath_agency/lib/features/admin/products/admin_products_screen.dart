@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/product_thumbnail.dart';
 import '../../../core/repositories/product_repository.dart';
@@ -14,6 +16,36 @@ class AdminProductsScreen extends StatefulWidget {
 
 class _AdminProductsScreenState extends State<AdminProductsScreen> {
   final ProductRepository _productService = ProductRepository();
+
+  bool get _canCreateProduct {
+    try {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user == null) return false;
+      return user.hasPermission('products', 'create');
+    } catch (_) {
+      return true;
+    }
+  }
+
+  bool get _canEditProduct {
+    try {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user == null) return false;
+      return user.hasPermission('products', 'edit');
+    } catch (_) {
+      return true;
+    }
+  }
+
+  bool get _canDeleteProduct {
+    try {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user == null) return false;
+      return user.hasPermission('products', 'delete');
+    } catch (_) {
+      return true;
+    }
+  }
 
   List<Map<String, dynamic>> products = [];
   bool loading = true;
@@ -247,7 +279,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
               icon: const Icon(Icons.inventory_rounded, size: 18),
               label: const Text('Packaging & MOQ Rules', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
-            if (desktop)
+            if (desktop && _canCreateProduct)
               SizedBox(
                 width: 150,
                 height: 44,
@@ -1186,16 +1218,18 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                     Expanded(child: _priceSortDropdown()),
                   ],
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: ElevatedButton.icon(
-                    onPressed: _openProductForm,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Add Product'),
+                if (_canCreateProduct) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton.icon(
+                      onPressed: _openProductForm,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Add Product'),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
     );
@@ -1490,34 +1524,36 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                     color: Color(0xFF059669),
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Edit Product',
-                  constraints: const BoxConstraints(
-                    minWidth: 35,
-                    minHeight: 35,
+                if (_canEditProduct)
+                  IconButton(
+                    tooltip: 'Edit Product',
+                    constraints: const BoxConstraints(
+                      minWidth: 35,
+                      minHeight: 35,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => _openProductForm(product: product),
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      size: 17,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => _openProductForm(product: product),
-                  icon: const Icon(
-                    Icons.edit_outlined,
-                    size: 17,
-                    color: Color(0xFF64748B),
+                if (_canDeleteProduct)
+                  IconButton(
+                    tooltip: 'Delete',
+                    constraints: const BoxConstraints(
+                      minWidth: 35,
+                      minHeight: 35,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => _deleteProduct(product),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 17,
+                      color: Colors.red,
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Delete',
-                  constraints: const BoxConstraints(
-                    minWidth: 35,
-                    minHeight: 35,
-                  ),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => _deleteProduct(product),
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    size: 17,
-                    color: Colors.red,
-                  ),
-                ),
               ],
             ),
           ),
@@ -1662,17 +1698,20 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'Edit Product',
-                    onPressed: () => _openProductForm(product: product),
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                  IconButton(
-                    tooltip: 'Delete Product',
-                    onPressed: () => _deleteProduct(product),
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  ),
+                  if (_canEditProduct) ...[
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Edit Product',
+                      onPressed: () => _openProductForm(product: product),
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  ],
+                  if (_canDeleteProduct)
+                    IconButton(
+                      tooltip: 'Delete Product',
+                      onPressed: () => _deleteProduct(product),
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    ),
                 ],
               ),
             ],
@@ -1709,6 +1748,14 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
 
   Future<void> _openProductForm({Map<String, dynamic>? product}) async {
     final editing = product != null;
+    if (editing && !_canEditProduct) {
+      AppToast.show(context, 'Access restricted: You do not have permission to edit products.');
+      return;
+    }
+    if (!editing && !_canCreateProduct) {
+      AppToast.show(context, 'Access restricted: You do not have permission to create products.');
+      return;
+    }
 
     final nameController = TextEditingController(text: product?['name'] ?? '');
     final skuController = TextEditingController(text: product?['sku'] ?? '');
@@ -2101,6 +2148,10 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
   }
 
   Future<void> _deleteProduct(Map<String, dynamic> product) async {
+    if (!_canDeleteProduct) {
+      AppToast.show(context, 'Access restricted: You do not have permission to delete products.');
+      return;
+    }
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {

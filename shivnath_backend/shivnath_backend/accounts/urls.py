@@ -1,5 +1,6 @@
 from django.urls import path
 from .privacy_and_deletion_views import AccountDeletionAPIView
+from .realtime_views import AdminAuditLogListView
 
 from .views import (
     CustomerRegisterView,
@@ -442,5 +443,10 @@ urlpatterns = [
         'account/delete/',
         AccountDeletionAPIView.as_view(),
         name='account_delete_in_app'
+    ),
+    path(
+        'audit-logs/',
+        AdminAuditLogListView.as_view(),
+        name='admin_audit_logs'
     ),
 ]

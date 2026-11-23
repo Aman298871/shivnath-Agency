@@ -187,10 +187,12 @@ class FranchiseListView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
+        from accounts.scopes import apply_data_scope
         franchises = FranchiseProfile.objects.all().select_related(
             'user',
             'user__profile'
         ).order_by('-created_at')
+        franchises = apply_data_scope(franchises, request.user, 'franchise')
 
         data = []
 
@@ -378,6 +380,16 @@ class ApproveFranchiseView(APIView):
 
         # In-app Franchise Notification
         try:
+            from accounts.models import publish_system_event
+            publish_system_event(
+                event_type='franchise.approved',
+                payload={'franchise_id': franchise.id, 'business_name': franchise.business_name},
+                target_scope='all'
+            )
+        except Exception:
+            pass
+
+        try:
             FranchiseNotification.objects.create(
                 franchise=franchise,
                 title='Franchise Application Approved! 🎉',
@@ -479,6 +491,16 @@ class RejectFranchiseView(APIView):
         )
 
         # In-app Franchise Notification
+        try:
+            from accounts.models import publish_system_event
+            publish_system_event(
+                event_type='franchise.approved',
+                payload={'franchise_id': franchise.id, 'business_name': franchise.business_name},
+                target_scope='all'
+            )
+        except Exception:
+            pass
+
         try:
             FranchiseNotification.objects.create(
                 franchise=franchise,
@@ -3611,15 +3633,18 @@ class SuperAdminAdminManagementView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def _check_super_admin(self, request):
+    def _check_super_admin(self, request, required_action='view'):
         if request.user.is_superuser:
             return True
         profile = getattr(request.user, 'profile', None)
-        return profile is not None and profile.role == 'super_admin'
+        if profile is not None and profile.role == 'super_admin':
+            return True
+        from accounts.permissions import check_granular_permission
+        return check_granular_permission(request.user, 'employees', required_action)
 
     def get(self, request):
-        if not self._check_super_admin(request):
-            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+        if not self._check_super_admin(request, 'view'):
+            return Response({'error': 'Unauthorized. Employee management permission required.'}, status=status.HTTP_403_FORBIDDEN)
 
         admins = User.objects.filter(profile__role__in=['admin', 'super_admin', 'sales_executive', 'stock_manager']).select_related('profile')
         data = [
@@ -3642,8 +3667,8 @@ class SuperAdminAdminManagementView(APIView):
         return Response({'success': True, 'count': len(data), 'admins': data})
 
     def post(self, request):
-        if not self._check_super_admin(request):
-            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+        if not self._check_super_admin(request, 'create'):
+            return Response({'error': 'Unauthorized. Create Employee permission required.'}, status=status.HTTP_403_FORBIDDEN)
 
         email = request.data.get('email', '').strip().lower()
         username = request.data.get('username', '').strip()
@@ -3656,6 +3681,19 @@ class SuperAdminAdminManagementView(APIView):
         data_scope_type = request.data.get('data_scope_type', 'all_data').strip().lower()
         assigned_scope_ids = request.data.get('assigned_scope_ids', [])
         admin_permissions = request.data.get('admin_permissions', [])
+
+        # Anti-Privilege Escalation Protection Gate
+        caller_is_super = request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')
+        if role == 'super_admin' and not caller_is_super:
+            return Response({'error': 'Privilege Escalation Blocked: Only Super Administrators can create Super Admin accounts.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not caller_is_super:
+            caller_perms = set(request.user.profile.admin_permissions or [])
+            if '*' not in caller_perms and 'all' not in caller_perms:
+                for p in admin_permissions:
+                    p_mod = p.split(':')[0]
+                    if p not in caller_perms and f"{p_mod}:*" not in caller_perms and p_mod not in caller_perms:
+                        return Response({'error': f"Privilege Escalation Blocked: You cannot assign privilege '{p}' because you do not possess that privilege."}, status=status.HTTP_403_FORBIDDEN)
 
         if confirm_password and confirm_password != password:
             return Response({'error': 'Password and confirm password do not match.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -3732,6 +3770,20 @@ class SuperAdminAdminManagementView(APIView):
                 }
             )
 
+            from accounts.models import publish_system_event
+            publish_system_event(
+                event_type='employee.created',
+                payload={
+                    'user_id': user.id,
+                    'username': username,
+                    'email': email,
+                    'name': name,
+                    'role': role,
+                    'status': status_val,
+                },
+                target_scope='admin_only'
+            )
+
         return Response({
             'success': True,
             'message': f'Admin account created for {email}.',
@@ -3748,15 +3800,18 @@ class SuperAdminAdminDetailView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def _check_super_admin(self, request):
+    def _check_super_admin(self, request, required_action='view'):
         if request.user.is_superuser:
             return True
         profile = getattr(request.user, 'profile', None)
-        return profile is not None and profile.role == 'super_admin'
+        if profile is not None and profile.role == 'super_admin':
+            return True
+        from accounts.permissions import check_granular_permission
+        return check_granular_permission(request.user, 'employees', required_action)
 
     def get(self, request, pk):
-        if not self._check_super_admin(request):
-            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+        if not self._check_super_admin(request, 'view'):
+            return Response({'error': 'Unauthorized. Employee management permission required.'}, status=status.HTTP_403_FORBIDDEN)
 
         target_user = get_object_or_404(User.objects.select_related('profile'), pk=pk)
         profile = getattr(target_user, 'profile', None)
@@ -3795,11 +3850,18 @@ class SuperAdminAdminDetailView(APIView):
         })
 
     def patch(self, request, pk):
-        if not self._check_super_admin(request):
-            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+        if not self._check_super_admin(request, 'edit'):
+            return Response({'error': 'Unauthorized. Edit Employee permission required.'}, status=status.HTTP_403_FORBIDDEN)
 
         target_user = get_object_or_404(User.objects.select_related('profile'), pk=pk)
         profile = getattr(target_user, 'profile', None)
+
+        caller_is_super = request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')
+        if (profile and profile.role == 'super_admin') and not caller_is_super:
+            return Response({'error': 'Privilege Escalation Blocked: Non-Super Admins cannot modify Super Administrator accounts.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if request.data.get('role') == 'super_admin' and not caller_is_super:
+            return Response({'error': 'Privilege Escalation Blocked: Non-Super Admins cannot promote accounts to Super Administrator.'}, status=status.HTTP_403_FORBIDDEN)
         changes = {}
 
         with transaction.atomic():
@@ -3902,6 +3964,17 @@ class SuperAdminAdminDetailView(APIView):
                 changes=changes
             )
 
+            from accounts.models import publish_system_event
+            publish_system_event(
+                event_type='employee.updated',
+                payload={
+                    'user_id': target_user.id,
+                    'email': target_user.email,
+                    'changes': changes,
+                },
+                target_scope='admin_only'
+            )
+
         return Response({
             'success': True,
             'message': f'Admin account {target_user.email} updated successfully.',
@@ -3909,12 +3982,17 @@ class SuperAdminAdminDetailView(APIView):
         })
 
     def delete(self, request, pk):
-        if not self._check_super_admin(request):
-            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+        if not self._check_super_admin(request, 'delete'):
+            return Response({'error': 'Unauthorized. Deactivate Employee permission required.'}, status=status.HTTP_403_FORBIDDEN)
 
         target_user = get_object_or_404(User.objects.select_related('profile'), pk=pk)
         if target_user.pk == request.user.pk:
             return Response({'error': 'Cannot disable your own Super Admin account.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        caller_is_super = request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')
+        target_profile = getattr(target_user, 'profile', None)
+        if target_profile and target_profile.role == 'super_admin' and not caller_is_super:
+            return Response({'error': 'Privilege Escalation Blocked: Only Super Administrators can deactivate Super Admin accounts.'}, status=status.HTTP_403_FORBIDDEN)
 
         target_user.is_active = False
         target_user.save()
@@ -3928,6 +4006,16 @@ class SuperAdminAdminDetailView(APIView):
             resource_type='UserProfile',
             resource_id=str(target_user.id),
             changes={'is_active': False, 'status': 'inactive'}
+        )
+
+        from accounts.models import publish_system_event
+        publish_system_event(
+            event_type='employee.disabled',
+            payload={
+                'user_id': target_user.id,
+                'email': target_user.email,
+            },
+            target_scope='admin_only'
         )
 
         return Response({

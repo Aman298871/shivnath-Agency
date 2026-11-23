@@ -38,6 +38,15 @@ class AppToast {
     _show(context, title: title, message: message, type: AppToastType.info);
   }
 
+  static void show(
+    BuildContext context,
+    String message, {
+    AppToastType type = AppToastType.info,
+    String? title,
+  }) {
+    _show(context, title: title ?? 'Notification', message: message, type: type);
+  }
+
   static void _show(
     BuildContext? context, {
     required String title,

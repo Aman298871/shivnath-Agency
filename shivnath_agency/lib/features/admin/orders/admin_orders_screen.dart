@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/repositories/app_repositories.dart';
 import '../../../core/widgets/app_components.dart';
@@ -22,6 +24,16 @@ class AdminOrdersScreen extends StatefulWidget {
 class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   final OrderRepository _orderRepository = OrderRepository();
   late final TextEditingController _searchController;
+
+  bool get _canEditOrders {
+    try {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user == null) return false;
+      return user.hasPermission('orders', 'edit');
+    } catch (_) {
+      return true;
+    }
+  }
 
   List<Map<String, dynamic>> orders = [];
 
@@ -569,7 +581,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
             return Expanded(
               flex: 2,
               child: InkWell(
-                onTap: () => _changeStatus(order!),
+                onTap: _canEditOrders ? () => _changeStatus(order!) : null,
                 child: _statusBadge(cells[i].toString()),
               ),
             );
@@ -742,17 +754,19 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             ),
                           ),
                         ],
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0284C7),
-                              foregroundColor: Colors.white,
+                        if (_canEditOrders) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0284C7),
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () => _changeStatus(order),
+                              child: const Text('Status', maxLines: 1, overflow: TextOverflow.ellipsis),
                             ),
-                            onPressed: () => _changeStatus(order),
-                            child: const Text('Status', maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ],
@@ -1446,6 +1460,15 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   }
 
   Future<void> _changeStatus(Map<String, dynamic> order) async {
+    if (!_canEditOrders) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Access restricted: You do not have permission to update order status.'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
     const statuses = [
       'Order Placement',
       'Plant Approval',

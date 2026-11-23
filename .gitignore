@@ -40,3 +40,8 @@ scratch_*.py
 serviceAccountKey*.json
 **/backups/
 **/scratch/
+
+# Node / Web Admin ignores
+**/node_modules/
+shivnath_web_admin/node_modules/
+shivnath_web_admin/dist/

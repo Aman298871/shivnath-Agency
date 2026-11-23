@@ -577,7 +577,7 @@ class NotificationService with WidgetsBindingObserver {
       final lastAckUserId = prefs.getString(_keyFcmLastAckUserId);
       final isPending = prefs.getBool(_keyFcmPendingRegistration) ?? false;
 
-      if (!force && !isPending && _lastRegisteredUserKey == currentKey && lastAckUserId == user?.id?.toString() && lastAckToken == _currentFcmToken) {
+      if (!force && !isPending && _lastRegisteredUserKey == currentKey && lastAckUserId == user?.id.toString() && lastAckToken == _currentFcmToken) {
         debugPrint('FCM: Token already verified and acknowledged for current session ($currentKey). Skipping duplicate request.');
         return true;
       }
@@ -654,7 +654,7 @@ class NotificationService with WidgetsBindingObserver {
       if (registrationSuccess) {
         // Persist successful ACK state
         await prefs.setString(_keyFcmLastAckToken, _currentFcmToken!);
-        await prefs.setString(_keyFcmLastAckUserId, user?.id?.toString() ?? '');
+        await prefs.setString(_keyFcmLastAckUserId, user?.id.toString() ?? '');
         await prefs.setBool(_keyFcmPendingRegistration, false);
         await prefs.setInt(_keyFcmRetryCount, 0);
         _retryAttempt = 0;

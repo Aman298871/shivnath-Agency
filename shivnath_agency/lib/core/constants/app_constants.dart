@@ -91,7 +91,7 @@ class AppConstants {
     }
   }
 
-  /// Centralized API base URL. Defaults to Render production, configurable via runtime override or --dart-define=API_BASE_URL=...
+  /// Centralized API base URL. Defaults to Hostinger production (api.shivnathagencies.com), configurable via runtime override or --dart-define=API_BASE_URL=...
   static String get apiBaseUrl {
     if (_customBaseUrl != null && _customBaseUrl!.isNotEmpty) {
       return _customBaseUrl!;
@@ -99,13 +99,16 @@ class AppConstants {
     if (_envBaseUrl.isNotEmpty) {
       return _envBaseUrl;
     }
-    return 'https://shivnath-agency.onrender.com';
+    // Previous Render backend (kept for reference):
+    // return 'https://shivnath-agency.onrender.com';
+    return 'https://api.shivnathagencies.com';
   }
 
   /// Indicates if this build is targeting a test or development backend
   static bool get isTestMode {
     if (_envName.toUpperCase() == 'TEST') return true;
-    if (_envBaseUrl.isNotEmpty && !_envBaseUrl.contains('onrender.com')) return true;
+    // Previous check: if (_envBaseUrl.isNotEmpty && !_envBaseUrl.contains('onrender.com')) return true;
+    if (_envBaseUrl.isNotEmpty && !_envBaseUrl.contains('shivnathagencies.com')) return true;
     return false;
   }
 

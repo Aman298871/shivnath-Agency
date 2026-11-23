@@ -48,6 +48,8 @@
 	<string>Water Wala requires your location to determine delivery serviceability and calculate distance-based delivery charges.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Water Wala requires your location to accurately calculate delivery fees from our dispatch origin.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Water Wala requires your location to determine delivery serviceability and dispatch status.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

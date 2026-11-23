@@ -195,7 +195,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
             .value;
 
     setState(() {
-      territories = fallbacks.asMap().entries.map((e) => {
+      territories = fallbacks.asMap().entries.map<Map<String, dynamic>>((e) => <String, dynamic>{
         'id': e.key + 1,
         'name': e.value,
         'code': e.value.toUpperCase().replaceAll(' ', '_'),
@@ -652,7 +652,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                             if (id != null) {
                               final found = territories.firstWhere(
                                 (t) => t['id'] == id,
-                                orElse: () => {},
+                                orElse: () => <String, dynamic>{},
                               );
                               final rawAreas = found['areas'] as List? ?? [];
                               final locs = rawAreas
@@ -676,7 +676,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                           builder: (context) {
                             final sel = territories.firstWhere(
                               (t) => t['id'] == selectedTerritoryId,
-                              orElse: () => {},
+                              orElse: () => <String, dynamic>{},
                             );
                             final areasList = sel['areas'] as List? ?? [];
                             final areasStr = areasList.isNotEmpty

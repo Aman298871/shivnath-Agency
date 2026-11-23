@@ -1645,7 +1645,13 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 ),
                 const SizedBox(height: 14),
                 _buildEnvOption(
-                  title: 'Render Cloud (Production)',
+                  title: 'Hostinger Cloud (Production)',
+                  url: 'https://api.shivnathagencies.com',
+                  currentUrl: customUrlCtrl.text.trim(),
+                  onSelect: (val) => setDlgState(() => customUrlCtrl.text = val),
+                ),
+                _buildEnvOption(
+                  title: 'Render Cloud (Legacy)',
                   url: 'https://shivnath-agency.onrender.com',
                   currentUrl: customUrlCtrl.text.trim(),
                   onSelect: (val) => setDlgState(() => customUrlCtrl.text = val),

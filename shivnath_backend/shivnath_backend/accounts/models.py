@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+import uuid
 
 
 class UserProfile(models.Model):
@@ -1318,6 +1319,62 @@ class AccountDeletionRequest(models.Model):
         return f"Deletion Request: {self.identifier} [{self.status}] via {self.requested_via}"
 
 
+class SystemEvent(models.Model):
+    """
+    Transactional real-time event journal for cross-platform synchronization
+    between the Flutter mobile applications and the Web Admin Portal.
+    """
+    EVENT_TYPES = [
+        ('order.created', 'Order Created'),
+        ('order.updated', 'Order Status Updated'),
+        ('payment.recorded', 'Payment Recorded'),
+        ('payment.verified', 'Payment Verified'),
+        ('moq.updated', 'Packaging/MOQ Rule Updated'),
+        ('delivery.updated', 'Delivery Setting Updated'),
+        ('inventory.updated', 'Inventory Updated'),
+        ('employee.updated', 'Employee Role/Permission Updated'),
+        ('customer.updated', 'Customer Profile Updated'),
+        ('franchise.updated', 'Franchise Profile Updated'),
+        ('general.alert', 'General System Alert'),
+    ]
+
+    event_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+    event_type = models.CharField(max_length=60, choices=EVENT_TYPES, db_index=True)
+    payload = models.JSONField(default=dict, blank=True)
+    target_scope = models.CharField(max_length=30, default='global', db_index=True)
+    franchise_id = models.PositiveIntegerField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['created_at', 'event_type']),
+            models.Index(fields=['franchise_id', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"[{self.created_at.strftime('%Y-%m-%d %H:%M:%S')}] {self.event_type} ({self.target_scope})"
 
 
-
+def publish_system_event(event_type, payload=None, target_scope='global', franchise_id=None):
+    """
+    Dispatches a real-time event journal record within the current database transaction.
+    If the surrounding transaction rolls back, the event is automatically rolled back with it.
+    """
+    try:
+        return SystemEvent.objects.create(
+            event_type=event_type,
+            payload=payload or {},
+            target_scope=target_scope,
+            franchise_id=franchise_id
+        )
+    except Exception as err:
+        import logging
+        logging.getLogger(__name__).warning("SystemEvent publication failed: %s", err)
+        return None
+
+
+
+
+
+

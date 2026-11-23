@@ -96,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final rawData = result['data'];
-      final Map<String, dynamic> response = rawData is Map
+      final Map<String, dynamic> response = (rawData is Map)
           ? Map<String, dynamic>.from(rawData)
           : <String, dynamic>{};
 

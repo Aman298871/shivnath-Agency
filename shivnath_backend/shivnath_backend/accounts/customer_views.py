@@ -87,6 +87,9 @@ class AdminCustomerListView(APIView):
                 'water_wallet',
             )
 
+            from accounts.scopes import apply_data_scope
+            base_customers = apply_data_scope(base_customers, request.user, 'customer')
+
             # 2. Search Filter
             search = request.query_params.get('search', '').strip()
             if search:
@@ -368,6 +371,11 @@ class AdminCustomerDetailView(APIView):
     def get(self, request, user_id):
         try:
             customer_user = get_object_or_404(User, id=user_id)
+            from accounts.scopes import check_object_scope
+            try:
+                check_object_scope(request.user, customer_user, 'customer')
+            except Exception as scope_err:
+                return Response({'success': False, 'message': str(scope_err)}, status=status.HTTP_403_FORBIDDEN)
             prof = getattr(customer_user, 'profile', None)
             rel = getattr(customer_user, 'customer_relationship', None)
             wallet = getattr(customer_user, 'water_wallet', None)

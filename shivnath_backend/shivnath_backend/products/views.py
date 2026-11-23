@@ -255,6 +255,11 @@ class ProductListCreateView(APIView):
         })
 
     def post(self, request):
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'products', 'create'):
+                return Response({"success": False, "message": "Permission Denied: Missing 'products:create' privilege."}, status=status.HTTP_403_FORBIDDEN)
+
         serializer = ProductSerializer(
             data=request.data,
         )
@@ -266,6 +271,13 @@ class ProductListCreateView(APIView):
             }, status=400)
 
         product = serializer.save()
+
+        from accounts.models import publish_system_event
+        publish_system_event(
+            event_type='product.created',
+            payload={'product_id': product.id, 'name': product.name, 'price': str(product.price)},
+            target_scope='all'
+        )
 
         return Response({
             "success": True,
@@ -292,6 +304,11 @@ class ProductDetailView(APIView):
         })
 
     def patch(self, request, pk):
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'products', 'edit'):
+                return Response({"success": False, "message": "Permission Denied: Missing 'products:edit' privilege."}, status=status.HTTP_403_FORBIDDEN)
+
         product = get_object_or_404(Product, pk=pk)
         serializer = ProductSerializer(
             product,
@@ -307,6 +324,13 @@ class ProductDetailView(APIView):
 
         serializer.save()
 
+        from accounts.models import publish_system_event
+        publish_system_event(
+            event_type='product.updated',
+            payload={'product_id': product.id, 'name': product.name, 'price': str(product.price)},
+            target_scope='all'
+        )
+
         return Response({
             "success": True,
             "message": "Product updated successfully.",
@@ -314,6 +338,11 @@ class ProductDetailView(APIView):
         })
 
     def delete(self, request, pk):
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'products', 'delete'):
+                return Response({"success": False, "message": "Permission Denied: Missing 'products:delete' privilege."}, status=status.HTTP_403_FORBIDDEN)
+
         product = get_object_or_404(Product, pk=pk)
         product.delete()
         return Response({
@@ -488,6 +517,11 @@ class ProductPricingUpdateView(APIView):
     permission_classes = [IsProductMasterAdmin]
 
     def patch(self, request, pk):
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'products', 'edit'):
+                return Response({"success": False, "message": "Permission Denied: Missing 'products:edit' privilege."}, status=status.HTTP_403_FORBIDDEN)
+
         product = get_object_or_404(Product, pk=pk)
 
         retail_price = request.data.get("price") if request.data.get("price") is not None else request.data.get("customer_price")
@@ -640,6 +674,11 @@ class ProductStockThresholdView(APIView):
         })
 
     def patch(self, request, pk):
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'products', 'edit'):
+                return Response({"success": False, "message": "Permission Denied: Missing 'products:edit' privilege."}, status=status.HTTP_403_FORBIDDEN)
+
         product = get_object_or_404(Product, pk=pk)
         threshold, _ = ProductStockThreshold.objects.get_or_create(product=product)
         serializer = ProductStockThresholdSerializer(threshold, data=request.data, partial=True)
@@ -713,6 +752,11 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
             is_admin = True
 
         franchise_profile = getattr(request.user, 'franchise_profile', None)
+
+        if is_admin and not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(request.user, 'moq', 'edit'):
+                return Response({'success': False, 'message': "Permission Denied: Missing 'moq:edit' privilege."}, status=status.HTTP_403_FORBIDDEN)
 
         if not is_admin and not franchise_profile:
             return Response({'success': False, 'message': 'Admin or Franchise credentials required.'}, status=status.HTTP_403_FORBIDDEN)
@@ -801,6 +845,20 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
                 'errors': serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
         rule = serializer.save()
+        from accounts.models import publish_system_event
+        publish_system_event(
+            event_type='moq.updated',
+            payload={
+                'rule_id': rule.id,
+                'product_id': rule.product_id,
+                'product_name': rule.product.name if rule.product else None,
+                'min_order_quantity': rule.min_order_quantity,
+                'franchise_id': rule.franchise_id,
+                'applies_to': rule.applies_to,
+            },
+            target_scope='all',
+            franchise_id=rule.franchise_id
+        )
         return Response({
             'success': True,
             'message': f"Packaging rule '{rule.name}' saved successfully.",
@@ -884,6 +942,20 @@ class MinimumOrderPackagingRuleDetailView(APIView):
                 'errors': serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
         rule = serializer.save()
+        from accounts.models import publish_system_event
+        publish_system_event(
+            event_type='moq.updated',
+            payload={
+                'rule_id': rule.id,
+                'product_id': rule.product_id,
+                'product_name': rule.product.name if rule.product else None,
+                'min_order_quantity': rule.min_order_quantity,
+                'franchise_id': rule.franchise_id,
+                'applies_to': rule.applies_to,
+            },
+            target_scope='all',
+            franchise_id=rule.franchise_id
+        )
         return Response({
             'success': True,
             'message': f"Packaging rule '{rule.name}' updated successfully.",

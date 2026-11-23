@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_saver/file_saver.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/repositories/inventory_repository.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -28,6 +30,25 @@ class AdminBillingScreen extends StatefulWidget {
 }
 
 class _AdminBillingScreenState extends State<AdminBillingScreen> {
+  bool get _canApprovePayment {
+    try {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user == null) return false;
+      return user.hasPermission('billing', 'approve');
+    } catch (_) {
+      return true;
+    }
+  }
+
+  bool get _canRecordPayment {
+    try {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user == null) return false;
+      return user.hasPermission('billing', 'edit');
+    } catch (_) {
+      return true;
+    }
+  }
   String search = '';
   String statusFilter = 'All';
 
@@ -645,7 +666,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                   icon: const Icon(Icons.visibility_outlined, size: 18),
                 ),
 
-                if (isPendingVerification)
+                if (isPendingVerification && _canApprovePayment)
                   IconButton(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(4),
@@ -661,7 +682,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                     ),
                   ),
 
-                if (!isFullyPaid && !isPendingVerification)
+                if (!isFullyPaid && !isPendingVerification && _canRecordPayment)
                   IconButton(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(4),
@@ -847,7 +868,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                     label: const Text('View'),
                   ),
 
-                  if (isPendingVerification)
+                  if (isPendingVerification && _canApprovePayment)
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFD97706),
@@ -861,7 +882,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                       label: const Text('Verify Payment'),
                     ),
 
-                  if (!isFullyPaid && !isPendingVerification)
+                  if (!isFullyPaid && !isPendingVerification && _canRecordPayment)
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 40),
@@ -1633,6 +1654,10 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   bool _isOpeningPaymentDialog = false;
 
   Future<void> _recordPayment(Map<String, dynamic> invoice) async {
+    if (!_canRecordPayment) {
+      AppToast.show(context, 'Access restricted: You do not have permission to record payments.');
+      return;
+    }
     if (_isOpeningPaymentDialog) return;
     _isOpeningPaymentDialog = true;
 
@@ -1675,6 +1700,10 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   }
 
   Future<void> _verifyPayment(Map<String, dynamic> invoice) async {
+    if (!_canApprovePayment) {
+      AppToast.show(context, 'Access restricted: You do not have permission to verify/approve payments.');
+      return;
+    }
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,

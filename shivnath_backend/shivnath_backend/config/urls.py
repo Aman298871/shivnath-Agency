@@ -20,6 +20,7 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
+from accounts.views import LoginView
 
 
 from django.http import JsonResponse
@@ -59,8 +60,16 @@ from accounts.privacy_and_deletion_views import (
     privacy_policy_html_view,
     public_account_deletion_html_view,
 )
+from accounts.realtime_views import (
+    RealTimeEventStreamView,
+    RealTimeEventLatestView,
+)
 
 urlpatterns = [
+
+    # Real-Time Event Synchronization Bus (Web Admin + Flutter App)
+    path('api/events/stream/', RealTimeEventStreamView.as_view(), name='api_events_stream'),
+    path('api/events/latest/', RealTimeEventLatestView.as_view(), name='api_events_latest'),
 
     # Root Health Check & Safe Database Diagnostics
     path('', root_health_view, name='root_health'),
@@ -93,7 +102,17 @@ urlpatterns = [
         include('accounts.urls')
     ),
 
-    # JWT refresh
+    # JWT Authentication & Token Pairs (Universal & Backward-Compatible)
+    path(
+        'api/token/',
+        LoginView.as_view(),
+        name='token_obtain_pair'
+    ),
+    path(
+        'api/token/refresh/',
+        TokenRefreshView.as_view(),
+        name='token_refresh_alt'
+    ),
     path(
         'api/auth/refresh/',
         TokenRefreshView.as_view(),

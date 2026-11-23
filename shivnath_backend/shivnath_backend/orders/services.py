@@ -138,6 +138,26 @@ def transition_order_status(order, new_status, actor=None, notes='', bypass_vali
             notes=notes or f"Status changed from {old_status} to {new_clean}",
         )
 
+    # Real-Time Event Publication for Web Admin & App synchronization
+    try:
+        from accounts.models import publish_system_event
+        publish_system_event(
+            event_type='order.updated',
+            payload={
+                'order_id': order.id,
+                'order_code': getattr(order, 'order_code', str(order.id)),
+                'old_status': old_status,
+                'new_status': new_clean,
+                'customer_id': order.created_by_id,
+                'franchise_id': getattr(order, 'serving_franchise_id', None),
+                'total_amount': str(getattr(order, 'grand_total', None) or getattr(order, 'amount', '0.00')),
+            },
+            target_scope='global',
+            franchise_id=getattr(order, 'serving_franchise_id', None)
+        )
+    except Exception as ev_err:
+        logger.warning("SystemEvent order.updated warning: %s", ev_err)
+
     # Notify Customer & Admin
     try:
         from accounts.fcm_services import notify_order_status_update

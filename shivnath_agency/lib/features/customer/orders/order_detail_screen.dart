@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/repositories/app_repositories.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/theme/brand_colors.dart';
@@ -50,6 +52,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool get _isAdminOrStaff {
     final r = (_userRole ?? '').toLowerCase();
     return r == 'admin' || r == 'super_admin' || r == 'staff' || r == 'franchise';
+  }
+
+  bool get _canUpdateOrders {
+    try {
+      final auth = context.read<AuthProvider>();
+      final u = auth.currentUser;
+      if (u == null) return _isAdminOrStaff;
+      if (u.isSuperAdmin) return true;
+      if (u.isCustomer) return false;
+      if (u.isFranchise) return true;
+      return u.hasPermission('orders', 'edit');
+    } catch (_) {
+      return _isAdminOrStaff;
+    }
   }
 
   @override
@@ -237,7 +253,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           _buildHeaderCard(),
                           const SizedBox(height: 16),
                           _buildInvoiceCard(),
-                          if (_isAdminOrStaff) ...[
+                          if (_isAdminOrStaff && _canUpdateOrders) ...[
                             const SizedBox(height: 16),
                             _buildAdminActionsCard(),
                           ],
@@ -401,6 +417,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _performStatusUpdate(int id, String newStatus) async {
+    if (!_canUpdateOrders) {
+      AppToast.show(context, 'Access restricted: You do not have permission to update this order.');
+      return;
+    }
     if (newStatus.toLowerCase() == 'cancelled') {
       final confirmed = await CancelOrderDialog.show(
         context,

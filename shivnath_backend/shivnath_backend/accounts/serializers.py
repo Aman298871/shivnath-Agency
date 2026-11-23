@@ -1055,6 +1055,9 @@ class CurrentUserSerializer(
     gst_billing_address = serializers.SerializerMethodField()
     gst_state_name = serializers.SerializerMethodField()
     gst_pincode = serializers.SerializerMethodField()
+    admin_permissions = serializers.SerializerMethodField()
+    data_scope_type = serializers.SerializerMethodField()
+    assigned_scope_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -1089,6 +1092,9 @@ class CurrentUserSerializer(
             'gst_billing_address',
             'gst_state_name',
             'gst_pincode',
+            'admin_permissions',
+            'data_scope_type',
+            'assigned_scope_ids',
         ]
 
     def get_is_gst_requested(self, obj):
@@ -1114,6 +1120,20 @@ class CurrentUserSerializer(
     def get_gst_pincode(self, obj):
         prof = getattr(obj, 'profile', None)
         return getattr(prof, 'gst_pincode', '') if prof else ''
+
+    def get_admin_permissions(self, obj):
+        prof = getattr(obj, 'profile', None)
+        if obj.is_superuser or (prof and prof.role == 'super_admin'):
+            return ['all', '*']
+        return getattr(prof, 'admin_permissions', []) if prof else []
+
+    def get_data_scope_type(self, obj):
+        prof = getattr(obj, 'profile', None)
+        return getattr(prof, 'data_scope_type', 'all_data') if prof else 'all_data'
+
+    def get_assigned_scope_ids(self, obj):
+        prof = getattr(obj, 'profile', None)
+        return getattr(prof, 'assigned_scope_ids', []) if prof else []
 
     def get_must_change_password(self, obj):
         return getattr(getattr(obj, 'profile', None), 'must_change_password', False)

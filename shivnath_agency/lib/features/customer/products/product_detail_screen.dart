@@ -84,15 +84,15 @@ class ProductDetailScreen extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  product.stock > 0 ? Icons.check_circle : Icons.cancel,
-                  color: product.stock > 0 ? Colors.green : Colors.red,
+                  product.isActive ? Icons.check_circle : Icons.cancel,
+                  color: product.isActive ? Colors.green : Colors.red,
                   size: 18,
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  product.stock > 0 ? 'In Stock (${product.stock})' : 'Out of Stock',
+                  product.isActive ? 'Available for Order' : 'Currently Unavailable',
                   style: TextStyle(
-                    color: product.stock > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                    color: product.isActive ? Colors.green.shade700 : Colors.red.shade700,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -137,15 +137,15 @@ class ProductDetailScreen extends StatelessWidget {
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
-                backgroundColor: product.stock <= 0 ? Colors.grey.shade400 : null,
+                backgroundColor: !product.isActive ? Colors.grey.shade400 : null,
               ),
-              onPressed: product.stock <= 0
+              onPressed: !product.isActive
                   ? null
                   : () {
                       MoqConfirmationDialog.handleAddToCart(context, product);
                     },
               icon: const Icon(Icons.shopping_cart_outlined),
-              label: Text(product.stock > 0 ? 'Add to Cart' : 'Out of Stock'),
+              label: Text(product.isActive ? 'Add to Cart' : 'Unavailable'),
             ),
           ],
         ),

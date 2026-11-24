@@ -114,6 +114,6 @@ class AppConstants {
 
   static String get environmentName => isTestMode ? 'TEST' : 'PRODUCTION';
 
-  /// Official Razorpay Key ID for payments & checkout
-  static const String razorpayKeyId = 'rzp_live_Tnhqo3i0SyYYdf';
+  /// Official Razorpay Key ID for payments & checkout (configurable via --dart-define=RAZORPAY_KEY_ID=...)
+  static const String razorpayKeyId = String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: 'rzp_live_Tnhqo3i0SyYYdf');
 }

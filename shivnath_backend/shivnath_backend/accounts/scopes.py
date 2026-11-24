@@ -44,7 +44,7 @@ def apply_data_scope(queryset, user, entity_type='order'):
             )
         elif entity_type in ['invoice', 'invoices', 'payment', 'payments']:
             return queryset.filter(
-                Q(franchise_id__in=clean_ids) |
+                Q(stock_request__dealer_id__in=clean_ids) |
                 Q(order__serving_franchise_id__in=clean_ids)
             )
         elif entity_type in ['customer', 'customers']:
@@ -82,7 +82,7 @@ def apply_data_scope(queryset, user, entity_type='order'):
         if entity_type in ['order', 'orders']:
             return queryset.filter(serving_franchise__isnull=True, registered_franchise__isnull=True)
         elif entity_type in ['invoice', 'invoices']:
-            return queryset.filter(franchise__isnull=True)
+            return queryset.filter(order__serving_franchise__isnull=True, stock_request__dealer__isnull=True)
         elif entity_type in ['customer', 'customers']:
             return queryset.filter(customer_relationship__registered_franchise__isnull=True)
         elif entity_type in ['inventory']:

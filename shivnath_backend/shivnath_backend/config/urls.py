@@ -63,11 +63,13 @@ from accounts.privacy_and_deletion_views import (
 from accounts.realtime_views import (
     RealTimeEventStreamView,
     RealTimeEventLatestView,
+    RealTimeTicketView,
 )
 
 urlpatterns = [
 
     # Real-Time Event Synchronization Bus (Web Admin + Flutter App)
+    path('api/events/ticket/', RealTimeTicketView.as_view(), name='api_events_ticket'),
     path('api/events/stream/', RealTimeEventStreamView.as_view(), name='api_events_stream'),
     path('api/events/latest/', RealTimeEventLatestView.as_view(), name='api_events_latest'),
 

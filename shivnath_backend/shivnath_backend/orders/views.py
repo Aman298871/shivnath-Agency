@@ -38,66 +38,52 @@ logger = logging.getLogger(__name__)
 # =========================================================
 
 class OrderListCreateView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user if (request.user and request.user.is_authenticated) else None
+        user = request.user
 
-        if user and (not user.is_active or getattr(getattr(user, 'profile', None), 'status', 'active') != 'active'):
+        if not user.is_active or getattr(getattr(user, 'profile', None), 'status', 'active') != 'active':
             return Response(
                 {'success': False, 'message': 'Your account is deactivated or suspended. Access denied.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        if not user:
-            phone = request.query_params.get('phone', '').strip()
-            if phone:
-                orders = Order.objects.filter(
-                    Q(created_by__profile__phone=phone)
-                    | Q(created_by__username=phone)
-                ).prefetch_related('items')
-            else:
-                return Response(
-                    {
-                        'success': False,
-                        'message': 'Authentication credentials were not provided or session expired.',
-                    },
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
-        else:
-            profile = getattr(user, 'profile', None)
-            role = profile.role if profile else 'customer'
-            from accounts.models import FranchiseProfile
-            fp = getattr(user, 'franchise_profile', None) or FranchiseProfile.objects.filter(user=user).first()
-            if fp and role not in ['admin', 'super_admin'] and not user.is_superuser and not user.is_staff:
-                role = 'franchise'
+        profile = getattr(user, 'profile', None)
+        role = profile.role if profile else 'customer'
+        from accounts.models import FranchiseProfile
+        fp = getattr(user, 'franchise_profile', None) or FranchiseProfile.objects.filter(user=user).first()
+        if fp and role not in ['admin', 'super_admin'] and not user.is_superuser and not user.is_staff:
+            role = 'franchise'
 
-            if user.is_superuser or role in ['admin', 'super_admin'] or user.is_staff or role == 'sales_executive':
-                if not (user.is_superuser or role == 'super_admin'):
-                    from accounts.permissions import check_granular_permission
-                    if not check_granular_permission(user, 'orders', 'view'):
-                        return Response(
-                            {'success': False, 'message': "Permission Denied: Missing 'orders:view' privilege."},
-                            status=status.HTTP_403_FORBIDDEN
-                        )
-                from accounts.scopes import apply_data_scope
-                orders = Order.objects.select_related('created_by', 'serving_franchise').prefetch_related('items').all()
-                orders = apply_data_scope(orders, user, 'order')
-            elif role == 'franchise':
-                if fp:
-                    orders = Order.objects.filter(
-                        Q(serving_franchise=fp)
-                        | Q(registered_franchise=fp)
-                        | Q(created_by=user)
-                    ).exclude(order_source__in=['WATER_WALLET_REDEMPTION', 'WATER_WALLET']).prefetch_related('items').distinct()
-                else:
-                    orders = Order.objects.none()
+        if user.is_superuser or role in ['admin', 'super_admin'] or user.is_staff or role == 'sales_executive':
+            if not (user.is_superuser or role == 'super_admin'):
+                from accounts.permissions import check_granular_permission
+                if not check_granular_permission(user, 'orders', 'view'):
+                    return Response(
+                        {'success': False, 'message': "Permission Denied: Missing 'orders:view' privilege."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            from accounts.scopes import apply_data_scope
+            orders = Order.objects.select_related('created_by', 'serving_franchise').prefetch_related('items').all()
+            orders = apply_data_scope(orders, user, 'order')
+        elif role == 'stock_manager':
+            # Stock manager permitted plant/dispatch order workflows
+            orders = Order.objects.select_related('created_by', 'serving_franchise').prefetch_related('items').filter(
+                serving_franchise__isnull=True
+            )
+        elif role == 'franchise':
+            if fp:
+                orders = Order.objects.filter(
+                    Q(serving_franchise=fp)
+                    | Q(registered_franchise=fp)
+                    | Q(created_by=user)
+                ).exclude(order_source__in=['WATER_WALLET_REDEMPTION', 'WATER_WALLET']).prefetch_related('items').distinct()
             else:
-                phone = getattr(getattr(user, 'profile', None), 'phone', '')
-                cond = Q(created_by=user)
-                if phone:
-                    cond |= Q(created_by__profile__phone=phone) | Q(created_by__username=phone)
-                orders = Order.objects.filter(cond).prefetch_related('items').distinct()
+                orders = Order.objects.none()
+        else:
+            # Customer role: strictly scoped to orders created by this user
+            orders = Order.objects.filter(created_by=user).prefetch_related('items').distinct()
 
         search = request.query_params.get('search', '').strip()
         if search:
@@ -272,6 +258,7 @@ class OrderListCreateView(APIView):
 
             channel = 'FRANCHISE' if creator_fp else ('ADMIN' if (creator and (creator.is_staff or creator.is_superuser)) else 'CUSTOMER')
             from products.packaging_services import validate_order_item_packaging
+            order_needs_manufacturing = False
 
             for p_id, qty, req_price in items_to_check:
                 try:
@@ -299,6 +286,19 @@ class OrderListCreateView(APIView):
                     )
 
 
+                # Discontinued / Inactive product check
+                if str(getattr(prod, 'status', 'Active')).lower() != 'active':
+                    return Response(
+                        {
+                            'success': False,
+                            'message': f"Product '{prod.name}' is currently discontinued or unavailable for ordering.",
+                            'error_code': 'PRODUCT_DISCONTINUED',
+                            'product_id': prod.id,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # Check inventory availability internally without blocking customer order placement
                 if order_source == 'FRANCHISE' and serving_franchise and not creator_fp:
                     dealer_avail = DealerStockBatch.objects.filter(
                         dealer=serving_franchise,
@@ -308,31 +308,14 @@ class OrderListCreateView(APIView):
                     ).aggregate(s=Sum('remaining_quantity'))['s'] or 0
 
                     if dealer_avail < qty:
-                        return Response(
-                            {
-                                'success': False,
-                                'message': f"Only {dealer_avail} units are currently available for {prod.name} at franchise '{serving_franchise.business_name}'.",
-                                'available_stock': dealer_avail,
-                                'product_id': prod.id,
-                                'franchise_id': serving_franchise.id,
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
+                        order_needs_manufacturing = True
                 else:
                     cp_avail = ProductionBatch.objects.filter(
                         product=prod, status='ACTIVE', expiry_date__gt=today_chk
                     ).aggregate(s=Sum('quantity_remaining_company'))['s'] or 0
                     effective_avail = max(prod.stock, int(cp_avail))
                     if effective_avail < qty:
-                        return Response(
-                            {
-                                'success': False,
-                                'message': f"Only {effective_avail} units are currently available for {prod.name}.",
-                                'available_stock': effective_avail,
-                                'product_id': prod.id,
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
+                        order_needs_manufacturing = True
 
                 # Server-authoritative pricing: Never trust client-submitted prices
                 if creator_fp:
@@ -392,6 +375,17 @@ class OrderListCreateView(APIView):
                 territory_snapshot = getattr(getattr(creator, 'profile', None), 'territory', '') or ''
 
             delivery_address_val = request.data.get('delivery_address', '') or request.data.get('address', '')
+            clean_addr = str(delivery_address_val or '').strip()
+            if not clean_addr or len(clean_addr) < 5:
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'Delivery address is required. Please provide a complete delivery address with house/flat, street, city, and pincode before placing the order.',
+                        'error_code': 'MISSING_DELIVERY_ADDRESS',
+                        'missing_fields': ['delivery_address'],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Authoritative distance-based delivery charges
             dest_lat = request.data.get('delivery_latitude') or request.data.get('latitude')
@@ -579,6 +573,7 @@ class OrderListCreateView(APIView):
                 gst_billing_address=gst_billing_address,
                 gst_state_name=gst_state_name,
                 gst_pincode=gst_pincode,
+                needs_manufacturing=order_needs_manufacturing,
             )
 
             # Update customer's saved profile if GST requested
@@ -621,9 +616,9 @@ class OrderListCreateView(APIView):
                     description=f"Water Wallet payment for order {order.order_code}"
                 )
 
-            # Deduct stock and create OrderItems
+            # Update stock and create OrderItems
             for prod, qty, price in validated_order_items:
-                prod.stock -= qty
+                prod.stock = max(0, prod.stock - qty)
                 prod.save(update_fields=['stock'])
                 OrderItem.objects.create(
                     order=order,
@@ -641,28 +636,23 @@ class OrderListCreateView(APIView):
                 old_status='',
                 new_status=order.status or 'order_placement',
                 changed_by=creator,
-                notes='Order placed by client.',
+                notes='Order placed by customer.',
             )
 
-            # Perform atomic FEFO batch reservation
+            # Perform atomic FEFO batch reservation if finished batch stock exists
             from inventory.services import reserve_order_stock_fefo_atomic
             try:
                 reserve_order_stock_fefo_atomic(order)
             except (DjangoValidationError, DRFValidationError) as ve:
-                transaction.set_rollback(True)
-                if hasattr(ve, 'detail'):
-                    err_msg = str(ve.detail[0] if isinstance(ve.detail, list) else ve.detail)
-                elif hasattr(ve, 'messages'):
-                    err_msg = str(ve.messages[0])
-                else:
-                    err_msg = str(ve)
-                return Response(
-                    {
-                        'success': False,
-                        'message': err_msg,
-                        'error_code': 'INSUFFICIENT_BATCH_STOCK',
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
+                order.needs_manufacturing = True
+                order.save(update_fields=['needs_manufacturing', 'updated_at'])
+                OrderStatusHistory.objects.create(
+                    order=order,
+                    old_status=order.status or 'order_placement',
+                    new_status=order.status or 'order_placement',
+                    changed_by=creator,
+                    reason_category='MANUFACTURING_REQUIRED',
+                    notes='Order queued for manufacturing fulfillment. Finished batch stock insufficient for full immediate allocation.',
                 )
             except Exception:
                 pass
@@ -913,39 +903,51 @@ class CustomerBulkOrderView(APIView):
 # =========================================================
 
 class OrderDetailView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
         order = get_object_or_404(Order.objects.prefetch_related('items'), pk=pk)
-        user = request.user if request.user and request.user.is_authenticated else None
-        if user and (not user.is_active or getattr(getattr(user, 'profile', None), 'status', 'active') != 'active'):
+        user = request.user
+        if not user.is_active or getattr(getattr(user, 'profile', None), 'status', 'active') != 'active':
             return Response(
                 {'success': False, 'message': 'Your account is deactivated or suspended. Access denied.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        if user:
-            role = getattr(getattr(user, 'profile', None), 'role', '')
-            is_admin = user.is_superuser or user.is_staff or role in ['admin', 'super_admin']
-            if is_admin and not (user.is_superuser or role == 'super_admin'):
-                from accounts.permissions import check_granular_permission
-                if not check_granular_permission(user, 'orders', 'view'):
-                    return Response(
-                        {'success': False, 'message': "Permission Denied: Missing 'orders:view' privilege."},
-                        status=status.HTTP_403_FORBIDDEN
-                    )
-                from accounts.scopes import check_object_scope
-                try:
-                    check_object_scope(user, order, 'order')
-                except Exception as scope_err:
-                    return Response({'success': False, 'message': str(scope_err)}, status=status.HTTP_403_FORBIDDEN)
-            is_franchise = role == 'franchise' or bool(getattr(user, 'franchise_profile', None))
-            if not is_admin and is_franchise:
-                fp = getattr(user, 'franchise_profile', None)
-                if not fp or (order.serving_franchise_id != fp.id and order.registered_franchise_id != fp.id) or order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
-                    return Response(
-                        {'success': False, 'message': 'You are not authorized to view this order.'},
-                        status=status.HTTP_403_FORBIDDEN
-                    )
+
+        role = getattr(getattr(user, 'profile', None), 'role', '')
+        is_admin = user.is_superuser or user.is_staff or role in ['admin', 'super_admin']
+
+        if is_admin and not (user.is_superuser or role == 'super_admin'):
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(user, 'orders', 'view'):
+                return Response(
+                    {'success': False, 'message': "Permission Denied: Missing 'orders:view' privilege."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            from accounts.scopes import check_object_scope
+            try:
+                check_object_scope(user, order, 'order')
+            except Exception as scope_err:
+                return Response({'success': False, 'message': str(scope_err)}, status=status.HTTP_403_FORBIDDEN)
+
+        is_franchise = not is_admin and (role == 'franchise' or bool(getattr(user, 'franchise_profile', None)))
+        if is_franchise:
+            fp = getattr(user, 'franchise_profile', None)
+            is_assigned = fp and (order.serving_franchise_id == fp.id or order.registered_franchise_id == fp.id or order.created_by_id == user.id)
+            if not is_assigned or order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
+                return Response(
+                    {'success': False, 'message': 'You are not authorized to view this order.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Non-admin, non-franchise user (Customer): strictly enforce object ownership
+        if not is_admin and not is_franchise:
+            if order.created_by_id != user.id:
+                return Response(
+                    {'success': False, 'message': 'You are not authorized to view this order.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
         return Response(
             {
                 'success': True,
@@ -963,9 +965,10 @@ class OrderDetailView(APIView):
         order = get_object_or_404(Order, pk=pk)
         data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
 
-        user = request.user if request.user and request.user.is_authenticated else None
+        user = request.user
         role = getattr(getattr(user, 'profile', None), 'role', '')
         is_admin = user and (user.is_superuser or user.is_staff or role in ['admin', 'super_admin'])
+        is_franchise = not is_admin and (role == 'franchise' or bool(getattr(user, 'franchise_profile', None)))
 
         if is_admin and not (user.is_superuser or role == 'super_admin'):
             from accounts.permissions import check_granular_permission
@@ -980,11 +983,37 @@ class OrderDetailView(APIView):
             except Exception as scope_err:
                 return Response({'success': False, 'message': str(scope_err)}, status=status.HTTP_403_FORBIDDEN)
 
-        if not is_admin and (role == 'franchise' or getattr(user, 'franchise_profile', None)):
+        if is_franchise:
             fp = getattr(user, 'franchise_profile', None)
-            if not fp or (order.serving_franchise_id != fp.id and order.registered_franchise_id != fp.id) or order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
+            is_assigned = fp and (order.serving_franchise_id == fp.id or order.registered_franchise_id == fp.id or order.created_by_id == user.id)
+            if not is_assigned or order.order_source in ['WATER_WALLET_REDEMPTION', 'WATER_WALLET']:
                 return Response(
                     {'success': False, 'message': 'You are not authorized to update this order.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            # Franchises cannot modify prices, base items, or financial totals directly
+            for forbidden_field in ['grand_total', 'subtotal', 'total_amount', 'discount', 'gst_amount', 'delivery_charge']:
+                data.pop(forbidden_field, None)
+
+        if not is_admin and not is_franchise:
+            # Customer role
+            if order.created_by_id != user.id:
+                return Response(
+                    {'success': False, 'message': 'You are not authorized to update this order.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            req_status = str(data.get('status', '')).strip().lower()
+            if req_status == 'cancelled':
+                if order.status not in ['pending', 'placed', 'created', 'plant_approval']:
+                    return Response(
+                        {'success': False, 'message': f'Cannot cancel order in status "{order.status}". Contact support.', 'error_code': 'CANCELLATION_NOT_ALLOWED'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                cancel_notes = data.get('notes', 'Cancelled by customer.')
+                data = {'status': 'cancelled', 'notes': cancel_notes}
+            else:
+                return Response(
+                    {'success': False, 'message': 'Customers cannot modify order items, pricing, or status directly.', 'error_code': 'CUSTOMER_MUTATION_FORBIDDEN'},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -1181,14 +1210,50 @@ class OrderStatusUpdateView(APIView):
             'shipped': 'dispatch',
             'approved': 'plant_approval',
             'admin_approved': 'plant_approval',
+            'confirmed': 'plant_approval',
             'completed': 'delivered',
             'complete': 'delivered',
             'cancelled': 'cancelled',
             'cancel': 'cancelled',
             'bottling': 'preparing',
             'packaging': 'preparing',
+            'hold': 'on_hold',
+            'put_on_hold': 'on_hold',
+            'paused': 'on_hold',
+            'reject': 'rejected',
+            'production': 'manufacturing',
+            'manufacture': 'manufacturing',
         }
         new_status = status_aliases.get(raw_status, raw_status)
+
+        reason_category = (request.data.get('reason_category') or request.data.get('category') or '').strip().upper()
+        if new_status == 'on_hold':
+            if not reason_category:
+                return Response({
+                    'success': False,
+                    'message': 'A mandatory hold reason category is required (e.g., INSUFFICIENT_STOCK, MANUFACTURING_REQUIRED, RAW_MATERIAL_UNAVAILABLE, PRODUCTION_DELAY, QUALITY_INSPECTION, LOGISTICS_ISSUE, OTHER).',
+                    'error_code': 'MISSING_HOLD_CATEGORY',
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if not notes:
+                return Response({
+                    'success': False,
+                    'message': 'A written detailed explanation is mandatory when placing an order on hold.',
+                    'error_code': 'MISSING_HOLD_REASON',
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_status == 'rejected':
+            if not reason_category:
+                return Response({
+                    'success': False,
+                    'message': 'A mandatory rejection reason category is required (e.g., PRODUCT_DISCONTINUED, MANUFACTURING_NOT_POSSIBLE, OUT_OF_SERVICE_AREA, INVALID_ORDER_DETAILS, OTHER).',
+                    'error_code': 'MISSING_REJECTION_CATEGORY',
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if not notes:
+                return Response({
+                    'success': False,
+                    'message': 'A written detailed explanation is mandatory when rejecting an order.',
+                    'error_code': 'MISSING_REJECTION_REASON',
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         valid_statuses = dict(Order.STATUS_CHOICES).keys()
         if new_status not in valid_statuses:
@@ -1252,6 +1317,7 @@ class OrderStatusUpdateView(APIView):
                 new_status,
                 actor=user,
                 notes=notes,
+                reason_category=reason_category,
                 bypass_validation=True,
             )
 
@@ -1266,6 +1332,171 @@ class OrderStatusUpdateView(APIView):
                     'allowed_transitions': allowed_next,
                 }
             )
+
+
+class OrderHoldView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        from orders.services import transition_order_status
+        order = get_object_or_404(Order, pk=pk)
+        reason_cat = str(request.data.get('reason_category', '')).strip().upper()
+        notes = str(request.data.get('reason', '') or request.data.get('notes', '')).strip()
+
+        if not reason_cat:
+            return Response({
+                'success': False,
+                'message': 'Hold reason category is mandatory.',
+                'error_code': 'MISSING_REASON_CATEGORY',
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not notes:
+            return Response({
+                'success': False,
+                'message': 'Detailed hold explanation notes are mandatory.',
+                'error_code': 'MISSING_REASON_NOTES',
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        updated_order = transition_order_status(
+            order,
+            'on_hold',
+            actor=request.user,
+            notes=notes,
+            reason_category=reason_cat,
+        )
+        return Response({
+            'success': True,
+            'message': f"Order #{order.id} placed on hold successfully.",
+            'order': OrderSerializer(updated_order).data,
+        })
+
+
+class OrderResumeView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        from orders.services import transition_order_status
+        order = get_object_or_404(Order, pk=pk)
+        if order.status != 'on_hold':
+            return Response({
+                'success': False,
+                'message': f"Cannot resume order #{order.id} because its current status is '{order.status}' (not on_hold).",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        target_status = request.data.get('target_status') or 'plant_approval'
+        notes = request.data.get('notes') or f"Order resumed from hold by {request.user.get_full_name() or request.user.username}"
+
+        updated_order = transition_order_status(
+            order,
+            target_status,
+            actor=request.user,
+            notes=notes,
+        )
+        return Response({
+            'success': True,
+            'message': f"Order #{order.id} resumed to {target_status} successfully.",
+            'order': OrderSerializer(updated_order).data,
+        })
+
+
+class OrderRejectView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        from orders.services import transition_order_status
+        order = get_object_or_404(Order, pk=pk)
+        reason_cat = str(request.data.get('reason_category', '')).strip().upper()
+        notes = str(request.data.get('reason', '') or request.data.get('notes', '')).strip()
+
+        if not reason_cat:
+            return Response({
+                'success': False,
+                'message': 'Rejection reason category is mandatory.',
+                'error_code': 'MISSING_REASON_CATEGORY',
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not notes:
+            return Response({
+                'success': False,
+                'message': 'Detailed rejection explanation notes are mandatory.',
+                'error_code': 'MISSING_REASON_NOTES',
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        updated_order = transition_order_status(
+            order,
+            'rejected',
+            actor=request.user,
+            notes=notes,
+            reason_category=reason_cat,
+        )
+        return Response({
+            'success': True,
+            'message': f"Order #{order.id} rejected.",
+            'order': OrderSerializer(updated_order).data,
+        })
+
+
+class OrderInitiateManufacturingView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        from inventory.services import create_production_batch_atomic
+        order = get_object_or_404(Order, pk=pk)
+
+        created_batches = []
+        for item in order.items.select_related('product').all():
+            qty = int(request.data.get('quantity') or item.quantity)
+            try:
+                batch = create_production_batch_atomic(
+                    product_id=item.product_id,
+                    quantity_produced_units=qty,
+                    linked_order=order,
+                    client_name=order.client_name or order.franchise_name,
+                    actor=request.user,
+                )
+                created_batches.append(batch)
+            except Exception as be:
+                from django.utils import timezone
+                from datetime import timedelta
+                from inventory.models import ProductionBatch
+                now = timezone.now().date()
+                shelf_days = getattr(item.product, 'shelf_life_days', 180) or 180
+                exp = now + timedelta(days=shelf_days)
+                bnum = f"PB-{timezone.now().strftime('%Y%m%d%H%M%S')}-{item.product_id}"
+                batch = ProductionBatch.objects.create(
+                    batch_number=bnum,
+                    product=item.product,
+                    manufacture_date=now,
+                    expiry_date=exp,
+                    quantity_produced_units=qty,
+                    quantity_remaining_company=qty,
+                    unit_production_cost=Decimal(str(getattr(item.product, 'dealer_transfer_price', 10.00) or 10.00)),
+                    linked_order=order,
+                    branding_requirement=f"Scheduled batch for Order #{order.id}: {str(be)}"
+                )
+                created_batches.append(batch)
+
+        order.needs_manufacturing = True
+        if order.status in ['order_placement', 'plant_approval', 'on_hold']:
+            order.status = 'preparing'
+            order.save(update_fields=['needs_manufacturing', 'status', 'updated_at'])
+            OrderStatusHistory.objects.create(
+                order=order,
+                old_status=order.status,
+                new_status='preparing',
+                changed_by=request.user,
+                reason_category='MANUFACTURING_INITIATED',
+                notes=f"Manufacturing initiated: {len(created_batches)} batch(es) created.",
+            )
+        else:
+            order.save(update_fields=['needs_manufacturing', 'updated_at'])
+
+        return Response({
+            'success': True,
+            'message': f"Manufacturing initiated for Order #{order.id}. {len(created_batches)} batch(es) created.",
+            'order': OrderSerializer(order).data,
+            'batches': [{'id': b.id, 'batch_number': b.batch_number, 'quantity': b.quantity_produced_units} for b in created_batches],
+        })
 
 
 # =========================================================
@@ -1338,22 +1569,17 @@ def get_razorpay_credentials():
 
     if 'RAZORPAY_KEY_ID' in os.environ:
         key_id = os.environ['RAZORPAY_KEY_ID'].strip()
-    elif 'ENVIRONMENT' in os.environ:
-        key_id = ''
     elif getattr(settings, 'RAZORPAY_KEY_ID', None) is not None:
         key_id = str(settings.RAZORPAY_KEY_ID).strip()
     else:
-        key_id = 'rzp_live_Tnhqo3i0SyYYdf'
+        key_id = ''
 
     if 'RAZORPAY_KEY_SECRET' in os.environ:
         key_secret = os.environ['RAZORPAY_KEY_SECRET'].strip()
-    elif 'ENVIRONMENT' in os.environ:
-        key_secret = ''
     elif getattr(settings, 'RAZORPAY_KEY_SECRET', None) is not None:
         key_secret = str(settings.RAZORPAY_KEY_SECRET).strip()
     else:
-        key_secret = 'u6BrnyYxz3U9lqPNhSrWI7lB'
-
+        key_secret = ''
 
     if 'RAZORPAY_ENVIRONMENT' in os.environ:
         razorpay_env = os.environ['RAZORPAY_ENVIRONMENT'].strip().upper()
@@ -1914,24 +2140,33 @@ class RazorpayWebhookAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '').strip()
-        received_signature = request.headers.get('X-Razorpay-Signature', '').strip()
+        webhook_secret = (os.environ.get('RAZORPAY_WEBHOOK_SECRET') or getattr(settings, 'RAZORPAY_WEBHOOK_SECRET', '')).strip()
+        if not webhook_secret:
+            logger.critical("Razorpay Webhook rejected: RAZORPAY_WEBHOOK_SECRET is not configured on the server.")
+            return Response(
+                {
+                    'success': False,
+                    'error': 'Webhook processing is unavailable: RAZORPAY_WEBHOOK_SECRET is not configured on the server.'
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
-        # If webhook secret is configured, strictly verify cryptographic signature
-        if webhook_secret:
-            if not received_signature:
-                return Response({'success': False, 'error': 'Missing X-Razorpay-Signature header'}, status=status.HTTP_400_BAD_REQUEST)
-            try:
-                expected_signature = hmac.new(
-                    webhook_secret.encode('utf-8'),
-                    request.body,
-                    hashlib.sha256
-                ).hexdigest()
-                if not hmac.compare_digest(expected_signature, received_signature):
-                    return Response({'success': False, 'error': 'Invalid webhook signature'}, status=status.HTTP_400_BAD_REQUEST)
-            except Exception as e:
-                logger.error("Webhook signature verification error: %s", e)
-                return Response({'success': False, 'error': 'Signature verification error'}, status=status.HTTP_400_BAD_REQUEST)
+        received_signature = request.headers.get('X-Razorpay-Signature', '').strip()
+        if not received_signature:
+            return Response({'success': False, 'error': 'Missing X-Razorpay-Signature header'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            expected_signature = hmac.new(
+                webhook_secret.encode('utf-8'),
+                request.body,
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(expected_signature, received_signature):
+                logger.warning("Razorpay Webhook rejected: Invalid HMAC signature")
+                return Response({'success': False, 'error': 'Invalid webhook signature'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error("Webhook signature verification error: %s", e)
+            return Response({'success': False, 'error': 'Signature verification error'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             payload = json.loads(request.body.decode('utf-8'))

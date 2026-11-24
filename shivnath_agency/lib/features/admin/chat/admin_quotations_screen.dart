@@ -714,8 +714,11 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                     pdfFileName: selectedPdfName,
                   );
                 } else {
+                  final editId = (quotation['id'] is int)
+                      ? quotation['id'] as int
+                      : int.tryParse(quotation['id']?.toString() ?? '') ?? 0;
                   await _chatService.updateQuotation(
-                    quotation['id'] as int,
+                    editId,
                     payload,
                     pdfFilePath: selectedPdfPath,
                     pdfBytes: selectedPdfBytes,
@@ -882,12 +885,18 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                     itemCount: filteredQuotes.length,
                     itemBuilder: (context, index) {
                       final q = filteredQuotes[index];
-                      final qId = q['id'] as int;
+                      final qId = (q['id'] is int)
+                          ? q['id'] as int
+                          : int.tryParse(q['id']?.toString() ?? '') ?? 0;
                       final audience =
                           q['target_audience']?.toString().toUpperCase() ??
                           'CUSTOMER';
-                      final unitP = q['unit_price'] ?? 0;
-                      final totalP = q['total_price'] ?? 0;
+                      final double unitP =
+                          double.tryParse(q['unit_price']?.toString() ?? '') ??
+                          0.0;
+                      final double totalP =
+                          double.tryParse(q['total_price']?.toString() ?? '') ??
+                          0.0;
                       final hasPdf =
                           q['has_pdf'] == true ||
                           (q['pdf_url'] != null &&
@@ -988,7 +997,7 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                         ),
                                       ),
                                       Text(
-                                        '₹$unitP',
+                                        '₹${unitP.toStringAsFixed(2)}',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w700,
                                           fontSize: 15,
@@ -1010,7 +1019,7 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                           ),
                                         ),
                                         Text(
-                                          '₹$totalP',
+                                          '₹${totalP.toStringAsFixed(2)}',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w700,
                                             fontSize: 15,

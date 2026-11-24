@@ -324,6 +324,8 @@ class OrderSerializer(serializers.ModelSerializer):
     order_notes = serializers.SerializerMethodField()
     subtotal = serializers.DecimalField(source='amount', max_digits=12, decimal_places=2, read_only=True)
     fulfilling_entity = serializers.SerializerMethodField()
+    customer_status_display = serializers.SerializerMethodField()
+    customer_status_message = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -412,6 +414,15 @@ class OrderSerializer(serializers.ModelSerializer):
 
             'status',
             'status_display',
+            'customer_status_display',
+            'customer_status_message',
+            'hold_reason_category',
+            'hold_reason',
+            'hold_at',
+            'rejection_reason_category',
+            'rejection_reason',
+            'rejected_at',
+            'needs_manufacturing',
 
             'payment_status',
             'payment',
@@ -690,6 +701,59 @@ class OrderSerializer(serializers.ModelSerializer):
             'territory': 'Central Plant Dispatch',
             'contact_info': contact_info,
         }
+
+    def get_customer_status_display(self, obj):
+        st = (obj.status or '').lower().strip()
+        display_map = {
+            'order_placement': 'Order Placed',
+            'plant_approval': 'Order Approved',
+            'invoice_generated': 'Invoice Generated',
+            'preparing': 'In Bottling / Preparation',
+            'manufacturing': 'In Bottling / Preparation',
+            'on_hold': 'Temporarily on Hold',
+            'dispatch': 'Out for Delivery / Dispatched',
+            'delivered': 'Delivered',
+            'payment_collection': 'Payment Collection',
+            'cancelled': 'Cancelled',
+            'rejected': 'Order Rejected',
+        }
+        return display_map.get(st, obj.get_status_display() if hasattr(obj, 'get_status_display') else st.title())
+
+    def get_customer_status_message(self, obj):
+        st = (obj.status or '').lower().strip()
+        if st == 'on_hold':
+            cat = (obj.hold_reason_category or '').upper()
+            if cat in ['INSUFFICIENT_STOCK', 'MANUFACTURING_REQUIRED']:
+                return "Your order requires fresh bottling preparation. We will update you once it is ready for dispatch."
+            elif cat in ['RAW_MATERIAL_UNAVAILABLE', 'PRODUCTION_DELAY']:
+                return "Your order is temporarily on hold. Our team is preparing fresh production and will update you shortly."
+            elif cat == 'QUALITY_INSPECTION':
+                return "Your order is currently undergoing mandatory quality inspection."
+            elif cat == 'LOGISTICS_ISSUE':
+                return "Your delivery is being scheduled with our logistics team. We will notify you when out for delivery."
+            return "Your order is temporarily on hold. We are preparing your order and will update you shortly."
+        elif st == 'rejected':
+            cat = (obj.rejection_reason_category or '').upper()
+            if cat == 'OUT_OF_SERVICE_AREA':
+                return "Your delivery address is currently outside our active delivery radius."
+            elif cat == 'PRODUCT_DISCONTINUED':
+                return "The requested product is currently unavailable for order."
+            elif cat == 'INVALID_ORDER_DETAILS':
+                return "Your order details could not be verified. Please contact support."
+            return "Your order could not be fulfilled at this time. Our customer support team will assist you."
+        elif st == 'order_placement':
+            return "Thank you for your order! Our team has received your order and is reviewing it."
+        elif st in ['plant_approval', 'invoice_generated']:
+            return "Your order has been confirmed and scheduled for bottling/dispatch."
+        elif st in ['preparing', 'manufacturing']:
+            return "Your order is being bottled and packed fresh at our bottling facility."
+        elif st == 'dispatch':
+            return "Your packaged water order is dispatched and on the way to your delivery address."
+        elif st == 'delivered':
+            return "Your order has been delivered successfully. Thank you for choosing Shivnath Agency!"
+        elif st == 'cancelled':
+            return "This order has been cancelled."
+        return ""
 
 
     def get_customer_name(self, obj):

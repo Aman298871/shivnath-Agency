@@ -11,10 +11,13 @@ class Order(models.Model):
         ('plant_approval', 'Plant Approval / Admin Approved'),
         ('invoice_generated', 'Invoice Generated'),
         ('preparing', 'Preparing / Bottling'),
+        ('manufacturing', 'Manufacturing / In Production'),
+        ('on_hold', 'On Hold'),
         ('dispatch', 'Dispatch / In Transit'),
         ('delivered', 'Delivered'),
         ('payment_collection', 'Payment Collection'),
         ('cancelled', 'Cancelled'),
+        ('rejected', 'Rejected'),
     ]
 
     ORDER_SOURCE_CHOICES = [
@@ -353,6 +356,58 @@ class Order(models.Model):
         help_text="Customer billing PIN code"
     )
 
+    hold_reason_category = models.CharField(
+        max_length=60,
+        blank=True,
+        default='',
+        help_text="Standardized category for placing order on hold"
+    )
+
+    hold_reason = models.TextField(
+        blank=True,
+        default='',
+        help_text="Detailed explanation of why order is on hold"
+    )
+
+    hold_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when order was placed on hold"
+    )
+
+    rejection_reason_category = models.CharField(
+        max_length=60,
+        blank=True,
+        default='',
+        help_text="Standardized category for rejecting order"
+    )
+
+    rejection_reason = models.TextField(
+        blank=True,
+        default='',
+        help_text="Detailed explanation of why order was rejected"
+    )
+
+    rejected_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when order was rejected"
+    )
+
+    needs_manufacturing = models.BooleanField(
+        default=False,
+        help_text="Flag indicating finished stock is insufficient and fresh production run is required"
+    )
+
+    manufacturing_batch = models.ForeignKey(
+        'inventory.ProductionBatch',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='linked_customer_orders',
+        help_text="Production batch linked to fulfill this order"
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -576,6 +631,7 @@ class OrderStatusHistory(models.Model):
         blank=True,
         related_name='order_status_changes',
     )
+    reason_category = models.CharField(max_length=60, blank=True, default='')
     notes = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 

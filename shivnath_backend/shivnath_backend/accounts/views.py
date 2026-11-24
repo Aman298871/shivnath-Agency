@@ -20,6 +20,15 @@ from rest_framework.permissions import (
 )
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
+
+
+class LoginRateThrottle(ScopedRateThrottle):
+    scope = 'login'
+
+
+class PasswordResetRateThrottle(ScopedRateThrottle):
+    scope = 'password_reset'
 
 from .models import FranchiseProfile, UserProfile
 from .permissions import IsAdminRole, IsApprovedFranchise, IsAdminOrFranchiseUser
@@ -1355,6 +1364,7 @@ class LoginView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
 
@@ -1378,6 +1388,7 @@ class LoginView(APIView):
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [PasswordResetRateThrottle]
 
     def post(self, request):
         serializer = ForgotPasswordSerializer(
@@ -1400,6 +1411,7 @@ class ForgotPasswordView(APIView):
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [PasswordResetRateThrottle]
 
     def post(self, request):
         serializer = ResetPasswordSerializer(
@@ -4346,6 +4358,9 @@ class DatabaseBackupTriggerView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin')):
+            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+
         backups = SystemBackupLog.objects.all()[:30]
         data = [
             {
@@ -4823,6 +4838,22 @@ class DealerKYCDocumentView(APIView):
         if not doc_type or not doc_file:
             return Response({'success': False, 'message': 'document_type and document_file are required.'}, status=400)
 
+        # Security: Enforce file size limit (10MB)
+        if doc_file.size > 10 * 1024 * 1024:
+            return Response({'success': False, 'message': 'File size exceeds maximum allowed limit of 10MB.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Security: Enforce allowed extensions
+        import os
+        ext = os.path.splitext(doc_file.name)[1].lower()
+        allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png']
+        if ext not in allowed_extensions:
+            return Response({'success': False, 'message': f'Invalid file type. Only {", ".join(allowed_extensions)} files are permitted.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Security: Enforce allowed MIME types
+        allowed_content_types = ['application/pdf', 'image/jpeg', 'image/png']
+        if getattr(doc_file, 'content_type', '').lower() not in allowed_content_types:
+            return Response({'success': False, 'message': 'Invalid file MIME type. Only PDF and JPEG/PNG images are permitted.'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Calculate incremental version for this document type
         existing_docs = DealerDocument.objects.filter(dealer=franchise, document_type=doc_type)
         max_version = existing_docs.aggregate(Max('version'))['version__max'] or 0
@@ -5204,19 +5235,24 @@ class FranchiseFSSAIDetailView(APIView):
 class SuperAdminSeedDemoDataView(APIView):
     """
     Triggers complete demo dataset seeding for development, staging, or cloud environments.
+    Strictly forbidden in production mode or for non-superadmin actors.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         from django.core.management import call_command
-        secret = request.data.get('secret') or request.query_params.get('secret')
+        from django.conf import settings
+
+        if not settings.DEBUG:
+            return Response({'error': 'Demo seed endpoint is strictly disabled in production.'}, status=status.HTTP_403_FORBIDDEN)
+
         is_admin = False
         if request.user and request.user.is_authenticated:
             profile = getattr(request.user, 'profile', None)
-            is_admin = request.user.is_superuser or (profile and profile.role in ['admin', 'super_admin'])
+            is_admin = request.user.is_superuser or (profile and profile.role == 'super_admin')
 
-        if not is_admin and secret != 'shivnath_demo_seed_secret_2026':
-            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+        if not is_admin:
+            return Response({'error': 'Unauthorized. Super Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             import seed_production_data

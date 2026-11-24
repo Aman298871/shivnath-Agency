@@ -90,16 +90,53 @@ class InvoiceListAPIView(generics.ListAPIView):
 
 
 class InvoiceDetailAPIView(generics.RetrieveAPIView):
-    queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
     permission_classes = [permissions.IsAuthenticated, DenyStockManager]
 
-    def get_object(self):
+    def get_queryset(self):
         user = self.request.user
+        if not user.is_active or getattr(getattr(user, 'profile', None), 'status', 'active') != 'active':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Your account is deactivated or suspended. Access denied.")
+
         if hasattr(user, 'profile') and user.profile.role == 'stock_manager':
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Stock managers are forbidden from accessing financial invoices and billing.")
-        return super().get_object()
+
+        qs = Invoice.objects.all().select_related(
+            'order',
+            'order__serving_franchise',
+            'order__created_by',
+            'stock_request',
+            'stock_request__dealer'
+        ).prefetch_related(
+            'payments'
+        )
+
+        if user.is_superuser or (hasattr(user, 'profile') and user.profile.role == 'super_admin'):
+            return qs
+
+        role = getattr(getattr(user, 'profile', None), 'role', 'customer')
+        if role == 'customer':
+            return qs.filter(order__created_by=user)
+        elif role == 'franchise':
+            dealer = getattr(user, 'franchise_profile', None)
+            if dealer:
+                return qs.filter(
+                    models.Q(stock_request__dealer=dealer) |
+                    models.Q(order__serving_franchise=dealer) |
+                    models.Q(billed_to_name=dealer.business_name)
+                )
+            return qs.none()
+        elif role in ['admin', 'sales_executive']:
+            from accounts.permissions import check_granular_permission
+            if not check_granular_permission(user, 'billing', 'view'):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("Permission Denied: Missing 'billing:view' privilege.")
+            from accounts.scopes import apply_data_scope
+            return apply_data_scope(qs, user, 'invoice')
+
+        return qs.none()
 
 
 class RecordPaymentAPIView(views.APIView):
@@ -1034,6 +1071,8 @@ def _check_invoice_access(user, invoice):
         if invoice.order and invoice.order.serving_franchise_id == fp.id:
             return True
         if invoice.stock_request and invoice.stock_request.dealer_id == fp.id:
+            return True
+        if invoice.billed_to_name and fp.business_name and invoice.billed_to_name == fp.business_name:
             return True
         return False
 

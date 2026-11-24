@@ -62,9 +62,9 @@ export default function Dashboard() {
 
       setMetrics({
         totalOrders: ordStats.total || ordStats.total_orders || orders.length,
-        totalRevenue: ordStats.total_value || ordStats.total_order_value || orders.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0),
-        pendingOrders: ordStats.pending || ordStats.pending_orders || orders.filter((o) => ['PENDING', 'PROCESSING', 'CONFIRMED'].includes(o.order_status)).length,
-        deliveredOrders: ordStats.delivered || ordStats.delivered_orders || orders.filter((o) => o.order_status === 'DELIVERED').length,
+        totalRevenue: ordStats.total_value || ordStats.total_order_value || orders.reduce((sum, o) => sum + parseFloat(o.grand_total ?? o.total_amount ?? o.amount ?? 0), 0),
+        pendingOrders: ordStats.pending || ordStats.pending_orders || orders.filter((o) => ['PENDING', 'PROCESSING', 'CONFIRMED'].includes((o.status || o.order_status || '').toUpperCase())).length,
+        deliveredOrders: ordStats.delivered || ordStats.delivered_orders || orders.filter((o) => (o.status || o.order_status || '').toUpperCase() === 'DELIVERED').length,
         totalCustomers: custStats.total || custStats.total_customers || 0,
         totalFranchises: franStats.total || franStats.total_franchises || 0,
         lowStockCount: alerts.length,
@@ -188,10 +188,10 @@ export default function Dashboard() {
                         {ord.customer_name || ord.franchise_name || 'Direct Customer'}
                       </td>
                       <td className="py-3 font-bold text-slate-900">
-                        ₹{parseFloat(ord.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{parseFloat(ord.grand_total ?? ord.total_amount ?? ord.amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-3">
-                        <StatusBadge status={ord.order_status} />
+                        <StatusBadge status={ord.status || ord.order_status} />
                       </td>
                       <td className="py-3 text-slate-500">
                         {ord.created_at ? new Date(ord.created_at).toLocaleDateString() : 'Today'}

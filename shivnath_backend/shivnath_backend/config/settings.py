@@ -53,6 +53,7 @@ INSTALLED_APPS = [
 
     # Third Party
     'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
 
     # Our Apps
@@ -161,6 +162,9 @@ elif DATABASE_URL:
         else:
             raise ValueError("Failed to parse valid database engine from DATABASE_URL")
     except Exception as e:
+        if IS_PRODUCTION:
+            from django.core.exceptions import ImproperlyConfigured
+            raise ImproperlyConfigured(f"Failed to configure production PostgreSQL database from DATABASE_URL: {e}")
         import logging
         logging.getLogger('django').critical(
             f"[DATABASE CONFIG WARNING] Failed parsing DATABASE_URL: {e}. Falling back to SQLite."
@@ -171,7 +175,23 @@ elif DATABASE_URL:
                 'NAME': BASE_DIR / 'db.sqlite3',
             }
         }
-elif USE_SQLITE_ENV == '1' or DEBUG or IS_PRODUCTION:
+elif IS_PRODUCTION:
+    # In production without DATABASE_URL, require explicit PostgreSQL settings or fail closed
+    if os.getenv('DB_NAME') and os.getenv('DB_USER'):
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': os.getenv('DB_NAME', 'shivnath_agency'),
+                'USER': os.getenv('DB_USER', 'postgres'),
+                'PASSWORD': os.getenv('DB_PASSWORD', ''),
+                'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+                'PORT': os.getenv('DB_PORT', '5432'),
+            }
+        }
+    else:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured("PostgreSQL database is strictly required in production mode. Set DATABASE_URL or DB_* environment variables. SQLite fallback is disabled.")
+elif USE_SQLITE_ENV == '1' or DEBUG:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -252,15 +272,26 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '60/minute',
+        'user': '300/minute',
+        'login': '5/minute',
+        'password_reset': '3/minute',
+    },
 }
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=30),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=90),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=14),
 
     'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'BLACKLIST_AFTER_ROTATION': True,
 
-    'UPDATE_LAST_LOGIN': False,
+    'UPDATE_LAST_LOGIN': True,
 
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
@@ -273,10 +304,30 @@ SIMPLE_JWT = {
 # CORS
 # --------------------------------------------------
 
-CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True').lower() == 'true'
-cors_origins_env = os.getenv('CORS_ALLOWED_ORIGINS')
-if cors_origins_env:
-    CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins_env.split(',') if o.strip()]
+if not DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = False
+    cors_origins_env = os.getenv('CORS_ALLOWED_ORIGINS')
+    if cors_origins_env:
+        CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins_env.split(',') if o.strip()]
+    else:
+        CORS_ALLOWED_ORIGINS = [
+            'https://api.shivnathagencies.com',
+            'https://shivnathagencies.com',
+            'https://admin.shivnathagencies.com',
+            'https://waterwala.shivnathagencies.com',
+        ]
+else:
+    CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True').lower() == 'true'
+    cors_origins_env = os.getenv('CORS_ALLOWED_ORIGINS')
+    if cors_origins_env:
+        CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins_env.split(',') if o.strip()]
+    else:
+        CORS_ALLOWED_ORIGINS = [
+            'http://localhost:3000',
+            'http://localhost:5173',
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:5173',
+        ]
 
 
 # --------------------------------------------------
@@ -287,21 +338,19 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
-    if os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true':
-        SECURE_SSL_REDIRECT = True
-        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-        SESSION_COOKIE_SECURE = True
-        CSRF_COOKIE_SECURE = True
-    if os.getenv('SECURE_HSTS', 'False').lower() == 'true':
-        SECURE_HSTS_SECONDS = 31536000  # 1 year
-        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-        SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 # --------------------------------------------------
 # RAZORPAY CONFIGURATION
 # --------------------------------------------------
-RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_live_Tnhqo3i0SyYYdf').strip()
-RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'u6BrnyYxz3U9lqPNhSrWI7lB').strip()
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', '').strip()
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', '').strip()
 RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', '').strip()
 RAZORPAY_ENVIRONMENT = os.getenv('RAZORPAY_ENVIRONMENT', 'LIVE').strip().upper()
 

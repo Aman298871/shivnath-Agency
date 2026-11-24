@@ -1,10 +1,12 @@
 import json
 import time
+import uuid
 from datetime import datetime
 from django.views import View
 from django.http import StreamingHttpResponse, JsonResponse
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.core.cache import cache
 from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -19,9 +21,30 @@ from .permissions import IsAdminRole, HasGranularPermission, IsSuperAdminRole
 
 def _authenticate_sse_request(request):
     """
-    Authenticates an incoming SSE or polling request using Bearer header or query parameter 'token'.
+    Authenticates an incoming SSE request using:
+    1. Short-lived single-use SSE ticket (?ticket=<uuid>)
+    2. Bearer Authorization header
+    3. Legacy query parameter (?token=<jwt>)
     Returns (user, profile) or (None, None).
     """
+    ticket = request.GET.get('ticket', '').strip()
+    if ticket:
+        cache_key = f"sse_ticket_{ticket}"
+        ticket_data = cache.get(cache_key)
+        if ticket_data:
+            cache.delete(cache_key)  # Single use!
+            user_id = ticket_data.get('user_id')
+            try:
+                from django.contrib.auth import get_user_model
+                user = get_user_model().objects.get(id=user_id)
+                if user and user.is_active:
+                    profile = getattr(user, 'profile', None)
+                    if profile and profile.status == 'active':
+                        return user, profile
+            except Exception:
+                pass
+        return None, None
+
     raw_token = None
     auth_header = request.META.get('HTTP_AUTHORIZATION', '')
     if auth_header.startswith('Bearer '):
@@ -44,6 +67,34 @@ def _authenticate_sse_request(request):
         return user, profile
     except (InvalidToken, AuthenticationFailed, Exception):
         return None, None
+
+
+class RealTimeTicketView(APIView):
+    """
+    Generates a short-lived (60s) single-use authorization ticket for EventSource (SSE).
+    Eliminates exposing long-lived JWTs in URL query parameters and access logs.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        profile = getattr(user, 'profile', None)
+        if not profile or profile.status != 'active':
+            return Response({'error': 'Account is inactive.'}, status=status.HTTP_403_FORBIDDEN)
+
+        allowed_roles = ['admin', 'super_admin', 'staff', 'stock_manager', 'sales_executive', 'franchise']
+        if profile.role not in allowed_roles:
+            return Response({'error': 'Forbidden. Live sync is restricted to administrative and franchise operators.'}, status=status.HTTP_403_FORBIDDEN)
+
+        ticket = str(uuid.uuid4())
+        cache_key = f"sse_ticket_{ticket}"
+        cache.set(cache_key, {'user_id': user.id}, timeout=60)
+
+        return Response({
+            'success': True,
+            'ticket': ticket,
+            'expires_in': 60,
+        })
 
 
 class RealTimeEventStreamView(View):
@@ -85,8 +136,11 @@ class RealTimeEventStreamView(View):
                     if ref_event:
                         replays = SystemEvent.objects.filter(created_at__gt=ref_event.created_at).order_by('created_at')[:100]
                         for ev in replays:
-                            if franchise_id and ev.target_scope == 'franchise' and ev.franchise_id != franchise_id:
-                                continue
+                            if profile.role == 'franchise':
+                                if ev.target_scope not in ['global', 'franchise']:
+                                    continue
+                                if ev.target_scope == 'franchise' and ev.franchise_id and ev.franchise_id != franchise_id:
+                                    continue
                             payload_data = json.dumps({
                                 'event_id': str(ev.event_id),
                                 'type': ev.event_type,
@@ -110,8 +164,11 @@ class RealTimeEventStreamView(View):
 
                     if new_events.exists():
                         for ev in new_events:
-                            if franchise_id and ev.target_scope == 'franchise' and ev.franchise_id != franchise_id:
-                                continue
+                            if profile.role == 'franchise':
+                                if ev.target_scope not in ['global', 'franchise']:
+                                    continue
+                                if ev.target_scope == 'franchise' and ev.franchise_id and ev.franchise_id != franchise_id:
+                                    continue
                             payload_data = json.dumps({
                                 'event_id': str(ev.event_id),
                                 'type': ev.event_type,

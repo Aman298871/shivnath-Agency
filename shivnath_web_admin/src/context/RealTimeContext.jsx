@@ -100,7 +100,7 @@ export const RealTimeProvider = ({ children }) => {
     }
   }, []);
 
-  const connectSSE = useCallback(() => {
+  const connectSSE = useCallback(async () => {
     if (!isAuthenticated || !token) {
       setSyncStatus('offline');
       return;
@@ -112,8 +112,23 @@ export const RealTimeProvider = ({ children }) => {
 
     setSyncStatus('connecting');
 
+    let ticket = null;
+    try {
+      const ticketRes = await apiClient.post('/api/events/ticket/', {});
+      if (ticketRes.data?.success && ticketRes.data?.ticket) {
+        ticket = ticketRes.data.ticket;
+      }
+    } catch (e) {
+      // In case ticket exchange is unavailable, fallback gracefully
+      console.warn('SSE ticket acquisition notice:', e);
+    }
+
     const sseUrl = new URL(`${API_BASE_URL}/api/events/stream/`);
-    sseUrl.searchParams.set('token', token);
+    if (ticket) {
+      sseUrl.searchParams.set('ticket', ticket);
+    } else {
+      sseUrl.searchParams.set('token', token);
+    }
     if (lastEventIdRef.current) {
       sseUrl.searchParams.set('last_event_id', lastEventIdRef.current);
     }

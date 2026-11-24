@@ -15,6 +15,9 @@ import Billing from './pages/Billing';
 import Employees from './pages/Employees';
 import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
+import PlantStock from './pages/PlantStock';
+import Quotations from './pages/Quotations';
+import LeadsFollowups from './pages/LeadsFollowups';
 import { ShieldAlert } from 'lucide-react';
 
 const ProtectedRoute = ({ children, module, action = 'view' }) => {
@@ -73,8 +76,11 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="orders" element={<ProtectedRoute module="orders"><Orders /></ProtectedRoute>} />
               <Route path="customers" element={<ProtectedRoute module="customers"><Customers /></ProtectedRoute>} />
+              <Route path="leads" element={<ProtectedRoute module="customers"><LeadsFollowups /></ProtectedRoute>} />
               <Route path="franchises" element={<ProtectedRoute module="dealers"><Franchises /></ProtectedRoute>} />
               <Route path="products" element={<ProtectedRoute module="products"><Products /></ProtectedRoute>} />
+              <Route path="plant-stock" element={<ProtectedRoute module="inventory"><PlantStock /></ProtectedRoute>} />
+              <Route path="quotations" element={<ProtectedRoute module="billing"><Quotations /></ProtectedRoute>} />
               <Route path="moq-delivery" element={<ProtectedRoute module="moq"><MoqDelivery /></ProtectedRoute>} />
               <Route path="billing" element={<ProtectedRoute module="billing"><Billing /></ProtectedRoute>} />
               <Route path="employees" element={<ProtectedRoute module="employees" action="manage"><Employees /></ProtectedRoute>} />

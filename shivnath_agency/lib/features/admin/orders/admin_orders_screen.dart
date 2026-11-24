@@ -279,6 +279,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         statusMatch = rawStatus == 'delivered' || ordStatus.contains('deliver');
       } else if (filt.contains('cancel')) {
         statusMatch = rawStatus == 'cancelled' || ordStatus.contains('cancel');
+      } else if (filt.contains('hold')) {
+        statusMatch = rawStatus == 'on_hold' || ordStatus.contains('hold');
+      } else if (filt.contains('reject')) {
+        statusMatch = rawStatus == 'rejected' || ordStatus.contains('reject');
       } else if (filt.contains('prepar')) {
         statusMatch = rawStatus == 'preparing' || ordStatus.contains('prepar');
       } else if (filt.contains('invoice')) {
@@ -454,8 +458,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       'Preparing',
       'Invoice Generated',
       'Dispatch / In Transit',
+      'On Hold',
       'Delivered',
       'Payment Collection',
+      'Rejected',
       'Cancelled',
     ];
     final activeFilter = filterOptions.contains(filter) ? filter : 'All';
@@ -855,6 +861,120 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // On Hold Banner
+                        if ((order['status'] ?? '').toString().toLowerCase() == 'on_hold') ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFBEB),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFFCD34D), width: 1.5),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.pause_circle_filled_rounded, color: Color(0xFFB45309), size: 20),
+                                    const SizedBox(width: 8),
+                                    const Text('Order is ON HOLD', style: TextStyle(color: Color(0xFF92400E), fontWeight: FontWeight.bold, fontSize: 13)),
+                                    const Spacer(),
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        visualDensity: VisualDensity.compact,
+                                        foregroundColor: const Color(0xFF15803D),
+                                        side: const BorderSide(color: Color(0xFF22C55E)),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.pop(dialogContext);
+                                        _resumeOrder(order);
+                                      },
+                                      icon: const Icon(Icons.play_circle_fill_rounded, size: 16),
+                                      label: const Text('Resume', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text('Reason Category: ${order['hold_reason_category'] ?? 'N/A'}', style: const TextStyle(fontSize: 12, color: Color(0xFF78350F), fontWeight: FontWeight.w600)),
+                                if ((order['hold_reason'] ?? '').toString().isNotEmpty)
+                                  Text('Details: ${order['hold_reason']}', style: const TextStyle(fontSize: 11.5, color: Color(0xFF92400E))),
+                              ],
+                            ),
+                          ),
+                        ],
+                        // Rejected Banner
+                        if ((order['status'] ?? '').toString().toLowerCase() == 'rejected') ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFFCA5A5), width: 1.5),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.cancel_rounded, color: Color(0xFFDC2626), size: 20),
+                                    SizedBox(width: 8),
+                                    Text('Order is REJECTED', style: TextStyle(color: Color(0xFF991B1B), fontWeight: FontWeight.bold, fontSize: 13)),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text('Reason Category: ${order['rejection_reason_category'] ?? 'N/A'}', style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w600)),
+                                if ((order['rejection_reason'] ?? '').toString().isNotEmpty)
+                                  Text('Details: ${order['rejection_reason']}', style: const TextStyle(fontSize: 11.5, color: Color(0xFF7F1D1D))),
+                              ],
+                            ),
+                          ),
+                        ],
+                        // Manufacturing Needed Banner
+                        if (order['needs_manufacturing'] == true &&
+                            (order['status'] ?? '').toString().toLowerCase() != 'rejected' &&
+                            (order['status'] ?? '').toString().toLowerCase() != 'cancelled' &&
+                            (order['status'] ?? '').toString().toLowerCase() != 'delivered') ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFC7D2FE), width: 1.5),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.factory_rounded, color: Color(0xFF4F46E5), size: 20),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Insufficient Stock — Manufacturing Required', style: TextStyle(color: Color(0xFF312E81), fontWeight: FontWeight.bold, fontSize: 12)),
+                                      Text('Initiate a plant batch to produce and allocate required stock.', style: TextStyle(color: Color(0xFF4338CA), fontSize: 11)),
+                                    ],
+                                  ),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF4F46E5),
+                                    foregroundColor: Colors.white,
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pop(dialogContext);
+                                    _showManufactureDialog(order);
+                                  },
+                                  child: const Text('Manufacture', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         _info('Date', order['date']),
                         if ((order['customer_name'] ?? '')
                             .toString()
@@ -1426,6 +1546,43 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                       ),
                       const SizedBox(width: 8),
                     ],
+                    if ((order['status'] ?? '').toString().toLowerCase() != 'on_hold' &&
+                        (order['status'] ?? '').toString().toLowerCase() != 'delivered' &&
+                        (order['status'] ?? '').toString().toLowerCase() != 'cancelled' &&
+                        (order['status'] ?? '').toString().toLowerCase() != 'rejected') ...[
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFB45309),
+                          side: const BorderSide(color: Color(0xFFF59E0B)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _showHoldDialog(order);
+                        },
+                        icon: const Icon(Icons.pause_circle_outline_rounded, size: 16),
+                        label: const Text('Hold'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    if ((order['status'] ?? '').toString().toLowerCase() != 'delivered' &&
+                        (order['status'] ?? '').toString().toLowerCase() != 'cancelled' &&
+                        (order['status'] ?? '').toString().toLowerCase() != 'rejected') ...[
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFDC2626),
+                          side: const BorderSide(color: Color(0xFFEF4444)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _showRejectDialog(order);
+                        },
+                        icon: const Icon(Icons.close_rounded, size: 16),
+                        label: const Text('Reject'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0284C7),
@@ -1508,8 +1665,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       'preparing': ['invoice_generated', 'dispatch', 'cancelled'],
       'dispatch': ['delivered', 'cancelled'],
       'in_transit': ['delivered', 'cancelled'],
+      'on_hold': ['plant_approval', 'preparing', 'cancelled'],
       'delivered': <String>[],
       'cancelled': <String>[],
+      'rejected': <String>[],
     };
 
     final allowedTargets = allowedTransitionsMap[cleanLower] ?? <String>[];
@@ -1659,6 +1818,372 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         );
       },
     );
+  }
+
+  Future<void> _showHoldDialog(Map<String, dynamic> order) async {
+    final int? dbId = order['id'] is int ? order['id'] as int : int.tryParse(order['id']?.toString() ?? '');
+    if (dbId == null) return;
+
+    String category = 'INSUFFICIENT_STOCK';
+    final notesController = TextEditingController();
+    bool isSubmitting = false;
+    String? errorMessage;
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (_, setDlgState) => AlertDialog(
+          title: Text('Put ${order['orderId']} on Hold'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: Text(
+                      errorMessage!,
+                      style: const TextStyle(color: Color(0xFF991B1B), fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                const Text(
+                  'Reason Category *',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                DropdownButtonFormField<String>(
+                  value: category,
+                  isExpanded: true,
+                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'INSUFFICIENT_STOCK', child: Text('Insufficient finished stock')),
+                    DropdownMenuItem(value: 'MANUFACTURING_REQUIRED', child: Text('Manufacturing required')),
+                    DropdownMenuItem(value: 'RAW_MATERIAL_UNAVAILABLE', child: Text('Raw material unavailable')),
+                    DropdownMenuItem(value: 'PRODUCTION_DELAY', child: Text('Production delay')),
+                    DropdownMenuItem(value: 'QUALITY_INSPECTION', child: Text('Quality inspection pending')),
+                    DropdownMenuItem(value: 'LOGISTICS_ISSUE', child: Text('Delivery / logistics issue')),
+                    DropdownMenuItem(value: 'OTHER', child: Text('Other')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setDlgState(() => category = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Detailed Explanation *',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: notesController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter mandatory explanation for placing order on hold...',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade800, foregroundColor: Colors.white),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final notes = notesController.text.trim();
+                      if (notes.isEmpty) {
+                        setDlgState(() => errorMessage = 'Please provide a mandatory written explanation.');
+                        return;
+                      }
+                      setDlgState(() {
+                        isSubmitting = true;
+                        errorMessage = null;
+                      });
+                      final res = await _orderRepository.holdOrder(
+                        dbId,
+                        reasonCategory: category,
+                        notes: notes,
+                      );
+                      if (res['success'] == true) {
+                        if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                        await _loadData();
+                        if (!mounted) return;
+                        AppToast.success(context, '${order['orderId']} placed on hold.');
+                      } else {
+                        setDlgState(() {
+                          isSubmitting = false;
+                          errorMessage = res['message']?.toString() ?? 'Failed to put order on hold.';
+                        });
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Confirm Hold'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRejectDialog(Map<String, dynamic> order) async {
+    final int? dbId = order['id'] is int ? order['id'] as int : int.tryParse(order['id']?.toString() ?? '');
+    if (dbId == null) return;
+
+    String category = 'PRODUCT_DISCONTINUED';
+    final notesController = TextEditingController();
+    bool isSubmitting = false;
+    String? errorMessage;
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (_, setDlgState) => AlertDialog(
+          title: Text('Reject ${order['orderId']}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFCD34D)),
+                  ),
+                  child: const Text(
+                    'Payment Safety Notice: Rejecting does not issue automatic refunds. Refunds must be processed through verified accounting workflows.',
+                    style: TextStyle(color: Color(0xFF92400E), fontSize: 11),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: Text(
+                      errorMessage!,
+                      style: const TextStyle(color: Color(0xFF991B1B), fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                const Text(
+                  'Rejection Category *',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                DropdownButtonFormField<String>(
+                  value: category,
+                  isExpanded: true,
+                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'PRODUCT_DISCONTINUED', child: Text('Product discontinued / unavailable')),
+                    DropdownMenuItem(value: 'MANUFACTURING_NOT_POSSIBLE', child: Text('Manufacturing not possible')),
+                    DropdownMenuItem(value: 'OUT_OF_SERVICE_AREA', child: Text('Out of service area')),
+                    DropdownMenuItem(value: 'INVALID_ORDER_DETAILS', child: Text('Invalid order details')),
+                    DropdownMenuItem(value: 'OTHER', child: Text('Other')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setDlgState(() => category = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Detailed Explanation *',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: notesController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter mandatory explanation for rejecting order...',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final notes = notesController.text.trim();
+                      if (notes.isEmpty) {
+                        setDlgState(() => errorMessage = 'Please provide a mandatory written explanation.');
+                        return;
+                      }
+                      setDlgState(() {
+                        isSubmitting = true;
+                        errorMessage = null;
+                      });
+                      final res = await _orderRepository.rejectOrder(
+                        dbId,
+                        reasonCategory: category,
+                        notes: notes,
+                      );
+                      if (res['success'] == true) {
+                        if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                        await _loadData();
+                        if (!mounted) return;
+                        AppToast.success(context, '${order['orderId']} has been rejected.');
+                      } else {
+                        setDlgState(() {
+                          isSubmitting = false;
+                          errorMessage = res['message']?.toString() ?? 'Failed to reject order.';
+                        });
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Confirm Rejection'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showManufactureDialog(Map<String, dynamic> order) async {
+    final int? dbId = order['id'] is int ? order['id'] as int : int.tryParse(order['id']?.toString() ?? '');
+    if (dbId == null) return;
+
+    final notesController = TextEditingController();
+    bool isSubmitting = false;
+    String? errorMessage;
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (_, setDlgState) => AlertDialog(
+          title: Text('Initiate Manufacturing for ${order['orderId']}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFC7D2FE)),
+                  ),
+                  child: const Text(
+                    'This creates an active plant production batch linked directly to this order. When production is completed, the manufactured stock will be allocated to this order.',
+                    style: TextStyle(color: Color(0xFF3730A3), fontSize: 11.5),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: Text(
+                      errorMessage!,
+                      style: const TextStyle(color: Color(0xFF991B1B), fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                const Text(
+                  'Production Batch Remarks (Optional)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: notesController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter batch notes or instructions...',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5), foregroundColor: Colors.white),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      setDlgState(() {
+                        isSubmitting = true;
+                        errorMessage = null;
+                      });
+                      final res = await _orderRepository.initiateManufacturing(
+                        dbId,
+                        notes: notesController.text.trim(),
+                      );
+                      if (res['success'] == true) {
+                        if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                        await _loadData();
+                        if (!mounted) return;
+                        AppToast.success(context, 'Production batch created and linked to ${order['orderId']}.');
+                      } else {
+                        setDlgState(() {
+                          isSubmitting = false;
+                          errorMessage = res['message']?.toString() ?? 'Failed to initiate manufacturing.';
+                        });
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Start Production'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _resumeOrder(Map<String, dynamic> order) async {
+    final int? dbId = order['id'] is int ? order['id'] as int : int.tryParse(order['id']?.toString() ?? '');
+    if (dbId == null) return;
+
+    final res = await _orderRepository.resumeOrder(dbId);
+    if (res['success'] == true) {
+      await _loadData();
+      if (!mounted) return;
+      AppToast.success(context, '${order['orderId']} resumed from on hold.');
+    } else {
+      if (!mounted) return;
+      AppToast.error(context, res['message']?.toString() ?? 'Failed to resume order.');
+    }
   }
 
   Future<void> _collectPaymentAdmin(Map<String, dynamic> order) async {

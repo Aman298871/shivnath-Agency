@@ -381,8 +381,9 @@ def seed():
             username=c["username"],
             defaults={"email": c["email"], "first_name": c["name"].split()[0], "last_name": c["name"].split()[-1]}
         )
-        user.set_password("shivnath12")
-        user.save()
+        if _ or not user.has_usable_password():
+            user.set_password(os.getenv('SEED_DEFAULT_PASSWORD', 'shivnath12'))
+            user.save()
 
         UserProfile.objects.get_or_create(
             user=user,
@@ -635,14 +636,15 @@ def seed():
 
     # Super Admin [OFFICIAL PRODUCTION ACCOUNT]
     for adm_email in ["admin@gmail.com", "admin@shivnath.com"]:
-        u_adm, _ = User.objects.get_or_create(
+        u_adm, created_adm = User.objects.get_or_create(
             username=adm_email,
             defaults={"email": adm_email, "first_name": "Shivnath", "last_name": "SuperAdmin", "is_superuser": True, "is_staff": True, "is_active": True}
         )
         u_adm.is_superuser = True
         u_adm.is_staff = True
         u_adm.is_active = True
-        u_adm.set_password("shivnath12")
+        if created_adm or not u_adm.has_usable_password():
+            u_adm.set_password(os.getenv('SEED_DEFAULT_PASSWORD', 'shivnath12'))
         u_adm.save()
         p_adm, _ = UserProfile.objects.get_or_create(
             user=u_adm,
@@ -653,13 +655,14 @@ def seed():
         p_adm.save(update_fields=['role', 'status'])
 
     # Plant Admin [OFFICIAL PRODUCTION ACCOUNT]
-    u_plant, _ = User.objects.get_or_create(
+    u_plant, created_plant = User.objects.get_or_create(
         username="plant@shivnath.com",
         defaults={"email": "plant@shivnath.com", "first_name": "Plant", "last_name": "Manager", "is_superuser": False, "is_staff": True, "is_active": True}
     )
     u_plant.is_staff = True
     u_plant.is_active = True
-    u_plant.set_password("shivnath12")
+    if created_plant or not u_plant.has_usable_password():
+        u_plant.set_password(os.getenv('SEED_DEFAULT_PASSWORD', 'shivnath12'))
     u_plant.save()
     p_plant, _ = UserProfile.objects.get_or_create(user=u_plant, defaults={"name": "Central Plant Admin", "phone": "9806247195", "role": "admin", "status": "active", "city": "Raipur", "district": "Raipur"})
     p_plant.role = "admin"
@@ -667,11 +670,12 @@ def seed():
     p_plant.save(update_fields=['role', 'status'])
 
     # Headquarters Franchise [TEST / DEMO SEED DATA]
-    u_hq, _ = User.objects.get_or_create(
+    u_hq, created_hq = User.objects.get_or_create(
         username="hq@shivnath.com",
         defaults={"email": "hq@shivnath.com", "first_name": "Shivnath Central HQ", "is_active": True}
     )
-    u_hq.set_password("shivnath12")
+    if created_hq or not u_hq.has_usable_password():
+        u_hq.set_password(os.getenv('SEED_DEFAULT_PASSWORD', 'shivnath12'))
     u_hq.save()
     p_hq, _ = UserProfile.objects.get_or_create(user=u_hq, defaults={"name": "Shivnath Central HQ", "phone": "9806247194", "role": "franchise", "status": "active", "city": "Raipur", "district": "Raipur"})
     p_hq.role = "franchise"
@@ -696,11 +700,12 @@ def seed():
     f_hq.save(update_fields=['is_headquarters', 'status'])
 
     # Primary Franchise for East Raipur [TEST / DEMO SEED DATA]
-    u_f1, _ = User.objects.get_or_create(
+    u_f1, created_f1 = User.objects.get_or_create(
         username="franchise_east@shivnath.com",
         defaults={"email": "franchise_east@shivnath.com", "first_name": "Ramesh Kumar (East)", "is_active": True}
     )
-    u_f1.set_password("shivnath12")
+    if created_f1 or not u_f1.has_usable_password():
+        u_f1.set_password(os.getenv('SEED_DEFAULT_PASSWORD', 'shivnath12'))
     u_f1.save()
     up1, _ = UserProfile.objects.get_or_create(user=u_f1, defaults={"name": "Ramesh Kumar", "phone": "9826123456", "role": "franchise", "status": "active", "city": "Raipur", "district": "Raipur"})
     up1.role = "franchise"
@@ -728,15 +733,13 @@ def seed():
     )
 
     # Secondary Franchise for East Raipur [TEST / DEMO SEED DATA]
-    u_f2, _ = User.objects.get_or_create(
+    u_f2, created_f2 = User.objects.get_or_create(
         username="pureflow_east@shivnath.com",
         defaults={"email": "pureflow_east@shivnath.com", "first_name": "Sunil Agrawal", "is_active": True}
     )
-    u_f2.set_password("shivnath12")
+    if created_f2 or not u_f2.has_usable_password():
+        u_f2.set_password(os.getenv('SEED_DEFAULT_PASSWORD', 'shivnath12'))
     u_f2.save()
-    if not u_f2.has_usable_password():
-        u_f2.set_password("franchise123456")
-        u_f2.save()
     up2, _ = UserProfile.objects.get_or_create(user=u_f2, defaults={"name": "Sunil Agrawal", "phone": "9826987654", "role": "franchise", "status": "active", "city": "Raipur", "district": "Raipur"})
     up2.role = "franchise"
     up2.status = "active"
@@ -763,11 +766,12 @@ def seed():
     )
 
     # Primary Franchise for Central Durg [TEST / DEMO SEED DATA]
-    u_f3, _ = User.objects.get_or_create(
+    u_f3, created_f3 = User.objects.get_or_create(
         username="franchise_durg@shivnath.com",
         defaults={"email": "franchise_durg@shivnath.com", "first_name": "Vijay Verma (Durg)", "is_active": True}
     )
-    u_f3.set_password("shivnath12")
+    if created_f3 or not u_f3.has_usable_password():
+        u_f3.set_password(os.getenv('SEED_DEFAULT_PASSWORD', 'shivnath12'))
     u_f3.save()
     up3, _ = UserProfile.objects.get_or_create(user=u_f3, defaults={"name": "Vijay Verma", "phone": "9827112233", "role": "franchise", "status": "active", "city": "Durg", "district": "Durg"})
     up3.role = "franchise"

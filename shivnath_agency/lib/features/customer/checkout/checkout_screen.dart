@@ -84,6 +84,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final gstPincodeController = TextEditingController();
 
   final formKey = GlobalKey<FormState>();
+  final GlobalKey _addressSectionKey = GlobalKey();
+  bool _addressValidationError = false;
+  String? _addressValidationBanner;
 
   String selectedDurationChoice = '1 Month';
   int selectedDurationDays = 30;
@@ -1079,7 +1082,54 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> placeOrder() async {
     if (_isSubmitting) return;
 
+    final rawName = nameController.text.trim();
+    final rawPhone = phoneController.text.trim();
+    final rawAddress = addressController.text.trim();
+    final rawCity = cityController.text.trim();
+
+    final isNameMissing = rawName.isEmpty;
+    final isPhoneMissing = rawPhone.length < 10;
+    final isAddressMissing = rawAddress.isEmpty || rawAddress.length < 5;
+    final isCityMissing = rawCity.isEmpty;
+
+    if (isNameMissing || isPhoneMissing || isAddressMissing || isCityMissing) {
+      setState(() {
+        _addressValidationError = true;
+        _addressValidationBanner =
+            'Delivery address is required. Please add your delivery address before placing the order.';
+      });
+      if (_addressSectionKey.currentContext != null) {
+        Scrollable.ensureVisible(
+          _addressSectionKey.currentContext!,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Delivery address is required. Please add your delivery address before placing the order.'),
+          backgroundColor: Color(0xFFDC2626),
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    } else {
+      if (_addressValidationError) {
+        setState(() {
+          _addressValidationError = false;
+          _addressValidationBanner = null;
+        });
+      }
+    }
+
     if (!(formKey.currentState?.validate() ?? false)) {
+      if (_addressSectionKey.currentContext != null) {
+        Scrollable.ensureVisible(
+          _addressSectionKey.currentContext!,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      }
       return;
     }
 
@@ -2046,10 +2096,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(18),
                 children: [
-                  const Text(
-                    'Delivery Address',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                  ),
+                  Container(
+                    key: _addressSectionKey,
+                    padding: _addressValidationError ? const EdgeInsets.all(12) : EdgeInsets.zero,
+                    decoration: BoxDecoration(
+                      color: _addressValidationError ? const Color(0xFFFFF5F5) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _addressValidationError ? const Color(0xFFEF4444) : Colors.transparent,
+                        width: _addressValidationError ? 1.5 : 0,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_addressValidationError) ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFEF4444), width: 1.5),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 22),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _addressValidationBanner ?? 'Delivery address is required. Please add your delivery address before placing the order.',
+                                    style: const TextStyle(
+                                      color: Color(0xFFB91C1C),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const Text(
+                          'Delivery Address',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                        ),
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: nameController,
@@ -2496,6 +2587,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     const SizedBox(height: 8),
                   ],
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(14),

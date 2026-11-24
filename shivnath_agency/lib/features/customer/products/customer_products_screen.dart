@@ -727,12 +727,13 @@ class _ProductCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 5),
                   Text(
-                    '${product.stock} in stock',
+                    product.isActive ? 'Available' : 'Unavailable',
                     style:
-                        const TextStyle(
+                        TextStyle(
                       fontSize: 10,
                       color:
-                          Color(0xFF64748B),
+                          product.isActive ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -761,7 +762,7 @@ class _ProductCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                     minimumSize: const Size(0, 36),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: product.stock <= 0
+                    backgroundColor: !product.isActive
                         ? Colors.grey.shade400
                         : const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
@@ -769,7 +770,7 @@ class _ProductCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  onPressed: product.stock <= 0
+                  onPressed: !product.isActive
                       ? null
                       : () {
                           MoqConfirmationDialog.handleAddToCart(context, product);
@@ -781,14 +782,14 @@ class _ProductCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          product.stock <= 0
+                          !product.isActive
                               ? Icons.remove_shopping_cart
                               : Icons.add_shopping_cart_rounded,
                           size: 14,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          product.stock <= 0 ? 'Out of Stock' : 'Add to Cart',
+                          !product.isActive ? 'Unavailable' : 'Add to Cart',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,

@@ -349,9 +349,16 @@ class CartProvider extends ChangeNotifier {
       availableStock = product.stock;
       moq = product.minOrderQuantity;
       upc = product.unitsPerCase;
+      if (!product.isActive) {
+        return "This product is currently unavailable.";
+      }
     } else if (product is Map) {
       prodId = product['id']?.toString() ?? '';
       availableStock = int.tryParse(product['stock']?.toString() ?? '999') ?? 999;
+      final st = (product['status'] ?? 'Active').toString().toLowerCase();
+      if (st == 'inactive' || st == 'disabled' || st == 'discontinued') {
+        return "This product is currently unavailable.";
+      }
       final s = (product['sku'] ?? '').toString().toUpperCase();
       final sz = (product['size'] ?? product['unit'] ?? '').toString().toLowerCase();
       final nm = (product['name'] ?? '').toString().toLowerCase();
@@ -364,10 +371,6 @@ class CartProvider extends ChangeNotifier {
       }
     }
 
-    if (availableStock <= 0) {
-      return "This product is currently out of stock.";
-    }
-
     final effectiveQty = qty ?? moq;
 
     final index = _items.indexWhere((item) => item.id == prodId);
@@ -375,14 +378,8 @@ class CartProvider extends ChangeNotifier {
     if (index >= 0) {
       final step = _items[index].stepQuantity;
       final toAdd = qty ?? step;
-      if (_items[index].quantity + toAdd > availableStock) {
-        return "Only $availableStock units are currently available.";
-      }
       _items[index].quantity += toAdd;
     } else {
-      if (effectiveQty > availableStock) {
-        return "Only $availableStock units are currently available.";
-      }
       _items.add(CartItem(product: product, quantity: effectiveQty));
     }
 
@@ -390,17 +387,14 @@ class CartProvider extends ChangeNotifier {
     return null;
   }
 
-  /// Increases the quantity of a cart item with stock validation.
-  /// Returns null on success, or an error message if stock limit is exceeded.
+  /// Increases the quantity of a cart item adhering to package step size.
+  /// Returns null on success.
   String? increaseQuantity(String id) {
     final index = _items.indexWhere((item) => item.id == id);
 
     if (index >= 0) {
       final item = _items[index];
       final step = item.stepQuantity;
-      if (item.quantity + step > item.stock) {
-        return "Only ${item.stock} units are currently available.";
-      }
       item.quantity += step;
       notifyListeners();
       return null;

@@ -28,6 +28,8 @@ class ProductModel {
   double get effectivePrice =>
       (discountPrice > 0 && discountPrice < price) ? discountPrice : price;
 
+  bool get isActive => status.toLowerCase() == 'active';
+
   double get calculatedCartonPrice =>
       cartonPrice > 0 ? cartonPrice : (effectivePrice * unitsPerCase);
 

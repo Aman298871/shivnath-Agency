@@ -203,6 +203,100 @@ class OrderService {
   }
 
   // =====================================================
+  // ORDER HOLD, RESUME, REJECT & MANUFACTURING
+  // =====================================================
+
+  Future<Map<String, dynamic>> holdOrder(
+    int id, {
+    required String reasonCategory,
+    required String notes,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/$id/hold/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'reason_category': reasonCategory,
+          'notes': notes,
+        }),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to put order on hold. Please try again.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> resumeOrder(
+    int id, {
+    String targetStatus = 'plant_approval',
+    String? notes,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/$id/resume/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'target_status': targetStatus,
+          'notes': notes ?? 'Resumed from hold via Mobile Admin',
+        }),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to resume order. Please try again.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> rejectOrder(
+    int id, {
+    required String reasonCategory,
+    required String notes,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/$id/reject/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'reason_category': reasonCategory,
+          'notes': notes,
+        }),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to reject order. Please try again.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> initiateManufacturing(
+    int id, {
+    String? notes,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/orders/$id/manufacture/'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'notes': notes ?? 'Initiated batch manufacturing from Mobile Admin',
+        }),
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to initiate manufacturing. Please try again.',
+      };
+    }
+  }
+
+  // =====================================================
   // DELETE ORDER
   // =====================================================
 
@@ -584,6 +678,15 @@ class OrderService {
         (lower.contains('plant') && lower.contains('approv'))) {
       return 'plant_approval';
     }
+    if (lower == 'on_hold' || lower.contains('hold')) {
+      return 'on_hold';
+    }
+    if (lower == 'rejected' || lower.contains('reject')) {
+      return 'rejected';
+    }
+    if (lower == 'manufacturing' || lower.contains('manufactur')) {
+      return 'manufacturing';
+    }
     if (lower == 'cancelled' || lower == 'cancel') {
       return 'cancelled';
     }
@@ -609,6 +712,11 @@ class OrderService {
         return ['invoice_generated', 'dispatch', 'cancelled'];
       case 'dispatch':
         return ['delivered', 'cancelled'];
+      case 'on_hold':
+        return ['plant_approval', 'preparing', 'cancelled'];
+      case 'manufacturing':
+        return ['preparing', 'dispatch', 'cancelled'];
+      case 'rejected':
       case 'delivered':
       case 'cancelled':
       default:
@@ -627,6 +735,12 @@ class OrderService {
         return 'Invoice Generated';
       case 'preparing':
         return 'Preparing / Bottling';
+      case 'manufacturing':
+        return 'Manufacturing';
+      case 'on_hold':
+        return 'On Hold';
+      case 'rejected':
+        return 'Rejected';
       case 'dispatch':
         return 'Dispatched / In Transit';
       case 'delivered':

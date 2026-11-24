@@ -34,6 +34,52 @@ class OrderRepository {
     return await _orderService.updateOrderStatus(id, status);
   }
 
+  Future<Map<String, dynamic>> holdOrder(
+    int id, {
+    required String reasonCategory,
+    required String notes,
+  }) async {
+    return await _orderService.holdOrder(
+      id,
+      reasonCategory: reasonCategory,
+      notes: notes,
+    );
+  }
+
+  Future<Map<String, dynamic>> resumeOrder(
+    int id, {
+    String targetStatus = 'plant_approval',
+    String? notes,
+  }) async {
+    return await _orderService.resumeOrder(
+      id,
+      targetStatus: targetStatus,
+      notes: notes,
+    );
+  }
+
+  Future<Map<String, dynamic>> rejectOrder(
+    int id, {
+    required String reasonCategory,
+    required String notes,
+  }) async {
+    return await _orderService.rejectOrder(
+      id,
+      reasonCategory: reasonCategory,
+      notes: notes,
+    );
+  }
+
+  Future<Map<String, dynamic>> initiateManufacturing(
+    int id, {
+    String? notes,
+  }) async {
+    return await _orderService.initiateManufacturing(
+      id,
+      notes: notes,
+    );
+  }
+
   List<String> getAllowedNextStatuses(String? currentStatus) {
     return OrderService.getAllowedNextStatuses(currentStatus);
   }

@@ -26,13 +26,16 @@ from inventory.services import (
 logger = logging.getLogger(__name__)
 
 ALLOWED_ORDER_TRANSITIONS = {
-    'order_placement': ['plant_approval', 'cancelled'],
-    'plant_approval': ['invoice_generated', 'preparing', 'cancelled'],
-    'invoice_generated': ['preparing', 'dispatch', 'cancelled'],
-    'preparing': ['invoice_generated', 'dispatch', 'cancelled'],
-    'dispatch': ['delivered', 'cancelled'],
+    'order_placement': ['plant_approval', 'cancelled', 'on_hold', 'rejected', 'preparing', 'manufacturing'],
+    'plant_approval': ['invoice_generated', 'preparing', 'manufacturing', 'cancelled', 'on_hold', 'rejected'],
+    'invoice_generated': ['preparing', 'manufacturing', 'dispatch', 'cancelled', 'on_hold', 'rejected'],
+    'preparing': ['invoice_generated', 'manufacturing', 'dispatch', 'cancelled', 'on_hold', 'rejected'],
+    'manufacturing': ['preparing', 'invoice_generated', 'dispatch', 'cancelled', 'on_hold', 'rejected'],
+    'on_hold': ['order_placement', 'plant_approval', 'invoice_generated', 'preparing', 'manufacturing', 'dispatch', 'cancelled', 'rejected'],
+    'dispatch': ['delivered', 'cancelled', 'on_hold'],
     'delivered': [],  # Terminal state
     'cancelled': [],  # Terminal state
+    'rejected': [],   # Terminal state
 }
 
 PAYMENT_ALLOWED_STAGES = ['dispatch', 'delivered', 'payment_collection']
@@ -77,7 +80,7 @@ def validate_payment_stage(order, new_payment_status):
 
 
 @transaction.atomic
-def transition_order_status(order, new_status, actor=None, notes='', bypass_validation=False):
+def transition_order_status(order, new_status, actor=None, notes='', reason_category='', bypass_validation=False):
     """
     Authoritative state machine transition for Order.
     Enforces validation, logs immutable OrderStatusHistory,
@@ -116,6 +119,19 @@ def transition_order_status(order, new_status, actor=None, notes='', bypass_vali
             CustomerStockCycle.objects.filter(order=order).update(service_status='completed')
         except Exception as sce:
             logger.warning("CustomerStockCycle cancellation warning: %s", sce)
+    elif new_clean == 'rejected':
+        _inv_cancel_order_atomic(order, actor=actor)
+        order.status = 'rejected'
+        order.rejection_reason_category = reason_category
+        order.rejection_reason = notes
+        order.rejected_at = timezone.now()
+        order.save(update_fields=['status', 'rejection_reason_category', 'rejection_reason', 'rejected_at', 'updated_at'])
+    elif new_clean == 'on_hold':
+        order.status = 'on_hold'
+        order.hold_reason_category = reason_category
+        order.hold_reason = notes
+        order.hold_at = timezone.now()
+        order.save(update_fields=['status', 'hold_reason_category', 'hold_reason', 'hold_at', 'updated_at'])
     else:
         order.status = new_clean
         order.save(update_fields=['status', 'updated_at'])
@@ -135,6 +151,7 @@ def transition_order_status(order, new_status, actor=None, notes='', bypass_vali
             old_status=old_status,
             new_status=new_clean,
             changed_by=actor,
+            reason_category=reason_category,
             notes=notes or f"Status changed from {old_status} to {new_clean}",
         )
 

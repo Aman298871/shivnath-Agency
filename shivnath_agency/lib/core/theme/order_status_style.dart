@@ -30,6 +30,32 @@ class OrderStatusStyle {
     final raw = (status ?? '').trim();
     final lower = raw.toLowerCase().replaceAll(' ', '_');
 
+    // 0. On Hold (Amber Pause)
+    if (lower == 'on_hold' || lower.contains('hold')) {
+      return OrderStatusStyle(
+        rawStatus: raw,
+        displayLabel: 'On Hold',
+        primaryColor: const Color(0xFFB45309), // Amber 700
+        backgroundColor: const Color(0xFFFFFBEB), // Amber 50
+        borderColor: const Color(0xFFFCD34D), // Amber 300
+        icon: Icons.pause_circle_filled_rounded,
+        requiresAdminAction: true,
+      );
+    }
+
+    // 0.1 Manufacturing / In Production (Indigo Factory)
+    if (lower == 'manufacturing' || lower.contains('manufactur')) {
+      return OrderStatusStyle(
+        rawStatus: raw,
+        displayLabel: 'Manufacturing',
+        primaryColor: const Color(0xFF4F46E5), // Indigo 600
+        backgroundColor: const Color(0xFFEEF2FF), // Indigo 50
+        borderColor: const Color(0xFFC7D2FE), // Indigo 200
+        icon: Icons.factory_rounded,
+        requiresAdminAction: false,
+      );
+    }
+
     // 1. Pending / Awaiting Action (Amber / Orange)
     if (lower == 'order_placement' ||
         lower == 'new' ||
@@ -119,11 +145,21 @@ class OrderStatusStyle {
       );
     }
 
-    // 6. Cancelled / Rejected (Red)
-    if (lower == 'cancelled' ||
-        lower == 'rejected' ||
-        lower.contains('cancel') ||
-        lower.contains('reject')) {
+    // 6. Rejected (Red)
+    if (lower == 'rejected' || lower.contains('reject')) {
+      return OrderStatusStyle(
+        rawStatus: raw,
+        displayLabel: 'Rejected',
+        primaryColor: const Color(0xFFDC2626), // Red 600
+        backgroundColor: const Color(0xFFFEF2F2), // Red 50
+        borderColor: const Color(0xFFFECACA), // Red 200
+        icon: Icons.cancel_rounded,
+        requiresAdminAction: false,
+      );
+    }
+
+    // 6.1 Cancelled (Red)
+    if (lower == 'cancelled' || lower.contains('cancel')) {
       return OrderStatusStyle(
         rawStatus: raw,
         displayLabel: _cleanLabel(raw, fallback: 'Cancelled'),

@@ -147,8 +147,8 @@ export default function Billing() {
                 </tr>
               ) : (
                 filtered.map((inv) => {
-                  const total = parseFloat(inv.total_amount || 0);
-                  const paid = parseFloat(inv.paid_amount || 0);
+                  const total = parseFloat(inv.grand_total ?? inv.total_amount ?? inv.total ?? 0);
+                  const paid = parseFloat(inv.amount_paid ?? inv.paid ?? inv.paid_amount ?? 0);
                   const balance = Math.max(0, total - paid);
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
@@ -156,16 +156,16 @@ export default function Billing() {
                         {inv.invoice_number || `INV-${inv.id}`}
                       </td>
                       <td className="py-3.5 font-medium text-slate-900">
-                        {inv.customer_name || inv.franchise_name || 'Retail Party'}
+                        {inv.customer_name || inv.franchise_name || inv.billed_to_name || 'Retail Party'}
                       </td>
                       <td className="py-3.5 font-bold text-slate-900">₹{total.toFixed(2)}</td>
                       <td className="py-3.5 font-semibold text-emerald-600">₹{paid.toFixed(2)}</td>
                       <td className="py-3.5 font-bold text-rose-600">₹{balance.toFixed(2)}</td>
                       <td className="py-3.5">
-                        <StatusBadge status={inv.status || (balance === 0 ? 'PAID' : 'PARTIAL')} type="payment" />
+                        <StatusBadge status={inv.status || (balance === 0 && total > 0 ? 'PAID' : paid > 0 ? 'PARTIAL' : 'UNPAID')} type="payment" />
                       </td>
                       <td className="py-3.5 text-slate-500">
-                        {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : 'Today'}
+                        {inv.issued_at || inv.created_at || inv.invoice_date ? new Date(inv.issued_at || inv.created_at || inv.invoice_date).toLocaleDateString() : 'Today'}
                       </td>
                       <td className="py-3.5 text-right space-x-2">
                         {hasPermission('billing', 'edit') && balance > 0 && (

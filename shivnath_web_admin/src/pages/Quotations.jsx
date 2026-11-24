@@ -11,6 +11,7 @@ export default function Quotations() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [sortBy, setSortBy] = useState('date_desc');
 
   // Create Quotation State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -115,15 +116,36 @@ export default function Quotations() {
     0
   );
 
-  const filtered = quotations.filter((q) => {
-    if (!search) return true;
-    const term = search.toLowerCase();
-    return (
-      q.customer_name?.toLowerCase().includes(term) ||
-      q.phone?.includes(term) ||
-      q.id?.toString().includes(term)
-    );
-  });
+  const parsePrice = (val) => {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return val;
+    const clean = val.toString().replace(/[₹,\s]/g, '');
+    const num = parseFloat(clean);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const filtered = quotations
+    .filter((q) => {
+      if (!search) return true;
+      const term = search.toLowerCase();
+      return (
+        q.customer_name?.toLowerCase().includes(term) ||
+        q.phone?.includes(term) ||
+        q.id?.toString().includes(term)
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price_asc') {
+        return parsePrice(a.total_price ?? a.total_amount) - parsePrice(b.total_price ?? b.total_amount);
+      }
+      if (sortBy === 'price_desc') {
+        return parsePrice(b.total_price ?? b.total_amount) - parsePrice(a.total_price ?? a.total_amount);
+      }
+      if (sortBy === 'date_asc') {
+        return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+      }
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
 
   return (
     <div className="space-y-6">
@@ -212,13 +234,12 @@ export default function Quotations() {
                         ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-3.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
-                          status === 'ACCEPTED'
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${status === 'ACCEPTED'
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : status === 'REJECTED'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : 'bg-sky-50 text-sky-700 border border-sky-200'
-                        }`}>
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : 'bg-sky-50 text-sky-700 border border-sky-200'
+                          }`}>
                           {status}
                         </span>
                       </td>
@@ -235,7 +256,7 @@ export default function Quotations() {
                         </button>
 
                         <a
-                          href={`http://127.0.0.1:8000/api/chat/quotations/${q.id}/pdf/`}
+                          href={`${apiClient.defaults.baseURL || ''}/api/chat/quotations/${q.id}/pdf/`}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center space-x-1 rounded-md bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100 border border-sky-200"

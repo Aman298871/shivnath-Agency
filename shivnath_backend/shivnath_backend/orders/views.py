@@ -106,6 +106,11 @@ class OrderListCreateView(APIView):
         if order_source:
             orders = orders.filter(order_source=order_source)
 
+        needs_mfg = request.query_params.get('needs_manufacturing')
+        if needs_mfg is not None and str(needs_mfg).strip():
+            val = str(needs_mfg).strip().lower() in ['true', '1', 'yes']
+            orders = orders.filter(needs_manufacturing=val)
+
         orders = orders.order_by('-created_at')
 
         serializer = OrderSerializer(orders, many=True)
@@ -639,21 +644,10 @@ class OrderListCreateView(APIView):
                 notes='Order placed by customer.',
             )
 
-            # Perform atomic FEFO batch reservation if finished batch stock exists
+            # Perform atomic FEFO batch reservation (routes to manufacturing if stock is partial or 0)
             from inventory.services import reserve_order_stock_fefo_atomic
             try:
-                reserve_order_stock_fefo_atomic(order)
-            except (DjangoValidationError, DRFValidationError) as ve:
-                order.needs_manufacturing = True
-                order.save(update_fields=['needs_manufacturing', 'updated_at'])
-                OrderStatusHistory.objects.create(
-                    order=order,
-                    old_status=order.status or 'order_placement',
-                    new_status=order.status or 'order_placement',
-                    changed_by=creator,
-                    reason_category='MANUFACTURING_REQUIRED',
-                    notes='Order queued for manufacturing fulfillment. Finished batch stock insufficient for full immediate allocation.',
-                )
+                reserve_order_stock_fefo_atomic(order, allow_partial=True)
             except Exception:
                 pass
 
@@ -1496,6 +1490,97 @@ class OrderInitiateManufacturingView(APIView):
             'message': f"Manufacturing initiated for Order #{order.id}. {len(created_batches)} batch(es) created.",
             'order': OrderSerializer(order).data,
             'batches': [{'id': b.id, 'batch_number': b.batch_number, 'quantity': b.quantity_produced_units} for b in created_batches],
+        })
+
+
+class OrderAllocateBatchView(APIView):
+    """
+    Allocates manufactured batch inventory to an order queued for manufacturing fulfillment.
+    Creates OrderItemBatchReservation, reduces order.total_pending_stock_units,
+    and clears needs_manufacturing once full allocation is reached.
+    """
+    permission_classes = [IsAdminRole]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        from inventory.models import ProductionBatch
+        from orders.models import OrderItemBatchReservation
+        order = get_object_or_404(Order.objects.select_for_update(), pk=pk)
+
+        batch_id = request.data.get('batch_id')
+        batch = None
+        if batch_id:
+            batch = get_object_or_404(ProductionBatch.objects.select_for_update(), pk=batch_id)
+            if batch.status != 'ACTIVE':
+                return Response({'success': False, 'message': 'Selected batch is not active.'}, status=status.HTTP_400_BAD_REQUEST)
+            if batch.is_expired:
+                return Response({'success': False, 'message': 'Selected batch is expired.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        allocated_count = 0
+        for item in order.items.select_related('product').all():
+            already_reserved = OrderItemBatchReservation.objects.filter(
+                order_item=item
+            ).aggregate(s=Sum('reserved_quantity'))['s'] or 0
+
+            item_needed = item.quantity - already_reserved
+            if item_needed <= 0:
+                continue
+
+            if batch and batch.product_id == item.product_id:
+                candidate_batches = [batch]
+            else:
+                candidate_batches = list(ProductionBatch.objects.select_for_update().filter(
+                    product=item.product,
+                    status='ACTIVE',
+                    expiry_date__gt=timezone.now().date()
+                ).order_by('expiry_date'))
+
+            for b in candidate_batches:
+                avail = b.available_quantity
+                if avail <= 0:
+                    continue
+                allocate = min(item_needed, avail)
+                b.reserved_quantity += allocate
+                b.save(update_fields=['reserved_quantity'])
+
+                OrderItemBatchReservation.objects.create(
+                    order_item=item,
+                    production_batch=b,
+                    reserved_quantity=allocate
+                )
+                item_needed -= allocate
+                allocated_count += allocate
+                if not order.manufacturing_batch:
+                    order.manufacturing_batch = b
+                if item_needed <= 0:
+                    break
+
+        if order.total_pending_stock_units:
+            order.total_pending_stock_units = max(0, order.total_pending_stock_units - allocated_count)
+
+        if order.total_pending_stock_units == 0:
+            order.needs_manufacturing = False
+            if order.status in ['order_placement', 'on_hold']:
+                order.status = 'preparing'
+
+        order.save(update_fields=['needs_manufacturing', 'total_pending_stock_units', 'manufacturing_batch', 'status', 'updated_at'])
+
+        OrderStatusHistory.objects.create(
+            order=order,
+            old_status=order.status,
+            new_status=order.status,
+            changed_by=request.user,
+            reason_category='BATCH_ALLOCATED',
+            notes=f"Allocated {allocated_count} manufactured unit(s) to Order #{order.id}.",
+        )
+
+        return Response({
+            'success': True,
+            'message': f"Allocated {allocated_count} unit(s) to Order #{order.id}. Pending units: {order.total_pending_stock_units}.",
+            'order': OrderSerializer(order).data,
+            'allocated_units': allocated_count,
+            'pending_units': order.total_pending_stock_units,
+            'needs_manufacturing': order.needs_manufacturing,
         })
 
 

@@ -591,11 +591,9 @@ def redeem_points_for_order(
         ).aggregate(s=Sum('quantity_remaining_company'))['s'] or 0
         effective_avail = max(product.stock, int(cp_avail))
 
+        wallet_order_needs_manufacturing = False
         if effective_avail < qty:
-            raise ValidationError(
-                f"Insufficient company inventory for '{product.name}'. "
-                f"Requested: {qty}, Available: {effective_avail}."
-            )
+            wallet_order_needs_manufacturing = True
 
         # Authoritative server-side price calculation
         unit_price = product.price
@@ -696,6 +694,7 @@ def redeem_points_for_order(
             status='order_placement',
             duration_choice='1 Month',
             duration_days=30,
+            needs_manufacturing=wallet_order_needs_manufacturing,
         )
 
         # Create OrderItem
@@ -709,15 +708,15 @@ def redeem_points_for_order(
             total_price=subtotal,
         )
 
-        # Decrement product stock counter
-        product.stock -= qty
-        product.save(update_fields=['stock'])
+        # Safely decrement non-negative company stock counter
+        if product.stock > 0:
+            product.stock = max(0, product.stock - qty)
+            product.save(update_fields=['stock'])
 
-        # Reserve central company production batch FEFO stock
+        # Reserve central company production batch FEFO stock (allocates partial if needed)
         try:
-            reserve_order_stock_fefo_atomic(order)
+            reserve_order_stock_fefo_atomic(order, allow_partial=True)
         except Exception:
-            # Fallback if no production batches exist in test/mock environment
             pass
 
         # Deduct points from wallet

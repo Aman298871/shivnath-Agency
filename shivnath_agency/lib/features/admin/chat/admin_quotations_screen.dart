@@ -23,6 +23,14 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
   List<ProductModel> _products = [];
   bool _isLoading = true;
   String _targetFilter = 'all';
+  String _sortBy = 'default';
+
+  double _parsePrice(dynamic val) {
+    if (val == null) return 0.0;
+    if (val is num) return val.toDouble();
+    final clean = val.toString().replaceAll('₹', '').replaceAll(',', '').trim();
+    return double.tryParse(clean) ?? 0.0;
+  }
 
   @override
   void initState() {
@@ -793,14 +801,52 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
 
     final filteredQuotes = _quotations.where((q) {
       if (_targetFilter == 'all') return true;
-      return q['target_audience'] == _targetFilter ||
-          q['target_audience'] == 'both';
+      final aud = (q['target_audience'] ?? '').toString().trim().toLowerCase();
+      final filt = _targetFilter.trim().toLowerCase();
+      return aud == filt || aud == 'both' || aud == 'all';
     }).toList();
+
+    if (_sortBy == 'price_asc') {
+      filteredQuotes.sort((a, b) => _parsePrice(a['total_price']).compareTo(_parsePrice(b['total_price'])));
+    } else if (_sortBy == 'price_desc') {
+      filteredQuotes.sort((a, b) => _parsePrice(b['total_price']).compareTo(_parsePrice(a['total_price'])));
+    } else if (_sortBy == 'unit_asc') {
+      filteredQuotes.sort((a, b) => _parsePrice(a['unit_price']).compareTo(_parsePrice(b['unit_price'])));
+    } else if (_sortBy == 'unit_desc') {
+      filteredQuotes.sort((a, b) => _parsePrice(b['unit_price']).compareTo(_parsePrice(a['unit_price'])));
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Quotation & Rate Tier Management'),
         actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort),
+            tooltip: 'Sort Quotations',
+            onSelected: (val) => setState(() => _sortBy = val),
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'default',
+                child: Text('Default Order ${_sortBy == 'default' ? '✓' : ''}'),
+              ),
+              PopupMenuItem(
+                value: 'price_asc',
+                child: Text('Package Rate: Low to High ${_sortBy == 'price_asc' ? '✓' : ''}'),
+              ),
+              PopupMenuItem(
+                value: 'price_desc',
+                child: Text('Package Rate: High to Low ${_sortBy == 'price_desc' ? '✓' : ''}'),
+              ),
+              PopupMenuItem(
+                value: 'unit_asc',
+                child: Text('Unit Rate: Low to High ${_sortBy == 'unit_asc' ? '✓' : ''}'),
+              ),
+              PopupMenuItem(
+                value: 'unit_desc',
+                child: Text('Unit Rate: High to Low ${_sortBy == 'unit_desc' ? '✓' : ''}'),
+              ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadData,
@@ -891,12 +937,8 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                       final audience =
                           q['target_audience']?.toString().toUpperCase() ??
                           'CUSTOMER';
-                      final double unitP =
-                          double.tryParse(q['unit_price']?.toString() ?? '') ??
-                          0.0;
-                      final double totalP =
-                          double.tryParse(q['total_price']?.toString() ?? '') ??
-                          0.0;
+                      final double unitP = _parsePrice(q['unit_price']);
+                      final double totalP = _parsePrice(q['total_price']);
                       final hasPdf =
                           q['has_pdf'] == true ||
                           (q['pdf_url'] != null &&

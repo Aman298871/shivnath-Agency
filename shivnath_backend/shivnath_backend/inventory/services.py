@@ -773,14 +773,19 @@ def receive_stock_request_atomic(stock_request, receipt_items, actor=None):
 
 
 @transaction.atomic
-def reserve_order_stock_fefo_atomic(order):
+def reserve_order_stock_fefo_atomic(order, allow_partial=True):
     """
     Performs strict FEFO stock reservation for an order.
     DEALER order reserves exclusively from eligible DealerStockBatch FEFO.
     DIRECT_COMPANY order reserves exclusively from ProductionBatch FEFO.
     Creates OrderItemBatchReservation and prevents overselling.
+    When allow_partial=True, does not reject orders when finished stock is insufficient;
+    instead, allocates available stock and routes the remaining units to manufacturing.
     """
+    from orders.models import OrderStatusHistory
     today = timezone.now().date()
+    needs_manufacturing = False
+    total_shortfall = 0
 
     for item in order.items.select_related('product').all():
         needed_qty = item.quantity
@@ -800,7 +805,7 @@ def reserve_order_stock_fefo_atomic(order):
                     continue
                 allocate = min(needed_qty - allocated_total, avail)
                 batch.reserved_quantity += allocate
-                batch.save()
+                batch.save(update_fields=['reserved_quantity'])
 
                 OrderItemBatchReservation.objects.create(
                     order_item=item,
@@ -813,10 +818,14 @@ def reserve_order_stock_fefo_atomic(order):
                     break
 
             if allocated_total < needed_qty:
-                raise ValidationError(
-                    f"Insufficient company inventory for {item.product.name}. "
-                    f"Required {needed_qty}, Available non-expired {allocated_total}."
-                )
+                shortfall = needed_qty - allocated_total
+                total_shortfall += shortfall
+                needs_manufacturing = True
+                if not allow_partial:
+                    raise ValidationError(
+                        f"Insufficient company inventory for {item.product.name}. "
+                        f"Required {needed_qty}, Available non-expired {allocated_total}."
+                    )
 
         else:
             # Reserve from DealerStockBatch FEFO (Wholesale Dealer warehouse)
@@ -837,7 +846,7 @@ def reserve_order_stock_fefo_atomic(order):
                     continue
                 allocate = min(needed_qty - allocated_total, avail)
                 batch.reserved_quantity += allocate
-                batch.save()
+                batch.save(update_fields=['reserved_quantity'])
 
                 OrderItemBatchReservation.objects.create(
                     order_item=item,
@@ -850,10 +859,31 @@ def reserve_order_stock_fefo_atomic(order):
                     break
 
             if allocated_total < needed_qty:
-                raise ValidationError(
-                    f"Dealer {order.serving_franchise.business_name} does not have enough stock for {item.product.name}. "
-                    f"Required {needed_qty}, Available non-expired {allocated_total}."
-                )
+                shortfall = needed_qty - allocated_total
+                total_shortfall += shortfall
+                needs_manufacturing = True
+                if not allow_partial:
+                    raise ValidationError(
+                        f"Dealer {order.serving_franchise.business_name} does not have enough stock for {item.product.name}. "
+                        f"Required {needed_qty}, Available non-expired {allocated_total}."
+                    )
+
+    if needs_manufacturing:
+        order.needs_manufacturing = True
+        order.total_pending_stock_units = (order.total_pending_stock_units or 0) + total_shortfall
+        order.save(update_fields=['needs_manufacturing', 'total_pending_stock_units', 'updated_at'])
+        OrderStatusHistory.objects.create(
+            order=order,
+            old_status=order.status or 'order_placement',
+            new_status=order.status or 'order_placement',
+            changed_by=getattr(order, 'created_by', None),
+            reason_category='MANUFACTURING_REQUIRED',
+            notes=(
+                f"Order queued for manufacturing fulfillment. "
+                f"Finished batch stock insufficient for immediate full allocation; "
+                f"{total_shortfall} unit(s) pending manufacturing."
+            ),
+        )
 
     return order
 

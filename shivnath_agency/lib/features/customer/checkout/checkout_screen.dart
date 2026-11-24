@@ -54,6 +54,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final pincodeController = TextEditingController();
   final searchAddressController = TextEditingController();
 
+  // Focus nodes for inline validation & auto-scroll
+  final FocusNode _nameFocusNode = FocusNode();
+  final FocusNode _phoneFocusNode = FocusNode();
+  final FocusNode _addressFocusNode = FocusNode();
+  final FocusNode _houseNoFocusNode = FocusNode();
+  final FocusNode _localityFocusNode = FocusNode();
+  final FocusNode _pincodeFocusNode = FocusNode();
+
   bool _isLocatingGps = false;
   bool _useManualStructured = false;
   List<Map<String, dynamic>> _addressSuggestions = [];
@@ -133,20 +141,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _loadTaxConfiguration() async {
     try {
       final token = await SessionService().getAccessToken();
-      final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/billing/company-profile/');
-      final res = await http.get(
-        uri,
-        headers: {
-          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 8));
+      final uri = Uri.parse(
+        '${AppConstants.apiBaseUrl}/api/billing/company-profile/',
+      );
+      final res = await http
+          .get(
+            uri,
+            headers: {
+              if (token != null && token.isNotEmpty)
+                'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (mounted) {
           setState(() {
             if (data['default_gst_rate'] != null) {
-              _gstRate = double.tryParse(data['default_gst_rate'].toString()) ?? 18.0;
+              _gstRate =
+                  double.tryParse(data['default_gst_rate'].toString()) ?? 18.0;
             }
             if (data['is_price_inclusive_gst'] != null) {
               _isPriceInclusiveGst = data['is_price_inclusive_gst'] == true;
@@ -164,7 +178,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   void _recalculateTaxes(double subtotal) {
     final delivery = _deliveryFee;
-    final isIntraState = gstStateController.text.trim().isEmpty ||
+    final isIntraState =
+        gstStateController.text.trim().isEmpty ||
         gstStateController.text.trim().toLowerCase() == 'chhattisgarh';
 
     if (_isPriceInclusiveGst) {
@@ -211,6 +226,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     gstBillingAddressController.dispose();
     gstStateController.dispose();
     gstPincodeController.dispose();
+    _nameFocusNode.dispose();
+    _phoneFocusNode.dispose();
+    _addressFocusNode.dispose();
+    _houseNoFocusNode.dispose();
+    _localityFocusNode.dispose();
+    _pincodeFocusNode.dispose();
     super.dispose();
   }
 
@@ -240,7 +261,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       setState(() => _isLoadingSuggestions = true);
       final suggestions = await _orderRepository.getAddressSuggestions(
         query.trim(),
-        city: cityController.text.trim().isNotEmpty ? cityController.text.trim() : null,
+        city: cityController.text.trim().isNotEmpty
+            ? cityController.text.trim()
+            : null,
       );
       if (mounted) {
         setState(() {
@@ -254,7 +277,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _applySuggestion(Map<String, dynamic> item) {
     final name = item['name']?.toString() ?? item['locality']?.toString() ?? '';
     final locName = item['locality']?.toString() ?? name.split(',')[0].trim();
-    final city = item['city']?.toString() ?? item['district']?.toString() ?? 'Raipur';
+    final city =
+        item['city']?.toString() ?? item['district']?.toString() ?? 'Raipur';
     final pin = item['pincode']?.toString() ?? '';
     final lat = double.tryParse((item['latitude'] ?? '').toString());
     final lng = double.tryParse((item['longitude'] ?? '').toString());
@@ -262,7 +286,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final covered = (item['covered_localities'] is List)
         ? List<String>.from(item['covered_localities'])
         : <String>[locName];
-    final hub = item['fulfilment_hub']?.toString() ?? 'Shivnath Agency Central Dispatch';
+    final hub =
+        item['fulfilment_hub']?.toString() ??
+        'Shivnath Agency Central Dispatch';
 
     setState(() {
       _selectedAreaInfo = {
@@ -280,8 +306,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       localityController.text = locName;
 
       final parts = [
-        if (houseNoController.text.trim().isNotEmpty) houseNoController.text.trim(),
-        if (streetController.text.trim().isNotEmpty) streetController.text.trim(),
+        if (houseNoController.text.trim().isNotEmpty)
+          houseNoController.text.trim(),
+        if (streetController.text.trim().isNotEmpty)
+          streetController.text.trim(),
         locName,
         if (city.isNotEmpty) city,
         if (pin.isNotEmpty) pin,
@@ -302,9 +330,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         String filter = '';
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            final filtered = localities.where((l) => l.toLowerCase().contains(filter.toLowerCase())).toList();
+            final filtered = localities
+                .where((l) => l.toLowerCase().contains(filter.toLowerCase()))
+                .toList();
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               title: Row(
                 children: [
                   const Icon(Icons.map_outlined, color: Color(0xFF0284C7)),
@@ -312,7 +344,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   Expanded(
                     child: Text(
                       'Areas in $zoneName',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -326,8 +361,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       decoration: InputDecoration(
                         hintText: 'Search locality in this zone...',
                         prefixIcon: const Icon(Icons.search, size: 18),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       onChanged: (val) => setDialogState(() => filter = val),
                     ),
@@ -335,17 +375,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxHeight: 280),
                       child: filtered.isEmpty
-                          ? const Center(child: Padding(padding: EdgeInsets.all(16), child: Text('No matching locality found.')))
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text('No matching locality found.'),
+                              ),
+                            )
                           : ListView.separated(
                               shrinkWrap: true,
                               itemCount: filtered.length,
-                              separatorBuilder: (_, _) => const Divider(height: 1),
+                              separatorBuilder: (_, _) =>
+                                  const Divider(height: 1),
                               itemBuilder: (c, idx) {
                                 final loc = filtered[idx];
                                 return ListTile(
                                   dense: true,
-                                  title: Text(loc, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                                  trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF94A3B8)),
+                                  title: Text(
+                                    loc,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 12,
+                                    color: Color(0xFF94A3B8),
+                                  ),
                                   onTap: () {
                                     Navigator.pop(ctx);
                                     localityController.text = loc;
@@ -377,7 +433,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) {
         String searchQuery = '';
         List<dynamic> allZones = [];
@@ -390,10 +448,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 try {
                   final token = await SessionService().getAccessToken();
                   final res = await ApiClient.get(
-                    Uri.parse('${AppConstants.apiBaseUrl}/api/accounts/zones/?is_active=true'),
+                    Uri.parse(
+                      '${AppConstants.apiBaseUrl}/api/accounts/zones/?is_active=true',
+                    ),
                     headers: {
                       'Accept': 'application/json',
-                      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+                      if (token != null && token.isNotEmpty)
+                        'Authorization': 'Bearer $token',
                     },
                   );
                   if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -410,7 +471,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             final filteredZones = allZones.where((z) {
               final zName = (z['name'] ?? '').toString().toLowerCase();
               final dName = (z['district_name'] ?? '').toString().toLowerCase();
-              final locs = ((z['localities'] as List?) ?? []).join(' ').toLowerCase();
+              final locs = ((z['localities'] as List?) ?? [])
+                  .join(' ')
+                  .toLowerCase();
               final q = searchQuery.toLowerCase();
               return zName.contains(q) || dName.contains(q) || locs.contains(q);
             }).toList();
@@ -422,54 +485,99 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               expand: false,
               builder: (_, scrollController) {
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   child: Column(
                     children: [
-                      Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          const Icon(Icons.explore_outlined, color: Color(0xFF0284C7)),
+                          const Icon(
+                            Icons.explore_outlined,
+                            color: Color(0xFF0284C7),
+                          ),
                           const SizedBox(width: 8),
-                          const Text('Discover Zones & Covered Areas', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Text(
+                            'Discover Zones & Covered Areas',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           const Spacer(),
-                          IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         decoration: InputDecoration(
-                          hintText: 'Search zone, district or covered locality...',
+                          hintText:
+                              'Search zone, district or covered locality...',
                           prefixIcon: const Icon(Icons.search, size: 20),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                         ),
-                        onChanged: (val) => setModalState(() => searchQuery = val),
+                        onChanged: (val) =>
+                            setModalState(() => searchQuery = val),
                       ),
                       const SizedBox(height: 12),
                       if (loading)
-                        const Expanded(child: Center(child: CircularProgressIndicator()))
+                        const Expanded(
+                          child: Center(child: CircularProgressIndicator()),
+                        )
                       else if (filteredZones.isEmpty)
-                        const Expanded(child: Center(child: Text('No service zones matching your search.')))
+                        const Expanded(
+                          child: Center(
+                            child: Text(
+                              'No service zones matching your search.',
+                            ),
+                          ),
+                        )
                       else
                         Expanded(
                           child: ListView.separated(
                             controller: scrollController,
                             itemCount: filteredZones.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 10),
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
                             itemBuilder: (c, idx) {
                               final z = filteredZones[idx];
                               final zName = z['name'] ?? 'Zone';
-                              final dName = z['district_name'] ?? 'Chhattisgarh';
-                              final localities = List<String>.from(z['localities'] ?? []);
-                              final hub = z['fulfilment_hub_name'] ?? 'Central Dispatch';
+                              final dName =
+                                  z['district_name'] ?? 'Chhattisgarh';
+                              final localities = List<String>.from(
+                                z['localities'] ?? [],
+                              );
+                              final hub =
+                                  z['fulfilment_hub_name'] ??
+                                  'Central Dispatch';
 
                               return Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,30 +585,72 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     Row(
                                       children: [
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(color: const Color(0xFFE0F2FE), borderRadius: BorderRadius.circular(6)),
-                                          child: Text(dName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0369A1))),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFE0F2FE),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            dName,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF0369A1),
+                                            ),
+                                          ),
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
-                                          child: Text(zName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                                          child: Text(
+                                            zName,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF1E293B),
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 6),
-                                    Text('Fulfilment Origin: $hub', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                    Text(
+                                      'Fulfilment Origin: $hub',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
                                     if (localities.isNotEmpty) ...[
                                       const SizedBox(height: 8),
-                                      const Text('Covered Localities (tap to select):', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                                      const Text(
+                                        'Covered Localities (tap to select):',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF475569),
+                                        ),
+                                      ),
                                       const SizedBox(height: 4),
                                       Wrap(
                                         spacing: 6,
                                         runSpacing: 6,
                                         children: localities.map((loc) {
                                           return ActionChip(
-                                            label: Text(loc, style: const TextStyle(fontSize: 11)),
+                                            label: Text(
+                                              loc,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                              ),
+                                            ),
                                             backgroundColor: Colors.white,
-                                            side: BorderSide(color: Colors.grey.shade300),
+                                            side: BorderSide(
+                                              color: Colors.grey.shade300,
+                                            ),
                                             onPressed: () {
                                               Navigator.pop(ctx);
                                               _applySuggestion({
@@ -511,7 +661,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 'zone_id': z['id'],
                                                 'zone_name': zName,
                                                 'fulfilment_hub': hub,
-                                                'covered_localities': localities,
+                                                'covered_localities':
+                                                    localities,
                                               });
                                             },
                                           );
@@ -537,16 +688,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   void _syncManualStructuredAddress() {
     final parts = [
-      if (houseNoController.text.trim().isNotEmpty) houseNoController.text.trim(),
+      if (houseNoController.text.trim().isNotEmpty)
+        houseNoController.text.trim(),
       if (streetController.text.trim().isNotEmpty) streetController.text.trim(),
-      if (localityController.text.trim().isNotEmpty) localityController.text.trim(),
+      if (localityController.text.trim().isNotEmpty)
+        localityController.text.trim(),
       if (cityController.text.trim().isNotEmpty) cityController.text.trim(),
-      if (pincodeController.text.trim().isNotEmpty) pincodeController.text.trim(),
+      if (pincodeController.text.trim().isNotEmpty)
+        pincodeController.text.trim(),
       'Chhattisgarh',
     ];
     final combined = parts.join(', ');
     if (combined != addressController.text) {
       addressController.text = combined;
+    }
+    if (_addressValidationError && combined.trim().length >= 5) {
+      setState(() {
+        _addressValidationError = false;
+        _addressValidationBanner = null;
+      });
     }
   }
 
@@ -558,7 +718,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Location services are disabled on device. You can enter your address manually.'),
+              content: Text(
+                'Location services are disabled on device. You can enter your address manually.',
+              ),
               backgroundColor: Color(0xFFD97706),
             ),
           );
@@ -574,7 +736,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Location permission denied. You can enter your address manually.'),
+                content: Text(
+                  'Location permission denied. You can enter your address manually.',
+                ),
                 backgroundColor: Color(0xFF64748B),
               ),
             );
@@ -588,7 +752,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Location permission permanently denied. You can enter your address manually.'),
+              content: Text(
+                'Location permission permanently denied. You can enter your address manually.',
+              ),
               backgroundColor: Color(0xFF64748B),
             ),
           );
@@ -608,7 +774,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _destLat = position.latitude;
         _destLng = position.longitude;
         if (addressController.text.trim().isEmpty) {
-          addressController.text = 'GPS Pin (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
+          addressController.text =
+              'GPS Pin (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
         }
         _isLocatingGps = false;
       });
@@ -618,7 +785,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('GPS detection unavailable: $e. You can enter your address manually.'),
+            content: Text(
+              'GPS detection unavailable: $e. You can enter your address manually.',
+            ),
             backgroundColor: const Color(0xFF64748B),
           ),
         );
@@ -655,7 +824,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     try {
-      final cityHint = cityController.text.trim().isNotEmpty ? cityController.text.trim() : null;
+      final cityHint = cityController.text.trim().isNotEmpty
+          ? cityController.text.trim()
+          : null;
       final res = await _orderRepository.calculateDelivery(
         address: addr,
         latitude: _destLat,
@@ -668,19 +839,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (res['success'] == true && res['data'] is Map<String, dynamic>) {
         final data = Map<String, dynamic>.from(res['data'] as Map);
-        final fee = double.tryParse((data['delivery_charge'] ?? '0').toString()) ?? 0.0;
+        final fee =
+            double.tryParse((data['delivery_charge'] ?? '0').toString()) ?? 0.0;
         final dist = double.tryParse((data['distance_km'] ?? '').toString());
         final band = data['band_name']?.toString();
         final supported = data['is_supported'] != false;
         final blocked = data['is_blocked'] == true;
         final msg = data['message']?.toString();
-        final origName = data['origin_name']?.toString() ?? (data['origin'] is Map ? data['origin']['name']?.toString() : null) ?? 'Central Dispatch';
-        final origCity = data['origin_city']?.toString() ?? (data['origin'] is Map ? data['origin']['city']?.toString() : null) ?? 'Raipur';
+        final origName =
+            data['origin_name']?.toString() ??
+            (data['origin'] is Map
+                ? data['origin']['name']?.toString()
+                : null) ??
+            'Central Dispatch';
+        final origCity =
+            data['origin_city']?.toString() ??
+            (data['origin'] is Map
+                ? data['origin']['city']?.toString()
+                : null) ??
+            'Raipur';
 
         if (data['destination'] is Map) {
           final dest = Map<String, dynamic>.from(data['destination'] as Map);
-          _destLat = double.tryParse((dest['latitude'] ?? '').toString()) ?? _destLat;
-          _destLng = double.tryParse((dest['longitude'] ?? '').toString()) ?? _destLng;
+          _destLat =
+              double.tryParse((dest['latitude'] ?? '').toString()) ?? _destLat;
+          _destLng =
+              double.tryParse((dest['longitude'] ?? '').toString()) ?? _destLng;
         }
 
         setState(() {
@@ -691,18 +875,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _originCity = origCity;
           _isDeliverySupported = supported;
           _isDeliveryBlocked = blocked;
-          _deliveryErrorMsg = (!supported || blocked) ? (msg ?? 'Delivery not serviceable') : null;
+          _deliveryErrorMsg = (!supported || blocked)
+              ? (msg ?? 'Delivery not serviceable')
+              : null;
           _isCalculatingDelivery = false;
         });
 
         if (supported && !blocked) {
-          Provider.of<CartProvider>(context, listen: false).setDeliveryCharge(fee);
+          Provider.of<CartProvider>(
+            context,
+            listen: false,
+          ).setDeliveryCharge(fee);
         } else {
-          Provider.of<CartProvider>(context, listen: false).resetDeliveryCharge();
+          Provider.of<CartProvider>(
+            context,
+            listen: false,
+          ).resetDeliveryCharge();
         }
       } else {
-        final data = res['data'] is Map<String, dynamic> ? Map<String, dynamic>.from(res['data'] as Map) : null;
-        final msg = res['message']?.toString() ?? data?['message']?.toString() ?? 'Unable to calculate delivery fee for this address.';
+        final data = res['data'] is Map<String, dynamic>
+            ? Map<String, dynamic>.from(res['data'] as Map)
+            : null;
+        final msg =
+            res['message']?.toString() ??
+            data?['message']?.toString() ??
+            'Unable to calculate delivery fee for this address.';
         final blocked = data?['is_blocked'] == true;
         setState(() {
           _deliveryFee = 0.0;
@@ -806,24 +1003,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (data['is_gst_requested'] == true) {
         _isGstRequested = true;
       }
-      if (data['gstin'] != null && data['gstin'].toString().isNotEmpty && gstinController.text.isEmpty) {
+      if (data['gstin'] != null &&
+          data['gstin'].toString().isNotEmpty &&
+          gstinController.text.isEmpty) {
         gstinController.text = data['gstin'].toString();
       }
-      if (data['gst_legal_name'] != null && data['gst_legal_name'].toString().isNotEmpty && gstLegalNameController.text.isEmpty) {
+      if (data['gst_legal_name'] != null &&
+          data['gst_legal_name'].toString().isNotEmpty &&
+          gstLegalNameController.text.isEmpty) {
         gstLegalNameController.text = data['gst_legal_name'].toString();
       }
-      if (data['gst_billing_address'] != null && data['gst_billing_address'].toString().isNotEmpty && gstBillingAddressController.text.isEmpty) {
-        gstBillingAddressController.text = data['gst_billing_address'].toString();
+      if (data['gst_billing_address'] != null &&
+          data['gst_billing_address'].toString().isNotEmpty &&
+          gstBillingAddressController.text.isEmpty) {
+        gstBillingAddressController.text = data['gst_billing_address']
+            .toString();
       }
-      if (data['gst_state_name'] != null && data['gst_state_name'].toString().isNotEmpty && gstStateController.text.isEmpty) {
+      if (data['gst_state_name'] != null &&
+          data['gst_state_name'].toString().isNotEmpty &&
+          gstStateController.text.isEmpty) {
         gstStateController.text = data['gst_state_name'].toString();
       }
-      if (data['gst_pincode'] != null && data['gst_pincode'].toString().isNotEmpty && gstPincodeController.text.isEmpty) {
+      if (data['gst_pincode'] != null &&
+          data['gst_pincode'].toString().isNotEmpty &&
+          gstPincodeController.text.isEmpty) {
         gstPincodeController.text = data['gst_pincode'].toString();
       }
 
-      final terrInfo = data['territory_info'] is Map ? Map<String, dynamic>.from(data['territory_info'] as Map) : null;
-      final terr = data['territory'] is Map ? Map<String, dynamic>.from(data['territory'] as Map) : null;
+      final terrInfo = data['territory_info'] is Map
+          ? Map<String, dynamic>.from(data['territory_info'] as Map)
+          : null;
+      final terr = data['territory'] is Map
+          ? Map<String, dynamic>.from(data['territory'] as Map)
+          : null;
 
       // Fetch authoritative customer previous outstanding and breakdown
       try {
@@ -831,8 +1043,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (outRes['success'] == true) {
           _outstandingData = outRes;
           final summary = outRes['summary'] as Map<String, dynamic>?;
-          _previousOutstanding = (summary?['total_outstanding'] as num?)?.toDouble() ?? 0.0;
-          _unpaidOrders = List<Map<String, dynamic>>.from(outRes['items'] ?? []);
+          _previousOutstanding =
+              (summary?['total_outstanding'] as num?)?.toDouble() ?? 0.0;
+          _unpaidOrders = List<Map<String, dynamic>>.from(
+            outRes['items'] ?? [],
+          );
         } else {
           final ordRes = await _orderRepository.getOrders();
           if (ordRes['success'] == true &&
@@ -843,14 +1058,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             );
             _unpaidOrders = ordList.where((o) {
               final st = (o['status'] ?? '').toString().toLowerCase();
-              final paySt = (o['payment_status'] ?? '').toString().toLowerCase();
-              final bal = double.tryParse((o['outstanding_balance'] ?? o['outstanding_amount'] ?? '0').toString()) ?? 0.0;
-              final isDeliveredOrInvoiced = st == 'delivered' || (o['invoice_number'] != null && o['invoice_number'].toString().isNotEmpty && st != 'order_placement' && st != 'created');
-              return isDeliveredOrInvoiced && st != 'cancelled' && paySt != 'paid' && bal > 0.05;
+              final paySt = (o['payment_status'] ?? '')
+                  .toString()
+                  .toLowerCase();
+              final bal =
+                  double.tryParse(
+                    (o['outstanding_balance'] ?? o['outstanding_amount'] ?? '0')
+                        .toString(),
+                  ) ??
+                  0.0;
+              final isDeliveredOrInvoiced =
+                  st == 'delivered' ||
+                  (o['invoice_number'] != null &&
+                      o['invoice_number'].toString().isNotEmpty &&
+                      st != 'order_placement' &&
+                      st != 'created');
+              return isDeliveredOrInvoiced &&
+                  st != 'cancelled' &&
+                  paySt != 'paid' &&
+                  bal > 0.05;
             }).toList();
 
             _previousOutstanding = _unpaidOrders.fold(0.0, (sum, o) {
-              final bal = double.tryParse((o['outstanding_balance'] ?? o['outstanding_amount'] ?? '0').toString()) ?? 0.0;
+              final bal =
+                  double.tryParse(
+                    (o['outstanding_balance'] ?? o['outstanding_amount'] ?? '0')
+                        .toString(),
+                  ) ??
+                  0.0;
               return sum + bal;
             });
           }
@@ -928,7 +1163,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           selectedFranchiseId = null;
           orderSource = 'DIRECT_COMPANY';
         }
-        Provider.of<CartProvider>(context, listen: false).setServingFranchise(selectedFranchiseId);
+        Provider.of<CartProvider>(
+          context,
+          listen: false,
+        ).setServingFranchise(selectedFranchiseId);
         PackagingService().getPackagingRules(franchiseId: selectedFranchiseId);
       });
       if (addressController.text.trim().isNotEmpty) {
@@ -1082,22 +1320,89 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> placeOrder() async {
     if (_isSubmitting) return;
 
+    if (_useManualStructured) {
+      _syncManualStructuredAddress();
+    }
+
     final rawName = nameController.text.trim();
     final rawPhone = phoneController.text.trim();
     final rawAddress = addressController.text.trim();
     final rawCity = cityController.text.trim();
 
-    final isNameMissing = rawName.isEmpty;
-    final isPhoneMissing = rawPhone.length < 10;
-    final isAddressMissing = rawAddress.isEmpty || rawAddress.length < 5;
-    final isCityMissing = rawCity.isEmpty;
+    if (rawName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your full name.'),
+          backgroundColor: Color(0xFFDC2626),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      _nameFocusNode.requestFocus();
+      if (_addressSectionKey.currentContext != null) {
+        Scrollable.ensureVisible(
+          _addressSectionKey.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+      return;
+    }
 
-    if (isNameMissing || isPhoneMissing || isAddressMissing || isCityMissing) {
+    if (rawPhone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your 10-digit mobile number.'),
+          backgroundColor: Color(0xFFDC2626),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      _phoneFocusNode.requestFocus();
+      if (_addressSectionKey.currentContext != null) {
+        Scrollable.ensureVisible(
+          _addressSectionKey.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+      return;
+    }
+
+    if (rawPhone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Mobile number has only ${rawPhone.length} digits. Please enter a valid 10-digit mobile number.',
+          ),
+          backgroundColor: const Color(0xFFDC2626),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      _phoneFocusNode.requestFocus();
+      if (_addressSectionKey.currentContext != null) {
+        Scrollable.ensureVisible(
+          _addressSectionKey.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+      return;
+    }
+
+    final hasStructuredLocality =
+        localityController.text.trim().isNotEmpty &&
+        (houseNoController.text.trim().isNotEmpty ||
+            streetController.text.trim().isNotEmpty);
+    final isAddressValid =
+        (rawAddress.isNotEmpty && rawAddress.length >= 5) ||
+        hasStructuredLocality;
+
+    if (!isAddressValid) {
       setState(() {
         _addressValidationError = true;
         _addressValidationBanner =
-            'Delivery address is required. Please add your delivery address before placing the order.';
+            'Delivery address is required. Please add your house/flat, locality, and PIN code before placing the order.';
       });
+      _addressFocusNode.requestFocus();
       if (_addressSectionKey.currentContext != null) {
         Scrollable.ensureVisible(
           _addressSectionKey.currentContext!,
@@ -1107,7 +1412,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Delivery address is required. Please add your delivery address before placing the order.'),
+          content: Text(
+            'Delivery address is required. Please add your delivery address before placing the order.',
+          ),
           backgroundColor: Color(0xFFDC2626),
           duration: Duration(seconds: 4),
         ),
@@ -1120,6 +1427,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _addressValidationBanner = null;
         });
       }
+    }
+
+    if (rawCity.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please specify or select your delivery city.'),
+          backgroundColor: Color(0xFFDC2626),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
     }
 
     if (!(formKey.currentState?.validate() ?? false)) {
@@ -1155,7 +1473,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_isCalculatingDelivery) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please wait while delivery charges are being calculated.'),
+          content: Text(
+            'Please wait while delivery charges are being calculated.',
+          ),
           backgroundColor: Color(0xFF0284C7),
         ),
       );
@@ -1165,7 +1485,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_isDeliveryBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_deliveryErrorMsg ?? 'Delivery configuration is blocked by Admin. Please contact support.'),
+          content: Text(
+            _deliveryErrorMsg ??
+                'Delivery configuration is blocked by Admin. Please contact support.',
+          ),
           backgroundColor: const Color(0xFFDC2626),
         ),
       );
@@ -1175,7 +1498,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (!_isDeliverySupported) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_deliveryErrorMsg ?? 'Delivery is not supported for this address.'),
+          content: Text(
+            _deliveryErrorMsg ?? 'Delivery is not supported for this address.',
+          ),
           backgroundColor: const Color(0xFFDC2626),
         ),
       );
@@ -1532,7 +1857,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
                 onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text('Pay ₹${authoritativeGrandTotal.toStringAsFixed(0)} & Place Order'),
+                child: Text(
+                  'Pay ₹${authoritativeGrandTotal.toStringAsFixed(0)} & Place Order',
+                ),
               ),
             ],
           );
@@ -1551,7 +1878,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       try {
         final res = await _orderRepository.createOrder({
           'franchise': 'Shivnath Central Admin (Water Wallet)',
-          'city': cityController.text.trim().isNotEmpty ? cityController.text.trim() : addressController.text.trim(),
+          'city': cityController.text.trim().isNotEmpty
+              ? cityController.text.trim()
+              : addressController.text.trim(),
           'customer_name': nameController.text.trim(),
           'phone': phoneController.text.trim(),
           'delivery_address': addressController.text.trim(),
@@ -1570,11 +1899,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'serving_franchise_id': null,
           'order_items': orderItems,
           'is_gst_requested': _isGstRequested,
-          'gstin': _isGstRequested ? gstinController.text.trim().toUpperCase() : '',
-          'gst_legal_name': _isGstRequested ? gstLegalNameController.text.trim() : '',
-          'gst_billing_address': _isGstRequested ? gstBillingAddressController.text.trim() : '',
-          'gst_state_name': _isGstRequested ? gstStateController.text.trim() : '',
-          'gst_pincode': _isGstRequested ? gstPincodeController.text.trim() : '',
+          'gstin': _isGstRequested
+              ? gstinController.text.trim().toUpperCase()
+              : '',
+          'gst_legal_name': _isGstRequested
+              ? gstLegalNameController.text.trim()
+              : '',
+          'gst_billing_address': _isGstRequested
+              ? gstBillingAddressController.text.trim()
+              : '',
+          'gst_state_name': _isGstRequested
+              ? gstStateController.text.trim()
+              : '',
+          'gst_pincode': _isGstRequested
+              ? gstPincodeController.text.trim()
+              : '',
           'idempotency_key':
               'wallet_order_${DateTime.now().millisecondsSinceEpoch}_$totalItems',
         });
@@ -1592,7 +1931,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
           final newBal =
               double.tryParse(rawData['wallet_balance']?.toString() ?? '') ??
-              (_walletBalance - authoritativeGrandTotal).clamp(0.0, double.infinity);
+              (_walletBalance - authoritativeGrandTotal).clamp(
+                0.0,
+                double.infinity,
+              );
 
           setState(() {
             _walletBalance = newBal;
@@ -1609,8 +1951,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  OrderSuccessScreen(amount: authoritativeGrandTotal, orderData: orderObj),
+              builder: (_) => OrderSuccessScreen(
+                amount: authoritativeGrandTotal,
+                orderData: orderObj,
+              ),
             ),
           );
           return;
@@ -1846,7 +2190,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       try {
         final res = await _orderRepository.createOrder({
           'franchise': selectedFranchiseName,
-          'city': cityController.text.trim().isNotEmpty ? cityController.text.trim() : addressController.text.trim(),
+          'city': cityController.text.trim().isNotEmpty
+              ? cityController.text.trim()
+              : addressController.text.trim(),
           'customer_name': nameController.text.trim(),
           'phone': phoneController.text.trim(),
           'delivery_address': addressController.text.trim(),
@@ -1865,11 +2211,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'serving_franchise_id': finalServingFranchiseId,
           'order_items': orderItems,
           'is_gst_requested': _isGstRequested,
-          'gstin': _isGstRequested ? gstinController.text.trim().toUpperCase() : '',
-          'gst_legal_name': _isGstRequested ? gstLegalNameController.text.trim() : '',
-          'gst_billing_address': _isGstRequested ? gstBillingAddressController.text.trim() : '',
-          'gst_state_name': _isGstRequested ? gstStateController.text.trim() : '',
-          'gst_pincode': _isGstRequested ? gstPincodeController.text.trim() : '',
+          'gstin': _isGstRequested
+              ? gstinController.text.trim().toUpperCase()
+              : '',
+          'gst_legal_name': _isGstRequested
+              ? gstLegalNameController.text.trim()
+              : '',
+          'gst_billing_address': _isGstRequested
+              ? gstBillingAddressController.text.trim()
+              : '',
+          'gst_state_name': _isGstRequested
+              ? gstStateController.text.trim()
+              : '',
+          'gst_pincode': _isGstRequested
+              ? gstPincodeController.text.trim()
+              : '',
         });
 
         if (!mounted) return;
@@ -1887,8 +2243,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  OrderSuccessScreen(amount: authoritativeGrandTotal, orderData: orderObj),
+              builder: (_) => OrderSuccessScreen(
+                amount: authoritativeGrandTotal,
+                orderData: orderObj,
+              ),
             ),
           );
           return;
@@ -1922,7 +2280,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Step 1: Create Order with pending payment (Direct Company Order)
       final res = await _orderRepository.createOrder({
         'franchise': 'Shivnath Agency (Direct)',
-        'city': cityController.text.trim().isNotEmpty ? cityController.text.trim() : addressController.text.trim(),
+        'city': cityController.text.trim().isNotEmpty
+            ? cityController.text.trim()
+            : addressController.text.trim(),
         'customer_name': nameController.text.trim(),
         'phone': phoneController.text.trim(),
         'delivery_address': addressController.text.trim(),
@@ -1941,9 +2301,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'serving_franchise_id': null,
         'order_items': orderItems,
         'is_gst_requested': _isGstRequested,
-        'gstin': _isGstRequested ? gstinController.text.trim().toUpperCase() : '',
-        'gst_legal_name': _isGstRequested ? gstLegalNameController.text.trim() : '',
-        'gst_billing_address': _isGstRequested ? gstBillingAddressController.text.trim() : '',
+        'gstin': _isGstRequested
+            ? gstinController.text.trim().toUpperCase()
+            : '',
+        'gst_legal_name': _isGstRequested
+            ? gstLegalNameController.text.trim()
+            : '',
+        'gst_billing_address': _isGstRequested
+            ? gstBillingAddressController.text.trim()
+            : '',
         'gst_state_name': _isGstRequested ? gstStateController.text.trim() : '',
         'gst_pincode': _isGstRequested ? gstPincodeController.text.trim() : '',
       });
@@ -1997,7 +2363,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final rzpOrderId = rzpData['razorpay_order_id']?.toString() ?? '';
         final keyId = rzpData['key_id']?.toString() ?? '';
         final amountInPaise =
-            rzpData['amount_in_paise'] as int? ?? (authoritativeGrandTotal * 100).round();
+            rzpData['amount_in_paise'] as int? ??
+            (authoritativeGrandTotal * 100).round();
 
         _pendingOrderDbId = orderDbId;
         _pendingOrderObj = orderObj;
@@ -2098,12 +2465,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 children: [
                   Container(
                     key: _addressSectionKey,
-                    padding: _addressValidationError ? const EdgeInsets.all(12) : EdgeInsets.zero,
+                    padding: _addressValidationError
+                        ? const EdgeInsets.all(12)
+                        : EdgeInsets.zero,
                     decoration: BoxDecoration(
-                      color: _addressValidationError ? const Color(0xFFFFF5F5) : Colors.transparent,
+                      color: _addressValidationError
+                          ? const Color(0xFFFFF5F5)
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: _addressValidationError ? const Color(0xFFEF4444) : Colors.transparent,
+                        color: _addressValidationError
+                            ? const Color(0xFFEF4444)
+                            : Colors.transparent,
                         width: _addressValidationError ? 1.5 : 0,
                       ),
                     ),
@@ -2113,19 +2486,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         if (_addressValidationError) ...[
                           Container(
                             margin: const EdgeInsets.only(bottom: 14),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFEF2F2),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFEF4444), width: 1.5),
+                              border: Border.all(
+                                color: const Color(0xFFEF4444),
+                                width: 1.5,
+                              ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 22),
+                                const Icon(
+                                  Icons.error_outline_rounded,
+                                  color: Color(0xFFDC2626),
+                                  size: 22,
+                                ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    _addressValidationBanner ?? 'Delivery address is required. Please add your delivery address before placing the order.',
+                                    _addressValidationBanner ??
+                                        'Delivery address is required. Please add your delivery address before placing the order.',
                                     style: const TextStyle(
                                       color: Color(0xFFB91C1C),
                                       fontWeight: FontWeight.w700,
@@ -2139,454 +2523,700 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ],
                         const Text(
                           'Delivery Address',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      prefixIcon: Icon(Icons.person_outline),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Enter full name';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: phoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: 'Mobile Number',
-                      prefixIcon: Icon(Icons.phone_outlined),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.length < 10) {
-                        return 'Enter valid mobile number';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  // Address Entry Header with GPS and Discover Zones buttons
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      const Text(
-                        'Delivery Address',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                      ),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 2,
-                        children: [
-                          TextButton.icon(
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                              foregroundColor: const Color(0xFF0369A1),
-                            ),
-                            onPressed: _showBrowseZonesModal,
-                            icon: const Icon(Icons.explore_outlined, size: 15),
-                            label: const Text('Discover Zones', style: TextStyle(fontSize: 12)),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: nameController,
+                          focusNode: _nameFocusNode,
+                          decoration: const InputDecoration(
+                            labelText: 'Full Name',
+                            prefixIcon: Icon(Icons.person_outline),
                           ),
-                          TextButton.icon(
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                              foregroundColor: const Color(0xFF0284C7),
-                            ),
-                            onPressed: _isLocatingGps ? null : _detectCurrentLocation,
-                            icon: _isLocatingGps
-                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Icon(Icons.my_location, size: 15),
-                            label: Text(_isLocatingGps ? 'Locating...' : 'Use GPS', style: const TextStyle(fontSize: 12)),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter full name';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: phoneController,
+                          focusNode: _phoneFocusNode,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            labelText: 'Mobile Number',
+                            prefixIcon: Icon(Icons.phone_outlined),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Locality / Pincode Autocomplete Search
-                  TextField(
-                    controller: searchAddressController,
-                    onChanged: _onSearchAddressChanged,
-                    decoration: InputDecoration(
-                      hintText: 'Search locality, area or PIN code...',
-                      prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF64748B)),
-                      suffixIcon: _isLoadingSuggestions
-                          ? const SizedBox(width: 16, height: 16, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2)))
-                          : (searchAddressController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () {
-                                    searchAddressController.clear();
-                                    setState(() => _addressSuggestions = []);
-                                  },
-                                )
-                              : null),
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                    ),
-                  ),
-
-                  // Suggestions Dropdown List
-                  if (_addressSuggestions.isNotEmpty) ...[
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4)),
-                        ],
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      constraints: const BoxConstraints(maxHeight: 200),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: _addressSuggestions.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (ctx, i) {
-                          final item = _addressSuggestions[i];
-                          final label = item['name'] ?? item['locality'] ?? item['address'] ?? '';
-                          final city = item['city'] ?? '';
-                          final pin = item['pincode'] ?? '';
-                          final zone = item['zone_name'] ?? '';
-                          return ListTile(
-                            dense: true,
-                            leading: const Icon(Icons.location_on, size: 18, color: Color(0xFF0284C7)),
-                            title: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                            subtitle: Text('$city${pin.isNotEmpty ? ' - $pin' : ''}${zone.isNotEmpty ? ' • Zone: $zone' : ''}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                            onTap: () => _applySuggestion(item),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-
-                  // Selected Area & Configured Zone Information Card
-                  if (_selectedAreaInfo != null) ...[
-                    Container(
-                      margin: const EdgeInsets.only(top: 4, bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF86EFAC)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Your selected area: ${_selectedAreaInfo!['locality']}, ${_selectedAreaInfo!['city']}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF166534)),
+                          validator: (value) {
+                            if (value == null || value.length < 10) {
+                              return 'Enter valid 10-digit mobile number';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        // Address Entry Header with GPS and Discover Zones buttons
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            const Text(
+                              'Delivery Address',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 2,
+                              children: [
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 4,
+                                    ),
+                                    foregroundColor: const Color(0xFF0369A1),
+                                  ),
+                                  onPressed: _showBrowseZonesModal,
+                                  icon: const Icon(
+                                    Icons.explore_outlined,
+                                    size: 15,
+                                  ),
+                                  label: const Text(
+                                    'Discover Zones',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Delivery zone: ${_selectedAreaInfo!['zone_name']}',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF15803D)),
-                          ),
-                          if ((_selectedAreaInfo!['covered_localities'] as List).isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Areas covered in this zone: ${(_selectedAreaInfo!['covered_localities'] as List).take(5).join(', ')}${(_selectedAreaInfo!['covered_localities'] as List).length > 5 ? ' and more...' : ''}',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF166534)),
-                            ),
-                            const SizedBox(height: 4),
-                            InkWell(
-                              onTap: () => _showZoneCoveredAreasDialog(
-                                _selectedAreaInfo!['zone_name'],
-                                List<String>.from(_selectedAreaInfo!['covered_localities']),
-                              ),
-                              child: const Text(
-                                '🔍 View all areas covered in this zone',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0369A1),
-                                  decoration: TextDecoration.underline,
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 4,
+                                    ),
+                                    foregroundColor: const Color(0xFF0284C7),
+                                  ),
+                                  onPressed: _isLocatingGps
+                                      ? null
+                                      : _detectCurrentLocation,
+                                  icon: _isLocatingGps
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.my_location, size: 15),
+                                  label: Text(
+                                    _isLocatingGps ? 'Locating...' : 'Use GPS',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ],
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Note: Final serviceability is checked using complete delivery address GPS coordinates.',
-                            style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Color(0xFF64748B)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                        ),
+                        const SizedBox(height: 6),
 
-                  const SizedBox(height: 8),
-
-                  // City Selection Filter Chips
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 4),
-                        child: Text('City/District:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
-                      ),
-                      ...['Raipur', 'Bhilai', 'Durg', 'Bilaspur', 'Rajnandgaon', 'Korba'].map((c) {
-                        final isSel = cityController.text.trim().toLowerCase() == c.toLowerCase();
-                        return ChoiceChip(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          label: Text(c, style: TextStyle(fontSize: 11, color: isSel ? Colors.white : const Color(0xFF334155))),
-                          selected: isSel,
-                          selectedColor: const Color(0xFF0284C7),
-                          backgroundColor: const Color(0xFFF1F5F9),
-                          onSelected: (val) {
-                            if (val) {
-                              setState(() {
-                                cityController.text = c;
-                                if (localityController.text.trim().isNotEmpty) {
-                                  _syncManualStructuredAddress();
-                                }
-                              });
-                              _calculateDeliveryCharges();
-                            }
-                          },
-                        );
-                      }),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // Toggle Structured Address Entry
-                  InkWell(
-                    onTap: () => setState(() => _useManualStructured = !_useManualStructured),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _useManualStructured ? Icons.indeterminate_check_box_outlined : Icons.add_box_outlined,
-                            size: 16,
-                            color: const Color(0xFF0284C7),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _useManualStructured ? 'Hide Detailed Flat/House Fields' : 'Enter Detailed Flat/House, Street & Landmark',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+                        // Locality / Pincode Autocomplete Search
+                        TextField(
+                          controller: searchAddressController,
+                          onChanged: _onSearchAddressChanged,
+                          decoration: InputDecoration(
+                            hintText: 'Search locality, area or PIN code...',
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              size: 20,
+                              color: Color(0xFF64748B),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Structured Address Fields
-                  if (_useManualStructured) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: houseNoController,
-                            decoration: const InputDecoration(
-                              labelText: 'House / Flat / Plot No.',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            suffixIcon: _isLoadingSuggestions
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  )
+                                : (searchAddressController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(
+                                            Icons.clear,
+                                            size: 18,
+                                          ),
+                                          onPressed: () {
+                                            searchAddressController.clear();
+                                            setState(
+                                              () => _addressSuggestions = [],
+                                            );
+                                          },
+                                        )
+                                      : null),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
                             ),
-                            onChanged: (_) => _syncManualStructuredAddress(),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            controller: streetController,
-                            decoration: const InputDecoration(
-                              labelText: 'Street / Landmark',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            ),
-                            onChanged: (_) => _syncManualStructuredAddress(),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: localityController,
-                            decoration: const InputDecoration(
-                              labelText: 'Locality / Area',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            ),
-                            onChanged: (_) => _syncManualStructuredAddress(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            controller: pincodeController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'PIN Code',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            ),
-                            onChanged: (_) => _syncManualStructuredAddress(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
 
-                  const SizedBox(height: 8),
+                        // Suggestions Dropdown List
+                        if (_addressSuggestions.isNotEmpty) ...[
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            constraints: const BoxConstraints(maxHeight: 200),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: _addressSuggestions.length,
+                              separatorBuilder: (_, _) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (ctx, i) {
+                                final item = _addressSuggestions[i];
+                                final label =
+                                    item['name'] ??
+                                    item['locality'] ??
+                                    item['address'] ??
+                                    '';
+                                final city = item['city'] ?? '';
+                                final pin = item['pincode'] ?? '';
+                                final zone = item['zone_name'] ?? '';
+                                return ListTile(
+                                  dense: true,
+                                  leading: const Icon(
+                                    Icons.location_on,
+                                    size: 18,
+                                    color: Color(0xFF0284C7),
+                                  ),
+                                  title: Text(
+                                    label,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '$city${pin.isNotEmpty ? ' - $pin' : ''}${zone.isNotEmpty ? ' • Zone: $zone' : ''}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                  onTap: () => _applySuggestion(item),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
 
-                  // Complete Delivery Address Field (Editable)
-                  TextFormField(
-                    controller: addressController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Delivery Address',
-                      prefixIcon: Icon(Icons.location_on_outlined),
-                      hintText: 'e.g., House 12, Main Road, Mowa, Raipur, Chhattisgarh',
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Enter delivery address';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Live delivery serviceability & calculation feedback
-                  if (_isCalculatingDelivery) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0F9FF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFBAE6FD)),
-                      ),
-                      child: Row(
-                        children: [
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0284C7)),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Calculating authoritative straight-line delivery charges${_originName != null ? ' from $_originName' : ''}...',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF0369A1), fontWeight: FontWeight.w600),
+                        // Selected Area & Configured Zone Information Card
+                        if (_selectedAreaInfo != null) ...[
+                          Container(
+                            margin: const EdgeInsets.only(top: 4, bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDF4),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFF86EFAC),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ] else if (_isDeliveryBlocked) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFFECACA)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFDC2626)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _deliveryErrorMsg ?? 'Delivery configuration is blocked by Admin. Please contact support.',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C), fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ] else if (!_isDeliverySupported) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFBEB),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFFDE68A)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.location_off_rounded, size: 16, color: Color(0xFFD97706)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _deliveryErrorMsg ?? 'Address is outside the serviceable delivery area.',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ] else if (addressController.text.trim().isNotEmpty && _deliveryDistanceKm != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFBBF7D0)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(top: 2),
-                            child: Icon(Icons.check_circle_outline_rounded, size: 16, color: Color(0xFF16A34A)),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  '${_deliveryBandName ?? 'Serviceable'} • ${_deliveryFee == 0 ? 'FREE DELIVERY' : 'Delivery: ₹${_deliveryFee.toStringAsFixed(0)}'}',
-                                  style: const TextStyle(fontSize: 12, color: Color(0xFF15803D), fontWeight: FontWeight.bold),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Color(0xFF16A34A),
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Your selected area: ${_selectedAreaInfo!['locality']}, ${_selectedAreaInfo!['city']}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: Color(0xFF166534),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 4),
                                 Text(
-                                  'Distance: ${_deliveryDistanceKm!.toStringAsFixed(1)} km (HAVERSINE_STRAIGHT_LINE) from ${_originName ?? 'Central Dispatch'}${_originCity != null ? ' ($_originCity)' : ''}',
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF166534)),
+                                  'Delivery zone: ${_selectedAreaInfo!['zone_name']}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                    color: Color(0xFF15803D),
+                                  ),
+                                ),
+                                if ((_selectedAreaInfo!['covered_localities']
+                                        as List)
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Areas covered in this zone: ${(_selectedAreaInfo!['covered_localities'] as List).take(5).join(', ')}${(_selectedAreaInfo!['covered_localities'] as List).length > 5 ? ' and more...' : ''}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF166534),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  InkWell(
+                                    onTap: () => _showZoneCoveredAreasDialog(
+                                      _selectedAreaInfo!['zone_name'],
+                                      List<String>.from(
+                                        _selectedAreaInfo!['covered_localities'],
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      '🔍 View all areas covered in this zone',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0369A1),
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Note: Final serviceability is checked using complete delivery address GPS coordinates.',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontStyle: FontStyle.italic,
+                                    color: Color(0xFF64748B),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
+
+                        const SizedBox(height: 8),
+
+                        // City Selection Filter Chips
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                'City/District:',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            ...[
+                              'Raipur',
+                              'Bhilai',
+                              'Durg',
+                              'Bilaspur',
+                              'Rajnandgaon',
+                              'Korba',
+                            ].map((c) {
+                              final isSel =
+                                  cityController.text.trim().toLowerCase() ==
+                                  c.toLowerCase();
+                              return ChoiceChip(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                label: Text(
+                                  c,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isSel
+                                        ? Colors.white
+                                        : const Color(0xFF334155),
+                                  ),
+                                ),
+                                selected: isSel,
+                                selectedColor: const Color(0xFF0284C7),
+                                backgroundColor: const Color(0xFFF1F5F9),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setState(() {
+                                      cityController.text = c;
+                                      if (localityController.text
+                                          .trim()
+                                          .isNotEmpty) {
+                                        _syncManualStructuredAddress();
+                                      }
+                                    });
+                                    _calculateDeliveryCharges();
+                                  }
+                                },
+                              );
+                            }),
+                          ],
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // Toggle Structured Address Entry
+                        InkWell(
+                          onTap: () => setState(
+                            () => _useManualStructured = !_useManualStructured,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _useManualStructured
+                                      ? Icons.indeterminate_check_box_outlined
+                                      : Icons.add_box_outlined,
+                                  size: 16,
+                                  color: const Color(0xFF0284C7),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    _useManualStructured
+                                        ? 'Hide Detailed Flat/House Fields'
+                                        : 'Enter Detailed Flat/House, Street & Landmark',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF0284C7),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Structured Address Fields
+                        if (_useManualStructured) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: houseNoController,
+                                  focusNode: _houseNoFocusNode,
+                                  decoration: const InputDecoration(
+                                    labelText: 'House / Flat / Plot No.',
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onChanged: (_) =>
+                                      _syncManualStructuredAddress(),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: streetController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Street / Landmark',
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onChanged: (_) =>
+                                      _syncManualStructuredAddress(),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: localityController,
+                                  focusNode: _localityFocusNode,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Locality / Area',
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onChanged: (_) =>
+                                      _syncManualStructuredAddress(),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: pincodeController,
+                                  focusNode: _pincodeFocusNode,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'PIN Code',
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onChanged: (_) =>
+                                      _syncManualStructuredAddress(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+
+                        const SizedBox(height: 8),
+
+                        // Complete Delivery Address Field (Editable)
+                        TextFormField(
+                          controller: addressController,
+                          focusNode: _addressFocusNode,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Full Delivery Address',
+                            prefixIcon: Icon(Icons.location_on_outlined),
+                            hintText:
+                                'e.g., House 12, Main Road, Mowa, Raipur, Chhattisgarh',
+                          ),
+                          onChanged: (val) {
+                            if (_addressValidationError &&
+                                val.trim().length >= 5) {
+                              setState(() {
+                                _addressValidationError = false;
+                                _addressValidationBanner = null;
+                              });
+                            }
+                          },
+                          validator: (value) {
+                            final hasLocality =
+                                localityController.text.trim().isNotEmpty &&
+                                (houseNoController.text.trim().isNotEmpty ||
+                                    streetController.text.trim().isNotEmpty);
+                            if ((value == null || value.trim().length < 5) &&
+                                !hasLocality) {
+                              return 'Enter delivery address';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Live delivery serviceability & calculation feedback
+                        if (_isCalculatingDelivery) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0F9FF),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFBAE6FD),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF0284C7),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Calculating authoritative straight-line delivery charges${_originName != null ? ' from $_originName' : ''}...',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF0369A1),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ] else if (_isDeliveryBlocked) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFFECACA),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 16,
+                                  color: Color(0xFFDC2626),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _deliveryErrorMsg ??
+                                        'Delivery configuration is blocked by Admin. Please contact support.',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFFB91C1C),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ] else if (!_isDeliverySupported) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFBEB),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFFDE68A),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.location_off_rounded,
+                                  size: 16,
+                                  color: Color(0xFFD97706),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _deliveryErrorMsg ??
+                                        'Address is outside the serviceable delivery area.',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFFB45309),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ] else if (addressController.text.trim().isNotEmpty &&
+                            _deliveryDistanceKm != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDF4),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFBBF7D0),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 2),
+                                  child: Icon(
+                                    Icons.check_circle_outline_rounded,
+                                    size: 16,
+                                    color: Color(0xFF16A34A),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${_deliveryBandName ?? 'Serviceable'} • ${_deliveryFee == 0 ? 'FREE DELIVERY' : 'Delivery: ₹${_deliveryFee.toStringAsFixed(0)}'}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF15803D),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Distance: ${_deliveryDistanceKm!.toStringAsFixed(1)} km (HAVERSINE_STRAIGHT_LINE) from ${_originName ?? 'Central Dispatch'}${_originCity != null ? ' ($_originCity)' : ''}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF166534),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                       ],
                     ),
                   ),
@@ -2594,10 +3224,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: _isGstRequested ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                      color: _isGstRequested
+                          ? const Color(0xFFF0FDF4)
+                          : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: _isGstRequested ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+                        color: _isGstRequested
+                            ? const Color(0xFF86EFAC)
+                            : const Color(0xFFE2E8F0),
                       ),
                     ),
                     child: Column(
@@ -2607,7 +3241,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           children: [
                             Icon(
                               Icons.business_rounded,
-                              color: _isGstRequested ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                              color: _isGstRequested
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF64748B),
                               size: 20,
                             ),
                             const SizedBox(width: 8),
@@ -2625,7 +3261,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ),
                                   Text(
                                     'Optional • For businesses claiming Input Tax Credit',
-                                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF64748B),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -2657,7 +3296,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               if (!_isGstRequested) return null;
                               final trimmed = val?.trim() ?? '';
                               if (trimmed.isEmpty) return 'Please enter GSTIN';
-                              final gstRegex = RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$');
+                              final gstRegex = RegExp(
+                                r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$',
+                              );
                               if (!gstRegex.hasMatch(trimmed.toUpperCase())) {
                                 return 'Enter a valid 15-character GSTIN format';
                               }
@@ -2674,7 +3315,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                             validator: (val) {
                               if (!_isGstRequested) return null;
-                              if (val == null || val.trim().isEmpty) return 'Enter registered business name';
+                              if (val == null || val.trim().isEmpty)
+                                return 'Enter registered business name';
                               return null;
                             },
                           ),
@@ -2689,7 +3331,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                             validator: (val) {
                               if (!_isGstRequested) return null;
-                              if (val == null || val.trim().isEmpty) return 'Enter GST billing address';
+                              if (val == null || val.trim().isEmpty)
+                                return 'Enter GST billing address';
                               return null;
                             },
                           ),
@@ -2706,7 +3349,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ),
                                   validator: (val) {
                                     if (!_isGstRequested) return null;
-                                    if (val == null || val.trim().isEmpty) return 'Enter state';
+                                    if (val == null || val.trim().isEmpty)
+                                      return 'Enter state';
                                     return null;
                                   },
                                 ),
@@ -2724,7 +3368,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ),
                                   validator: (val) {
                                     if (!_isGstRequested) return null;
-                                    if (val == null || val.trim().length != 6) return '6 digits';
+                                    if (val == null || val.trim().length != 6)
+                                      return '6 digits';
                                     return null;
                                   },
                                 ),
@@ -2957,8 +3602,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         }).toList(),
                         onChanged: (val) {
                           setState(() => selectedFranchiseId = val);
-                          Provider.of<CartProvider>(context, listen: false).setServingFranchise(val);
-                          PackagingService().getPackagingRules(franchiseId: val);
+                          Provider.of<CartProvider>(
+                            context,
+                            listen: false,
+                          ).setServingFranchise(val);
+                          PackagingService().getPackagingRules(
+                            franchiseId: val,
+                          );
                         },
                       ),
                     ],
@@ -2976,7 +3626,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             selectedFranchiseId = null;
                           }
                         });
-                        Provider.of<CartProvider>(context, listen: false).setServingFranchise(selectedFranchiseId);
+                        Provider.of<CartProvider>(
+                          context,
+                          listen: false,
+                        ).setServingFranchise(selectedFranchiseId);
                       },
                     ),
                   ] else if (hasCustomerTerritory) ...[
@@ -3620,12 +4273,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               spacing: 8,
                               runSpacing: 6,
                               children: () {
-                                final dynamic methods = _gatewayStatus?['supported_methods'] ??
+                                final dynamic methods =
+                                    _gatewayStatus?['supported_methods'] ??
                                     ((_gatewayStatus?['data'] is Map)
-                                        ? (_gatewayStatus!['data'] as Map)['supported_methods']
+                                        ? (_gatewayStatus!['data']
+                                              as Map)['supported_methods']
                                         : null);
                                 if (methods is List && methods.isNotEmpty) {
-                                  return methods.map((m) => _payBadge(m.toString())).toList();
+                                  return methods
+                                      .map((m) => _payBadge(m.toString()))
+                                      .toList();
                                 }
                                 return [
                                   _payBadge('UPI'),
@@ -3757,15 +4414,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     child: Builder(
                       builder: (ctx) {
                         _recalculateTaxes(cart.subtotal);
-                        final isIntraState = gstStateController.text.trim().isEmpty ||
-                            gstStateController.text.trim().toLowerCase() == 'chhattisgarh';
+                        final isIntraState =
+                            gstStateController.text.trim().isEmpty ||
+                            gstStateController.text.trim().toLowerCase() ==
+                                'chhattisgarh';
 
                         return Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             children: [
                               _SummaryRow(
-                                title: 'Items Subtotal (${cart.itemCount} items)',
+                                title:
+                                    'Items Subtotal (${cart.itemCount} items)',
                                 value: '₹${cart.subtotal.toStringAsFixed(2)}',
                               ),
                               const SizedBox(height: 10),
@@ -3774,40 +4434,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 value: _isCalculatingDelivery
                                     ? 'Calculating...'
                                     : (_isDeliveryBlocked
-                                        ? 'Config Blocked'
-                                        : (!_isDeliverySupported
-                                            ? 'Outside Service Area'
-                                            : (_deliveryFee == 0
-                                                ? 'FREE'
-                                                : '₹${_deliveryFee.toStringAsFixed(2)}'))),
+                                          ? 'Config Blocked'
+                                          : (!_isDeliverySupported
+                                                ? 'Outside Service Area'
+                                                : (_deliveryFee == 0
+                                                      ? 'FREE'
+                                                      : '₹${_deliveryFee.toStringAsFixed(2)}'))),
                                 color: _isCalculatingDelivery
                                     ? const Color(0xFF0284C7)
-                                    : (_isDeliveryBlocked || !_isDeliverySupported
-                                        ? const Color(0xFFDC2626)
-                                        : (_deliveryFee == 0 ? const Color(0xFF16A34A) : null)),
+                                    : (_isDeliveryBlocked ||
+                                              !_isDeliverySupported
+                                          ? const Color(0xFFDC2626)
+                                          : (_deliveryFee == 0
+                                                ? const Color(0xFF16A34A)
+                                                : null)),
                               ),
                               const SizedBox(height: 10),
                               _SummaryRow(
                                 title: 'Taxable Amount',
-                                value: _isCalculatingDelivery ? 'Calculating...' : '₹${_taxableAmount.toStringAsFixed(2)}',
+                                value: _isCalculatingDelivery
+                                    ? 'Calculating...'
+                                    : '₹${_taxableAmount.toStringAsFixed(2)}',
                                 color: const Color(0xFF64748B),
                               ),
                               const SizedBox(height: 10),
                               if (!isIntraState) ...[
                                 _SummaryRow(
-                                  title: 'IGST (${_gstRate.toStringAsFixed(_gstRate.truncateToDouble() == _gstRate ? 0 : 1)}%${_isPriceInclusiveGst ? " Incl." : ""})',
+                                  title:
+                                      'IGST (${_gstRate.toStringAsFixed(_gstRate.truncateToDouble() == _gstRate ? 0 : 1)}%${_isPriceInclusiveGst ? " Incl." : ""})',
                                   value: '₹${_igstAmount.toStringAsFixed(2)}',
                                   color: const Color(0xFF64748B),
                                 ),
                               ] else ...[
                                 _SummaryRow(
-                                  title: 'CGST (${(_gstRate / 2).toStringAsFixed(1)}%${_isPriceInclusiveGst ? " Incl." : ""})',
+                                  title:
+                                      'CGST (${(_gstRate / 2).toStringAsFixed(1)}%${_isPriceInclusiveGst ? " Incl." : ""})',
                                   value: '₹${_cgstAmount.toStringAsFixed(2)}',
                                   color: const Color(0xFF64748B),
                                 ),
                                 const SizedBox(height: 6),
                                 _SummaryRow(
-                                  title: 'SGST (${(_gstRate / 2).toStringAsFixed(1)}%${_isPriceInclusiveGst ? " Incl." : ""})',
+                                  title:
+                                      'SGST (${(_gstRate / 2).toStringAsFixed(1)}%${_isPriceInclusiveGst ? " Incl." : ""})',
                                   value: '₹${_sgstAmount.toStringAsFixed(2)}',
                                   color: const Color(0xFF64748B),
                                 ),
@@ -3817,9 +4485,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 title: 'Current Order Total',
                                 value: _isCalculatingDelivery
                                     ? 'Calculating...'
-                                    : (_isDeliveryBlocked || !_isDeliverySupported
-                                        ? 'Unavailable'
-                                        : '₹${_calculatedGrandTotal.toStringAsFixed(2)}'),
+                                    : (_isDeliveryBlocked ||
+                                              !_isDeliverySupported
+                                          ? 'Unavailable'
+                                          : '₹${_calculatedGrandTotal.toStringAsFixed(2)}'),
                                 bold: true,
                               ),
                               if (_previousOutstanding > 0) ...[
@@ -3828,9 +4497,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   onTap: _showOutstandingBreakdown,
                                   borderRadius: BorderRadius.circular(8),
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 2,
+                                    ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Row(
                                           children: [
@@ -3844,15 +4516,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             ),
                                             const SizedBox(width: 8),
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 7,
-                                                vertical: 2,
-                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 7,
+                                                    vertical: 2,
+                                                  ),
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFFFEE2E2),
-                                                borderRadius: BorderRadius.circular(4),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
                                                 border: Border.all(
-                                                  color: const Color(0xFFFECACA),
+                                                  color: const Color(
+                                                    0xFFFECACA,
+                                                  ),
                                                 ),
                                               ),
                                               child: const Row(
@@ -3868,7 +4544,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                     'View Details',
                                                     style: TextStyle(
                                                       fontSize: 10,
-                                                      fontWeight: FontWeight.w700,
+                                                      fontWeight:
+                                                          FontWeight.w700,
                                                       color: Color(0xFFDC2626),
                                                     ),
                                                   ),
@@ -3894,9 +4571,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   title: 'Total Amount Due',
                                   value: _isCalculatingDelivery
                                       ? 'Calculating...'
-                                      : (_isDeliveryBlocked || !_isDeliverySupported
-                                          ? 'Unavailable'
-                                          : '₹${(_calculatedGrandTotal + _previousOutstanding).toStringAsFixed(2)}'),
+                                      : (_isDeliveryBlocked ||
+                                                !_isDeliverySupported
+                                            ? 'Unavailable'
+                                            : '₹${(_calculatedGrandTotal + _previousOutstanding).toStringAsFixed(2)}'),
                                   bold: true,
                                 ),
                               ] else ...[
@@ -3905,9 +4583,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   title: 'Payable Amount',
                                   value: _isCalculatingDelivery
                                       ? 'Calculating...'
-                                      : (_isDeliveryBlocked || !_isDeliverySupported
-                                          ? 'Unavailable'
-                                          : '₹${_calculatedGrandTotal.toStringAsFixed(2)}'),
+                                      : (_isDeliveryBlocked ||
+                                                !_isDeliverySupported
+                                            ? 'Unavailable'
+                                            : '₹${_calculatedGrandTotal.toStringAsFixed(2)}'),
                                   bold: true,
                                 ),
                               ],
@@ -3920,39 +4599,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const SizedBox(height: 22),
                   Builder(
                     builder: (ctx) {
-                      final currentPayable = _calculatedGrandTotal > 0 ? _calculatedGrandTotal : (cart.subtotal + _deliveryFee);
-                      final isBlockedOrUnsupported = _isDeliveryBlocked || !_isDeliverySupported;
+                      final currentPayable = _calculatedGrandTotal > 0
+                          ? _calculatedGrandTotal
+                          : (cart.subtotal + _deliveryFee);
+                      final isBlockedOrUnsupported =
+                          _isDeliveryBlocked || !_isDeliverySupported;
 
                       return ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _isCalculatingDelivery
                               ? const Color(0xFF64748B)
                               : (isBlockedOrUnsupported
-                                  ? const Color(0xFF94A3B8)
-                                  : (selectedPaymentMethod == 'WALLET' && _walletBalance < currentPayable
-                                      ? const Color(0xFFDC2626)
-                                      : (selectedPaymentMethod == 'FRANCHISE_COLLECTION'
-                                          ? const Color(0xFF16A34A)
-                                          : const Color(0xFF0284C7)))),
+                                    ? const Color(0xFF94A3B8)
+                                    : (selectedPaymentMethod == 'WALLET' &&
+                                              _walletBalance < currentPayable
+                                          ? const Color(0xFFDC2626)
+                                          : (selectedPaymentMethod ==
+                                                    'FRANCHISE_COLLECTION'
+                                                ? const Color(0xFF16A34A)
+                                                : const Color(0xFF0284C7)))),
                           foregroundColor: Colors.white,
                           minimumSize: const Size(double.infinity, 50),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: (_isSubmitting || _isCalculatingDelivery || isBlockedOrUnsupported)
+                        onPressed:
+                            (_isSubmitting ||
+                                _isCalculatingDelivery ||
+                                isBlockedOrUnsupported)
                             ? null
-                            : (selectedPaymentMethod == 'WALLET' && _walletBalance < currentPayable
-                                ? () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const CustomerWalletScreen(),
-                                      ),
-                                    );
-                                    _loadWalletDetails();
-                                  }
-                                : placeOrder),
+                            : (selectedPaymentMethod == 'WALLET' &&
+                                      _walletBalance < currentPayable
+                                  ? () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const CustomerWalletScreen(),
+                                        ),
+                                      );
+                                      _loadWalletDetails();
+                                    }
+                                  : placeOrder),
                         child: _isSubmitting
                             ? const SizedBox(
                                 width: 22,
@@ -3966,16 +4655,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 _isCalculatingDelivery
                                     ? 'CALCULATING DELIVERY CHARGES...'
                                     : (_isDeliveryBlocked
-                                        ? 'DELIVERY CONFIGURATION BLOCKED'
-                                        : (!_isDeliverySupported
-                                            ? 'OUTSIDE SERVICE AREA - CANNOT ORDER'
-                                            : (selectedPaymentMethod == 'WALLET'
-                                                ? (_walletBalance < currentPayable
-                                                    ? 'RECHARGE WALLET (SHORTFALL: ₹${(currentPayable - _walletBalance).toStringAsFixed(0)})'
-                                                    : 'PAY WITH WATER WALLET (₹${currentPayable.toStringAsFixed(2)})')
-                                                : (selectedPaymentMethod == 'FRANCHISE_COLLECTION'
-                                                    ? 'CONFIRM FRANCHISE ORDER (₹${currentPayable.toStringAsFixed(2)})'
-                                                    : 'PAY VIA RAZORPAY (₹${currentPayable.toStringAsFixed(2)})')))),
+                                          ? 'DELIVERY CONFIGURATION BLOCKED'
+                                          : (!_isDeliverySupported
+                                                ? 'OUTSIDE SERVICE AREA - CANNOT ORDER'
+                                                : (selectedPaymentMethod ==
+                                                          'WALLET'
+                                                      ? (_walletBalance <
+                                                                currentPayable
+                                                            ? 'RECHARGE WALLET (SHORTFALL: ₹${(currentPayable - _walletBalance).toStringAsFixed(0)})'
+                                                            : 'PAY WITH WATER WALLET (₹${currentPayable.toStringAsFixed(2)})')
+                                                      : (selectedPaymentMethod ==
+                                                                'FRANCHISE_COLLECTION'
+                                                            ? 'CONFIRM FRANCHISE ORDER (₹${currentPayable.toStringAsFixed(2)})'
+                                                            : 'PAY VIA RAZORPAY (₹${currentPayable.toStringAsFixed(2)})')))),
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,

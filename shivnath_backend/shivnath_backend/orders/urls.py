@@ -8,6 +8,7 @@ from .views import (
     OrderResumeView,
     OrderRejectView,
     OrderInitiateManufacturingView,
+    OrderAllocateBatchView,
     OrderStatsView,
     CustomerBulkOrderView,
     RazorpayCreateOrderAPIView,
@@ -56,6 +57,7 @@ urlpatterns = [
     path('<int:pk>/resume/', OrderResumeView.as_view(), name='order-resume'),
     path('<int:pk>/reject/', OrderRejectView.as_view(), name='order-reject'),
     path('<int:pk>/manufacture/', OrderInitiateManufacturingView.as_view(), name='order-manufacture'),
+    path('<int:pk>/allocate-batch/', OrderAllocateBatchView.as_view(), name='order-allocate-batch'),
     path('stats/', OrderStatsView.as_view()),
     # Prepaid My Water Wallet endpoints
     path('wallet/', WalletDetailAPIView.as_view(), name='wallet-detail'),

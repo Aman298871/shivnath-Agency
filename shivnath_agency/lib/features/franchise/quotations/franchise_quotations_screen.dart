@@ -479,8 +479,10 @@ class _FranchiseQuotationsScreenState extends State<FranchiseQuotationsScreen>
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Accept Quotation?'),
-        content: Text(
-          'Are you sure you want to accept quotation $qNum at the quoted rate of ₹${q['final_amount'] ?? q['total_price'] ?? q['unit_price']}?\n\nThis will record your acceptance and notify the administration.',
+        content: SingleChildScrollView(
+          child: Text(
+            'Are you sure you want to accept quotation $qNum at the quoted rate of ₹${q['final_amount'] ?? q['total_price'] ?? q['unit_price']}?\n\nThis will record your acceptance and notify the administration.',
+          ),
         ),
         actions: [
           TextButton(
@@ -523,25 +525,27 @@ class _FranchiseQuotationsScreenState extends State<FranchiseQuotationsScreen>
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Reject Quotation'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Please provide a mandatory reason for rejecting quotation $qNum:',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonCtrl,
-              maxLines: 3,
-              autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Price exceeds current market budget, requested revision...',
-                border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Please provide a mandatory reason for rejecting quotation $qNum:',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonCtrl,
+                maxLines: 3,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Price exceeds current market budget, requested revision...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(

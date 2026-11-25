@@ -81,9 +81,10 @@ class _CancelOrderDialogState extends State<CancelOrderDialog> {
         backgroundColor: BrandColors.surface,
         elevation: 8,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -250,6 +251,7 @@ class _CancelOrderDialogState extends State<CancelOrderDialog> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

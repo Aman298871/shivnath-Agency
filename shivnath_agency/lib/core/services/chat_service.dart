@@ -299,6 +299,50 @@ class ChatService {
     }
   }
 
+  Future<Map<String, dynamic>> respondToQuotation({
+    required int id,
+    required String action,
+    String? reason,
+  }) async {
+    try {
+      final headers = await _headers(requireAuth: true);
+      final payload = jsonEncode({
+        'action': action,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+      });
+
+      // 1. Try dedicated action endpoint
+      var response = await ApiClient.post(
+        Uri.parse('$baseUrl/api/chat/quotations/$id/action/'),
+        headers: headers,
+        body: payload,
+      );
+
+      var decoded = ApiClient.safeDecode(response);
+      if (decoded['success'] == true) {
+        return decoded;
+      }
+
+      // 2. If 404 on /action/, fall back to PATCH on quotation detail
+      if (response.statusCode == 404) {
+        response = await ApiClient.patch(
+          Uri.parse('$baseUrl/api/chat/quotations/$id/'),
+          headers: headers,
+          body: jsonEncode({
+            'action': action,
+            'status': action == 'accept' ? 'accepted' : 'rejected',
+            if (reason != null && reason.isNotEmpty) 'rejection_reason': reason,
+          }),
+        );
+        decoded = ApiClient.safeDecode(response);
+      }
+
+      return decoded;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
   // =========================================================
   // PUBLIC LEAD CAPTURE (PROSPECT & QUALIFICATION)
   // =========================================================

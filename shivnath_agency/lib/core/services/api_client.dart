@@ -72,6 +72,75 @@ class ApiClient {
 
   static Future<http.StreamedResponse> sendRequest(http.BaseRequest request) =>
       client.send(request);
+
+  /// Safely parses an HTTP response into a Map<String, dynamic>.
+  /// If the server returns HTML (e.g. 404, 500, or proxy error) or invalid JSON,
+  /// this method returns a clean structured error Map instead of throwing FormatException.
+  static Map<String, dynamic> safeDecode(http.Response response) {
+    final status = response.statusCode;
+    final body = response.body.trim();
+    final contentType = response.headers['content-type'] ?? '';
+
+    // Check if response is HTML or starts with HTML tags
+    final isHtml = contentType.contains('text/html') ||
+        body.toLowerCase().startsWith('<!doctype') ||
+        body.toLowerCase().startsWith('<html');
+
+    if (isHtml) {
+      String errorMessage;
+      if (status == 404) {
+        errorMessage = 'Endpoint not found on server (HTTP 404). The service may be updating.';
+      } else if (status >= 500) {
+        errorMessage = 'Server error (HTTP $status). Please try again shortly.';
+      } else if (status == 401 || status == 403) {
+        errorMessage = 'Access denied (HTTP $status). Please check your login credentials.';
+      } else {
+        errorMessage = 'Server returned unexpected response (HTTP $status).';
+      }
+      return {
+        'success': false,
+        'message': errorMessage,
+        'statusCode': status,
+        'isHtml': true,
+      };
+    }
+
+    if (body.isEmpty) {
+      return {
+        'success': status >= 200 && status < 300,
+        'message': status >= 200 && status < 300 ? 'Success' : 'Empty server response (HTTP $status)',
+        'statusCode': status,
+      };
+    }
+
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        if (!decoded.containsKey('success')) {
+          decoded['success'] = status >= 200 && status < 300;
+        }
+        decoded['statusCode'] = status;
+        return decoded;
+      } else if (decoded is List) {
+        return {
+          'success': status >= 200 && status < 300,
+          'data': decoded,
+          'statusCode': status,
+        };
+      }
+      return {
+        'success': status >= 200 && status < 300,
+        'data': decoded,
+        'statusCode': status,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to parse server response (HTTP $status): ${e.toString()}',
+        'statusCode': status,
+      };
+    }
+  }
 }
 
 class _LoggingClient extends http.BaseClient {

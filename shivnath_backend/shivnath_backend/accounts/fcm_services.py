@@ -212,12 +212,14 @@ def _send_fcm_direct(tokens, title, body, data=None):
                         DeviceToken.objects.filter(token=bad_token).update(is_active=False)
                         logger.info("FCM: [INVALID_TOKEN_REMOVED] Deactivated stale device token: %s...", bad_token[:12])
 
+        all_failed = (response.success_count == 0 and response.failure_count > 0)
         return {
-            'success': True,
+            'success': not all_failed,
             'success_count': response.success_count,
             'failure_count': response.failure_count,
             'total_tokens': len(tokens),
             'message_id': first_msg_id,
+            'error': f"All {response.failure_count} tokens failed FCM delivery" if all_failed else None,
         }
     except Exception as e:
         logger.error("FCM: [FCM_SEND_FAILURE] Exception during multicast send: %s", e)
@@ -335,16 +337,22 @@ def dispatch_outbox_item(outbox_id, worker_id='worker'):
         recipients = [item.recipient]
     elif item.role_target == 'admin':
         recipients = _get_all_admins()
+    elif item.role_target in ['franchise', 'dealer']:
+        User = get_user_model()
+        recipients = list(User.objects.filter(profile__role__in=['franchise', 'dealer'], is_active=True, profile__status='active'))
+    elif item.role_target == 'customer':
+        User = get_user_model()
+        recipients = list(User.objects.filter(profile__role='customer', is_active=True, profile__status='active'))
 
     tokens = list(DeviceToken.objects.filter(user__in=recipients, is_active=True).values_list('token', flat=True).distinct())
 
     if not tokens:
-        item.status = 'DELIVERED'
+        item.status = 'FAILED'
         item.fcm_response_code = 'NO_ACTIVE_TOKENS'
-        item.error_message = 'No active FCM device tokens registered for recipient; saved in DB notifications.'
+        item.error_message = 'No active FCM device tokens registered for recipient; in-app notification preserved.'
         item.locked_at = None
         item.save(update_fields=['status', 'fcm_response_code', 'error_message', 'locked_at', 'updated_at'])
-        return {'success': True, 'delivered_count': 0, 'message': 'No tokens'}
+        return {'success': False, 'delivered_count': 0, 'error': 'No active device tokens'}
 
     try:
         result = _send_fcm_direct(tokens=tokens, title=item.title, body=item.body, data=item.data)
@@ -624,6 +632,11 @@ def notify_order_status_update(order, new_status, actor_name=''):
     logger.info("FCM: [EVENT_CREATED] Order Status Transition: #%s -> %s (by %s)", getattr(order, 'order_code', 'N/A'), new_status, actor_name or 'System')
 
     st_clean = (new_status or '').lower()
+    hold_reason_text = getattr(order, 'hold_reason', '') or ''
+    rejection_reason_text = getattr(order, 'rejection_reason', '') or ''
+    is_delayed = getattr(order, 'is_delayed', False)
+    delay_reason = getattr(order, 'delay_reason', '') or ''
+
     status_titles = {
         'plant_approval': 'Order Approved! ✅',
         'invoice_generated': 'Invoice Generated 📄',
@@ -631,6 +644,8 @@ def notify_order_status_update(order, new_status, actor_name=''):
         'dispatch': 'Order Dispatched for Delivery! 🚚',
         'delivered': 'Order Delivered Successfully! 🎉',
         'cancelled': 'Order Cancelled ❌',
+        'on_hold': 'Order Temporarily On Hold ⚠️',
+        'rejected': 'Order Could Not Be Fulfilled ❌',
     }
 
     status_bodies = {
@@ -640,10 +655,16 @@ def notify_order_status_update(order, new_status, actor_name=''):
         'dispatch': f"Your order #{order.order_code} has been dispatched and is on its way!",
         'delivered': f"Your order #{order.order_code} has been delivered. Thank you!",
         'cancelled': f"Your order #{order.order_code} has been cancelled.",
+        'on_hold': f"Your order #{order.order_code} is on hold: {hold_reason_text}" if hold_reason_text else f"Your order #{order.order_code} is temporarily on hold for production review.",
+        'rejected': f"Your order #{order.order_code} could not be fulfilled: {rejection_reason_text}" if rejection_reason_text else f"Your order #{order.order_code} could not be fulfilled.",
     }
 
-    title = status_titles.get(st_clean, f"Order #{order.order_code} Update")
-    body = status_bodies.get(st_clean, f"Status of #{order.order_code} updated to {new_status}.")
+    if is_delayed and delay_reason and st_clean not in ['rejected', 'cancelled', 'delivered']:
+        title = f"Delivery Rescheduled: #{order.order_code} 🚚"
+        body = f"Delivery update for #{order.order_code}: {delay_reason}"
+    else:
+        title = status_titles.get(st_clean, f"Order #{order.order_code} Update")
+        body = status_bodies.get(st_clean, f"Status of #{order.order_code} updated to {new_status}.")
 
     # 1. In-App Customer Notification inbox + FCM Push
     if order.created_by:
@@ -669,6 +690,10 @@ def notify_order_status_update(order, new_status, actor_name=''):
                 'order_code': order.order_code,
                 'status': new_status,
                 'screen': 'customer_orders',
+                'hold_reason': hold_reason_text,
+                'rejection_reason': rejection_reason_text,
+                'is_delayed': str(is_delayed),
+                'delay_reason': delay_reason,
                 'click_action': 'FLUTTER_NOTIFICATION_CLICK'
             },
             notification_type='order_status',
@@ -1198,4 +1223,153 @@ def notify_lead_created(lead, is_update=False):
             },
             notification_type='lead_alert',
             reference_id=lead.id,
+        )
+
+
+def notify_quotation_created(quotation):
+    """
+    Triggered when an Admin creates and publishes a quotation for a Franchise.
+    Enforces strict tenant scoping: Only the designated Franchise receives it.
+    """
+    if not quotation or not quotation.franchise:
+        logger.warning("FCM: [QUOTATION_NOTIFICATION] Cannot notify quotation without franchise.")
+        return
+
+    f_user = quotation.franchise.user
+    if not f_user:
+        logger.warning("FCM: [QUOTATION_NOTIFICATION] Franchise has no linked user account.")
+        return
+
+    q_num = quotation.quotation_number or f"Q-{quotation.id}"
+    q_title = quotation.title or "Bulk Water Quotation"
+    amount = float(quotation.final_amount or 0.0)
+
+    title = f"New Quotation Received: {q_num} 📋"
+    body = f"Shivnath Agency has sent you quotation '{q_title}' (₹{amount:,.2f}). Tap to review and accept/reject."
+
+    # 1. In-App Franchise Notification inbox
+    try:
+        from accounts.models import FranchiseNotification
+        fn, c = FranchiseNotification.objects.get_or_create(
+            franchise=quotation.franchise,
+            notification_type='quotation_received',
+            reference_id=quotation.id,
+            defaults={
+                'title': title,
+                'message': body,
+            }
+        )
+        if c:
+            logger.info("FCM: [NOTIFICATION_CREATED] FranchiseNotification #%d created for Franchise %s", fn.id, quotation.franchise.business_name)
+    except Exception as e:
+        logger.warning("FCM: FranchiseNotification create warning in notify_quotation_created: %s", e)
+
+    # 2. FCM Push to the specific Franchise user only
+    send_fcm_notification(
+        users=[f_user],
+        title=title,
+        body=body,
+        data={
+            'event_type': 'quotation_received',
+            'entity_type': 'quotation',
+            'quotation_id': quotation.id,
+            'quotation_number': q_num,
+            'screen': 'franchise_quotations',
+            'role': 'franchise',
+            'click_action': 'FLUTTER_NOTIFICATION_CLICK',
+        },
+        notification_type='franchise_quotation',
+        reference_id=quotation.id
+    )
+
+
+def notify_quotation_status_update(quotation, action='accepted', actor_name='', reason=''):
+    """
+    Triggered when a Franchise accepts or rejects a Quotation.
+    Notifies Admin (and sends confirmation to Franchise).
+    """
+    if not quotation:
+        return
+
+    all_admins = _get_all_admins()
+    q_num = quotation.quotation_number or f"Q-{quotation.id}"
+    f_name = quotation.franchise.business_name if quotation.franchise else 'Franchise'
+    amount = float(quotation.final_amount or 0.0)
+
+    act_verb = 'Accepted' if action == 'accepted' else 'Rejected'
+    icon = '✅' if action == 'accepted' else '❌'
+
+    admin_title = f"Quotation {act_verb}: {q_num} {icon}"
+    if action == 'accepted':
+        admin_body = f"Franchise {f_name} accepted quotation '{quotation.title}' (₹{amount:,.2f})."
+        fran_title = f"Quotation Accepted: {q_num} ✅"
+        fran_body = f"You successfully accepted quotation '{quotation.title}'."
+    else:
+        admin_body = f"Franchise {f_name} rejected quotation '{quotation.title}'. Reason: {reason or 'No reason provided'}"
+        fran_title = f"Quotation Rejected: {q_num} ❌"
+        fran_body = f"You rejected quotation '{quotation.title}'. Reason: {reason or 'No reason provided'}"
+
+    # 1. In-App Admin Notification
+    try:
+        from accounts.models import AdminNotification, FranchiseNotification
+        an = AdminNotification.objects.create(
+            title=admin_title,
+            message=admin_body,
+            notification_type=f'quotation_{action}',
+            reference_id=quotation.id,
+        )
+        logger.info("FCM: [NOTIFICATION_CREATED] AdminNotification #%d for quotation %s", an.id, q_num)
+
+        if quotation.franchise:
+            fn = FranchiseNotification.objects.create(
+                franchise=quotation.franchise,
+                title=fran_title,
+                message=fran_body,
+                notification_type=f'quotation_{action}',
+                reference_id=quotation.id,
+            )
+            logger.info("FCM: [NOTIFICATION_CREATED] FranchiseNotification #%d for quotation %s", fn.id, q_num)
+    except Exception as e:
+        logger.warning("FCM: DB notification create warning in notify_quotation_status_update: %s", e)
+
+    # 2. FCM Push to Admins
+    send_fcm_notification(
+        users=all_admins,
+        title=admin_title,
+        body=admin_body,
+        data={
+            'event_type': f'quotation_{action}',
+            'entity_type': 'quotation',
+            'quotation_id': quotation.id,
+            'quotation_number': q_num,
+            'franchise_id': quotation.franchise.id if quotation.franchise else None,
+            'franchise_name': f_name,
+            'action': action,
+            'reason': reason,
+            'screen': 'admin_quotations',
+            'role': 'admin',
+            'click_action': 'FLUTTER_NOTIFICATION_CLICK',
+        },
+        notification_type=f'quotation_{action}',
+        reference_id=quotation.id
+    )
+
+    # 3. FCM Push confirmation to Franchise
+    if quotation.franchise and quotation.franchise.user:
+        send_fcm_notification(
+            users=[quotation.franchise.user],
+            title=fran_title,
+            body=fran_body,
+            data={
+                'event_type': f'quotation_{action}',
+                'entity_type': 'quotation',
+                'quotation_id': quotation.id,
+                'quotation_number': q_num,
+                'action': action,
+                'screen': 'franchise_quotations',
+                'role': 'franchise',
+                'click_action': 'FLUTTER_NOTIFICATION_CLICK',
+            },
+            notification_type=f'quotation_{action}',
+            reference_id=quotation.id
         )

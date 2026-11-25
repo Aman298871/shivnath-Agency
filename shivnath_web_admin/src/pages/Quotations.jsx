@@ -12,6 +12,9 @@ export default function Quotations() {
   const [search, setSearch] = useState('');
   const [selectedQuotation, setSelectedQuotation] = useState(null);
   const [sortBy, setSortBy] = useState('date_desc');
+  const [franchises, setFranchises] = useState([]);
+  const [selectedFranchiseId, setSelectedFranchiseId] = useState('');
+  const [quotationStatus, setQuotationStatus] = useState('published');
 
   // Create Quotation State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -27,14 +30,17 @@ export default function Quotations() {
   const fetchQuotations = async () => {
     try {
       setIsLoading(true);
-      const [qRes, pRes] = await Promise.all([
+      const [qRes, pRes, fRes] = await Promise.all([
         apiClient.get('/api/chat/quotations/'),
         apiClient.get('/api/products/').catch(() => ({ data: [] })),
+        apiClient.get('/api/accounts/franchises/').catch(() => ({ data: [] })),
       ]);
       const qList = qRes.data?.quotations || qRes.data?.results || (Array.isArray(qRes.data) ? qRes.data : []);
       setQuotations(qList);
       const pList = pRes.data?.products || pRes.data?.results || (Array.isArray(pRes.data) ? pRes.data : []);
       setProducts(pList);
+      const fList = fRes.data?.franchises || fRes.data?.results || (Array.isArray(fRes.data) ? fRes.data : []);
+      setFranchises(fList);
     } catch (err) {
       console.warn('Quotations fetch error:', err);
     } finally {
@@ -83,22 +89,27 @@ export default function Quotations() {
     setFormError('');
 
     try {
+      const firstItem = items[0] || {};
       const payload = {
-        customer_name: customerName.trim(),
-        phone: customerPhone.trim(),
-        email: customerEmail.trim(),
-        delivery_address: deliveryAddress.trim(),
+        title: customerName.trim() || 'Franchise Special Rate Quotation',
+        target_audience: 'franchise',
+        franchise: selectedFranchiseId ? parseInt(selectedFranchiseId, 10) : null,
+        product: firstItem.product_id ? parseInt(firstItem.product_id, 10) : null,
+        quantity_tier: `${firstItem.quantity || 10} Units`,
+        unit_price: parseFloat(firstItem.unit_price || 0),
+        total_price: totalCalculated,
+        final_amount: totalCalculated,
+        validity: 'Valid for 30 days from generation',
         notes: notes.trim(),
-        items: items.map((it) => ({
-          product_id: parseInt(it.product_id || products[0]?.id, 10),
-          quantity: parseInt(it.quantity, 10),
-          unit_price: parseFloat(it.unit_price),
-        })),
+        applicable_terms: deliveryAddress.trim() || 'Standard delivery, purity warranty, and franchise terms apply.',
+        status: quotationStatus,
       };
 
       await apiClient.post('/api/chat/quotations/', payload);
       setIsCreateModalOpen(false);
       setCustomerName('');
+      setSelectedFranchiseId('');
+      setQuotationStatus('published');
       setCustomerPhone('');
       setCustomerEmail('');
       setDeliveryAddress('');
@@ -202,12 +213,12 @@ export default function Quotations() {
             <thead className="border-b border-slate-100 text-slate-500 font-semibold uppercase">
               <tr>
                 <th className="pb-3">Quotation #</th>
-                <th className="pb-3">Customer / Organization</th>
-                <th className="pb-3">Contact</th>
-                <th className="pb-3">Items / SKUs</th>
-                <th className="pb-3">Total Value</th>
+                <th className="pb-3">Target Franchise</th>
+                <th className="pb-3">Title / Tier</th>
+                <th className="pb-3">Product</th>
+                <th className="pb-3">Quoted Amount</th>
                 <th className="pb-3">Status</th>
-                <th className="pb-3">Date</th>
+                <th className="pb-3">Validity</th>
                 <th className="pb-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -215,36 +226,38 @@ export default function Quotations() {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="py-12 text-center text-slate-400">
-                    No quotations found.
+                    No franchise quotations found.
                   </td>
                 </tr>
               ) : (
                 filtered.map((q) => {
-                  const total = parseFloat(q.total_price ?? q.total_amount ?? q.grand_total ?? 0);
-                  const itemCount = q.items?.length || 1;
-                  const status = (q.status || 'SENT').toUpperCase();
+                  const total = parseFloat(q.final_amount ?? q.total_price ?? q.unit_price ?? 0);
+                  const status = (q.status || 'PUBLISHED').toUpperCase();
 
                   return (
                     <tr key={q.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 font-bold text-sky-600">#{q.id}</td>
-                      <td className="py-3.5 font-bold text-slate-900">{q.customer_name || 'Prospect'}</td>
-                      <td className="py-3.5 text-slate-600">{q.phone || '—'}</td>
-                      <td className="py-3.5 text-slate-600">{itemCount} item(s)</td>
+                      <td className="py-3.5 font-bold text-sky-600">{q.quotation_number || `#${q.id}`}</td>
+                      <td className="py-3.5 font-bold text-slate-900">{q.franchise_name || 'All Franchises'}</td>
+                      <td className="py-3.5 text-slate-600">{q.title} ({q.quantity_tier || '1 Unit'})</td>
+                      <td className="py-3.5 text-slate-600">{q.product_details?.name || 'General'}</td>
                       <td className="py-3.5 font-bold text-slate-900">
                         ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-3.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${status === 'ACCEPTED'
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                          status === 'ACCEPTED'
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : status === 'REJECTED'
                               ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                              : 'bg-sky-50 text-sky-700 border border-sky-200'
-                          }`}>
+                              : status === 'EXPIRED'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : 'bg-sky-50 text-sky-700 border border-sky-200'
+                        }`}>
                           {status}
                         </span>
                       </td>
                       <td className="py-3.5 text-slate-500">
-                        {q.created_at ? new Date(q.created_at).toLocaleDateString() : 'Today'}
+                        {q.validity || '30 Days'}
                       </td>
                       <td className="py-3.5 text-right space-x-1.5 whitespace-nowrap">
                         <button
@@ -381,36 +394,52 @@ export default function Quotations() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700">Client / Organization Name</label>
+                <label className="block font-semibold text-slate-700">Target Franchise * (Franchise Only)</label>
+                <select
+                  value={selectedFranchiseId}
+                  onChange={(e) => setSelectedFranchiseId(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-sky-500 focus:outline-none"
+                >
+                  <option value="">All Franchises (General Policy)</option>
+                  {franchises.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.business_name} ({f.dealer_code || f.city || ''})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700">Publication Status</label>
+                <select
+                  value={quotationStatus}
+                  onChange={(e) => setQuotationStatus(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-sky-500 focus:outline-none"
+                >
+                  <option value="published">Published (Visible to Franchise)</option>
+                  <option value="draft">Draft (Saved Internally)</option>
+                </select>
+              </div>
+
+              <div className="col-span-2">
+                <label className="block font-semibold text-slate-700">Quotation Title / Reference</label>
                 <input
                   type="text"
                   required
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Raipur Club & Banquets"
-                  className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-sky-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700">Contact Phone Number</label>
-                <input
-                  type="text"
-                  required
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="e.g. 9826100000"
+                  placeholder="e.g. Special Jar Rate Contract Q1"
                   className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-sky-500 focus:outline-none"
                 />
               </div>
 
               <div className="col-span-2">
-                <label className="block font-semibold text-slate-700">Delivery Address</label>
+                <label className="block font-semibold text-slate-700">Applicable Terms & Delivery Notes</label>
                 <input
                   type="text"
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
-                  placeholder="Delivery address or venue details"
+                  placeholder="e.g. Standard delivery, purity warranty, and franchise terms apply."
                   className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-sky-500 focus:outline-none"
                 />
               </div>

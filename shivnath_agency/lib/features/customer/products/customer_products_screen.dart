@@ -14,18 +14,16 @@ class CustomerProductsScreen extends StatefulWidget {
   const CustomerProductsScreen({super.key});
 
   @override
-  State<CustomerProductsScreen> createState() =>
-      _CustomerProductsScreenState();
+  State<CustomerProductsScreen> createState() => _CustomerProductsScreenState();
 }
 
-class _CustomerProductsScreenState
-    extends State<CustomerProductsScreen> {
+class _CustomerProductsScreenState extends State<CustomerProductsScreen> {
   final ProductRepository _productRepository = ProductRepository();
   String search = '';
   int? selectedCategoryId;
   String selectedCategoryName = 'All';
   List<Map<String, dynamic>> _categoryItems = [
-    {'id': null, 'name': 'All', 'full_path': 'All'}
+    {'id': null, 'name': 'All', 'full_path': 'All'},
   ];
   List<ProductModel> _loadedProducts = [];
   bool _loadingProducts = false;
@@ -50,7 +48,9 @@ class _CustomerProductsScreenState
       );
       if (mounted) {
         var list = productProvider.products;
-        if (list.isEmpty && ProductRepository.cachedProducts.isNotEmpty && selectedCategoryName != 'All') {
+        if (list.isEmpty &&
+            ProductRepository.cachedProducts.isNotEmpty &&
+            selectedCategoryName != 'All') {
           final catLower = selectedCategoryName.toLowerCase();
           final isBottle = catLower.contains('bottle');
           final isJar = catLower.contains('jar');
@@ -83,12 +83,17 @@ class _CustomerProductsScreenState
 
   Future<void> _fetchCategories() async {
     try {
-      final res = await _productRepository.getCategories(activeOnly: true, hasActiveProducts: true);
+      final res = await _productRepository.getCategories(
+        activeOnly: true,
+        hasActiveProducts: true,
+      );
       final raw = res['data'] ?? res;
-      final dynamic list = (raw is Map) ? (raw['categories'] ?? raw['data']) : (raw is List ? raw : null);
+      final dynamic list = (raw is Map)
+          ? (raw['categories'] ?? raw['data'])
+          : (raw is List ? raw : null);
       if (res['success'] == true && list is List) {
         final items = <Map<String, dynamic>>[
-          {'id': null, 'name': 'All', 'full_path': 'All'}
+          {'id': null, 'name': 'All', 'full_path': 'All'},
         ];
         final seenIds = <dynamic>{null};
         void extract(List<dynamic> nodes) {
@@ -117,6 +122,7 @@ class _CustomerProductsScreenState
             }
           }
         }
+
         extract(list);
         if (mounted) {
           setState(() {
@@ -132,7 +138,8 @@ class _CustomerProductsScreenState
   @override
   Widget build(BuildContext context) {
     final products = _loadedProducts.where((product) {
-      final matchesSearch = search.trim().isEmpty ||
+      final matchesSearch =
+          search.trim().isEmpty ||
           product.name.toLowerCase().contains(search.toLowerCase());
       return matchesSearch;
     }).toList();
@@ -159,9 +166,7 @@ class _CustomerProductsScreenState
       appBar: AppBar(
         title: const Text(
           'Products',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
           Consumer<CartProvider>(
@@ -257,7 +262,10 @@ class _CustomerProductsScreenState
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0284C7),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -265,7 +273,11 @@ class _CustomerProductsScreenState
                     icon: const Icon(Icons.shopping_bag_outlined, size: 18),
                     label: const Text(
                       'GO TO CART',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                     onPressed: () {
                       Navigator.push(
@@ -285,12 +297,7 @@ class _CustomerProductsScreenState
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              18,
-              8,
-              18,
-              10,
-            ),
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
             child: _searchField(),
           ),
 
@@ -300,77 +307,83 @@ class _CustomerProductsScreenState
             child: _loadingProducts
                 ? const Center(child: CircularProgressIndicator())
                 : products.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.inventory_2_outlined, size: 48, color: Color(0xFF94A3B8)),
-                              const SizedBox(height: 12),
-                              Text(
-                                selectedCategoryName != 'All'
-                                    ? 'No products available under "$selectedCategoryName"'
-                                    : 'No products currently available',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF64748B),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              if (selectedCategoryName != 'All' || search.isNotEmpty) ...[
-                                const SizedBox(height: 14),
-                                OutlinedButton.icon(
-                                  onPressed: () {
-                                    setState(() {
-                                      selectedCategoryId = null;
-                                      selectedCategoryName = 'All';
-                                      search = '';
-                                    });
-                                    _fetchProducts();
-                                  },
-                                  icon: const Icon(Icons.refresh, size: 16),
-                                  label: const Text('View All Available Products'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF0284C7),
-                                    side: const BorderSide(color: Color(0xFF0284C7)),
-                                  ),
-                                ),
-                              ],
-                            ],
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.inventory_2_outlined,
+                            size: 48,
+                            color: Color(0xFF94A3B8),
                           ),
-                        ),
-                      )
-                    : LayoutBuilder(
-                        builder: (ctx, constraints) {
-                          final crossCount = constraints.maxWidth >= 720
-                              ? 3
-                              : (constraints.maxWidth < 340 ? 1 : 2);
-                          final ratio = constraints.maxWidth >= 720
-                              ? 0.78
-                              : (crossCount == 1
-                                  ? 1.25
-                                  : (constraints.maxWidth < 370 ? 0.58 : 0.62));
-                          return GridView.builder(
-                            padding: const EdgeInsets.all(18),
-                            itemCount: products.length,
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossCount,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: ratio,
+                          const SizedBox(height: 12),
+                          Text(
+                            selectedCategoryName != 'All'
+                                ? 'No products available under "$selectedCategoryName"'
+                                : 'No products currently available',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
                             ),
-                            itemBuilder: (context, index) {
-                              return _ProductCard(
-                                product: products[index],
-                                desktop: false,
-                              );
-                            },
+                            textAlign: TextAlign.center,
+                          ),
+                          if (selectedCategoryName != 'All' ||
+                              search.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  selectedCategoryId = null;
+                                  selectedCategoryName = 'All';
+                                  search = '';
+                                });
+                                _fetchProducts();
+                              },
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('View All Available Products'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF0284C7),
+                                side: const BorderSide(
+                                  color: Color(0xFF0284C7),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final crossCount = constraints.maxWidth >= 720
+                          ? 3
+                          : (constraints.maxWidth < 340 ? 1 : 2);
+                      final ratio = constraints.maxWidth >= 720
+                          ? 0.78
+                          : (crossCount == 1
+                                ? 1.25
+                                : (constraints.maxWidth < 370 ? 0.58 : 0.62));
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(18),
+                        itemCount: products.length,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossCount,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: ratio,
+                        ),
+                        itemBuilder: (context, index) {
+                          return _ProductCard(
+                            product: products[index],
+                            desktop: false,
                           );
                         },
-                      ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -388,12 +401,9 @@ class _CustomerProductsScreenState
         padding: const EdgeInsets.all(28),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 1250,
-            ),
+            constraints: const BoxConstraints(maxWidth: 1250),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Products',
@@ -408,10 +418,7 @@ class _CustomerProductsScreenState
 
                 const Text(
                   'Browse and order our premium drinking water products.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF64748B),
-                  ),
+                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                 ),
 
                 const SizedBox(height: 24),
@@ -422,42 +429,31 @@ class _CustomerProductsScreenState
 
                 Row(
                   children: [
-                    Expanded(
-                      child: _filters(),
-                    ),
+                    Expanded(child: _filters()),
 
                     const SizedBox(width: 16),
 
                     Container(
                       height: 44,
-                      padding:
-                          const EdgeInsets.symmetric(
-                        horizontal: 14,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius:
-                            BorderRadius.circular(11),
-                        border: Border.all(
-                          color:
-                              const Color(0xFFE2E8F0),
-                        ),
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: const Row(
                         children: [
                           Icon(
                             Icons.sort_rounded,
                             size: 18,
-                            color:
-                                Color(0xFF64748B),
+                            color: Color(0xFF64748B),
                           ),
                           SizedBox(width: 8),
                           Text(
                             'Sort: Popular',
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight:
-                                  FontWeight.w600,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -492,16 +488,15 @@ class _CustomerProductsScreenState
                 else
                   GridView.builder(
                     shrinkWrap: true,
-                    physics:
-                        const NeverScrollableScrollPhysics(),
+                    physics: const NeverScrollableScrollPhysics(),
                     itemCount: products.length,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      crossAxisSpacing: 18,
-                      mainAxisSpacing: 18,
-                      childAspectRatio: .72,
-                    ),
+                          crossAxisCount: 4,
+                          crossAxisSpacing: 18,
+                          mainAxisSpacing: 18,
+                          childAspectRatio: .72,
+                        ),
                     itemBuilder: (context, index) {
                       return _ProductCard(
                         product: products[index],
@@ -526,9 +521,7 @@ class _CustomerProductsScreenState
       },
       decoration: InputDecoration(
         hintText: 'Search water products...',
-        prefixIcon: const Icon(
-          Icons.search_rounded,
-        ),
+        prefixIcon: const Icon(Icons.search_rounded),
         suffixIcon: search.isNotEmpty
             ? IconButton(
                 onPressed: () {
@@ -536,13 +529,9 @@ class _CustomerProductsScreenState
                     search = '';
                   });
                 },
-                icon: const Icon(
-                  Icons.close_rounded,
-                ),
+                icon: const Icon(Icons.close_rounded),
               )
-            : const Icon(
-                Icons.tune_rounded,
-              ),
+            : const Icon(Icons.tune_rounded),
       ),
     );
   }
@@ -590,15 +579,9 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding:
-          const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
-        avatar: selected
-            ? const Icon(
-                Icons.check_rounded,
-                size: 15,
-              )
-            : null,
+        avatar: selected ? const Icon(Icons.check_rounded, size: 15) : null,
         label: Text(title),
         selected: selected,
         onSelected: (_) => onTap(),
@@ -611,10 +594,7 @@ class _ProductCard extends StatelessWidget {
   final ProductModel product;
   final bool desktop;
 
-  const _ProductCard({
-    required this.product,
-    required this.desktop,
-  });
+  const _ProductCard({required this.product, required this.desktop});
 
   @override
   Widget build(BuildContext context) {
@@ -626,29 +606,21 @@ class _ProductCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  ProductDetailScreen(
-                product: product,
-              ),
+              builder: (_) => ProductDetailScreen(product: product),
             ),
           );
         },
         child: Padding(
-          padding: EdgeInsets.all(
-            desktop ? 14 : 11,
-          ),
+          padding: EdgeInsets.all(desktop ? 14 : 11),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color:
-                        const Color(0xFFE0F2FE),
-                    borderRadius:
-                        BorderRadius.circular(14),
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Stack(
                     children: [
@@ -665,28 +637,20 @@ class _ProductCard extends StatelessWidget {
                         top: 10,
                         right: 10,
                         child: Container(
-                          padding:
-                              const EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 8,
                             vertical: 4,
                           ),
-                          decoration:
-                              BoxDecoration(
+                          decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius:
-                                BorderRadius.circular(
-                              20,
-                            ),
+                            borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             product.size,
-                            style:
-                                const TextStyle(
+                            style: const TextStyle(
                               fontSize: 9,
-                              fontWeight:
-                                  FontWeight.w700,
-                              color:
-                                  Color(0xFF0284C7),
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0284C7),
                             ),
                           ),
                         ),
@@ -701,55 +665,23 @@ class _ProductCard extends StatelessWidget {
               Text(
                 product.name,
                 maxLines: 2,
-                overflow:
-                    TextOverflow.ellipsis,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize:
-                      desktop ? 14 : 12,
-                  fontWeight:
-                      FontWeight.w700,
+                  fontSize: desktop ? 14 : 12,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
 
               const SizedBox(height: 5),
 
-              Row(
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration:
-                        const BoxDecoration(
-                      color:
-                          Color(0xFF22C55E),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    product.isActive ? 'Available' : 'Unavailable',
-                    style:
-                        TextStyle(
-                      fontSize: 10,
-                      color:
-                          product.isActive ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 7),
+              const SizedBox(height: 5),
 
               Text(
                 '₹${product.price.toStringAsFixed(0)} / ${product.unit}',
                 style: TextStyle(
-                  fontSize:
-                      desktop ? 16 : 13,
-                  color:
-                      const Color(0xFF0284C7),
-                  fontWeight:
-                      FontWeight.w800,
+                  fontSize: desktop ? 16 : 13,
+                  color: const Color(0xFF0284C7),
+                  fontWeight: FontWeight.w800,
                 ),
               ),
 
@@ -759,7 +691,10 @@ class _ProductCard extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 0,
+                    ),
                     minimumSize: const Size(0, 36),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     backgroundColor: !product.isActive
@@ -773,7 +708,10 @@ class _ProductCard extends StatelessWidget {
                   onPressed: !product.isActive
                       ? null
                       : () {
-                          MoqConfirmationDialog.handleAddToCart(context, product);
+                          MoqConfirmationDialog.handleAddToCart(
+                            context,
+                            product,
+                          );
                         },
                   child: FittedBox(
                     fit: BoxFit.scaleDown,

@@ -10,6 +10,8 @@ import '../../../models/user_model.dart';
 import '../../../routes/app_routes.dart';
 import '../../customer/orders/order_detail_screen.dart';
 import '../profile/franchise_profile_screen.dart';
+import '../quotations/franchise_quotations_screen.dart';
+import '../products/franchise_moq_dialog.dart';
 
 class FranchiseDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenOrders;
@@ -738,6 +740,23 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
         'icon': Icons.location_on_outlined,
         'color': const Color(0xFF14B8A6),
         'action': widget.onOpenTerritory,
+      },
+      {
+        'title': 'Quotations',
+        'icon': Icons.request_quote_outlined,
+        'color': const Color(0xFFE11D48),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const FranchiseQuotationsScreen(),
+          ),
+        ),
+      },
+      {
+        'title': 'MOQ Rules',
+        'icon': Icons.tune_rounded,
+        'color': const Color(0xFF0284C7),
+        'action': () => FranchiseMoqDialog.show(context),
       },
       {
         'title': 'Documents',

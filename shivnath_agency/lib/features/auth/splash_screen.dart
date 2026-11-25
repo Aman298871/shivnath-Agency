@@ -65,7 +65,7 @@ class _SplashScreenState extends State<SplashScreen> {
       }
 
       try {
-        NotificationService().registerDeviceTokenWithBackend();
+        NotificationService().registerDeviceTokenWithBackend(force: true);
       } catch (e) {
         debugPrint('Token registration non-fatal: $e');
       }

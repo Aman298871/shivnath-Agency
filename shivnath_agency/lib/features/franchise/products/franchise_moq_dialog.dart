@@ -172,8 +172,9 @@ class _FranchiseMoqDialogState extends State<FranchiseMoqDialog> {
                       final baselineMoq = baseline?['min_order_quantity'] as int? ?? 5;
                       final salesUnit = baseline?['sales_unit'] ?? (isJar ? 'JAR' : 'CARTON');
                       final unitDisplay = salesUnit == 'JAR' ? 'Jars' : (salesUnit == 'CARTON' ? 'Boxes' : 'Units');
-                      final allowOverride = baseline?['allow_franchise_override'] == true;
-                      final maxMoq = baseline?['max_franchise_moq'] as int?;
+                      // Allow franchise override by default unless Admin explicitly disallows it
+                      final allowOverride = baseline == null || baseline['allow_franchise_override'] != false;
+                      final maxMoq = (baseline?['max_franchise_moq'] as int?) ?? 50;
 
                       final currentOverride = _overrides[pId] ?? (fRule?['min_order_quantity'] as int?) ?? baselineMoq;
                       final isSaving = _savingProductIds.contains(pId);
@@ -233,7 +234,9 @@ class _FranchiseMoqDialogState extends State<FranchiseMoqDialog> {
                               ],
                             ),
                             const SizedBox(height: 10),
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -243,85 +246,103 @@ class _FranchiseMoqDialogState extends State<FranchiseMoqDialog> {
                                     border: Border.all(color: const Color(0xFFCBD5E1)),
                                   ),
                                   child: Text(
-                                    'Company Baseline MOQ: $baselineMoq $unitDisplay',
+                                    'Admin Baseline: $baselineMoq $unitDisplay',
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
                                   ),
                                 ),
-                                if (allowOverride && maxMoq != null) ...[
-                                  const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                                  ),
+                                  child: Text(
+                                    'Effective MOQ: ${(currentOverride > baselineMoq ? currentOverride : baselineMoq)} $unitDisplay',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1D4ED8)),
+                                  ),
+                                ),
+                                if (allowOverride && maxMoq != null)
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFEFF6FF),
+                                      color: const Color(0xFFF0FDF4),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
                                       'Max Allowed: $maxMoq $unitDisplay',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1D4ED8)),
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
                                     ),
                                   ),
-                                ],
                               ],
                             ),
                             const SizedBox(height: 8),
                             if (!allowOverride) ...[
-                              const Row(
+                              Row(
                                 children: [
-                                  Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFF94A3B8)),
-                                  SizedBox(width: 6),
+                                  const Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFF94A3B8)),
+                                  const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      'Company policy sets standard MOQ at 5 units. Franchise modifications are locked by Administrator.',
-                                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
+                                      'Company policy sets standard MOQ at $baselineMoq $unitDisplay. Modifications locked by Administrator.',
+                                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
                                     ),
                                   ),
                                 ],
                               ),
                             ] else ...[
                               const Divider(height: 18),
-                              Row(
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 12,
+                                runSpacing: 8,
                                 children: [
                                   Text(
                                     'Your Franchise MOQ: $currentOverride $unitDisplay',
                                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0284C7)),
                                   ),
-                                  const Spacer(),
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline_rounded, color: Color(0xFF0284C7)),
-                                    onPressed: currentOverride <= baselineMoq
-                                        ? null
-                                        : () {
-                                            setState(() {
-                                              _overrides[pId] = currentOverride - 1;
-                                            });
-                                          },
-                                  ),
-                                  Text(
-                                    '$currentOverride',
-                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF0284C7)),
-                                    onPressed: (maxMoq != null && currentOverride >= maxMoq)
-                                        ? null
-                                        : () {
-                                            setState(() {
-                                              _overrides[pId] = currentOverride + 1;
-                                            });
-                                          },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0284C7),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                    onPressed: isSaving ? null : () => _saveOverride(pId, currentOverride),
-                                    child: isSaving
-                                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                        : const Text('Save MOQ'),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.remove_circle_outline_rounded, color: Color(0xFF0284C7)),
+                                        onPressed: currentOverride <= baselineMoq
+                                            ? null
+                                            : () {
+                                                setState(() {
+                                                  _overrides[pId] = currentOverride - 1;
+                                                });
+                                              },
+                                      ),
+                                      Text(
+                                        '$currentOverride',
+                                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF0284C7)),
+                                        onPressed: (maxMoq != null && currentOverride >= maxMoq)
+                                            ? null
+                                            : () {
+                                                setState(() {
+                                                  _overrides[pId] = currentOverride + 1;
+                                                });
+                                              },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF0284C7),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        onPressed: isSaving ? null : () => _saveOverride(pId, currentOverride),
+                                        child: isSaving
+                                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                            : const Text('Save MOQ'),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

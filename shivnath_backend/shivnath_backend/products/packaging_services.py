@@ -51,8 +51,8 @@ def get_applicable_packaging_rule(product, channel='ALL', franchise=None):
             applies_to__in=channel_filter
         ).order_by('-priority', '-id').first()
 
-    # 4. Check Franchise Override if requested and permitted
-    if franchise and baseline_rule and baseline_rule.allow_franchise_override:
+    # 4. Check Franchise Override if franchise is specified
+    if franchise:
         f_rule = MinimumOrderPackagingRule.objects.filter(
             product=product,
             franchise=franchise,
@@ -61,10 +61,14 @@ def get_applicable_packaging_rule(product, channel='ALL', franchise=None):
         ).order_by('-priority', '-id').first()
 
         if f_rule:
-            # Enforce business invariant: Franchise cannot lower company minimum
-            if f_rule.min_order_quantity >= baseline_rule.min_order_quantity:
-                if baseline_rule.max_franchise_moq is None or f_rule.min_order_quantity <= baseline_rule.max_franchise_moq:
+            # Enforce business invariant: Effective MOQ = max(Admin mandatory baseline, Serving Franchise MOQ)
+            baseline_moq = baseline_rule.min_order_quantity if baseline_rule else 1
+            if f_rule.min_order_quantity >= baseline_moq:
+                if not baseline_rule or baseline_rule.max_franchise_moq is None or f_rule.min_order_quantity <= baseline_rule.max_franchise_moq:
                     return f_rule
+            else:
+                # If franchise override somehow stored below baseline, fallback to baseline rule
+                return baseline_rule
 
     return baseline_rule
 

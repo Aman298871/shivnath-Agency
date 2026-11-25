@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/repositories/product_repository.dart';
+import '../../../core/repositories/franchise_repository.dart';
 import '../../../models/product_model.dart';
 
 class AdminQuotationsScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
 
   List<Map<String, dynamic>> _quotations = [];
   List<ProductModel> _products = [];
+  List<dynamic> _franchises = [];
   bool _isLoading = true;
   String _targetFilter = 'all';
   String _sortBy = 'default';
@@ -43,11 +45,15 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
     try {
       final quotes = await _chatService.getQuotations();
       await _productService.getProducts();
+      final fRes = await FranchiseRepository().getFranchises();
 
       if (mounted) {
         setState(() {
           _quotations = quotes;
           _products = ProductRepository.cachedProducts;
+          if (fRes['success'] == true && fRes['franchises'] is List) {
+            _franchises = fRes['franchises'] as List;
+          }
           _isLoading = false;
         });
       }
@@ -92,6 +98,18 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
               ? quotation['product']['id']
               : quotation['product'])
         : null;
+    int? selectedFranchiseId = quotation?['franchise'] != null
+        ? (quotation!['franchise'] is Map
+              ? quotation['franchise']['id']
+              : (quotation['franchise'] is int
+                    ? quotation['franchise']
+                    : int.tryParse(quotation['franchise'].toString())))
+        : (quotation?['franchise_id'] != null
+              ? (quotation!['franchise_id'] is int
+                    ? quotation['franchise_id']
+                    : int.tryParse(quotation['franchise_id'].toString()))
+              : null);
+    String quotationStatus = quotation?['status']?.toString() ?? 'published';
     bool isActive = quotation?['is_active'] ?? true;
 
     // PDF Management State
@@ -359,6 +377,55 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                     ],
                     onChanged: (val) =>
                         setDlgState(() => selectedProductId = val),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int?>(
+                    initialValue: selectedFranchiseId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Assign to Franchise * (Franchise Only)',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text(
+                          'All Franchises (General Policy)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                      ..._franchises.map(
+                        (f) => DropdownMenuItem<int?>(
+                          value: f['id'] is int ? f['id'] as int : int.tryParse(f['id'].toString()),
+                          child: Text(
+                            '${f['business_name'] ?? 'Franchise'} (${f['dealer_code'] ?? f['city'] ?? ''})',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (val) =>
+                        setDlgState(() => selectedFranchiseId = val),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: quotationStatus,
+                    decoration: const InputDecoration(
+                      labelText: 'Publication Status',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'published', child: Text('Published (Visible to Franchise)')),
+                      DropdownMenuItem(value: 'draft', child: Text('Draft (Saved internally)')),
+                      DropdownMenuItem(value: 'withdrawn', child: Text('Withdrawn')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDlgState(() => quotationStatus = val);
+                    },
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -700,7 +767,9 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                 final payload = {
                   'title': title,
                   'quotation_type': quotationType,
-                  'target_audience': targetAudience,
+                  'target_audience': 'franchise',
+                  'status': quotationStatus,
+                  'franchise': selectedFranchiseId,
                   'product': selectedProductId,
                   'quantity_tier': tierCtrl.text.trim(),
                   'unit_price':
@@ -977,6 +1046,16 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
+                                        if (q['quotation_number'] != null &&
+                                            q['quotation_number'].toString().isNotEmpty)
+                                          Text(
+                                            q['quotation_number'].toString(),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 12,
+                                              color: Color(0xFF0284C7),
+                                            ),
+                                          ),
                                         Text(
                                           q['title']?.toString() ?? '',
                                           style: const TextStyle(
@@ -985,7 +1064,7 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                           ),
                                         ),
                                         Text(
-                                          'Type: ${q['quotation_type']} • Tier: ${q['quantity_tier']}',
+                                          'Franchise: ${q['franchise_name'] ?? 'All Franchises'} • Tier: ${q['quantity_tier']}',
                                           style: const TextStyle(
                                             fontSize: 12,
                                             color: Colors.grey,
@@ -1000,21 +1079,23 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: audience == 'FRANCHISE'
-                                          ? Colors.orange.withAlpha(25)
-                                          : const Color(
-                                              0xFF0284C7,
-                                            ).withAlpha(25),
+                                      color: (q['status'] == 'accepted')
+                                          ? Colors.green.withAlpha(25)
+                                          : (q['status'] == 'rejected'
+                                              ? Colors.red.withAlpha(25)
+                                              : Colors.orange.withAlpha(25)),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      audience,
+                                      (q['status']?.toString().toUpperCase() ?? 'PUBLISHED'),
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
-                                        color: audience == 'FRANCHISE'
-                                            ? Colors.orange
-                                            : const Color(0xFF0284C7),
+                                        color: (q['status'] == 'accepted')
+                                            ? Colors.green.shade800
+                                            : (q['status'] == 'rejected'
+                                                ? Colors.red.shade800
+                                                : Colors.orange.shade900),
                                       ),
                                     ),
                                   ),
@@ -1023,9 +1104,10 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                               const SizedBox(height: 12),
                               const Divider(height: 1),
                               const SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                spacing: 16,
+                                runSpacing: 8,
+                                alignment: WrapAlignment.spaceBetween,
                                 children: [
                                   Column(
                                     crossAxisAlignment:
@@ -1070,25 +1152,33 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                                         ),
                                       ],
                                     ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Validity',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey,
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 150,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Validity',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey,
+                                          ),
                                         ),
-                                      ),
-                                      Text(
-                                        q['validity']?.toString() ?? '30 Days',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
+                                        Text(
+                                          q['validity']?.toString() ??
+                                              '30 Days',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),

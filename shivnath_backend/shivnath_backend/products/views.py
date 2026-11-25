@@ -770,6 +770,8 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
             data['units_per_carton'] = data['carton_pack_size']
         if 'enforce_carton_multiples' in data and 'allow_partial_carton' not in data:
             data['allow_partial_carton'] = not (data['enforce_carton_multiples'] in [True, 'true', 'True', 1, '1'])
+        if 'is_active' not in data:
+            data['is_active'] = True
 
         # If Franchise user is creating an override:
         if not is_admin and franchise_profile:
@@ -818,16 +820,44 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
             data['sales_unit'] = baseline.sales_unit
             data['units_per_carton'] = baseline.units_per_carton
 
-        # For Admin baseline rules: If an active baseline rule already exists for this product and channel, update it in-place
-        existing_rule = None
-        if is_admin and data.get('product'):
-            prod_val = data.get('product')
-            applies_to_val = data.get('applies_to', 'CUSTOMER')
+            # Find existing franchise override to update in-place safely
             existing_rule = MinimumOrderPackagingRule.objects.filter(
-                product_id=prod_val,
-                franchise__isnull=True,
-                applies_to=applies_to_val
+                product=prod,
+                franchise=franchise_profile
             ).order_by('-priority', '-id').first()
+
+        # For Admin baseline or franchise-specific rules:
+        if is_admin:
+            franchise_val = data.get('franchise') or data.get('franchise_id')
+            if franchise_val:
+                from accounts.models import FranchiseProfile
+                f_target = FranchiseProfile.objects.filter(id=franchise_val).first()
+                if not f_target:
+                    return Response({'success': False, 'message': 'Target franchise not found.'}, status=status.HTTP_400_BAD_REQUEST)
+                data['franchise'] = f_target.id
+            else:
+                data['franchise'] = None
+
+            if 'min_order_quantity' in data:
+                try:
+                    moq_num = int(data['min_order_quantity'])
+                    if moq_num < 1:
+                        return Response({
+                            'success': False,
+                            'message': 'Minimum order quantity cannot be less than 1 unit.',
+                            'error': 'Minimum order quantity cannot be less than 1 unit.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                except (ValueError, TypeError):
+                    pass
+
+            if data.get('product'):
+                prod_val = data.get('product')
+                applies_to_val = data.get('applies_to', 'CUSTOMER')
+                existing_rule = MinimumOrderPackagingRule.objects.filter(
+                    product_id=prod_val,
+                    franchise_id=data.get('franchise'),
+                    applies_to=applies_to_val
+                ).order_by('-priority', '-id').first()
 
         if existing_rule:
             serializer = MinimumOrderPackagingRuleSerializer(existing_rule, data=data, partial=True)
@@ -905,18 +935,41 @@ class MinimumOrderPackagingRuleDetailView(APIView):
             if baseline and not baseline.allow_franchise_override:
                 return Response({'success': False, 'message': 'Franchise overrides are disabled for this product.'}, status=status.HTTP_403_FORBIDDEN)
 
-            if 'min_order_quantity' in request.data and baseline:
-                req_qty = int(request.data['min_order_quantity'])
-                if req_qty < baseline.min_order_quantity:
-                    return Response({
-                        'success': False,
-                        'message': f"Franchise MOQ cannot be lower than company baseline ({baseline.min_order_quantity})."
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                if baseline.max_franchise_moq and req_qty > baseline.max_franchise_moq:
-                    return Response({
-                        'success': False,
-                        'message': f"Franchise MOQ cannot exceed company maximum limit ({baseline.max_franchise_moq})."
-                    }, status=status.HTTP_400_BAD_REQUEST)
+            if 'min_order_quantity' in request.data:
+                try:
+                    req_qty = int(request.data['min_order_quantity'])
+                    if req_qty < 1:
+                        return Response({
+                            'success': False,
+                            'message': 'Minimum order quantity cannot be less than 1 unit.',
+                            'error': 'Minimum order quantity cannot be less than 1 unit.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                    if baseline:
+                        if req_qty < baseline.min_order_quantity:
+                            return Response({
+                                'success': False,
+                                'message': f"Franchise MOQ cannot be lower than company baseline ({baseline.min_order_quantity})."
+                            }, status=status.HTTP_400_BAD_REQUEST)
+                        if baseline.max_franchise_moq and req_qty > baseline.max_franchise_moq:
+                            return Response({
+                                'success': False,
+                                'message': f"Franchise MOQ cannot exceed company maximum limit ({baseline.max_franchise_moq})."
+                            }, status=status.HTTP_400_BAD_REQUEST)
+                except (ValueError, TypeError):
+                    pass
+        else:
+            # Admin editing: validate >= 1
+            if 'min_order_quantity' in request.data:
+                try:
+                    moq_num = int(request.data['min_order_quantity'])
+                    if moq_num < 1:
+                        return Response({
+                            'success': False,
+                            'message': 'Minimum order quantity cannot be less than 1 unit.',
+                            'error': 'Minimum order quantity cannot be less than 1 unit.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                except (ValueError, TypeError):
+                    pass
 
         data = request.data.copy()
         if 'product_id' in data and 'product' not in data:

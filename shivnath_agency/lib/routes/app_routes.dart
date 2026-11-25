@@ -13,6 +13,8 @@ import '../features/auth/forgot_password_screen.dart';
 import '../features/customer/customer_main_screen.dart';
 import '../features/franchise/franchise_main_screen.dart';
 import '../features/customer/orders/order_detail_screen.dart';
+import '../features/franchise/quotations/franchise_quotations_screen.dart';
+import '../features/admin/chat/admin_quotations_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -42,6 +44,12 @@ class AppRoutes {
 
   static const String orderDetail =
       '/orders/detail';
+
+  static const String franchiseQuotations =
+      '/franchise/quotations';
+
+  static const String adminQuotations =
+      '/admin/quotations';
 
   static Route<dynamic> generateRoute(
     RouteSettings settings,
@@ -135,6 +143,22 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) =>
               const AdminMainScreen(),
+          settings: settings,
+        );
+
+      // Franchise Quotations
+      case franchiseQuotations:
+        return MaterialPageRoute(
+          builder: (_) =>
+              const FranchiseQuotationsScreen(),
+          settings: settings,
+        );
+
+      // Admin Quotations
+      case adminQuotations:
+        return MaterialPageRoute(
+          builder: (_) =>
+              const AdminQuotationsScreen(),
           settings: settings,
         );
 

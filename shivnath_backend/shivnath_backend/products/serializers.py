@@ -399,6 +399,10 @@ class MinimumOrderPackagingRuleSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
     franchise_name = serializers.CharField(source='franchise.business_name', read_only=True)
+    franchise_dealer_code = serializers.CharField(source='franchise.dealer_code', read_only=True)
+    is_baseline = serializers.SerializerMethodField()
+    is_active = serializers.BooleanField(required=False, default=True)
+    allow_partial_carton = serializers.BooleanField(required=False, default=True)
 
     class Meta:
         model = MinimumOrderPackagingRule
@@ -411,6 +415,8 @@ class MinimumOrderPackagingRuleSerializer(serializers.ModelSerializer):
             'category_name',
             'franchise',
             'franchise_name',
+            'franchise_dealer_code',
+            'is_baseline',
             'allow_franchise_override',
             'max_franchise_moq',
             'sales_unit',
@@ -423,4 +429,7 @@ class MinimumOrderPackagingRuleSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'is_baseline', 'franchise_name', 'franchise_dealer_code']
+
+    def get_is_baseline(self, obj):
+        return obj.franchise is None

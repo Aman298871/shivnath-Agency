@@ -8,21 +8,25 @@ import '../../../core/widgets/moq_confirmation_dialog.dart';
 class ProductDetailScreen extends StatelessWidget {
   final ProductModel product;
 
-  const ProductDetailScreen({
-    super.key,
-    required this.product,
-  });
+  const ProductDetailScreen({super.key, required this.product});
 
   @override
   Widget build(BuildContext context) {
-    final rule = PackagingService().getRuleForProduct(product.id, channel: 'CUSTOMER');
+    final rule = PackagingService().getRuleForProduct(
+      product.id,
+      channel: 'CUSTOMER',
+    );
     final String moqPolicyDescription;
     if (rule != null) {
       final moq = (rule['min_order_quantity'] as num?)?.toInt() ?? 1;
-      final salesUnit = (rule['sales_unit'] ?? 'CARTON').toString().toUpperCase();
-      final upc = (rule['units_per_carton'] as num?)?.toInt() ?? product.unitsPerCase;
+      final salesUnit = (rule['sales_unit'] ?? 'CARTON')
+          .toString()
+          .toUpperCase();
+      final upc =
+          (rule['units_per_carton'] as num?)?.toInt() ?? product.unitsPerCase;
       if (salesUnit == 'CARTON') {
-        moqPolicyDescription = 'Minimum order: $moq boxes (${moq * upc} bottles). Sold in full cartons ($upc bottles/box).';
+        moqPolicyDescription =
+            'Minimum order: $moq boxes (${moq * upc} bottles). Sold in full cartons ($upc bottles/box).';
       } else if (salesUnit == 'JAR') {
         moqPolicyDescription = 'Minimum order: $moq water jars per delivery.';
       } else {
@@ -32,14 +36,12 @@ class ProductDetailScreen extends StatelessWidget {
       moqPolicyDescription = product.isJar
           ? 'Minimum order: 5 water jars per delivery.'
           : (product.isBottle
-              ? 'Minimum order: 5 boxes (${product.unitsPerCase * 5} bottles). Sold in full cartons.'
-              : 'Minimum order: ${product.minOrderQuantity} ${product.unit}.');
+                ? 'Minimum order: 5 boxes (${product.unitsPerCase * 5} bottles). Sold in full cartons.'
+                : 'Minimum order: ${product.minOrderQuantity} ${product.unit}.');
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Product Details'),
-      ),
+      appBar: AppBar(title: const Text('Product Details')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -80,24 +82,22 @@ class ProductDetailScreen extends StatelessWidget {
                 color: Color(0xFF0284C7),
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(
-                  product.isActive ? Icons.check_circle : Icons.cancel,
-                  color: product.isActive ? Colors.green : Colors.red,
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  product.isActive ? 'Available for Order' : 'Currently Unavailable',
-                  style: TextStyle(
-                    color: product.isActive ? Colors.green.shade700 : Colors.red.shade700,
-                    fontWeight: FontWeight.w600,
+            if (!product.isActive) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.cancel, color: Colors.red, size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Product Discontinued',
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -108,7 +108,11 @@ class ProductDetailScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: Color(0xFF0284C7), size: 20),
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    color: Color(0xFF0284C7),
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -125,7 +129,11 @@ class ProductDetailScreen extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           moqPolicyDescription,
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF0F172A),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
@@ -137,7 +145,9 @@ class ProductDetailScreen extends StatelessWidget {
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
-                backgroundColor: !product.isActive ? Colors.grey.shade400 : null,
+                backgroundColor: !product.isActive
+                    ? Colors.grey.shade400
+                    : null,
               ),
               onPressed: !product.isActive
                   ? null

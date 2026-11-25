@@ -116,7 +116,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // Authoritative Tax Configuration from CompanyBillingProfile
   double _gstRate = 18.0;
   bool _isPriceInclusiveGst = false;
-  bool _isDeliveryTaxable = true;
+  bool _isDeliveryTaxable = false;
   double _taxableAmount = 0.0;
   double _calculatedTaxAmount = 0.0;
   double _calculatedGrandTotal = 0.0;
@@ -1388,19 +1388,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
+    _syncManualStructuredAddress();
+    final currentAddress = addressController.text.trim();
     final hasStructuredLocality =
         localityController.text.trim().isNotEmpty &&
         (houseNoController.text.trim().isNotEmpty ||
             streetController.text.trim().isNotEmpty);
     final isAddressValid =
-        (rawAddress.isNotEmpty && rawAddress.length >= 5) ||
+        (currentAddress.isNotEmpty && currentAddress.length >= 5) ||
         hasStructuredLocality;
 
     if (!isAddressValid) {
       setState(() {
         _addressValidationError = true;
         _addressValidationBanner =
-            'Delivery address is required. Please add your house/flat, locality, and PIN code before placing the order.';
+            'Delivery address is required. Please provide your House/Flat number, Locality, and PIN code before placing the order.';
       });
       _addressFocusNode.requestFocus();
       if (_addressSectionKey.currentContext != null) {
@@ -4376,7 +4378,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '₹${item.unitPrice.toStringAsFixed(0)} × ${item.quantity}',
+                                    item.isJar
+                                        ? '${item.quantity} Jars • ₹${item.unitPrice.toStringAsFixed(0)} each'
+                                        : '${item.boxCount} Boxes (${item.quantity} Bottles) • ₹${item.unitPrice.toStringAsFixed(0)} / bottle',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF64748B),

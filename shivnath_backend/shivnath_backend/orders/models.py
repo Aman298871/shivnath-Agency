@@ -394,6 +394,29 @@ class Order(models.Model):
         help_text="Timestamp when order was rejected"
     )
 
+    expected_dispatch_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Estimated dispatch/resolution date when on hold or manufacturing"
+    )
+
+    is_delayed = models.BooleanField(
+        default=False,
+        help_text="Flag indicating delivery is delayed beyond normal schedule"
+    )
+
+    delay_reason = models.TextField(
+        blank=True,
+        default='',
+        help_text="Customer-visible reason for delivery delay"
+    )
+
+    revised_delivery_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Revised estimated delivery timeline"
+    )
+
     needs_manufacturing = models.BooleanField(
         default=False,
         help_text="Flag indicating finished stock is insufficient and fresh production run is required"

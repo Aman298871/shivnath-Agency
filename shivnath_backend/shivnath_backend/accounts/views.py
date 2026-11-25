@@ -2539,7 +2539,59 @@ class FranchiseCustomerListView(APIView):
         from datetime import date
         today = date.today()
 
-        # Strict isolation: registered with this franchise OR served by this franchise
+        # Strict isolation + comprehensive territory & service discovery:
+        # 1. Existing explicit relationships
+        existing_rel_cust_ids = set(CustomerFranchiseRelationship.objects.filter(
+            Q(registered_franchise=franchise) | Q(current_serving_franchise=franchise)
+        ).values_list('customer_id', flat=True))
+
+        # 2. Customers with orders served by this franchise
+        order_cust_ids = set(Order.objects.filter(
+            serving_franchise=franchise
+        ).values_list('created_by_id', flat=True))
+
+        # 3. Customers with stock cycles served by this franchise
+        cycle_cust_ids = set(CustomerStockCycle.objects.filter(
+            serving_franchise=franchise
+        ).values_list('customer_id', flat=True))
+
+        # 4. Customers registered in franchise's assigned districts or territories
+        assigned_district_names = list(franchise.assigned_districts.values_list('name', flat=True))
+        territory_names = [t.strip() for t in (franchise.assigned_territories or '').split(',') if t.strip()]
+
+        from .models import UserProfile
+        territory_q = Q()
+        if assigned_district_names:
+            territory_q |= Q(district__in=assigned_district_names)
+        for t_name in territory_names:
+            territory_q |= Q(locality__icontains=t_name) | Q(city__icontains=t_name)
+
+        territory_cust_ids = set()
+        if territory_q:
+            territory_cust_ids = set(UserProfile.objects.filter(
+                role='customer'
+            ).filter(territory_q).values_list('user_id', flat=True))
+
+        all_cust_ids = existing_rel_cust_ids | order_cust_ids | cycle_cust_ids | territory_cust_ids
+
+        # Auto-create relationship for discovered customers so directory is fully populated
+        missing_cust_ids = all_cust_ids - existing_rel_cust_ids
+        for c_id in missing_cust_ids:
+            try:
+                prof = UserProfile.objects.filter(user_id=c_id).first()
+                CustomerFranchiseRelationship.objects.get_or_create(
+                    customer_id=c_id,
+                    defaults={
+                        'registered_franchise': franchise,
+                        'current_serving_franchise': franchise,
+                        'service_status': 'active',
+                        'locality': prof.locality if prof else '',
+                        'pincode': prof.pincode if prof else '',
+                    }
+                )
+            except Exception:
+                pass
+
         relationships = CustomerFranchiseRelationship.objects.filter(
             Q(registered_franchise=franchise) | Q(current_serving_franchise=franchise)
         ).select_related('customer', 'customer__profile', 'district', 'zone', 'registered_franchise')

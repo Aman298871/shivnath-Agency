@@ -13,6 +13,9 @@ class QuotationSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    franchise_id = serializers.IntegerField(source='franchise.id', read_only=True)
+    franchise_name = serializers.CharField(source='franchise.business_name', read_only=True)
+    franchise_dealer_code = serializers.CharField(source='franchise.dealer_code', read_only=True)
     pdf_url = serializers.SerializerMethodField()
     pdf_name = serializers.SerializerMethodField()
     has_pdf = serializers.SerializerMethodField()
@@ -22,7 +25,13 @@ class QuotationSerializer(serializers.ModelSerializer):
         model = Quotation
         fields = [
             'id',
+            'quotation_number',
             'title',
+            'status',
+            'franchise',
+            'franchise_id',
+            'franchise_name',
+            'franchise_dealer_code',
             'quotation_type',
             'product',
             'product_id',
@@ -30,9 +39,19 @@ class QuotationSerializer(serializers.ModelSerializer):
             'quantity_tier',
             'unit_price',
             'total_price',
+            'discount_percent',
+            'additional_charges',
+            'final_amount',
             'applicable_terms',
             'notes',
             'validity',
+            'published_at',
+            'valid_until',
+            'accepted_at',
+            'accepted_by',
+            'rejection_reason',
+            'status_history',
+            'is_read_by_franchise',
             'target_audience',
             'pdf_file',
             'pdf_url',
@@ -43,7 +62,21 @@ class QuotationSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'product_details', 'pdf_url', 'pdf_name', 'has_pdf']
+        read_only_fields = [
+            'id',
+            'quotation_number',
+            'created_at',
+            'updated_at',
+            'product_details',
+            'franchise_name',
+            'franchise_dealer_code',
+            'pdf_url',
+            'pdf_name',
+            'has_pdf',
+            'accepted_at',
+            'accepted_by',
+            'status_history',
+        ]
 
     def get_has_pdf(self, obj):
         return bool(obj.pdf_file and hasattr(obj.pdf_file, 'name') and obj.pdf_file.name)

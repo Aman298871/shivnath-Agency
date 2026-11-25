@@ -271,6 +271,18 @@ class OrderListCreateView(APIView):
                 except Product.DoesNotExist:
                     continue
 
+                # Discontinued / Inactive product check (Check first before packaging/MOQ)
+                if str(getattr(prod, 'status', 'Active')).lower() != 'active':
+                    return Response(
+                        {
+                            'success': False,
+                            'message': f"Product '{prod.name}' is currently discontinued or unavailable for ordering.",
+                            'error_code': 'PRODUCT_DISCONTINUED',
+                            'product_id': prod.id,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 # Packaging and MOQ validation (Policy A: max(Admin Baseline, Serving Franchise MOQ))
                 try:
                     eval_franchise = creator_fp if creator_fp else serving_franchise
@@ -286,19 +298,6 @@ class OrderListCreateView(APIView):
                             'error_code': 'PACKAGING_RULE_VIOLATION',
                             'product_id': prod.id,
                             'product_name': prod.name,
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-
-                # Discontinued / Inactive product check
-                if str(getattr(prod, 'status', 'Active')).lower() != 'active':
-                    return Response(
-                        {
-                            'success': False,
-                            'message': f"Product '{prod.name}' is currently discontinued or unavailable for ordering.",
-                            'error_code': 'PRODUCT_DISCONTINUED',
-                            'product_id': prod.id,
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
@@ -621,10 +620,9 @@ class OrderListCreateView(APIView):
                     description=f"Water Wallet payment for order {order.order_code}"
                 )
 
-            # Update stock and create OrderItems
+            # Create OrderItems without premature stock decrement or blocking reservation
+            # Physical stock allocation and decrement are handled during Admin/Franchise fulfillment & dispatch
             for prod, qty, price in validated_order_items:
-                prod.stock = max(0, prod.stock - qty)
-                prod.save(update_fields=['stock'])
                 OrderItem.objects.create(
                     order=order,
                     product=prod,
@@ -643,13 +641,6 @@ class OrderListCreateView(APIView):
                 changed_by=creator,
                 notes='Order placed by customer.',
             )
-
-            # Perform atomic FEFO batch reservation (routes to manufacturing if stock is partial or 0)
-            from inventory.services import reserve_order_stock_fefo_atomic
-            try:
-                reserve_order_stock_fefo_atomic(order, allow_partial=True)
-            except Exception:
-                pass
 
             # Start/Renew Active Stock Cycle with permanent serving franchise association and snapshots
             stock_cycle = None
@@ -1306,6 +1297,11 @@ class OrderStatusUpdateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            expected_dispatch_date = request.data.get('expected_dispatch_date')
+            is_delayed = bool(request.data.get('is_delayed'))
+            delay_reason = request.data.get('delay_reason', '').strip()
+            revised_delivery_date = request.data.get('revised_delivery_date')
+
             updated_order = transition_order_status(
                 order,
                 new_status,
@@ -1313,6 +1309,10 @@ class OrderStatusUpdateView(APIView):
                 notes=notes,
                 reason_category=reason_category,
                 bypass_validation=True,
+                expected_dispatch_date=expected_dispatch_date,
+                is_delayed=is_delayed,
+                delay_reason=delay_reason,
+                revised_delivery_date=revised_delivery_date,
             )
 
             allowed_next = ALLOWED_ORDER_TRANSITIONS.get(new_status, [])

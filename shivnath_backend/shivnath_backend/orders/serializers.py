@@ -419,9 +419,13 @@ class OrderSerializer(serializers.ModelSerializer):
             'hold_reason_category',
             'hold_reason',
             'hold_at',
+            'expected_dispatch_date',
             'rejection_reason_category',
             'rejection_reason',
             'rejected_at',
+            'is_delayed',
+            'delay_reason',
+            'revised_delivery_date',
             'needs_manufacturing',
 
             'payment_status',
@@ -722,25 +726,45 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_customer_status_message(self, obj):
         st = (obj.status or '').lower().strip()
         if st == 'on_hold':
+            reason_text = (obj.hold_reason or '').strip()
             cat = (obj.hold_reason_category or '').upper()
-            if cat in ['INSUFFICIENT_STOCK', 'MANUFACTURING_REQUIRED']:
-                return "Your order requires fresh bottling preparation. We will update you once it is ready for dispatch."
+            if reason_text:
+                msg = f"Order temporarily on hold: {reason_text}"
+            elif cat in ['INSUFFICIENT_STOCK', 'MANUFACTURING_REQUIRED']:
+                msg = "Your order requires fresh bottling preparation. We will update you once it is ready for dispatch."
             elif cat in ['RAW_MATERIAL_UNAVAILABLE', 'PRODUCTION_DELAY']:
-                return "Your order is temporarily on hold. Our team is preparing fresh production and will update you shortly."
+                msg = "Your order is temporarily on hold. Our team is preparing fresh production and will update you shortly."
             elif cat == 'QUALITY_INSPECTION':
-                return "Your order is currently undergoing mandatory quality inspection."
+                msg = "Your order is currently undergoing mandatory quality inspection."
             elif cat == 'LOGISTICS_ISSUE':
-                return "Your delivery is being scheduled with our logistics team. We will notify you when out for delivery."
-            return "Your order is temporarily on hold. We are preparing your order and will update you shortly."
+                msg = "Your delivery is being scheduled with our logistics team. We will notify you when out for delivery."
+            else:
+                msg = "Your order is temporarily on hold. We are preparing your order and will update you shortly."
+
+            if getattr(obj, 'expected_dispatch_date', None):
+                exp = obj.expected_dispatch_date
+                exp_str = exp.strftime('%d %b %Y') if hasattr(exp, 'strftime') else str(exp)
+                msg += f" (Estimated dispatch: {exp_str})"
+            return msg
+
         elif st == 'rejected':
+            reason_text = (obj.rejection_reason or '').strip()
             cat = (obj.rejection_reason_category or '').upper()
-            if cat == 'OUT_OF_SERVICE_AREA':
+            if reason_text:
+                return f"Order could not be fulfilled: {reason_text}"
+            elif cat == 'OUT_OF_SERVICE_AREA':
                 return "Your delivery address is currently outside our active delivery radius."
             elif cat == 'PRODUCT_DISCONTINUED':
                 return "The requested product is currently unavailable for order."
             elif cat == 'INVALID_ORDER_DETAILS':
                 return "Your order details could not be verified. Please contact support."
             return "Your order could not be fulfilled at this time. Our customer support team will assist you."
+
+        elif getattr(obj, 'is_delayed', False) and getattr(obj, 'delay_reason', None):
+            rev_date = getattr(obj, 'revised_delivery_date', None)
+            rev_str = f" (New estimated delivery: {rev_date.strftime('%d %b %Y') if hasattr(rev_date, 'strftime') else str(rev_date)})" if rev_date else ""
+            return f"Delivery update: {obj.delay_reason}{rev_str}"
+
         elif st == 'order_placement':
             return "Thank you for your order! Our team has received your order and is reviewing it."
         elif st in ['plant_approval', 'invoice_generated']:

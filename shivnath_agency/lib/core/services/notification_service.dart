@@ -601,6 +601,7 @@ class NotificationService with WidgetsBindingObserver {
 
       final candidates = [
         '${AppConstants.apiBaseUrl}/api/notifications/register-device/',
+        '${AppConstants.apiBaseUrl}/api/auth/register-device/',
         '${AppConstants.apiBaseUrl}/api/auth/notifications/register-device/',
       ];
 
@@ -711,6 +712,7 @@ class NotificationService with WidgetsBindingObserver {
 
       final candidates = [
         '${AppConstants.apiBaseUrl}/api/notifications/unregister-device/',
+        '${AppConstants.apiBaseUrl}/api/auth/unregister-device/',
         '${AppConstants.apiBaseUrl}/api/auth/notifications/unregister-device/',
       ];
 
@@ -781,6 +783,18 @@ class NotificationService with WidgetsBindingObserver {
           'dbId': dbId,
         },
       );
+      return;
+    }
+
+    // 2. Direct deep-link to Quotations
+    if (screen.contains('quotation') || notifType.contains('quotation')) {
+      if (userRole == 'admin' || userRole == 'super_admin') {
+        nav.pushNamed(AppRoutes.adminQuotations);
+      } else if (userRole == 'franchise' || userRole == 'dealer') {
+        nav.pushNamed(AppRoutes.franchiseQuotations);
+      } else {
+        nav.pushNamed(AppRoutes.customerDashboard);
+      }
       return;
     }
 

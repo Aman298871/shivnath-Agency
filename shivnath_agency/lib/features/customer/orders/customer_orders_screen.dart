@@ -507,6 +507,45 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                  if ((order['customer_status_message'] ?? '').toString().trim().isNotEmpty ||
+                      (order['hold_reason'] ?? '').toString().trim().isNotEmpty ||
+                      (order['rejection_reason'] ?? '').toString().trim().isNotEmpty ||
+                      (order['delay_reason'] ?? '').toString().trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: (status.toLowerCase().contains('hold'))
+                            ? const Color(0xFFFFFBEB)
+                            : (status.toLowerCase().contains('reject'))
+                            ? const Color(0xFFFEF2F2)
+                            : const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: (status.toLowerCase().contains('hold'))
+                              ? const Color(0xFFFDE68A)
+                              : (status.toLowerCase().contains('reject'))
+                              ? const Color(0xFFFECACA)
+                              : const Color(0xFFBBF7D0),
+                        ),
+                      ),
+                      child: Text(
+                        (order['customer_status_message'] ?? order['hold_reason'] ?? order['rejection_reason'] ?? order['delay_reason']).toString(),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: (status.toLowerCase().contains('hold'))
+                              ? const Color(0xFFB45309)
+                              : (status.toLowerCase().contains('reject'))
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFF15803D),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
                   const SizedBox(height: 6),

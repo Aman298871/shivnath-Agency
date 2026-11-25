@@ -30,6 +30,7 @@ export default function MoqDelivery() {
   const [rules, setRules] = useState([]);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [franchises, setFranchises] = useState([]);
   const [bands, setBands] = useState([]);
   const [origin, setOrigin] = useState({
     name: 'Shivnath Agency Central Dispatch',
@@ -54,6 +55,7 @@ export default function MoqDelivery() {
   const [ruleName, setRuleName] = useState('');
   const [ruleCategoryId, setRuleCategoryId] = useState('');
   const [ruleProductId, setRuleProductId] = useState('');
+  const [ruleFranchiseId, setRuleFranchiseId] = useState('');
   const [ruleChannel, setRuleChannel] = useState('CUSTOMER');
   const [ruleSalesUnit, setRuleSalesUnit] = useState('CARTON');
   const [ruleUnitsPerCarton, setRuleUnitsPerCarton] = useState(24);
@@ -85,17 +87,20 @@ export default function MoqDelivery() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [rulesRes, prodsRes, originRes, bandsRes, catsRes] = await Promise.all([
+      const [rulesRes, prodsRes, originRes, bandsRes, catsRes, franchisesRes] = await Promise.all([
         apiClient.get('/api/products/packaging-rules/'),
         apiClient.get('/api/products/'),
         apiClient.get('/api/billing/delivery/origin/'),
         apiClient.get('/api/billing/delivery/bands/'),
         apiClient.get('/api/products/categories/').catch(() => ({ data: [] })),
+        apiClient.get('/api/accounts/franchises/').catch(() => ({ data: [] })),
       ]);
 
       setRules(rulesRes.data?.rules || rulesRes.data?.results || []);
       const prodList = prodsRes.data?.products || prodsRes.data?.results || (Array.isArray(prodsRes.data) ? prodsRes.data : []);
       setProducts(prodList);
+      const fList = franchisesRes.data?.franchises || franchisesRes.data?.results || (Array.isArray(franchisesRes.data) ? franchisesRes.data : []);
+      setFranchises(fList);
       if (originRes.data?.origin) {
         setOrigin(originRes.data.origin);
       }
@@ -149,6 +154,7 @@ export default function MoqDelivery() {
     setRuleName('');
     setRuleCategoryId('');
     setRuleProductId('');
+    setRuleFranchiseId('');
     setRuleChannel('CUSTOMER');
     setRuleSalesUnit('CARTON');
     setRuleUnitsPerCarton(24);
@@ -166,6 +172,7 @@ export default function MoqDelivery() {
     setRuleName(rule.name || `Rule #${rule.id}`);
     setRuleCategoryId(rule.category_id || rule.category || '');
     setRuleProductId(rule.product_id || rule.product || '');
+    setRuleFranchiseId(rule.franchise_id || rule.franchise || '');
     setRuleChannel(rule.applies_to || rule.channel || 'CUSTOMER');
     setRuleSalesUnit(rule.sales_unit || 'CARTON');
     setRuleUnitsPerCarton(rule.units_per_carton || 24);
@@ -188,6 +195,7 @@ export default function MoqDelivery() {
         name: ruleName.trim() || `MOQ Rule #${Date.now()}`,
         product: ruleProductId ? parseInt(ruleProductId, 10) : null,
         category: ruleCategoryId ? parseInt(ruleCategoryId, 10) : null,
+        franchise: ruleFranchiseId ? parseInt(ruleFranchiseId, 10) : null,
         applies_to: ruleChannel,
         channel: ruleChannel,
         sales_unit: ruleSalesUnit,
@@ -492,6 +500,7 @@ export default function MoqDelivery() {
                 <thead className="border-b border-slate-100 text-slate-500 font-semibold uppercase">
                   <tr>
                     <th className="pb-3">Rule Name & Target</th>
+                    <th className="pb-3">Scope / Franchise</th>
                     <th className="pb-3">Channel</th>
                     <th className="pb-3">Min Order Qty (MOQ)</th>
                     <th className="pb-3">Pack Multiple</th>
@@ -503,7 +512,7 @@ export default function MoqDelivery() {
                 <tbody className="divide-y divide-slate-100">
                   {rules.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="py-12 text-center text-slate-400">
+                      <td colSpan="8" className="py-12 text-center text-slate-400">
                         No packaging rules found. Click &quot;Create MOQ Rule&quot; to configure.
                       </td>
                     </tr>
@@ -520,6 +529,17 @@ export default function MoqDelivery() {
                             <div className="text-[11px] text-slate-500">
                               {prod ? prod.name : r.category_name || r.category || 'All Products'}
                             </div>
+                          </td>
+                          <td className="py-3.5">
+                            {r.is_baseline || !r.franchise ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                Company Baseline
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                {r.franchise_name || `Franchise #${r.franchise}`}
+                              </span>
+                            )}
                           </td>
                           <td className="py-3.5 font-semibold text-slate-700">
                             {r.applies_to || r.channel || 'CUSTOMER'}
@@ -1033,6 +1053,22 @@ export default function MoqDelivery() {
                 placeholder="e.g. 500ml Retail Cartons MOQ"
                 className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-sky-500 focus:outline-none"
               />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700">Rule Scope / Target Franchise</label>
+              <select
+                value={ruleFranchiseId}
+                onChange={(e) => setRuleFranchiseId(e.target.value)}
+                className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-sky-500 focus:outline-none"
+              >
+                <option value="">Company Baseline (Applies to all franchises)</option>
+                {franchises.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    Franchise: {f.business_name} ({f.dealer_code || f.city || ''})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

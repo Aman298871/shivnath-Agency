@@ -434,32 +434,51 @@ class _FranchiseCustomersScreenState extends State<FranchiseCustomersScreen> {
             ),
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)))
-                : _customers.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.people_outline, size: 60, color: Color(0xFFCBD5E1)),
-                              const SizedBox(height: 12),
-                              const Text(
-                                'No customers found in your territory',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
+            child: RefreshIndicator(
+              onRefresh: _fetchCustomers,
+              color: const Color(0xFF0284C7),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF0284C7)))
+                  : _customers.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.people_outline, size: 60, color: Color(0xFFCBD5E1)),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'No customers found in your territory',
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    const Text(
+                                      'Customers registered in or assigned to your zone will appear here.',
+                                      style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    OutlinedButton.icon(
+                                      onPressed: _fetchCustomers,
+                                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                                      label: const Text('Refresh Directory'),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xFF0284C7),
+                                        side: const BorderSide(color: Color(0xFFBAE6FD)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Customers registered in or assigned to your zone will appear here.',
-                                style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
+                            ),
+                          ],
+                        )
+                      : ListView.separated(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         itemCount: _customers.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -583,6 +602,7 @@ class _FranchiseCustomersScreenState extends State<FranchiseCustomersScreen> {
                           );
                         },
                       ),
+            ),
           ),
         ],
       ),

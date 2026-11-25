@@ -252,6 +252,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         children: [
                           _buildHeaderCard(),
                           const SizedBox(height: 16),
+                          _buildStatusReasonAlertCard(),
+                          const SizedBox(height: 16),
                           _buildInvoiceCard(),
                           if (_isAdminOrStaff && _canUpdateOrders) ...[
                             const SizedBox(height: 16),
@@ -673,6 +675,209 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildStatusReasonAlertCard() {
+    final status = (_order?['status'] ?? widget.status ?? '').toString().toLowerCase().trim();
+    final isHold = status == 'on_hold' || status == 'hold';
+    final isRejected = status == 'rejected';
+    final isDelayed = _order?['is_delayed'] == true || (_order?['delay_reason'] ?? '').toString().trim().isNotEmpty;
+    final customerMsg = (_order?['customer_status_message'] ?? '').toString().trim();
+    final holdReason = (_order?['hold_reason'] ?? '').toString().trim();
+    final holdCat = (_order?['hold_reason_category'] ?? '').toString().trim();
+    final rejReason = (_order?['rejection_reason'] ?? '').toString().trim();
+    final rejCat = (_order?['rejection_reason_category'] ?? '').toString().trim();
+    final delayReason = (_order?['delay_reason'] ?? '').toString().trim();
+    final expectedDispatch = (_order?['expected_dispatch_date'] ?? '').toString().trim();
+    final revisedDate = (_order?['revised_delivery_date'] ?? '').toString().trim();
+
+    if (!isHold && !isRejected && !isDelayed && customerMsg.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (isHold) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFFDE68A), width: 1.5),
+        ),
+        color: const Color(0xFFFFFBEB),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDE68A),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.pause_circle_filled_rounded, color: Color(0xFFB45309), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Order Temporarily On Hold',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF92400E)),
+                        ),
+                        if (holdCat.isNotEmpty)
+                          Text(
+                            'Reason: ${holdCat.replaceAll('_', ' ')}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFFB45309)),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                holdReason.isNotEmpty ? holdReason : (customerMsg.isNotEmpty ? customerMsg : 'Your order is currently undergoing processing. Our team will update you shortly.'),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF78350F), height: 1.4),
+              ),
+              if (expectedDispatch.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.event_available_rounded, size: 14, color: Color(0xFFB45309)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Estimated Dispatch: $expectedDispatch',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF92400E)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (isRejected) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFFECACA), width: 1.5),
+        ),
+        color: const Color(0xFFFEF2F2),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.cancel_rounded, color: Color(0xFFDC2626), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Order Could Not Be Fulfilled',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF991B1B)),
+                        ),
+                        if (rejCat.isNotEmpty)
+                          Text(
+                            'Reason: ${rejCat.replaceAll('_', ' ')}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFFB91C1C)),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                rejReason.isNotEmpty ? rejReason : (customerMsg.isNotEmpty ? customerMsg : 'This order was rejected and cannot be fulfilled.'),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF7F1D1D), height: 1.4),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Note: If payment was already debited, your refund is handled automatically to your original payment method or wallet.',
+                style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFF991B1B)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (isDelayed) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFFED7AA), width: 1.5),
+        ),
+        color: const Color(0xFFFFF7ED),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEDD5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.schedule_rounded, color: Color(0xFFEA580C), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Delivery Schedule Update',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF9A3412)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                delayReason.isNotEmpty ? delayReason : customerMsg,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF7C2D12), height: 1.4),
+              ),
+              if (revisedDate.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Revised Delivery Date: $revisedDate',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFFC2410C)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildFulfillmentCard() {

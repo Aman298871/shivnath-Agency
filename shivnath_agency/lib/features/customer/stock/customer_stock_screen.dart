@@ -555,7 +555,7 @@ class _CustomerStockScreenState extends State<CustomerStockScreen> {
                         status == 'hold'
                             ? 'PAUSED / ON HOLD'
                             : isLowStock
-                            ? 'LOW STOCK'
+                            ? 'REFILL DUE'
                             : status.toUpperCase(),
                         style: TextStyle(
                           color: statusColor,

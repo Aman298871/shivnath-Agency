@@ -80,7 +80,18 @@ def validate_payment_stage(order, new_payment_status):
 
 
 @transaction.atomic
-def transition_order_status(order, new_status, actor=None, notes='', reason_category='', bypass_validation=False):
+def transition_order_status(
+    order,
+    new_status,
+    actor=None,
+    notes='',
+    reason_category='',
+    bypass_validation=False,
+    expected_dispatch_date=None,
+    is_delayed=False,
+    delay_reason='',
+    revised_delivery_date=None,
+):
     """
     Authoritative state machine transition for Order.
     Enforces validation, logs immutable OrderStatusHistory,
@@ -97,6 +108,16 @@ def transition_order_status(order, new_status, actor=None, notes='', reason_cate
 
     order._actor = actor
     order._status_notes = notes
+
+    update_fields = ['status', 'updated_at']
+
+    if is_delayed or delay_reason:
+        order.is_delayed = True
+        order.delay_reason = delay_reason or notes
+        update_fields.extend(['is_delayed', 'delay_reason'])
+        if revised_delivery_date:
+            order.revised_delivery_date = revised_delivery_date
+            update_fields.append('revised_delivery_date')
 
     if new_clean == 'dispatch':
         _inv_dispatch_order_atomic(order, actor=actor)
@@ -125,16 +146,20 @@ def transition_order_status(order, new_status, actor=None, notes='', reason_cate
         order.rejection_reason_category = reason_category
         order.rejection_reason = notes
         order.rejected_at = timezone.now()
-        order.save(update_fields=['status', 'rejection_reason_category', 'rejection_reason', 'rejected_at', 'updated_at'])
+        update_fields.extend(['rejection_reason_category', 'rejection_reason', 'rejected_at'])
     elif new_clean == 'on_hold':
         order.status = 'on_hold'
         order.hold_reason_category = reason_category
         order.hold_reason = notes
         order.hold_at = timezone.now()
-        order.save(update_fields=['status', 'hold_reason_category', 'hold_reason', 'hold_at', 'updated_at'])
+        update_fields.extend(['hold_reason_category', 'hold_reason', 'hold_at'])
+        if expected_dispatch_date:
+            order.expected_dispatch_date = expected_dispatch_date
+            update_fields.append('expected_dispatch_date')
     else:
         order.status = new_clean
-        order.save(update_fields=['status', 'updated_at'])
+
+    order.save(update_fields=list(set(update_fields)))
 
     # Ensure invoice is generated upon approval/invoicing
     if new_clean in ['invoice_generated', 'plant_approval']:

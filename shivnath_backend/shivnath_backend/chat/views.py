@@ -134,29 +134,71 @@ class AdminChatbotOptionDetailView(APIView):
 
 
 # =========================================================
-# QUOTATION MANAGEMENT (CRUD + PUBLIC VIEW)
+# QUOTATION MANAGEMENT (FRANCHISE ONLY & ADMIN ACCESS)
 # =========================================================
+
+def get_user_role(user):
+    if not user or not user.is_authenticated:
+        return 'anonymous'
+    if user.is_superuser or user.is_staff:
+        return 'admin'
+    prof = getattr(user, 'profile', None) or getattr(user, 'userprofile', None)
+    if prof and prof.role in ['admin', 'super_admin', 'superadmin']:
+        return 'admin'
+    if hasattr(user, 'franchise_profile'):
+        return 'franchise'
+    if prof and prof.role == 'franchise':
+        return 'franchise'
+    return 'customer'
+
 
 class QuotationListCreateView(APIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
-
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [AllowAny()]
-        return [IsAdminRole()]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        target = request.query_params.get("target", "").strip().lower()
+        role = get_user_role(request.user)
+        if role == 'customer':
+            return Response({
+                "success": False,
+                "message": "Access Denied: Quotations are exclusively accessible to Franchises and Administrators.",
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        status_param = request.query_params.get("status", "").strip().lower()
         quotation_type = request.query_params.get("type", "").strip().lower()
+        franchise_id_param = request.query_params.get("franchise_id", "").strip()
 
-        queryset = Quotation.objects.select_related("product").all().order_by("-updated_at")
+        queryset = Quotation.objects.select_related("product", "franchise").all().order_by("-updated_at")
 
-        # Allow public users to only see active quotations
-        if not (request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser or getattr(getattr(request.user, 'profile', None), 'role', '') == 'admin')):
-            queryset = queryset.filter(is_active=True)
+        if role == 'franchise':
+            f_profile = getattr(request.user, 'franchise_profile', None)
+            if not f_profile:
+                return Response({
+                    "success": False,
+                    "message": "Franchise profile not found for authenticated user.",
+                }, status=status.HTTP_403_FORBIDDEN)
+            # Franchise can strictly view ONLY their own quotations and never drafts
+            queryset = queryset.filter(franchise=f_profile).exclude(status='draft')
+        elif role == 'admin':
+            if franchise_id_param and franchise_id_param.isdigit():
+                queryset = queryset.filter(franchise_id=int(franchise_id_param))
 
-        if target in ["customer", "franchise"]:
-            queryset = queryset.filter(Q(target_audience=target) | Q(target_audience="both"))
+        # Check for expired quotations dynamically
+        now_date = timezone.now().date()
+        for q in queryset.filter(status='published', valid_until__isnull=False, valid_until__lt=now_date):
+            q.status = 'expired'
+            q.status_history.append({
+                "action": "expired",
+                "timestamp": timezone.now().isoformat(),
+                "reason": f"Validity expired on {q.valid_until}"
+            })
+            q.save(update_fields=['status', 'status_history'])
+
+        if status_param:
+            if status_param in ['new', 'pending']:
+                queryset = queryset.filter(status='published')
+            else:
+                queryset = queryset.filter(status=status_param)
 
         if quotation_type:
             queryset = queryset.filter(quotation_type=quotation_type)
@@ -169,40 +211,154 @@ class QuotationListCreateView(APIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request):
-        serializer = QuotationSerializer(data=request.data, context={'request': request})
+        role = get_user_role(request.user)
+        if role != 'admin':
+            return Response({
+                "success": False,
+                "message": "Permission Denied: Only Administrators can create and issue quotations.",
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data.copy()
+        # Enforce Franchise assignment validation
+        franchise_id = data.get('franchise') or data.get('franchise_id')
+        if franchise_id:
+            from accounts.models import FranchiseProfile
+            f_obj = FranchiseProfile.objects.filter(id=franchise_id).first()
+            if not f_obj:
+                return Response({
+                    "success": False,
+                    "message": f"Target franchise with ID '{franchise_id}' not found.",
+                }, status=status.HTTP_400_BAD_REQUEST)
+            data['franchise'] = f_obj.id
+
+        # Target audience is strictly Franchise
+        data['target_audience'] = 'franchise'
+        if data.get('status') == 'published':
+            data['published_at'] = timezone.now()
+
+        serializer = QuotationSerializer(data=data, context={'request': request})
         if not serializer.is_valid():
             return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         quotation = serializer.save()
+        quotation.status_history.append({
+            "action": "created",
+            "status": quotation.status,
+            "timestamp": timezone.now().isoformat(),
+            "user": request.user.username,
+        })
+        quotation.save(update_fields=['status_history'])
+
+        # Notify franchise via system event and FCM push
+        if quotation.franchise and quotation.status == 'published':
+            from accounts.models import publish_system_event
+            publish_system_event(
+                event_type='quotation.received',
+                payload={
+                    'quotation_id': quotation.id,
+                    'quotation_number': quotation.quotation_number,
+                    'title': quotation.title,
+                    'final_amount': float(quotation.final_amount),
+                    'franchise_id': quotation.franchise.id,
+                },
+                target_scope='franchise',
+                franchise_id=quotation.franchise.id
+            )
+            try:
+                from accounts.fcm_services import notify_quotation_created
+                notify_quotation_created(quotation)
+            except Exception as fcm_err:
+                logger.warning("FCM quotation notification warning: %s", fcm_err)
+
         return Response({
             "success": True,
-            "message": "Quotation template created successfully.",
+            "message": "Franchise quotation created successfully.",
             "quotation": QuotationSerializer(quotation, context={'request': request}).data,
         }, status=status.HTTP_201_CREATED)
 
 
 class QuotationDetailView(APIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
-
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [AllowAny()]
-        return [IsAdminRole()]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        quotation = get_object_or_404(Quotation.objects.select_related("product"), pk=pk)
+        role = get_user_role(request.user)
+        if role == 'customer':
+            return Response({
+                "success": False,
+                "message": "Access Denied: Quotations are exclusively accessible to Franchises and Administrators.",
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        quotation = get_object_or_404(Quotation.objects.select_related("product", "franchise"), pk=pk)
+
+        if role == 'franchise':
+            f_profile = getattr(request.user, 'franchise_profile', None)
+            if not f_profile or quotation.franchise != f_profile:
+                return Response({
+                    "success": False,
+                    "message": "Access Denied: You cannot view quotations assigned to another franchise.",
+                }, status=status.HTTP_403_FORBIDDEN)
+            if quotation.status == 'draft':
+                return Response({
+                    "success": False,
+                    "message": "This quotation is currently in draft and has not been published.",
+                }, status=status.HTTP_403_FORBIDDEN)
+            # Mark read
+            if not quotation.is_read_by_franchise:
+                quotation.is_read_by_franchise = True
+                quotation.save(update_fields=['is_read_by_franchise'])
+
         return Response({
             "success": True,
             "quotation": QuotationSerializer(quotation, context={'request': request}).data,
         }, status=status.HTTP_200_OK)
 
     def patch(self, request, pk):
-        quotation = get_object_or_404(Quotation, pk=pk)
+        role = get_user_role(request.user)
+        if role == 'customer':
+            return Response({
+                "success": False,
+                "message": "Access Denied: Customers cannot modify quotations.",
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        quotation = get_object_or_404(Quotation.objects.select_related("franchise"), pk=pk)
+
+        # Allow assigned franchise to accept/reject via PATCH
+        action = str(request.data.get('action', '')).strip().lower()
+        if role == 'franchise':
+            if action in ['accept', 'reject']:
+                return FranchiseQuotationActionView().post(request, pk)
+            return Response({
+                "success": False,
+                "message": "Permission Denied: Only Administrators can modify quotation terms and pricing.",
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        if role != 'admin':
+            return Response({
+                "success": False,
+                "message": "Permission Denied: Only Administrators can modify quotation terms and pricing.",
+            }, status=status.HTTP_403_FORBIDDEN)
+        old_status = quotation.status
         serializer = QuotationSerializer(quotation, data=request.data, partial=True, context={'request': request})
         if not serializer.is_valid():
             return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         updated = serializer.save()
+        if old_status != updated.status:
+            updated.status_history.append({
+                "action": f"status_changed_to_{updated.status}",
+                "timestamp": timezone.now().isoformat(),
+                "user": request.user.username,
+            })
+            updated.save(update_fields=['status_history'])
+
+            if updated.status == 'published' and updated.franchise:
+                try:
+                    from accounts.fcm_services import notify_quotation_created
+                    notify_quotation_created(updated)
+                except Exception as fcm_err:
+                    logger.warning("FCM quotation publish notification warning: %s", fcm_err)
+
         return Response({
             "success": True,
             "message": "Quotation updated successfully.",
@@ -210,6 +366,13 @@ class QuotationDetailView(APIView):
         }, status=status.HTTP_200_OK)
 
     def delete(self, request, pk):
+        role = get_user_role(request.user)
+        if role != 'admin':
+            return Response({
+                "success": False,
+                "message": "Permission Denied: Only Administrators can delete quotations.",
+            }, status=status.HTTP_403_FORBIDDEN)
+
         quotation = get_object_or_404(Quotation, pk=pk)
         title = quotation.title
         if quotation.pdf_file:
@@ -224,24 +387,189 @@ class QuotationDetailView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+class FranchiseQuotationActionView(APIView):
+    """
+    Franchise-side Quotation Actions: Accept or Reject with mandatory reason.
+    Exclusively available to the designated Franchise or Admin.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        role = get_user_role(request.user)
+        if role == 'customer':
+            return Response({
+                "success": False,
+                "message": "Access Denied: Customers cannot perform actions on franchise quotations.",
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        quotation = get_object_or_404(Quotation.objects.select_related("franchise"), pk=pk)
+
+        if role == 'franchise':
+            f_profile = getattr(request.user, 'franchise_profile', None)
+            if not f_profile or quotation.franchise != f_profile:
+                return Response({
+                    "success": False,
+                    "message": "Access Denied: You do not have authorization to act on this quotation.",
+                }, status=status.HTTP_403_FORBIDDEN)
+
+        action = str(request.data.get('action', '')).strip().lower()
+
+        if action == 'accept':
+            if quotation.status == 'accepted':
+                return Response({
+                    "success": False,
+                    "message": "This quotation has already been accepted.",
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if quotation.status in ['rejected', 'withdrawn', 'expired', 'draft']:
+                return Response({
+                    "success": False,
+                    "message": f"Cannot accept quotation in '{quotation.status}' state.",
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check validity expiry
+            if quotation.valid_until and quotation.valid_until < timezone.now().date():
+                quotation.status = 'expired'
+                quotation.status_history.append({
+                    "action": "expired",
+                    "timestamp": timezone.now().isoformat(),
+                    "reason": f"Validity expired on {quotation.valid_until}"
+                })
+                quotation.save(update_fields=['status', 'status_history'])
+                return Response({
+                    "success": False,
+                    "message": f"This quotation expired on {quotation.valid_until} and can no longer be accepted.",
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            quotation.status = 'accepted'
+            quotation.accepted_at = timezone.now()
+            quotation.accepted_by = request.user
+            quotation.status_history.append({
+                "action": "accepted",
+                "timestamp": timezone.now().isoformat(),
+                "user": request.user.username,
+                "franchise": quotation.franchise.business_name if quotation.franchise else None,
+            })
+            quotation.save()
+
+            # Broadcast SSE notification to Admin
+            from accounts.models import publish_system_event
+            publish_system_event(
+                event_type='quotation.accepted',
+                payload={
+                    'quotation_id': quotation.id,
+                    'quotation_number': quotation.quotation_number,
+                    'title': quotation.title,
+                    'franchise_id': quotation.franchise_id,
+                    'final_amount': float(quotation.final_amount),
+                    'accepted_by': request.user.username,
+                },
+                target_scope='admin'
+            )
+
+            try:
+                from accounts.fcm_services import notify_quotation_status_update
+                notify_quotation_status_update(quotation, action='accepted', actor_name=request.user.username)
+            except Exception as fcm_err:
+                logger.warning("FCM quotation accepted notification warning: %s", fcm_err)
+
+            return Response({
+                "success": True,
+                "message": f"Quotation '{quotation.quotation_number}' accepted successfully.",
+                "quotation": QuotationSerializer(quotation, context={'request': request}).data,
+            }, status=status.HTTP_200_OK)
+
+        elif action == 'reject':
+            reason = str(request.data.get('reason', '')).strip()
+            if not reason or len(reason) < 3:
+                return Response({
+                    "success": False,
+                    "message": "A mandatory rejection reason is required (minimum 3 characters).",
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            if quotation.status in ['accepted', 'withdrawn', 'expired', 'draft']:
+                return Response({
+                    "success": False,
+                    "message": f"Cannot reject quotation in '{quotation.status}' state.",
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            quotation.status = 'rejected'
+            quotation.rejection_reason = reason
+            quotation.status_history.append({
+                "action": "rejected",
+                "reason": reason,
+                "timestamp": timezone.now().isoformat(),
+                "user": request.user.username,
+                "franchise": quotation.franchise.business_name if quotation.franchise else None,
+            })
+            quotation.save()
+
+            # Broadcast SSE notification to Admin
+            from accounts.models import publish_system_event
+            publish_system_event(
+                event_type='quotation.rejected',
+                payload={
+                    'quotation_id': quotation.id,
+                    'quotation_number': quotation.quotation_number,
+                    'title': quotation.title,
+                    'franchise_id': quotation.franchise_id,
+                    'rejection_reason': reason,
+                    'rejected_by': request.user.username,
+                },
+                target_scope='admin'
+            )
+
+            try:
+                from accounts.fcm_services import notify_quotation_status_update
+                notify_quotation_status_update(quotation, action='rejected', actor_name=request.user.username, reason=reason)
+            except Exception as fcm_err:
+                logger.warning("FCM quotation rejected notification warning: %s", fcm_err)
+
+            return Response({
+                "success": True,
+                "message": f"Quotation '{quotation.quotation_number}' rejected.",
+                "quotation": QuotationSerializer(quotation, context={'request': request}).data,
+            }, status=status.HTTP_200_OK)
+
+        else:
+            return Response({
+                "success": False,
+                "message": "Invalid action. Supported actions are 'accept' and 'reject'.",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
 class QuotationPDFDownloadView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pk=None):
+        role = get_user_role(request.user)
+        if role == 'customer':
+            return Response({
+                "success": False,
+                "message": "Access Denied: Customers cannot access franchise quotation documents.",
+            }, status=status.HTTP_403_FORBIDDEN)
+
         if pk:
-            quotation = get_object_or_404(Quotation.objects.select_related("product"), pk=pk)
+            quotation = get_object_or_404(Quotation.objects.select_related("product", "franchise"), pk=pk)
         else:
             q_type = request.query_params.get("type", "").strip().lower()
-            target = request.query_params.get("target", "").strip().lower()
-            queryset = Quotation.objects.select_related("product").filter(is_active=True)
+            queryset = Quotation.objects.select_related("product", "franchise").filter(is_active=True)
             if q_type:
                 queryset = queryset.filter(quotation_type=q_type)
-            if target:
-                queryset = queryset.filter(Q(target_audience=target) | Q(target_audience="both"))
+            if role == 'franchise':
+                f_profile = getattr(request.user, 'franchise_profile', None)
+                queryset = queryset.filter(franchise=f_profile)
             quotation = queryset.first()
 
         if not quotation:
             return Response({"success": False, "has_pdf": False, "message": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if role == 'franchise':
+            f_profile = getattr(request.user, 'franchise_profile', None)
+            if not f_profile or quotation.franchise != f_profile:
+                return Response({
+                    "success": False,
+                    "message": "Access Denied: You cannot download quotations assigned to another franchise.",
+                }, status=status.HTTP_403_FORBIDDEN)
 
         # Check if actual PDF file is uploaded in database
         if not quotation.pdf_file or not hasattr(quotation.pdf_file, 'path') or not os.path.exists(quotation.pdf_file.path):
@@ -249,7 +577,7 @@ class QuotationPDFDownloadView(APIView):
                 "success": False,
                 "has_pdf": False,
                 "quotation": QuotationSerializer(quotation, context={'request': request}).data,
-                "message": f"No official PDF document is currently attached to quotation '{quotation.title}'."
+                "message": f"No official PDF document is currently attached to quotation '{quotation.quotation_number or quotation.title}'."
             }, status=status.HTTP_404_NOT_FOUND)
 
         # Serve the real uploaded PDF file from database

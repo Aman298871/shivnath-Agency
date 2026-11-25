@@ -15,6 +15,7 @@ export const RealTimeProvider = ({ children }) => {
   const eventSourceRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const lastEventIdRef = useRef(localStorage.getItem('ww_last_event_id') || '');
+  const retryCountRef = useRef(0);
 
   // Fetch persistent notifications on startup
   const fetchInitialNotifications = useCallback(async () => {
@@ -138,6 +139,7 @@ export const RealTimeProvider = ({ children }) => {
       eventSourceRef.current = es;
 
       es.onopen = () => {
+        retryCountRef.current = 0;
         setSyncStatus('live');
       };
 
@@ -178,16 +180,28 @@ export const RealTimeProvider = ({ children }) => {
       });
 
       es.onerror = () => {
-        setSyncStatus('reconnecting');
         es.close();
+        retryCountRef.current += 1;
 
-        // Auto-reconnect after 4 seconds
-        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = setTimeout(() => {
-          if (isAuthenticated) {
-            connectSSE();
-          }
-        }, 4000);
+        // If the server doesn't support SSE or returns 404/502, don't get stuck in an aggressive reconnect loop
+        if (retryCountRef.current > 3) {
+          setSyncStatus('offline');
+          // Slow down retry to every 60 seconds
+          if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (isAuthenticated) {
+              connectSSE();
+            }
+          }, 60000);
+        } else {
+          setSyncStatus('reconnecting');
+          if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (isAuthenticated) {
+              connectSSE();
+            }
+          }, 5000);
+        }
       };
     } catch (err) {
       console.warn('Failed to initialize EventSource:', err);
@@ -196,9 +210,14 @@ export const RealTimeProvider = ({ children }) => {
   }, [isAuthenticated, token, dispatchEvent]);
 
   useEffect(() => {
+    let pollInterval = null;
     if (isAuthenticated) {
       fetchInitialNotifications();
       connectSSE();
+      // Fallback periodic poll every 30 seconds to guarantee fresh notifications even if SSE is offline
+      pollInterval = setInterval(() => {
+        fetchInitialNotifications();
+      }, 30000);
     } else {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -212,6 +231,9 @@ export const RealTimeProvider = ({ children }) => {
       }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (pollInterval) {
+        clearInterval(pollInterval);
       }
     };
   }, [isAuthenticated, connectSSE, fetchInitialNotifications]);

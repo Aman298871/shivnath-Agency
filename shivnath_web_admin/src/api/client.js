@@ -4,10 +4,17 @@ const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
-  // When running locally in browser (localhost:3000), target the local Django server on port 8000
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return 'http://127.0.0.1:8000';
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('ww_custom_api_url');
+    if (custom && custom.trim()) {
+      return custom.trim().replace(/\/+$/, '');
+    }
+    // Only use local 8000 if explicitly opted in via localStorage
+    if (localStorage.getItem('ww_use_local_backend') === 'true') {
+      return 'http://127.0.0.1:8000';
+    }
   }
+  // Default to authoritative Hostinger production backend
   return 'https://api.shivnathagencies.com';
 };
 

@@ -25,12 +25,14 @@ export default function Dashboard() {
     try {
       setIsLoading(true);
       setFetchError('');
+      let fetchSuccessCount = 0;
 
       // 1. Authoritative Admin Dashboard Stats (Identical to Flutter Admin)
       let stats = {};
       try {
         const statsRes = await apiClient.get('/api/auth/admin/dashboard-stats/');
         stats = statsRes.data?.stats || statsRes.data || {};
+        fetchSuccessCount += 1;
       } catch (statsErr) {
         console.warn('Dashboard stats API error:', statsErr);
       }
@@ -41,6 +43,7 @@ export default function Dashboard() {
         const ordersRes = await apiClient.get('/api/orders/');
         orders = ordersRes.data?.orders || ordersRes.data?.results || (Array.isArray(ordersRes.data) ? ordersRes.data : []);
         setRecentOrders(orders.slice(0, 10));
+        fetchSuccessCount += 1;
       } catch (ordErr) {
         console.warn('Orders API error:', ordErr);
       }
@@ -52,8 +55,13 @@ export default function Dashboard() {
         const items = itemsRes.data?.results || itemsRes.data?.items || (Array.isArray(itemsRes.data) ? itemsRes.data : []);
         alerts = items.filter((item) => (item.current_stock || item.quantity || 0) <= (item.threshold || item.minimum_stock_level || 20));
         setLowStockProducts(alerts.slice(0, 5));
+        fetchSuccessCount += 1;
       } catch (invErr) {
         console.warn('Inventory items API error:', invErr);
+      }
+
+      if (fetchSuccessCount === 0) {
+        setFetchError('Unable to connect to backend server. Please verify your connection or session.');
       }
 
       const ordStats = stats.orders || {};
@@ -80,6 +88,11 @@ export default function Dashboard() {
   useEffect(() => {
     fetchDashboardData();
 
+    // Auto-refresh metrics every 30 seconds as background polling
+    const pollInterval = setInterval(() => {
+      fetchDashboardData();
+    }, 30000);
+
     // Subscribe to live SSE updates for automatic background re-fetch
     const unsubOrder = subscribe('order.created', () => fetchDashboardData());
     const unsubOrderUp = subscribe('order.updated', () => fetchDashboardData());
@@ -87,6 +100,7 @@ export default function Dashboard() {
     const unsubInv = subscribe('inventory.adjusted', () => fetchDashboardData());
 
     return () => {
+      clearInterval(pollInterval);
       unsubOrder();
       unsubOrderUp();
       unsubPay();

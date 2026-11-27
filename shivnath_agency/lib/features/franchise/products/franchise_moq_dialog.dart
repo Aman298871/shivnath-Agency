@@ -262,7 +262,7 @@ class _FranchiseMoqDialogState extends State<FranchiseMoqDialog> {
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1D4ED8)),
                                   ),
                                 ),
-                                if (allowOverride && maxMoq != null)
+                                if (allowOverride)
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
@@ -321,7 +321,7 @@ class _FranchiseMoqDialogState extends State<FranchiseMoqDialog> {
                                       ),
                                       IconButton(
                                         icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF0284C7)),
-                                        onPressed: (maxMoq != null && currentOverride >= maxMoq)
+                                        onPressed: (currentOverride >= maxMoq)
                                             ? null
                                             : () {
                                                 setState(() {

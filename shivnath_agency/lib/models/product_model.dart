@@ -201,7 +201,7 @@ class ProductModel {
         sz.contains('1 l') ||
         nm.contains('1 litre') ||
         nm.contains('1l')) {
-      return 'assets/images/products/shv_1l.jpg';
+      return 'assets/images/products/shv_1l.png';
     }
 
     // 500ml Bottle
@@ -209,7 +209,7 @@ class ProductModel {
         s.contains('500') ||
         sz.contains('500') ||
         nm.contains('500')) {
-      return 'assets/images/products/shv_500.jpg';
+      return 'assets/images/products/shv_500.png';
     }
 
     // 250ml Bottle
@@ -217,7 +217,7 @@ class ProductModel {
         s.contains('250') ||
         sz.contains('250') ||
         nm.contains('250')) {
-      return 'assets/images/products/shv_250.jpg';
+      return 'assets/images/products/shv_250.png';
     }
 
     // 200ml Bottle
@@ -225,10 +225,10 @@ class ProductModel {
         s.contains('200') ||
         sz.contains('200') ||
         nm.contains('200')) {
-      return 'assets/images/products/shv_200.jpg';
+      return 'assets/images/products/shv_200.png';
     }
 
-    return 'assets/images/products/shv_500.jpg';
+    return 'assets/images/products/shv_500.png';
   }
 
   String get assetFallbackImage => resolveAssetFallback(

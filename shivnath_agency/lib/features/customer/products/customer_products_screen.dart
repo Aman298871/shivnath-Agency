@@ -18,7 +18,6 @@ class CustomerProductsScreen extends StatefulWidget {
 }
 
 class _CustomerProductsScreenState extends State<CustomerProductsScreen> {
-  final ProductRepository _productRepository = ProductRepository();
   String search = '';
   int? selectedCategoryId;
   String selectedCategoryName = 'Bottles';

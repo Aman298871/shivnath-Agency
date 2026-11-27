@@ -1139,9 +1139,6 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                       final qId = (q['id'] is int)
                           ? q['id'] as int
                           : int.tryParse(q['id']?.toString() ?? '') ?? 0;
-                      final audience =
-                          q['target_audience']?.toString().toUpperCase() ??
-                          'CUSTOMER';
                       final double unitP = _parsePrice(q['unit_price']);
                       final double totalP = _parsePrice(q['total_price']);
                       final hasPdf =

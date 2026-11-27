@@ -718,7 +718,7 @@ class _CustomerOutstandingBreakdownModalState
             !rawAdminPhone.contains('98062'))
         ? rawAdminPhone.trim()
         : AppConstants.adminSupportPhone;
-    final isAdminConfigured = true;
+    final isAdminConfigured = adminPhone.trim().isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(16),

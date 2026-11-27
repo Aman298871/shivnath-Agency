@@ -73,7 +73,7 @@ class ApiClient {
   static Future<http.StreamedResponse> sendRequest(http.BaseRequest request) =>
       client.send(request);
 
-  /// Safely parses an HTTP response into a Map<String, dynamic>.
+  /// Safely parses an HTTP response into a `Map<String, dynamic>`.
   /// If the server returns HTML (e.g. 404, 500, or proxy error) or invalid JSON,
   /// this method returns a clean structured error Map instead of throwing FormatException.
   static Map<String, dynamic> safeDecode(http.Response response) {

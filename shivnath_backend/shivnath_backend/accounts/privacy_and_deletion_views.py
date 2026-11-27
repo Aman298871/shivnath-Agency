@@ -520,7 +520,7 @@ def public_account_deletion_html_view(request):
 
             <form method="POST">
                 <label for="identifier">Registered Phone Number, Email, or Customer ID *</label>
-                <input type="text" id="identifier" name="identifier" required placeholder="e.g. 9806247194 or CUST-655760">
+                <input type="text" id="identifier" name="identifier" required placeholder="e.g. 8966925257 or CUST-655760">
 
                 <label for="reason">Reason for Deletion (Optional)</label>
                 <textarea id="reason" name="reason" rows="3" placeholder="Let us know why you wish to delete your account..."></textarea>

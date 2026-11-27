@@ -24,6 +24,8 @@ export default function Products() {
   const [editUnitsPerCase, setEditUnitsPerCase] = useState('');
   const [editGst, setEditGst] = useState('18');
   const [editStatus, setEditStatus] = useState('Active');
+  const [editImageFile, setEditImageFile] = useState(null);
+  const [editImagePreview, setEditImagePreview] = useState('');
   const [isSavingProduct, setIsSavingProduct] = useState(false);
   const [productSuccess, setProductSuccess] = useState('');
 
@@ -38,6 +40,8 @@ export default function Products() {
   const [newProductMrp, setNewProductMrp] = useState('');
   const [newProductUnitsPerCase, setNewProductUnitsPerCase] = useState('24');
   const [newProductGst, setNewProductGst] = useState('18');
+  const [newProductImageFile, setNewProductImageFile] = useState(null);
+  const [newProductImagePreview, setNewProductImagePreview] = useState('');
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
 
   const fetchProducts = async () => {
@@ -64,6 +68,8 @@ export default function Products() {
     setEditUnitsPerCase(p.units_per_case || p.carton_pack_size || 24);
     setEditGst(p.gst ?? 18);
     setEditStatus(p.status || 'Active');
+    setEditImageFile(null);
+    setEditImagePreview(p.image || '');
     setProductSuccess('');
   };
 
@@ -83,10 +89,15 @@ export default function Products() {
         gst: parseInt(editGst, 10),
       });
 
-      // 2. Also patch product status if changed
-      if (editStatus !== editingProduct.status) {
-        await apiClient.patch(`/api/products/${editingProduct.id}/`, {
-          status: editStatus,
+      // 2. Also patch product status or image if changed
+      if (editStatus !== editingProduct.status || editImageFile) {
+        const prodData = new FormData();
+        prodData.append('status', editStatus);
+        if (editImageFile) {
+          prodData.append('image', editImageFile);
+        }
+        await apiClient.patch(`/api/products/${editingProduct.id}/`, prodData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
       }
 
@@ -108,17 +119,23 @@ export default function Products() {
     setIsCreatingProduct(true);
 
     try {
-      await apiClient.post('/api/products/', {
-        name: newProductName.trim(),
-        sku: newProductSku.trim().toUpperCase(),
-        category: newProductCategory,
-        size: newProductSize,
-        price: parseFloat(newProductRetailPrice),
-        dealer_transfer_price: parseFloat(newProductDealerPrice),
-        mrp: parseFloat(newProductMrp || newProductRetailPrice),
-        units_per_case: parseInt(newProductUnitsPerCase, 10),
-        gst: parseInt(newProductGst, 10),
-        status: 'Active',
+      const formData = new FormData();
+      formData.append('name', newProductName.trim());
+      formData.append('sku', newProductSku.trim().toUpperCase());
+      formData.append('category', newProductCategory);
+      formData.append('size', newProductSize);
+      formData.append('price', parseFloat(newProductRetailPrice));
+      formData.append('dealer_transfer_price', parseFloat(newProductDealerPrice));
+      formData.append('mrp', parseFloat(newProductMrp || newProductRetailPrice));
+      formData.append('units_per_case', parseInt(newProductUnitsPerCase, 10));
+      formData.append('gst', parseInt(newProductGst, 10));
+      formData.append('status', 'Active');
+      if (newProductImageFile) {
+        formData.append('image', newProductImageFile);
+      }
+
+      await apiClient.post('/api/products/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       setIsAddingProduct(false);
@@ -127,6 +144,8 @@ export default function Products() {
       setNewProductRetailPrice('');
       setNewProductDealerPrice('');
       setNewProductMrp('');
+      setNewProductImageFile(null);
+      setNewProductImagePreview('');
       fetchProducts();
     } catch (err) {
       alert(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to create product');
@@ -145,7 +164,7 @@ export default function Products() {
         entity_type: 'PRODUCT',
         entity_id: selectedProduct.id,
         adjusted_quantity: parseInt(adjustQty, 10),
-        reason: adjustReason,
+        reason: adjustReason?.trim() || 'Manual Finished Goods Stock Correction',
       });
       setSelectedProduct(null);
       setAdjustQty('');
@@ -238,11 +257,36 @@ export default function Products() {
                   const isLow = stock <= (p.reorder_level || 10);
                   const isActive = (p.status || 'Active').toLowerCase() === 'active';
 
+                  const resolveProductImg = (prod) => {
+                    if (prod.image) {
+                      const img = prod.image;
+                      if (img.startsWith('http://') || img.startsWith('https://')) return img;
+                      if (img.includes('200')) return '/products/bhoomi_200ml.png';
+                      if (img.includes('250')) return '/products/bhoomi_250ml.png';
+                      if (img.includes('500')) return '/products/bhoomi_500ml.png';
+                      if (img.includes('1l') || img.includes('1000')) return '/products/bhoomi_1l.png';
+                      return `${API_BASE_URL}/${img.replace(/^\//, '')}`;
+                    }
+                    const n = (prod.name || '').toLowerCase();
+                    const s = (prod.sku || '').toLowerCase();
+                    if (n.includes('200') || s.includes('200')) return '/products/bhoomi_200ml.png';
+                    if (n.includes('250') || s.includes('250')) return '/products/bhoomi_250ml.png';
+                    if (n.includes('500') || s.includes('500')) return '/products/bhoomi_500ml.png';
+                    if (n.includes('1 litre') || n.includes('1l') || s.includes('1l')) return '/products/bhoomi_1l.png';
+                    return null;
+                  };
+
+                  const productImg = resolveProductImg(p);
+
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 font-bold text-slate-900 flex items-center space-x-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50 text-sky-600 shrink-0">
-                          <Package className="h-4 w-4" />
+                      <td className="py-3.5 font-bold text-slate-900 flex items-center space-x-2.5">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-50 text-sky-600 shrink-0 overflow-hidden border border-slate-100 p-0.5">
+                          {productImg ? (
+                            <img src={productImg} alt={p.name} className="h-full w-full object-contain" />
+                          ) : (
+                            <Package className="h-4 w-4" />
+                          )}
                         </div>
                         <div>
                           <div>{p.name}</div>
@@ -388,6 +432,38 @@ export default function Products() {
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
+
+              <div className="col-span-2">
+                <label className="block font-semibold text-slate-700">Product Image (Optional)</label>
+                <div className="mt-1 flex items-center space-x-3">
+                  {editImagePreview ? (
+                    <img
+                      src={editImagePreview}
+                      alt="Product Preview"
+                      className="h-14 w-14 object-contain rounded-lg border border-slate-200 bg-white p-1"
+                    />
+                  ) : (
+                    <div className="h-14 w-14 rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-slate-400">
+                      <Package className="h-6 w-6" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setEditImageFile(file);
+                          setEditImagePreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Upload high-resolution bottle / jar artwork</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
@@ -531,6 +607,38 @@ export default function Products() {
                   <option value="12">12%</option>
                   <option value="18">18%</option>
                 </select>
+              </div>
+
+              <div className="col-span-2">
+                <label className="block font-semibold text-slate-700">Product Image (Optional)</label>
+                <div className="mt-1 flex items-center space-x-3">
+                  {newProductImagePreview ? (
+                    <img
+                      src={newProductImagePreview}
+                      alt="Product Preview"
+                      className="h-14 w-14 object-contain rounded-lg border border-slate-200 bg-white p-1"
+                    />
+                  ) : (
+                    <div className="h-14 w-14 rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-slate-400">
+                      <Package className="h-6 w-6" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setNewProductImageFile(file);
+                          setNewProductImagePreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Upload high-resolution bottle / jar artwork</p>
+                  </div>
+                </div>
               </div>
             </div>
 

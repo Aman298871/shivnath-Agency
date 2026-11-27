@@ -1994,21 +1994,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Reject Payment'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Enter reason for rejecting this payment submission:'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: reasonCtrl,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Reference number not found in bank statement',
-                border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Enter reason for rejecting this payment submission:'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: reasonCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Reference number not found in bank statement',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Cancel')),

@@ -907,6 +907,10 @@ def dispatch_order_atomic(order, actor=None):
                 pbatch.quantity_remaining_company -= qty
                 pbatch.save()
 
+                if item.product:
+                    item.product.stock = max(0, int(item.product.stock - qty))
+                    item.product.save(update_fields=['stock'])
+
                 InventoryTransactionLedger.objects.create(
                     transaction_type='SALE',
                     material_type='FINISHED_GOODS',
@@ -1183,6 +1187,53 @@ def adjust_stock_atomic(entity_type, entity_id, adjusted_quantity, reason='Manua
             unit_cost_or_price=rm.unit_cost,
             reference_type='MANUAL_ADJUSTMENT',
             reference_id=rm.sku,
+            actor=actor,
+            notes=reason
+        )
+    elif entity_type in ['PRODUCT', 'FINISHED_GOODS']:
+        from products.models import Product
+        product = Product.objects.select_for_update().get(id=entity_id)
+        new_qty = int(product.stock + qty)
+        if new_qty < 0:
+            raise ValidationError(f"Cannot adjust product stock below zero. Current stock: {product.stock}, adjustment: {qty}")
+        product.stock = new_qty
+        product.save(update_fields=['stock'])
+
+        # Keep ProductionBatch FEFO inventory synchronized with central plant stock
+        today = timezone.now().date()
+        batch = ProductionBatch.objects.select_for_update().filter(
+            product=product,
+            status='ACTIVE',
+            expiry_date__gt=today
+        ).order_by('-created_at').first()
+
+        if batch:
+            batch.quantity_remaining_company = max(0, int(batch.quantity_remaining_company + qty))
+            batch.save(update_fields=['quantity_remaining_company'])
+        elif qty > 0:
+            from datetime import timedelta
+            batch = ProductionBatch.objects.create(
+                batch_number=f"PB-ADJ-{product.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}",
+                product=product,
+                manufacture_date=today,
+                expiry_date=today + timedelta(days=getattr(product, 'shelf_life_days', 180) or 180),
+                quantity_produced_units=int(qty),
+                quantity_remaining_company=int(qty),
+                status='ACTIVE',
+                unit_production_cost=Decimal(str(getattr(product, 'cost_price', 0) or getattr(product, 'price', 0) or 10.00))
+            )
+
+        return InventoryTransactionLedger.objects.create(
+            transaction_type='ADJUSTMENT',
+            material_type='FINISHED_GOODS',
+            location_type='COMPANY_WAREHOUSE',
+            product=product,
+            production_batch=batch,
+            quantity=qty,
+            balance_after=Decimal(product.stock),
+            unit_cost_or_price=batch.unit_production_cost if batch else Decimal('0.00'),
+            reference_type='MANUAL_ADJUSTMENT',
+            reference_id=batch.batch_number if batch else (product.sku or str(product.id)),
             actor=actor,
             notes=reason
         )

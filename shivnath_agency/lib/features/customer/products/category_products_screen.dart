@@ -62,23 +62,45 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       // Fallback: If server returned empty, match from cached ProductRepository.cachedProducts
       if (_products.isEmpty && ProductRepository.cachedProducts.isNotEmpty) {
         final catLower = widget.categoryName.toLowerCase();
+        final isSpecific200 = catLower.contains('200');
+        final isSpecific250 = catLower.contains('250');
+        final isSpecific500 = catLower.contains('500');
+        final isSpecific1L = catLower.contains('1l') || catLower.contains('1 litre') || catLower.contains('1000');
+        final isJar = catLower.contains('jar');
+        final isBottle = catLower.contains('bottle');
+
         _products = ProductRepository.cachedProducts.where((p) {
-          final isBottle = catLower.contains('bottle');
-          final isJar = catLower.contains('jar');
-          if (isBottle) {
-            return p.category.toLowerCase().contains('bottle') ||
-                p.unit.toLowerCase().contains('bottle') ||
-                p.name.toLowerCase().contains('bottle') ||
-                (p.size.toLowerCase().contains('ml') &&
-                    !p.size.toLowerCase().contains('20'));
+          final prodName = p.name.toLowerCase();
+          final prodSize = p.size.toLowerCase();
+
+          if (isSpecific200) {
+            return prodSize.contains('200') || prodName.contains('200');
+          } else if (isSpecific250) {
+            return prodSize.contains('250') || prodName.contains('250');
+          } else if (isSpecific500) {
+            return prodSize.contains('500') || prodName.contains('500');
+          } else if (isSpecific1L) {
+            return prodSize.contains('1l') ||
+                prodSize.contains('1 l') ||
+                prodSize.contains('1000') ||
+                prodName.contains('1 litre') ||
+                prodName.contains('1l');
           } else if (isJar) {
-            return p.category.toLowerCase().contains('jar') ||
-                p.unit.toLowerCase().contains('jar') ||
-                p.name.toLowerCase().contains('jar') ||
-                p.size.toLowerCase().contains('20');
+            return p.isJar ||
+                p.category.toLowerCase().contains('jar') ||
+                prodName.contains('jar') ||
+                prodSize.contains('20l') ||
+                prodSize.contains('20 litre');
+          } else if (isBottle) {
+            return p.isBottle ||
+                (!p.isJar &&
+                    !p.category.toLowerCase().contains('jar') &&
+                    !prodName.contains('jar') &&
+                    !prodSize.contains('20l') &&
+                    !prodSize.contains('20 litre'));
           }
           return p.category.toLowerCase().contains(catLower) ||
-              p.name.toLowerCase().contains(catLower);
+              prodName.contains(catLower);
         }).toList();
       }
     } catch (e) {

@@ -695,6 +695,10 @@ class OrderSerializer(serializers.ModelSerializer):
         except Exception:
             pass
 
+        if not company_phone:
+            from django.conf import settings
+            company_phone = getattr(settings, 'SUPPORT_FALLBACK_PHONE', '+91 89669 25257')
+
         contact_info = f"{company_name} ({company_phone})" if company_phone else company_name
         return {
             'type': 'CENTRAL_COMPANY',

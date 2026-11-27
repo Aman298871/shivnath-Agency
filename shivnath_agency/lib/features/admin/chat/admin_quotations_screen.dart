@@ -89,16 +89,23 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
           'Valid for 30 days from generation',
     );
 
-    String quotationType =
-        quotation?['quotation_type']?.toString() ?? 'customer';
-    String targetAudience =
-        quotation?['target_audience']?.toString() ?? 'customer';
-    int? selectedProductId = quotation?['product'] != null
+    const validQuotationTypes = ['customer', 'bottle', 'jar', 'franchise', 'bulk', 'custom'];
+    String rawType = quotation?['quotation_type']?.toString().toLowerCase() ?? 'franchise';
+    String quotationType = validQuotationTypes.contains(rawType) ? rawType : 'franchise';
+
+    const validAudiences = ['customer', 'franchise', 'both'];
+    String rawAudience = quotation?['target_audience']?.toString().toLowerCase() ?? 'franchise';
+    String targetAudience = validAudiences.contains(rawAudience) ? rawAudience : 'franchise';
+
+    int? rawProdId = quotation?['product'] != null
         ? (quotation!['product'] is Map
               ? quotation['product']['id']
-              : quotation['product'])
+              : (quotation['product'] is int ? quotation['product'] : int.tryParse(quotation['product'].toString())))
         : null;
-    int? selectedFranchiseId = quotation?['franchise'] != null
+    final existingProdIds = _products.map((p) => int.tryParse(p.id)).whereType<int>().toSet();
+    int? selectedProductId = (rawProdId != null && existingProdIds.contains(rawProdId)) ? rawProdId : null;
+
+    int? rawFranId = quotation?['franchise'] != null
         ? (quotation!['franchise'] is Map
               ? quotation['franchise']['id']
               : (quotation['franchise'] is int
@@ -109,8 +116,14 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                     ? quotation['franchise_id']
                     : int.tryParse(quotation['franchise_id'].toString()))
               : null);
-    String quotationStatus = quotation?['status']?.toString() ?? 'published';
+    final existingFranIds = _franchises.map((f) => f['id'] is int ? f['id'] as int : int.tryParse(f['id'].toString())).whereType<int>().toSet();
+    int? selectedFranchiseId = (rawFranId != null && existingFranIds.contains(rawFranId)) ? rawFranId : null;
+
+    const validStatuses = ['published', 'draft', 'accepted', 'rejected', 'expired', 'withdrawn'];
+    String rawStatus = quotation?['status']?.toString().toLowerCase() ?? 'published';
+    String quotationStatus = validStatuses.contains(rawStatus) ? rawStatus : 'published';
     bool isActive = quotation?['is_active'] ?? true;
+    bool isSaving = false;
 
     // PDF Management State
     String? existingPdfUrl = quotation?['pdf_url']?.toString();
@@ -131,6 +144,7 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
           allowedExtensions: ['pdf'],
           allowMultiple: false,
           withData: true,
+          withReadStream: true,
         );
 
         if (result != null && result.files.isNotEmpty) {
@@ -155,10 +169,42 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
               file.path != null &&
               file.path!.isNotEmpty) {
             try {
-              bytes = await io.File(file.path!).readAsBytes();
+              final f = io.File(file.path!);
+              if (await f.exists()) {
+                bytes = await f.readAsBytes();
+              }
             } catch (e) {
               debugPrint('Could not read bytes from path: $e');
             }
+          }
+
+          if ((bytes == null || bytes.isEmpty) && file.readStream != null) {
+            try {
+              final streamBytes = <int>[];
+              await for (final chunk in file.readStream!) {
+                streamBytes.addAll(chunk);
+              }
+              if (streamBytes.isNotEmpty) {
+                bytes = streamBytes;
+              }
+            } catch (e) {
+              debugPrint('Could not read bytes from stream: $e');
+            }
+          }
+
+          if (file.size == 0 || (bytes != null && bytes.isEmpty)) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Selected PDF file is empty (0 bytes). Please choose a valid PDF file with content.',
+                  ),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 4),
+                ),
+              );
+            }
+            return;
           }
 
           if (bytes == null || bytes.isEmpty) {
@@ -166,9 +212,10 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text(
-                    'Could not read file data. Please try selecting the file again.',
+                    'Could not read file data. Please select a local file from Downloads or Internal Storage.',
                   ),
                   backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 4),
                 ),
               );
             }
@@ -413,15 +460,61 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: quotationStatus,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Publication Status',
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'published', child: Text('Published (Visible to Franchise)')),
-                      DropdownMenuItem(value: 'draft', child: Text('Draft (Saved internally)')),
-                      DropdownMenuItem(value: 'withdrawn', child: Text('Withdrawn')),
+                      DropdownMenuItem(
+                        value: 'published',
+                        child: Text(
+                          'Published (Visible to Franchise)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'draft',
+                        child: Text(
+                          'Draft (Saved internally)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'accepted',
+                        child: Text(
+                          'Accepted by Franchise',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'rejected',
+                        child: Text(
+                          'Rejected by Franchise',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'expired',
+                        child: Text(
+                          'Expired',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'withdrawn',
+                        child: Text(
+                          'Withdrawn',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
                     ],
                     onChanged: (val) {
                       if (val != null) setDlgState(() => quotationStatus = val);
@@ -751,61 +844,104 @@ class _AdminQuotationsScreenState extends State<AdminQuotationsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: isSaving ? null : () => Navigator.pop(ctx),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () async {
-                final title = titleCtrl.text.trim();
-                if (title.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Title is required')),
-                  );
-                  return;
-                }
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      final title = titleCtrl.text.trim();
+                      if (title.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Title is required')),
+                        );
+                        return;
+                      }
 
-                final payload = {
-                  'title': title,
-                  'quotation_type': quotationType,
-                  'target_audience': 'franchise',
-                  'status': quotationStatus,
-                  'franchise': selectedFranchiseId,
-                  'product': selectedProductId,
-                  'quantity_tier': tierCtrl.text.trim(),
-                  'unit_price':
-                      double.tryParse(unitPriceCtrl.text.trim()) ?? 0.0,
-                  'total_price':
-                      double.tryParse(totalPriceCtrl.text.trim()) ?? 0.0,
-                  'validity': validityCtrl.text.trim(),
-                  'applicable_terms': termsCtrl.text.trim(),
-                  'notes': notesCtrl.text.trim(),
-                  'is_active': isActive,
-                };
+                      setDlgState(() => isSaving = true);
 
-                Navigator.pop(ctx);
-                if (quotation == null) {
-                  await _chatService.createQuotation(
-                    payload,
-                    pdfFilePath: selectedPdfPath,
-                    pdfBytes: selectedPdfBytes,
-                    pdfFileName: selectedPdfName,
-                  );
-                } else {
-                  final editId = (quotation['id'] is int)
-                      ? quotation['id'] as int
-                      : int.tryParse(quotation['id']?.toString() ?? '') ?? 0;
-                  await _chatService.updateQuotation(
-                    editId,
-                    payload,
-                    pdfFilePath: selectedPdfPath,
-                    pdfBytes: selectedPdfBytes,
-                    pdfFileName: selectedPdfName,
-                    removePdf: removeExistingPdf,
-                  );
-                }
-                _loadData();
-              },
-              child: const Text('Save Quotation'),
+                      final payload = {
+                        'title': title,
+                        'quotation_type': quotationType,
+                        'target_audience': 'franchise',
+                        'status': quotationStatus,
+                        'franchise': selectedFranchiseId,
+                        'product': selectedProductId,
+                        'quantity_tier': tierCtrl.text.trim(),
+                        'unit_price':
+                            double.tryParse(unitPriceCtrl.text.trim()) ?? 0.0,
+                        'total_price':
+                            double.tryParse(totalPriceCtrl.text.trim()) ?? 0.0,
+                        'validity': validityCtrl.text.trim(),
+                        'applicable_terms': termsCtrl.text.trim(),
+                        'notes': notesCtrl.text.trim(),
+                        'is_active': isActive,
+                      };
+
+                      Map<String, dynamic> result;
+                      if (quotation == null) {
+                        result = await _chatService.createQuotation(
+                          payload,
+                          pdfFilePath: selectedPdfPath,
+                          pdfBytes: selectedPdfBytes,
+                          pdfFileName: selectedPdfName,
+                        );
+                      } else {
+                        final editId = (quotation['id'] is int)
+                            ? quotation['id'] as int
+                            : int.tryParse(quotation['id']?.toString() ?? '') ?? 0;
+                        result = await _chatService.updateQuotation(
+                          editId,
+                          payload,
+                          pdfFilePath: selectedPdfPath,
+                          pdfBytes: selectedPdfBytes,
+                          pdfFileName: selectedPdfName,
+                          removePdf: removeExistingPdf,
+                        );
+                      }
+
+                      setDlgState(() => isSaving = false);
+
+                      if (result['success'] == true) {
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                quotation == null
+                                    ? 'Quotation created successfully${selectedPdfName != null ? ' with PDF attachment' : ''}!'
+                                    : 'Quotation updated successfully${selectedPdfName != null ? ' with updated PDF' : ''}!',
+                              ),
+                              backgroundColor: const Color(0xFF10B981),
+                            ),
+                          );
+                        }
+                        _loadData();
+                      } else {
+                        if (context.mounted) {
+                          final errMsg = result['message'] ??
+                              (result['errors'] != null ? result['errors'].toString() : 'Failed to save quotation.');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Save error: $errMsg'),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Save Quotation'),
             ),
           ],
         ),

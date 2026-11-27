@@ -65,8 +65,8 @@ class ForgotPasswordScreen extends StatelessWidget {
     final cfg = roleConfig;
     final primaryThemeColor = cfg.primary;
 
-    const supportPhone = '+91 98765 43210';
-    const supportWhatsApp = '9876543210';
+    const supportPhone = '+91 89669 25257';
+    const supportWhatsApp = '8966925257';
     const supportEmail = 'support@shivnathagencies.com';
 
     return Scaffold(

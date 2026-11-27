@@ -2867,21 +2867,23 @@ class _AdminVerifyPaymentDialogState extends State<_AdminVerifyPaymentDialog> {
                         context: context,
                         builder: (rejectCtx) => AlertDialog(
                           title: const Text('Reject Payment Proof'),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'Please state why this payment proof could not be verified (e.g. UTR not found in bank statement, incorrect amount):',
-                              ),
-                              const SizedBox(height: 10),
-                              TextField(
-                                controller: reasonCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Rejection Reason *',
-                                  border: OutlineInputBorder(),
+                          content: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Please state why this payment proof could not be verified (e.g. UTR not found in bank statement, incorrect amount):',
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: reasonCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Rejection Reason *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           actions: [
                             TextButton(

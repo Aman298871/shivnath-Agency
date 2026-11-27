@@ -48,19 +48,19 @@ class ProductDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 240,
+              height: 280,
               width: double.infinity,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
               ),
               child: ProductThumbnail.fromProduct(
                 product: product,
                 fit: BoxFit.contain,
                 borderRadius: BorderRadius.circular(16),
-                backgroundColor: const Color(0xFFF0F9FF),
-                padding: const EdgeInsets.all(16),
+                backgroundColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               ),
             ),
             const SizedBox(height: 16),

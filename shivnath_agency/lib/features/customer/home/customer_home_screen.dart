@@ -79,6 +79,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<WalletProvider>().loadWallet();
+        context.read<ProductProvider>().loadProducts();
       }
     });
   }
@@ -262,7 +263,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     }).toList();
 
     final products = search.trim().isEmpty
-        ? allProducts.take(4).toList()
+        ? allProducts.toList()
         : filteredProducts;
 
     return Scaffold(
@@ -692,7 +693,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   Widget _buildDesktopHome() {
     final providerProducts = context.watch<ProductProvider>().products;
     final allProducts = providerProducts.isNotEmpty ? providerProducts : ProductRepository.cachedProducts;
-    final products = allProducts.take(4).toList();
+    final products = allProducts.toList();
 
     return Container(
       color: const Color(0xFFF8FAFC),

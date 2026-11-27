@@ -356,6 +356,12 @@ RAZORPAY_ENVIRONMENT = os.getenv('RAZORPAY_ENVIRONMENT', 'LIVE').strip().upper()
 
 
 # --------------------------------------------------
+# SUPPORT CONFIGURATION
+# --------------------------------------------------
+SUPPORT_FALLBACK_PHONE = os.getenv('SUPPORT_FALLBACK_PHONE', '+91 89669 25257')
+SUPPORT_FALLBACK_PHONE_RAW = os.getenv('SUPPORT_FALLBACK_PHONE_RAW', '8966925257')
+
+# --------------------------------------------------
 # EMAIL
 # --------------------------------------------------
 

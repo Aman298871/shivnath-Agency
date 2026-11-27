@@ -75,7 +75,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
             'name': 'Plant Operations Manager',
             'username': 'plant_admin',
             'email': 'plant@shivnath.com',
-            'phone': '+91 98264 21819',
+            'phone': '+91 89669 25257',
             'role': 'admin',
             'is_active': true,
             'data_scope_type': 'all_data',

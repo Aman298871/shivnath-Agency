@@ -8,6 +8,8 @@ class AppConstants {
   static const String brandSubtitle = 'ऐप, ऑनलाइन ऑर्डर और होम डिलीवरी';
   static const String appTagline = 'पानी चाहिए? Water Wala बुलाइए!';
   static const String appVersion = '1.0.1+7';
+  static const String adminSupportPhone = '+91 89669 25257';
+  static const String adminSupportPhoneRaw = '8966925257';
 
   static const String customerRole = 'customer';
   static const String franchiseRole = 'franchise';

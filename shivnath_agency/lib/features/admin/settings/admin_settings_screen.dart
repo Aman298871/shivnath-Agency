@@ -19,7 +19,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   String activeTab = 'Business';
 
   final businessName = TextEditingController(text: 'Shivnath Agencies');
-  final phone = TextEditingController(text: '9876543210');
+  final phone = TextEditingController(text: '8966925257');
   final email = TextEditingController(text: 'admin@shivnathagency.in');
   final gst = TextEditingController(text: '22AQNPK7620D1Z3');
   final invoicePrefix = TextEditingController(text: 'SHV/2026/');

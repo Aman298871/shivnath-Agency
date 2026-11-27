@@ -26,8 +26,8 @@ from inventory.services import (
 logger = logging.getLogger(__name__)
 
 ALLOWED_ORDER_TRANSITIONS = {
-    'order_placement': ['plant_approval', 'cancelled', 'on_hold', 'rejected', 'preparing', 'manufacturing'],
-    'plant_approval': ['invoice_generated', 'preparing', 'manufacturing', 'cancelled', 'on_hold', 'rejected'],
+    'order_placement': ['plant_approval', 'invoice_generated', 'preparing', 'manufacturing', 'dispatch', 'cancelled', 'on_hold', 'rejected'],
+    'plant_approval': ['invoice_generated', 'preparing', 'manufacturing', 'dispatch', 'cancelled', 'on_hold', 'rejected'],
     'invoice_generated': ['preparing', 'manufacturing', 'dispatch', 'cancelled', 'on_hold', 'rejected'],
     'preparing': ['invoice_generated', 'manufacturing', 'dispatch', 'cancelled', 'on_hold', 'rejected'],
     'manufacturing': ['preparing', 'invoice_generated', 'dispatch', 'cancelled', 'on_hold', 'rejected'],

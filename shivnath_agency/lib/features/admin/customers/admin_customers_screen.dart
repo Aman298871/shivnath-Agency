@@ -439,10 +439,10 @@ class _AdminCustomersScreenState extends State<AdminCustomersScreen> {
                       }
                     },
                     items: const [
-                      DropdownMenuItem(value: 'All', child: Text('Status: All')),
-                      DropdownMenuItem(value: 'active', child: Text('Active Only')),
-                      DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                      DropdownMenuItem(value: 'hold', child: Text('On Hold')),
+                      DropdownMenuItem(value: 'All', child: Text('Status: All', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'active', child: Text('Active Only', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'inactive', child: Text('Inactive', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'hold', child: Text('On Hold', overflow: TextOverflow.ellipsis)),
                     ],
                   ),
                 ),

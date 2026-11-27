@@ -63,7 +63,7 @@ export const RealTimeProvider = ({ children }) => {
       localStorage.setItem('ww_last_event_id', event.event_id);
     }
 
-    // Add to notifications
+    // Add to notifications with deduplication
     const newNotif = {
       id: event.event_id || Date.now().toString(),
       type: event.type || event.event_type || 'EVENT',
@@ -74,7 +74,12 @@ export const RealTimeProvider = ({ children }) => {
       read: false,
     };
 
-    setNotifications((prev) => [newNotif, ...prev.slice(0, 49)]);
+    setNotifications((prev) => {
+      if (newNotif.id && prev.some((n) => n.id === newNotif.id)) {
+        return prev;
+      }
+      return [newNotif, ...prev.slice(0, 49)];
+    });
     setUnreadCount((prev) => prev + 1);
 
     // Notify registered listeners

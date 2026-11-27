@@ -177,8 +177,8 @@ class QuotationListCreateView(APIView):
                     "success": False,
                     "message": "Franchise profile not found for authenticated user.",
                 }, status=status.HTTP_403_FORBIDDEN)
-            # Franchise can strictly view ONLY their own quotations and never drafts
-            queryset = queryset.filter(franchise=f_profile).exclude(status='draft')
+            # Franchise can view quotations assigned specifically to them OR general quotations (franchise=None), never drafts
+            queryset = queryset.filter(Q(franchise=f_profile) | Q(franchise__isnull=True)).exclude(status='draft')
         elif role == 'admin':
             if franchise_id_param and franchise_id_param.isdigit():
                 queryset = queryset.filter(franchise_id=int(franchise_id_param))
@@ -293,7 +293,7 @@ class QuotationDetailView(APIView):
 
         if role == 'franchise':
             f_profile = getattr(request.user, 'franchise_profile', None)
-            if not f_profile or quotation.franchise != f_profile:
+            if not f_profile or (quotation.franchise is not None and quotation.franchise != f_profile):
                 return Response({
                     "success": False,
                     "message": "Access Denied: You cannot view quotations assigned to another franchise.",
@@ -339,7 +339,12 @@ class QuotationDetailView(APIView):
                 "message": "Permission Denied: Only Administrators can modify quotation terms and pricing.",
             }, status=status.HTTP_403_FORBIDDEN)
         old_status = quotation.status
-        serializer = QuotationSerializer(quotation, data=request.data, partial=True, context={'request': request})
+        data = request.data.copy()
+        if 'franchise' in data and data['franchise'] in ['', 'null', None]:
+            data['franchise'] = None
+        if 'product' in data and data['product'] in ['', 'null', None]:
+            data['product'] = None
+        serializer = QuotationSerializer(quotation, data=data, partial=True, context={'request': request})
         if not serializer.is_valid():
             return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -406,7 +411,7 @@ class FranchiseQuotationActionView(APIView):
 
         if role == 'franchise':
             f_profile = getattr(request.user, 'franchise_profile', None)
-            if not f_profile or quotation.franchise != f_profile:
+            if not f_profile or (quotation.franchise is not None and quotation.franchise != f_profile):
                 return Response({
                     "success": False,
                     "message": "Access Denied: You do not have authorization to act on this quotation.",
@@ -557,7 +562,7 @@ class QuotationPDFDownloadView(APIView):
                 queryset = queryset.filter(quotation_type=q_type)
             if role == 'franchise':
                 f_profile = getattr(request.user, 'franchise_profile', None)
-                queryset = queryset.filter(franchise=f_profile)
+                queryset = queryset.filter(Q(franchise=f_profile) | Q(franchise__isnull=True))
             quotation = queryset.first()
 
         if not quotation:
@@ -565,7 +570,7 @@ class QuotationPDFDownloadView(APIView):
 
         if role == 'franchise':
             f_profile = getattr(request.user, 'franchise_profile', None)
-            if not f_profile or quotation.franchise != f_profile:
+            if not f_profile or (quotation.franchise is not None and quotation.franchise != f_profile):
                 return Response({
                     "success": False,
                     "message": "Access Denied: You cannot download quotations assigned to another franchise.",

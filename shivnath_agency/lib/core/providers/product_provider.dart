@@ -37,10 +37,35 @@ class ProductProvider extends ChangeNotifier {
       } else {
         final selLower = _selectedCategory.toLowerCase();
         final prodCatLower = p.category.toLowerCase();
-        if (selLower.contains('bottle') && (prodCatLower.contains('bottle') || p.unit.toLowerCase().contains('bottle') || p.name.toLowerCase().contains('bottle') || (p.size.toLowerCase().contains('ml') && !p.size.toLowerCase().contains('20')))) {
-          matchesCategory = true;
-        } else if (selLower.contains('jar') && (prodCatLower.contains('jar') || p.unit.toLowerCase().contains('jar') || p.name.toLowerCase().contains('jar') || p.size.toLowerCase().contains('20'))) {
-          matchesCategory = true;
+        final prodNameLower = p.name.toLowerCase();
+        final prodSizeLower = p.size.toLowerCase();
+
+        // 1. Specific Size match (e.g. "200ml", "200 ml", "250ml", "500ml", "1l", "1 litre")
+        if (selLower.contains('200')) {
+          matchesCategory = prodSizeLower.contains('200') || prodNameLower.contains('200');
+        } else if (selLower.contains('250')) {
+          matchesCategory = prodSizeLower.contains('250') || prodNameLower.contains('250');
+        } else if (selLower.contains('500')) {
+          matchesCategory = prodSizeLower.contains('500') || prodNameLower.contains('500');
+        } else if (selLower.contains('1l') || selLower.contains('1 litre') || selLower.contains('1000')) {
+          matchesCategory = prodSizeLower.contains('1l') ||
+              prodSizeLower.contains('1 l') ||
+              prodSizeLower.contains('1000') ||
+              prodNameLower.contains('1 litre') ||
+              prodNameLower.contains('1l');
+        } else if (selLower.contains('bottle')) {
+          matchesCategory = p.isBottle ||
+              (!p.isJar &&
+                  !prodCatLower.contains('jar') &&
+                  !prodNameLower.contains('jar') &&
+                  !prodSizeLower.contains('20l') &&
+                  !prodSizeLower.contains('20 litre'));
+        } else if (selLower.contains('jar')) {
+          matchesCategory = p.isJar ||
+              prodCatLower.contains('jar') ||
+              prodNameLower.contains('jar') ||
+              prodSizeLower.contains('20l') ||
+              prodSizeLower.contains('20 litre');
         } else {
           matchesCategory = prodCatLower == selLower ||
               prodCatLower.contains(selLower) ||

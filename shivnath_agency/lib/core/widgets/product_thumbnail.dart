@@ -115,7 +115,24 @@ class ProductThumbnail extends StatelessWidget {
     final resolvedBorderRadius = borderRadius ?? BorderRadius.circular(12);
 
     Widget imageWidget;
-    if (imageUrl != null && imageUrl!.isNotEmpty) {
+    // Always load bundled HD bottle assets immediately when available for 0-delay offline rendering,
+    // or when network fails.
+    if (fallbackAsset.isNotEmpty && fallbackAsset.startsWith('assets/images/products/')) {
+      imageWidget = Image.asset(
+        fallbackAsset,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) {
+          if (imageUrl != null && imageUrl!.isNotEmpty) {
+            return Image.network(
+              imageUrl!,
+              fit: fit,
+              errorBuilder: (c, e, s) => _iconFallback(),
+            );
+          }
+          return _iconFallback();
+        },
+      );
+    } else if (imageUrl != null && imageUrl!.isNotEmpty) {
       imageWidget = Image.network(
         imageUrl!,
         fit: fit,
@@ -143,24 +160,27 @@ class ProductThumbnail extends StatelessWidget {
     );
   }
 
-  Widget _assetFallback(String assetPath) {
+  Widget _iconFallback() {
     final double iconSize = (height != null ? height! * 0.5 : 32.0)
         .toDouble()
         .clamp(18.0, 64.0);
+    return Center(
+      child: Icon(
+        category.toLowerCase().contains('jar') ||
+                name.toLowerCase().contains('jar')
+            ? Icons.water_drop_rounded
+            : Icons.local_drink_rounded,
+        color: const Color(0xFF0284C7),
+        size: iconSize,
+      ),
+    );
+  }
 
+  Widget _assetFallback(String assetPath) {
     return Image.asset(
       assetPath,
       fit: fit,
-      errorBuilder: (context, error, stackTrace) => Center(
-        child: Icon(
-          category.toLowerCase().contains('jar') ||
-                  name.toLowerCase().contains('jar')
-              ? Icons.water_drop_rounded
-              : Icons.local_drink_rounded,
-          color: const Color(0xFF0284C7),
-          size: iconSize,
-        ),
-      ),
+      errorBuilder: (context, error, stackTrace) => _iconFallback(),
     );
   }
 }

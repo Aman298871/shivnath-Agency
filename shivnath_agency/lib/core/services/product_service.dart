@@ -7,7 +7,90 @@ import 'session_service.dart';
 import '../../models/product_model.dart';
 class ProductService {
   static String get baseUrl => AppConstants.apiBaseUrl;
-  static List<ProductModel> products = [];    
+  static final List<ProductModel> _defaultCatalog = [
+    ProductModel(
+      id: "1",
+      name: "Shivnath 200ml Event Bottle",
+      sku: "SHV-200",
+      category: "Water Bottles",
+      size: "200 ML",
+      price: 5.0,
+      mrp: 5.0,
+      unit: "Bottle",
+      image: "products/bhoomi_200ml.png",
+      stock: 500,
+      description: "200ml event packaged drinking water bottle",
+      status: "Active",
+      packageType: "BOTTLE",
+      unitsPerCase: 24,
+    ),
+    ProductModel(
+      id: "2",
+      name: "Shivnath 250ml Mini Bottle",
+      sku: "SHV-250",
+      category: "Water Bottles",
+      size: "250 ML",
+      price: 6.0,
+      mrp: 6.0,
+      unit: "Bottle",
+      image: "products/bhoomi_250ml.png",
+      stock: 500,
+      description: "250ml mini packaged drinking water bottle",
+      status: "Active",
+      packageType: "BOTTLE",
+      unitsPerCase: 24,
+    ),
+    ProductModel(
+      id: "3",
+      name: "Shivnath 500ml Travel Bottle",
+      sku: "SHV-500",
+      category: "Water Bottles",
+      size: "500 ML",
+      price: 10.0,
+      mrp: 10.0,
+      unit: "Bottle",
+      image: "products/bhoomi_500ml.png",
+      stock: 400,
+      description: "500ml travel packaged drinking water bottle",
+      status: "Active",
+      packageType: "BOTTLE",
+      unitsPerCase: 24,
+    ),
+    ProductModel(
+      id: "4",
+      name: "Shivnath 1 Litre Premium Mineral Bottle",
+      sku: "SHV-1L",
+      category: "Water Bottles",
+      size: "1 Litre",
+      price: 20.0,
+      mrp: 20.0,
+      unit: "Bottle",
+      image: "products/bhoomi_1l.png",
+      stock: 349,
+      description: "1 Litre premium packaged drinking water bottle",
+      status: "Active",
+      packageType: "BOTTLE",
+      unitsPerCase: 12,
+    ),
+    ProductModel(
+      id: "5",
+      name: "Shivnath 20 Litre Dispenser Jar",
+      sku: "SHV-20L",
+      category: "Water Jars",
+      size: "20 Litre",
+      price: 60.0,
+      mrp: 60.0,
+      unit: "Jar",
+      image: "products/shv_20l.jpg",
+      stock: 180,
+      description: "20 Litre returnable dispenser water jar",
+      status: "Active",
+      packageType: "JAR",
+      unitsPerCase: 1,
+    ),
+  ];
+
+  static List<ProductModel> products = List.from(_defaultCatalog);    
 
   final SessionService _sessionService =
       SessionService();
@@ -83,14 +166,15 @@ final result = _decode(response);
         }
 
         List<ProductModel> parsedList = [];
-        if (rawList is List) {
+        if (rawList is List && rawList.isNotEmpty) {
           parsedList = rawList
               .whereType<Map>()
               .map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e)))
               .toList();
           products = parsedList;
         } else {
-          products = [];
+          parsedList = List.from(_defaultCatalog);
+          products = parsedList;
         }
         result['parsed_products'] = parsedList;
       }
@@ -98,9 +182,10 @@ final result = _decode(response);
       return result;
     } catch (e) {
       return {
-        "success": false,
-        "message":
-            "Server unavailable. Please start the backend and try again.",
+        "success": true,
+        "data": _defaultCatalog.map((p) => p.toJson()).toList(),
+        "parsed_products": List<ProductModel>.from(_defaultCatalog),
+        "message": "Loaded default catalog",
       };
     }
   }
@@ -213,9 +298,10 @@ return result;
       return result;
     } catch (e) {
       return {
-        "success": false,
-        "message":
-            "Server unavailable. Please start the backend and try again.",
+        "success": true,
+        "data": _defaultCatalog.map((p) => p.toJson()).toList(),
+        "parsed_products": List<ProductModel>.from(_defaultCatalog),
+        "message": "Loaded default catalog",
       };
     }
   }

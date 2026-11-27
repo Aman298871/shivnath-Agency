@@ -1820,7 +1820,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final isFranchisePhoneConfigured = rawFranchisePhone.isNotEmpty && rawFranchisePhone != 'Contact number not configured';
 
     const adminName = 'Shivnath Agency Support (Water Wala)';
-    const adminPhone = '+91 89669 25257';
+    final rawAdminPhone = _order?['admin_support_phone']?.toString() ??
+        _order?['company_billing_profile']?['phone']?.toString();
+    final adminPhone = (rawAdminPhone != null &&
+            rawAdminPhone.trim().isNotEmpty &&
+            rawAdminPhone != 'Contact number not configured' &&
+            !rawAdminPhone.contains('98062'))
+        ? rawAdminPhone.trim()
+        : AppConstants.adminSupportPhone;
 
     return Card(
       elevation: 0,
@@ -1954,9 +1961,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
-                        const Text(
+                        Text(
                           adminPhone,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFFD97706),
                             fontWeight: FontWeight.w600,

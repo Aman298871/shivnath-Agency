@@ -496,7 +496,7 @@ def seed():
     ChatbotOption.objects.get_or_create(
         title="Talk to Sales Executive", parent=c_quotes,
         defaults={"inquiry_type": "customer", "order": 2, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "customer",
-                  "answer_text": "Direct sales hotline: +91 98062 47194. Our representative will contact you with a customized quote."}
+                  "answer_text": "Direct sales hotline: +91 89669 25257. Our representative will contact you with a customized quote."}
     )
 
     # 6B. FRANCHISE TREE
@@ -552,7 +552,7 @@ def seed():
     ChatbotOption.objects.get_or_create(
         title="Contact Franchise Desk", parent=fran_root,
         defaults={"inquiry_type": "franchise", "order": 5, "is_active": True, "is_lead_trigger": True, "lead_inquiry_type": "franchise",
-                  "answer_text": "Franchise Hotline: +91 98062 47194. Head Office: H Block, Farishta Complex, Raipur, CG."}
+                  "answer_text": "Franchise Hotline: +91 89669 25257. Head Office: H Block, Farishta Complex, Raipur, CG."}
     )
 
     # =====================================================================
@@ -648,7 +648,7 @@ def seed():
         u_adm.save()
         p_adm, _ = UserProfile.objects.get_or_create(
             user=u_adm,
-            defaults={"name": "Shivnath Super Admin", "phone": "9806247194", "role": "super_admin", "status": "active", "city": "Raipur", "district": "Raipur"}
+            defaults={"name": "Shivnath Super Admin", "phone": "8966925257", "role": "super_admin", "status": "active", "city": "Raipur", "district": "Raipur"}
         )
         p_adm.role = "super_admin"
         p_adm.status = "active"
@@ -677,7 +677,7 @@ def seed():
     if created_hq or not u_hq.has_usable_password():
         u_hq.set_password(os.getenv('SEED_DEFAULT_PASSWORD', 'shivnath12'))
     u_hq.save()
-    p_hq, _ = UserProfile.objects.get_or_create(user=u_hq, defaults={"name": "Shivnath Central HQ", "phone": "9806247194", "role": "franchise", "status": "active", "city": "Raipur", "district": "Raipur"})
+    p_hq, _ = UserProfile.objects.get_or_create(user=u_hq, defaults={"name": "Shivnath Central HQ", "phone": "8966925257", "role": "franchise", "status": "active", "city": "Raipur", "district": "Raipur"})
     p_hq.role = "franchise"
     p_hq.status = "active"
     p_hq.save(update_fields=['role', 'status'])

@@ -787,10 +787,25 @@ class OrderService {
   }
 
   static String _resolveFranchiseName(Map<String, dynamic> item) {
+    final orderSource = item['order_source']?.toString().trim().toUpperCase();
+    if (orderSource == 'DIRECT_COMPANY' || orderSource == 'DIRECT_SHIVNATH' || orderSource == 'DIRECT') {
+      return 'Shivnath Agency (Direct Company)';
+    }
+    if (orderSource == 'WATER_WALLET' || orderSource == 'WATER_WALLET_REDEMPTION') {
+      return 'Shivnath Central Admin (Water Wallet)';
+    }
+
     final serving = item['serving_franchise_name']?.toString().trim();
     if (serving != null && serving.isNotEmpty && serving.toLowerCase() != 'null') {
       return serving;
     }
+
+    // Direct company order check
+    final servingId = item['serving_franchise'] ?? item['serving_franchise_id'];
+    if (servingId == null) {
+      return 'Shivnath Agency (Direct Company)';
+    }
+
     final registered = item['registered_franchise_name']?.toString().trim();
     if (registered != null && registered.isNotEmpty && registered.toLowerCase() != 'null') {
       return registered;
@@ -802,13 +817,7 @@ class OrderService {
         return fn;
       }
     }
-    if (item['order_source'] == 'WATER_WALLET' || item['order_source'] == 'WATER_WALLET_REDEMPTION') {
-      return 'Shivnath Central Admin (Water Wallet)';
-    }
-    if (item['order_source'] == 'DIRECT_COMPANY') {
-      return 'Shivnath Agency (Direct Company)';
-    }
-    return 'Shivnath Agency';
+    return 'Shivnath Agency (Direct Company)';
   }
 
   // =====================================================

@@ -1239,17 +1239,19 @@ class _RedemptionCatalogSheetState extends State<_RedemptionCatalogSheet> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Confirm Point Redemption', style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Redeem $pointsReq Hydration Points for $qtyDisplay of $prodName?'),
-            const SizedBox(height: 10),
-            const Text(
-              'This order will be placed directly with Shivnath Central Admin for fulfillment with strict minimum-order and packaging compliance.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Redeem $pointsReq Hydration Points for $qtyDisplay of $prodName?'),
+              const SizedBox(height: 10),
+              const Text(
+                'This order will be placed directly with Shivnath Central Admin for fulfillment with strict minimum-order and packaging compliance.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),

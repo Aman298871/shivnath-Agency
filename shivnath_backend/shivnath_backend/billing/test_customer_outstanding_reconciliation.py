@@ -29,7 +29,7 @@ class CustomerOutstandingReconciliationTests(TestCase):
         self.admin_user.save()
         UserProfile.objects.update_or_create(
             user=self.admin_user,
-            defaults={'role': 'admin', 'phone': '9806247194'},
+            defaults={'role': 'admin', 'phone': '8966925257'},
         )
 
         # Support Contact
@@ -37,7 +37,7 @@ class CustomerOutstandingReconciliationTests(TestCase):
             role='customer',
             defaults={
                 'name': 'Shivnath Support Desk',
-                'phone': '+91 98062 47194',
+                'phone': '+91 89669 25257',
                 'is_active': True,
             }
         )

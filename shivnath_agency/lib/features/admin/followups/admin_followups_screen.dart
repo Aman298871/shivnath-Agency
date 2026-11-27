@@ -950,25 +950,27 @@ else
       builder: (dialogCtx) {
         return AlertDialog(
           title: const Text('Complete Follow-up'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Mark follow-up for "${item['lead'] ?? 'Lead'}" as completed?',
-                style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: outcomeController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Outcome / Notes (Optional)',
-                  hintText: 'e.g. Discussed requirements, customer requested catalog.',
-                  border: OutlineInputBorder(),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Mark follow-up for "${item['lead'] ?? 'Lead'}" as completed?',
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
                 ),
-              ),
-            ],
+                const SizedBox(height: 14),
+                TextField(
+                  controller: outcomeController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Outcome / Notes (Optional)',
+                    hintText: 'e.g. Discussed requirements, customer requested catalog.',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(

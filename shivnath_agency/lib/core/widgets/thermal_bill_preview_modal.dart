@@ -228,7 +228,7 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
     buffer.writeln(div);
     buffer.writeln('     SHIVNATH AGENCIES (WATER WALA)');
     buffer.writeln('    Pure Packaged Drinking Water');
-    buffer.writeln(' Raipur, Chhattisgarh | Helpline: 1800-SHIVNATH');
+    buffer.writeln(' Raipur, Chhattisgarh | Helpline: +91 89669 25257');
     buffer.writeln(div);
     buffer.writeln('Receipt / Inv: $_invoiceNumber');
     buffer.writeln('Order Ref   : $_orderCode');
@@ -604,7 +604,7 @@ class _ThermalBillPreviewModalState extends State<ThermalBillPreviewModal> {
                               ),
                             ),
                             const Text(
-                              'Raipur, C.G. | Customer Care: 1800-SHIVNATH',
+                              'Raipur, C.G. | Customer Care: +91 89669 25257',
                               style: TextStyle(
                                 fontFamily: 'monospace',
                                 fontSize: 9,

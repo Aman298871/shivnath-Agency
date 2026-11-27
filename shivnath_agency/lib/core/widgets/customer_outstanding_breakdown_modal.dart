@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/app_constants.dart';
 import '../repositories/order_repository.dart';
 import '../utils/contact_action_helper.dart';
 import '../../features/customer/orders/order_detail_screen.dart';
@@ -710,8 +711,14 @@ class _CustomerOutstandingBreakdownModalState
         franchisePhone.isNotEmpty;
 
     final adminName = admin['name']?.toString() ?? 'Shivnath Support / Central Plant';
-    final adminPhone = admin['phone']?.toString() ?? '+91 89669 25257';
-    final isAdminConfigured = adminPhone.isNotEmpty && adminPhone != 'Contact number not configured';
+    final rawAdminPhone = admin['phone']?.toString();
+    final adminPhone = (rawAdminPhone != null &&
+            rawAdminPhone.trim().isNotEmpty &&
+            rawAdminPhone != 'Contact number not configured' &&
+            !rawAdminPhone.contains('98062'))
+        ? rawAdminPhone.trim()
+        : AppConstants.adminSupportPhone;
+    final isAdminConfigured = true;
 
     return Container(
       padding: const EdgeInsets.all(16),

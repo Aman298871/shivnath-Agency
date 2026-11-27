@@ -9,11 +9,7 @@ class ForgotPasswordScreen extends StatelessWidget {
   final String? initialEmail;
   final String? initialRole;
 
-  const ForgotPasswordScreen({
-    super.key,
-    this.initialEmail,
-    this.initialRole,
-  });
+  const ForgotPasswordScreen({super.key, this.initialEmail, this.initialRole});
 
   RoleThemeConfig get roleConfig {
     final role = initialRole ?? '';
@@ -35,7 +31,9 @@ class ForgotPasswordScreen extends StatelessWidget {
 
   Future<void> _openWhatsApp(BuildContext context, String phone) async {
     final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    final uri = Uri.parse('https://wa.me/91$cleanPhone?text=Hello%20Water%20Wala%20Support,%20I%20need%20assistance%20with%20resetting%20my%20account%20password.');
+    final uri = Uri.parse(
+      'https://wa.me/91$cleanPhone?text=Hello%20Water%20Wala%20Support,%20I%20need%20assistance%20with%20resetting%20my%20account%20password.',
+    );
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
@@ -48,7 +46,9 @@ class ForgotPasswordScreen extends StatelessWidget {
   }
 
   Future<void> _sendEmail(BuildContext context, String email) async {
-    final uri = Uri.parse('mailto:$email?subject=Water%20Wala%20Password%20Reset%20Request');
+    final uri = Uri.parse(
+      'mailto:$email?subject=Water%20Wala%20Password%20Reset%20Request',
+    );
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
@@ -67,7 +67,7 @@ class ForgotPasswordScreen extends StatelessWidget {
 
     const supportPhone = '+91 98765 43210';
     const supportWhatsApp = '9876543210';
-    const supportEmail = 'support@waterwala.in';
+    const supportEmail = 'support@shivnathagencies.com';
 
     return Scaffold(
       backgroundColor: BrandColors.white,
@@ -76,7 +76,10 @@ class ForgotPasswordScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_rounded, color: BrandColors.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: BrandColors.textPrimary,
+          ),
         ),
         actions: const [
           Padding(
@@ -238,7 +241,9 @@ class ForgotPasswordScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: BrandColors.warningSoft,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: BrandColors.warningDark.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: BrandColors.warningDark.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,10 +286,7 @@ class ForgotPasswordScreen extends StatelessWidget {
                   ),
                   child: const Text(
                     'Back to Login',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),

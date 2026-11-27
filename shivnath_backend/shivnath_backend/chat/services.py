@@ -80,7 +80,7 @@ class AIService:
                 'brand': 'Pure Water / Shivnath Packaged Drinking Water',
                 'head_office': 'H Block, 2nd Floor, Farishta Complex, Raipur, Chhattisgarh - 492001',
                 'contact_phone': '+91 89669 25257',
-                'contact_email': 'info@pathideainfotech.com / support@shivnathagency.com',
+                'contact_email': 'support@shivnathagencies.com',
                 'plant_location': 'Industrial Area, Phase 2, Raipur, CG',
                 'standards': 'BIS Certified (IS 14543), FSSAI Approved, 7-Stage RO + UV + Ozonation Purification',
                 'hours': '9:00 AM - 7:00 PM (Monday to Saturday)',
@@ -663,7 +663,7 @@ class AIService:
             return (
                 "Shivnath Agency Contact & Support:\n"
                 "* Customer Care / WhatsApp: +91 89669 25257\n"
-                "* Email: info@pathideainfotech.com / support@shivnathagency.com\n"
+                "* Email: support@shivnathagencies.com\n"
                 "* Head Office: H Block, 2nd Floor, Farishta Complex, Raipur, Chhattisgarh - 492001\n"
                 "* Hours: 9:00 AM - 7:00 PM (Monday to Saturday)"
             )

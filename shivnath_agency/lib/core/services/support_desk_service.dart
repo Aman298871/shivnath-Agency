@@ -50,7 +50,10 @@ class SupportContactInfo {
       district: json['district']?.toString(),
       officeAddress: json['office_address']?.toString(),
       franchisesInArea: json['franchises_in_area'] is List
-          ? (json['franchises_in_area'] as List).whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList()
+          ? (json['franchises_in_area'] as List)
+                .whereType<Map>()
+                .map((m) => Map<String, dynamic>.from(m))
+                .toList()
           : const [],
     );
   }
@@ -100,7 +103,7 @@ class SupportDeskService {
     id: 2,
     name: 'Admin Support Desk',
     phone: adminPhone,
-    email: 'support@shivnath.com',
+    email: 'support@shivnathagencies.com',
     role: 'admin',
     roleDisplay: 'Central Customer Helpline & Admin Desk',
     messageTemplate:
@@ -116,7 +119,7 @@ class SupportDeskService {
       roleDisplay: 'Customer Support Desk',
       name: 'Shivnath Agency Support Desk',
       phone: adminPhone,
-      email: 'support@shivnath.com',
+      email: 'support@shivnathagencies.com',
       messageTemplate:
           'Namaste Shivnath Support,\nI require assistance with my drinking water supply.',
       target: 'central',

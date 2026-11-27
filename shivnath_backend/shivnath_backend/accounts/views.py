@@ -1,3 +1,4 @@
+from accounts import models
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 import os
@@ -2754,7 +2755,7 @@ def _get_support_contact(role_key):
         return {
             'name': 'Shivnath Support Desk',
             'phone': fallback_phone,
-            'email': getattr(settings, 'SUPPORT_FALLBACK_EMAIL', 'support@shivnath.com'),
+            'email': getattr(settings, 'SUPPORT_FALLBACK_EMAIL', 'support@shivnathagencies.com'),
             'message_template': 'Namaste Shivnath Support Desk,\nI need assistance with my drinking water supply.',
         }
 
@@ -5804,9 +5805,9 @@ class AdminZoneManagementView(APIView):
             qs = qs.filter(district__name__icontains=district_name)
         if search:
             qs = qs.filter(
-                models.Q(name__icontains=search) |
-                models.Q(code__icontains=search) |
-                models.Q(district__name__icontains=search)
+                Q(name__icontains=search) |
+                Q(code__icontains=search) |
+                Q(district__name__icontains=search)
             )
         if is_active is not None and is_active != '':
             qs = qs.filter(is_active=str(is_active).lower() in ['true', '1'])

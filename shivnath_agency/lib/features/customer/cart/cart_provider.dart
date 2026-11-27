@@ -340,13 +340,11 @@ class CartProvider extends ChangeNotifier {
   /// Returns null on success, or an error message if stock limit is exceeded.
   String? addProduct(dynamic product, {int? qty}) {
     String prodId = '';
-    int availableStock = 999;
     int moq = 1;
     int upc = 1;
 
     if (product is ProductModel) {
       prodId = product.id;
-      availableStock = product.stock;
       moq = product.minOrderQuantity;
       upc = product.unitsPerCase;
       if (!product.isActive) {
@@ -354,7 +352,6 @@ class CartProvider extends ChangeNotifier {
       }
     } else if (product is Map) {
       prodId = product['id']?.toString() ?? '';
-      availableStock = int.tryParse(product['stock']?.toString() ?? '999') ?? 999;
       final st = (product['status'] ?? 'Active').toString().toLowerCase();
       if (st == 'inactive' || st == 'disabled' || st == 'discontinued') {
         return "This product is currently unavailable.";

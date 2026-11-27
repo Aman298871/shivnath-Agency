@@ -1326,7 +1326,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     final rawName = nameController.text.trim();
     final rawPhone = phoneController.text.trim();
-    final rawAddress = addressController.text.trim();
     final rawCity = cityController.text.trim();
 
     if (rawName.isEmpty) {

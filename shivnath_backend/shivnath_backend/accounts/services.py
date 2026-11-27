@@ -1,6 +1,10 @@
+from accounts.fcm_services import logger
 import calendar
+import logging
 from datetime import date, timedelta
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 from .models import (
     CustomerStockCycle,
     FranchiseNotification,
@@ -384,7 +388,7 @@ def resolve_serviceable_franchises(zone=None, district=None, allow_fallback=True
             return {'phone': sc.phone, 'email': sc.email, 'name': sc.name}
         except SupportContact.DoesNotExist:
             fallback = getattr(settings, 'SUPPORT_FALLBACK_PHONE', None)
-            return {'phone': fallback or '', 'email': 'support@shivnath.com', 'name': 'Shivnath Central Support'}
+            return {'phone': fallback or '', 'email': 'support@shivnathagencies.com', 'name': 'Shivnath Central Support'}
 
     if not zone and not district:
         return {

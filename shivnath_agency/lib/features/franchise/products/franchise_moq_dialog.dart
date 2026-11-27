@@ -102,12 +102,23 @@ class _FranchiseMoqDialogState extends State<FranchiseMoqDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenH = MediaQuery.of(context).size.height;
+    final isCompact = MediaQuery.of(context).size.width < 400;
+    final isShort = screenH < 500;
+
     return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 10.0 : 24.0,
+        vertical: isShort ? 8.0 : 20.0,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 680),
+        constraints: BoxConstraints(
+          maxWidth: 720,
+          maxHeight: screenH > 100 ? (screenH - (isShort ? 24.0 : 64.0)).clamp(220.0, 680.0) : 680.0,
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(isShort ? 10.0 : (isCompact ? 14.0 : 20.0)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

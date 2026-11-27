@@ -143,8 +143,19 @@ export const AuthProvider = ({ children }) => {
 
     const perms = new Set(user.admin_permissions || []);
     if (perms.has('*') || perms.has('all')) return true;
-    if (perms.has(module) || perms.has(`${module}:*`)) return true;
-    if (perms.has(`${module}:${action}`)) return true;
+    const checkModule = (mod) => {
+      if (perms.has(mod) || perms.has(`${mod}:*`)) return true;
+      if (perms.has(`${mod}:${action}`)) return true;
+      return false;
+    };
+
+    if (checkModule(module)) return true;
+    // Check aliases
+    if (module === 'dealers' && checkModule('franchises')) return true;
+    if (module === 'franchises' && checkModule('dealers')) return true;
+    if (module === 'customers' && checkModule('leads')) return true;
+    if (module === 'leads' && checkModule('customers')) return true;
+    if (module === 'moq' && (checkModule('orders') || checkModule('products'))) return true;
 
     return false;
   }, [user]);

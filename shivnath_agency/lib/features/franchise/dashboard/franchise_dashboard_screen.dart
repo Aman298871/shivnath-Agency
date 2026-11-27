@@ -72,6 +72,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
 
   // Real-time live order alert & polling mechanism (matching Admin experience)
   Timer? _liveAlertTimer;
+  Timer? _initialDelayedTimer;
   int _lastSeenOrderId = 0;
   final Set<int> _dismissedOrderIds = {};
   bool _isCheckingLiveAlerts = false;
@@ -88,16 +89,18 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
   @override
   void dispose() {
     _liveAlertTimer?.cancel();
+    _initialDelayedTimer?.cancel();
     _isLoggingOut = true;
     super.dispose();
   }
 
   void _startLiveOrderWatcher() {
     _liveAlertTimer?.cancel();
+    _initialDelayedTimer?.cancel();
     _liveAlertTimer = Timer.periodic(const Duration(seconds: 12), (_) {
       _checkLiveOrders();
     });
-    Future.delayed(const Duration(seconds: 1), () {
+    _initialDelayedTimer = Timer(const Duration(seconds: 1), () {
       if (mounted) _checkLiveOrders();
     });
   }
@@ -797,10 +800,14 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Quick Operations',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              const Expanded(
+                child: Text(
+                  'Quick Operations',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
                 'Direct Access',
                 style: TextStyle(
@@ -821,7 +828,7 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                   ? 3.8
                   : (isNarrow
                       ? (constraints.maxWidth < 380 ? 2.1 : 2.4)
-                      : 2.7);
+                      : (desktop && constraints.maxWidth < 900 ? 2.1 : 2.7));
 
               return GridView.builder(
                 shrinkWrap: true,
@@ -1016,12 +1023,12 @@ class _FranchiseDashboardScreenState extends State<FranchiseDashboardScreen> {
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final isVerySmall = constraints.maxWidth < 340;
-                        final crossAxisCount = isVerySmall ? 1 : (desktop ? 4 : 2);
+                        final crossAxisCount = isVerySmall ? 1 : (constraints.maxWidth >= 900 ? 4 : 2);
                         final childAspectRatio = isVerySmall
                             ? 3.2
-                            : (desktop
+                            : (constraints.maxWidth >= 900
                                 ? 2.1
-                                : (constraints.maxWidth < 380 ? 1.35 : 1.2));
+                                : (constraints.maxWidth < 380 ? 1.4 : 1.7));
 
                         return GridView.count(
                           shrinkWrap: true,
@@ -1398,6 +1405,7 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final act = action;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1411,14 +1419,20 @@ class _Card extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              ?action,
+              if (act != null) ...[
+                const SizedBox(width: 8),
+                act,
+              ],
             ],
           ),
           const SizedBox(height: 14),

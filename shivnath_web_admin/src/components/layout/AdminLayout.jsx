@@ -65,7 +65,7 @@ export default function AdminLayout() {
         }
 
         // Poll franchise stock requests
-        const stockRes = await apiClient.get('/api/inventory/dealer-requests/?limit=10');
+        const stockRes = await apiClient.get('/api/inventory/dealer-stock-requests/?limit=10');
         const requests = stockRes.data?.results || stockRes.data?.requests || stockRes.data?.data || (Array.isArray(stockRes.data) ? stockRes.data : []);
 
         if (Array.isArray(requests) && requests.length > 0) {

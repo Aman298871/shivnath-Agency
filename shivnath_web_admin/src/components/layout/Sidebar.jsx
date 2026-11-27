@@ -27,7 +27,7 @@ export default function Sidebar({ isOpen, onClose }) {
     { name: 'Live Orders', path: '/orders', icon: ShoppingCart, module: 'orders', action: 'view' },
     { name: 'Customers CRM', path: '/customers', icon: Users, module: 'customers', action: 'view' },
     { name: 'Leads & Follow-ups', path: '/leads', icon: Target, module: 'customers', action: 'view' },
-    { name: 'Franchise Dealers', path: '/franchises', icon: Store, module: 'franchises', action: 'view' },
+    { name: 'Franchise Dealers', path: '/franchises', icon: Store, module: 'dealers', action: 'view' },
     { name: 'Master Catalog', path: '/products', icon: Package, module: 'products', action: 'view' },
     { name: 'Plant Stock & ERP', path: '/plant-stock', icon: Factory, module: 'inventory', action: 'view' },
     { name: 'Quotations', path: '/quotations', icon: FileText, module: 'billing', action: 'view' },

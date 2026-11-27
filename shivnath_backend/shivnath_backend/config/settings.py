@@ -360,3 +360,10 @@ RAZORPAY_ENVIRONMENT = os.getenv('RAZORPAY_ENVIRONMENT', 'LIVE').strip().upper()
 # --------------------------------------------------
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# --------------------------------------------------
+# SUPPORT DESK & HELPLINE FALLBACKS
+# --------------------------------------------------
+SUPPORT_FALLBACK_PHONE = os.getenv('SUPPORT_FALLBACK_PHONE', '+91 89669 25257')
+SUPPORT_FALLBACK_EMAIL = os.getenv('SUPPORT_FALLBACK_EMAIL', 'support@shivnath.com')
+

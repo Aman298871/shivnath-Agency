@@ -1631,7 +1631,7 @@ class CustomerOutstandingBreakdownAPIView(views.APIView):
             else:
                 collector_type = 'ADMIN'
                 collector_name = 'Shivnath Central Plant / Support'
-                collector_phone = getattr(settings, 'SUPPORT_FALLBACK_PHONE', '+91 98062 47194')
+                collector_phone = getattr(settings, 'SUPPORT_FALLBACK_PHONE', '+91 89669 25257')
                 admin_outstanding += due
 
             total_outstanding += due
@@ -1680,7 +1680,7 @@ class CustomerOutstandingBreakdownAPIView(views.APIView):
             })
 
         # Contacts Configuration
-        admin_phone = getattr(settings, 'SUPPORT_FALLBACK_PHONE', '+91 98062 47194')
+        admin_phone = getattr(settings, 'SUPPORT_FALLBACK_PHONE', '+91 89669 25257')
         try:
             admin_sc = SupportContact.objects.filter(role__in=['admin', 'customer'], is_active=True).first()
             if admin_sc and admin_sc.phone:

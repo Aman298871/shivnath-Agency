@@ -2750,7 +2750,7 @@ def _get_support_contact(role_key):
             'message_template': contact.message_template,
         }
     except SupportContact.DoesNotExist:
-        fallback_phone = getattr(settings, 'SUPPORT_FALLBACK_PHONE', '+91 98062 47194')
+        fallback_phone = getattr(settings, 'SUPPORT_FALLBACK_PHONE', '+91 89669 25257')
         return {
             'name': 'Shivnath Support Desk',
             'phone': fallback_phone,

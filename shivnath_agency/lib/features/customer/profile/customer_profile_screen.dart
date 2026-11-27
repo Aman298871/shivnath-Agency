@@ -134,7 +134,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   String get _displayPhone {
     final phone = _currentUser?.phone.trim();
     if (phone != null && phone.isNotEmpty) return phone;
-    return '+91 98264 21818';
+    return '+91 89669 25257';
   }
 
   String get _initials {
@@ -1714,7 +1714,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                             icon: Icons.support_agent,
                             title: 'Help & Admin Support',
                             subtitle:
-                                'Admin Helpline: +91 98264 21818 (Call / Chat)',
+                                'Admin Helpline: +91 89669 25257 (Call / Chat)',
                             onTap: _showHelpSupportDialog,
                           ),
                           const SizedBox(height: 12),
@@ -1940,7 +1940,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         _ProfileTile(
           icon: Icons.support_agent,
           title: 'Help & Admin Support',
-          subtitle: 'Admin Helpline: +91 98264 21818 (Call / Chat)',
+          subtitle: 'Admin Helpline: +91 89669 25257 (Call / Chat)',
           onTap: _showHelpSupportDialog,
         ),
         _ProfileTile(

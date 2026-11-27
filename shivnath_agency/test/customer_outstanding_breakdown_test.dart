@@ -23,13 +23,13 @@ void main() {
         'contacts': {
           'franchise': {
             'name': 'Devendra Nagar Water Supply',
-            'phone': '+91 98264 21818',
+            'phone': '+91 89669 25257',
             'is_configured': true,
             'outstanding_amount': 100.0,
           },
           'admin': {
             'name': 'Shivnath Agency Support (Water Wala)',
-            'phone': '+91 98062 47194',
+            'phone': '+91 89669 25257',
             'is_configured': true,
             'outstanding_amount': 200.0,
           },
@@ -53,7 +53,7 @@ void main() {
             'reason': 'Delivered cash-on-delivery order pending physical collection',
             'collector_type': 'FRANCHISE',
             'collector_name': 'Devendra Nagar Water Supply',
-            'collector_phone': '+91 98264 21818',
+            'collector_phone': '+91 89669 25257',
             'collector_role_label': 'Payable to Franchise: Devendra Nagar Water Supply',
             'can_view_order': true,
             'is_verified': true,
@@ -76,7 +76,7 @@ void main() {
             'reason': 'Direct company delivery pending payment',
             'collector_type': 'ADMIN',
             'collector_name': 'Shivnath Central Plant / Support',
-            'collector_phone': '+91 98062 47194',
+            'collector_phone': '+91 89669 25257',
             'collector_role_label': 'Payable to Admin (Shivnath Central Support)',
             'can_view_order': true,
             'is_verified': true,
@@ -122,9 +122,9 @@ void main() {
       // Verify Official Contacts & Call Buttons
       expect(find.text('Payment Help & Official Support'), findsOneWidget);
       expect(find.text('Devendra Nagar Water Supply'), findsWidgets);
-      expect(find.text('+91 98264 21818'), findsWidgets);
+      expect(find.text('+91 89669 25257'), findsWidgets);
       expect(find.text('Shivnath Agency Support (Water Wala)'), findsOneWidget);
-      expect(find.text('+91 98062 47194'), findsWidgets);
+      expect(find.text('+91 89669 25257'), findsWidgets);
 
       expect(tester.takeException(), isNull);
     });
@@ -147,7 +147,7 @@ void main() {
           },
           'admin': {
             'name': 'Shivnath Agency Support (Water Wala)',
-            'phone': '+91 98062 47194',
+            'phone': '+91 89669 25257',
             'is_configured': true,
           },
         },
@@ -189,7 +189,7 @@ void main() {
           },
           'admin': {
             'name': 'Shivnath Agency Support (Water Wala)',
-            'phone': '+91 98062 47194',
+            'phone': '+91 89669 25257',
             'is_configured': true,
           },
         },

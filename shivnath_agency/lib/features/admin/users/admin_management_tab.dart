@@ -63,7 +63,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
             'name': 'Super Administrator',
             'username': 'admin',
             'email': 'admin@shivnath.com',
-            'phone': '+91 98264 21818',
+            'phone': '+91 89669 25257',
             'role': 'super_admin',
             'is_active': true,
             'data_scope_type': 'all_data',
@@ -178,7 +178,7 @@ class _AdminManagementTabState extends State<AdminManagementTab> {
                       controller: phoneCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Phone Number (Optional)',
-                        hintText: 'e.g. +91 98264 21818',
+                        hintText: 'e.g. +91 89669 25257',
                         border: OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.phone,

@@ -323,7 +323,7 @@ def privacy_policy_html_view(request):
                 <strong>Grievance & Privacy Contact:</strong><br>
                 Shivnath Agency (WATERNow Enterprise)<br>
                 Farishta Complex, G.E. Road, Raipur, Chhattisgarh - 492001, India<br>
-                Admin Helpline: <strong>+91 98062 47194</strong><br>
+                Admin Helpline: <strong>+91 89669 25257</strong><br>
                 Privacy Email: <strong>privacy@waternow.in</strong> / <strong>support@waternow.in</strong>
             </div>
         </div>
@@ -538,7 +538,7 @@ def public_account_deletion_html_view(request):
             <div class="info-box">
                 <strong>Need immediate assistance?</strong><br>
                 You can also contact our Data Protection Officer directly:<br>
-                Admin Helpline: <strong>+91 98062 47194</strong> | Email: <strong>support@waternow.in</strong><br>
+                Admin Helpline: <strong>+91 89669 25257</strong> | Email: <strong>support@waternow.in</strong><br>
                 View our complete <a href="/privacy-policy/" style="color: var(--primary);">Privacy Policy</a>.
             </div>
         </div>

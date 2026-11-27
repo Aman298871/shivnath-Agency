@@ -82,7 +82,7 @@ class SupportDeskService {
     return digitsOnly;
   }
 
-  static const String adminPhone = '+91 98264 21818';
+  static const String adminPhone = '+91 89669 25257';
 
   static SupportContactInfo get adminContact => SupportContactInfo(
     id: 1,

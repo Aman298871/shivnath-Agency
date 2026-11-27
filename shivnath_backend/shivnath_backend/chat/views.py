@@ -871,7 +871,7 @@ class ChatView(APIView):
                 }, status=status.HTTP_200_OK)
             return Response({
                 'success': True,
-                'reply': 'Thank you for your inquiry. For direct assistance, our customer support team is available at +91 98062 47194.',
+                'reply': 'Thank you for your inquiry. For direct assistance, our customer support team is available at +91 89669 25257.',
                 'app_type': app_type,
             }, status=status.HTTP_200_OK)
 

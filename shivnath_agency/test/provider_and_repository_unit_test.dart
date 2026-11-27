@@ -6,27 +6,27 @@ import 'package:shivnath_agency/core/services/support_desk_service.dart';
 
 void main() {
   group('SupportDeskService Admin Phone Verification Tests', () {
-    test('Admin contact uses authoritative admin phone 9826421818', () {
-      expect(SupportDeskService.adminPhone, contains('98264 21818'));
-      expect(SupportDeskService.formatCleanPhone(SupportDeskService.adminPhone), contains('9826421818'));
+    test('Admin contact uses authoritative admin phone 8966925257', () {
+      expect(SupportDeskService.adminPhone, contains('89669 25257'));
+      expect(SupportDeskService.formatCleanPhone(SupportDeskService.adminPhone), contains('8966925257'));
 
       final adminContact = SupportDeskService.adminContact;
-      expect(adminContact.phone, contains('98264 21818'));
-      expect(SupportDeskService.formatCleanPhone(adminContact.phone), contains('9826421818'));
+      expect(adminContact.phone, contains('89669 25257'));
+      expect(SupportDeskService.formatCleanPhone(adminContact.phone), contains('8966925257'));
       expect(adminContact.role, 'admin');
     });
 
-    test('fetchAllSupportContacts returns admin contact with 9826421818', () async {
+    test('fetchAllSupportContacts returns admin contact with 8966925257', () async {
       final contacts = await SupportDeskService.fetchAllSupportContacts();
       expect(contacts.isNotEmpty, true);
 
       final admin = contacts.firstWhere((c) => c.role.toLowerCase() == 'admin');
-      expect(admin.phone, contains('98264 21818'));
+      expect(admin.phone, contains('89669 25257'));
     });
 
     test('fetchSupportContact for admin returns adminContact', () async {
       final contact = await SupportDeskService.fetchSupportContact(role: 'admin');
-      expect(contact.phone, contains('98264 21818'));
+      expect(contact.phone, contains('89669 25257'));
       expect(contact.role, 'admin');
     });
   });
@@ -108,7 +108,7 @@ void main() {
         'id': 201,
         'order_id': 'ORD-201',
         'customer_name': 'Amit Verma',
-        'customer_phone': '9826421818',
+        'customer_phone': '8966925257',
         'delivery_address': 'Main Road, Raipur',
         'amount': '1200.00',
         'amount_paid': '1200.00',

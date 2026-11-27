@@ -1820,7 +1820,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final isFranchisePhoneConfigured = rawFranchisePhone.isNotEmpty && rawFranchisePhone != 'Contact number not configured';
 
     const adminName = 'Shivnath Agency Support (Water Wala)';
-    const adminPhone = '+91 98062 47194';
+    const adminPhone = '+91 89669 25257';
 
     return Card(
       elevation: 0,

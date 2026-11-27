@@ -18,7 +18,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   final SessionService _sessionService = SessionService();
   final nameController = TextEditingController(text: 'Administrator');
   final emailController = TextEditingController(text: 'admin@shivnath.com');
-  final phoneController = TextEditingController(text: '+91 98264 21818');
+  final phoneController = TextEditingController(text: '+91 89669 25257');
 
   UserModel? _currentUser;
   bool _isLoading = false;

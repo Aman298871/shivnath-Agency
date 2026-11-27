@@ -79,7 +79,7 @@ class AIService:
                 'name': 'Shivnath Agency (Pure Packaged Drinking Water)',
                 'brand': 'Pure Water / Shivnath Packaged Drinking Water',
                 'head_office': 'H Block, 2nd Floor, Farishta Complex, Raipur, Chhattisgarh - 492001',
-                'contact_phone': '+91 98062 47194',
+                'contact_phone': '+91 89669 25257',
                 'contact_email': 'info@pathideainfotech.com / support@shivnathagency.com',
                 'plant_location': 'Industrial Area, Phase 2, Raipur, CG',
                 'standards': 'BIS Certified (IS 14543), FSSAI Approved, 7-Stage RO + UV + Ozonation Purification',
@@ -156,7 +156,7 @@ class AIService:
             "STRICT RULES:\n"
             "1. You must ONLY answer questions about Shivnath Agency water products, pricing, orders, delivery, quotations, and franchise business.\n"
             "2. Ground all answers strictly on the provided live database context.\n"
-            "3. NEVER fabricate or hallucinate prices, stock, margins, or quotations. If a quotation or price is not in context, state actual product prices or direct the user to contact +91 98062 47194.\n"
+            "3. NEVER fabricate or hallucinate prices, stock, margins, or quotations. If a quotation or price is not in context, state actual product prices or direct the user to contact +91 89669 25257.\n"
             "4. If the user asks anything outside of Shivnath Agency water business, refuse with: "
             f"'{cls.OUT_OF_SCOPE_MESSAGE}'\n\n"
             f"Live Database Context:\n{json.dumps(system_context, default=str)}"
@@ -566,14 +566,14 @@ class AIService:
                         f"  - Terms: {q.applicable_terms}\n"
                         f"  - Validity: {q.validity}"
                     )
-                resp_lines.append("\nFor customized corporate or institutional contracts, contact our sales desk at +91 98062 47194.")
+                resp_lines.append("\nFor customized corporate or institutional contracts, contact our sales desk at +91 89669 25257.")
                 return "\n".join(resp_lines)
             else:
                 products = Product.objects.filter(status='Active')
                 resp_lines = ["Standard Product Price List:"]
                 for p in products:
                     resp_lines.append(f"* {p.name} ({p.size}): Rs.{p.price} per {p.unit} [Stock: {p.stock}]")
-                resp_lines.append("\nFor bulk quantities (100+ units) or specialized quotations, our Sales team will prepare an instant proposal. Please call +91 98062 47194.")
+                resp_lines.append("\nFor bulk quantities (100+ units) or specialized quotations, our Sales team will prepare an instant proposal. Please call +91 89669 25257.")
                 return "\n".join(resp_lines)
 
         # =========================================================================
@@ -604,7 +604,7 @@ class AIService:
             prods = Product.objects.filter(status='Active')
 
             if not prods.exists():
-                return "We currently have no active products listed in the catalog. Please contact +91 98062 47194."
+                return "We currently have no active products listed in the catalog. Please contact +91 89669 25257."
 
             lines = ["Shivnath Agency Product Catalog:"]
             for p in prods:
@@ -629,7 +629,7 @@ class AIService:
                 "* Requirement: 500-1200 sq.ft commercial storage space & local delivery vehicle\n"
                 "* Gross Profit Margin: 25% - 35% on direct plant supply\n"
                 "* Support Provided: Plant dispatch priority, CRM app, branded marketing materials, and dedicated territory protection.\n\n"
-                "To apply immediately, select 'Apply for Franchise (Qualify Now)' or contact +91 98062 47194."
+                "To apply immediately, select 'Apply for Franchise (Qualify Now)' or contact +91 89669 25257."
             )
 
         # =========================================================================
@@ -662,7 +662,7 @@ class AIService:
         if matches(['contact', 'support', 'phone', 'email', 'office', 'call', 'helpline', 'customer care', 'address', 'location', 'reach']):
             return (
                 "Shivnath Agency Contact & Support:\n"
-                "* Customer Care / WhatsApp: +91 98062 47194\n"
+                "* Customer Care / WhatsApp: +91 89669 25257\n"
                 "* Email: info@pathideainfotech.com / support@shivnathagency.com\n"
                 "* Head Office: H Block, 2nd Floor, Farishta Complex, Raipur, Chhattisgarh - 492001\n"
                 "* Hours: 9:00 AM - 7:00 PM (Monday to Saturday)"
@@ -688,5 +688,5 @@ class AIService:
         return (
             "Thank you for reaching out to Shivnath Agency. "
             "You can ask about our water products, pricing tiers, quotations, order placement, or franchise opportunities. "
-            "For direct sales assistance, please contact +91 98062 47194."
+            "For direct sales assistance, please contact +91 89669 25257."
         )

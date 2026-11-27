@@ -710,7 +710,7 @@ class _CustomerOutstandingBreakdownModalState
         franchisePhone.isNotEmpty;
 
     final adminName = admin['name']?.toString() ?? 'Shivnath Support / Central Plant';
-    final adminPhone = admin['phone']?.toString() ?? '+91 98062 47194';
+    final adminPhone = admin['phone']?.toString() ?? '+91 89669 25257';
     final isAdminConfigured = adminPhone.isNotEmpty && adminPhone != 'Contact number not configured';
 
     return Container(

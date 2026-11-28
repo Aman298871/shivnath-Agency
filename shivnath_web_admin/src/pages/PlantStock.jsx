@@ -103,6 +103,9 @@ export default function PlantStock() {
     setBatchNumber(`BATCH-${todayStr}-${rand}`);
     setBatchQuantity(500);
     setBatchExpiryDays(180);
+    if (!batchProductId && products.length > 0) {
+      setBatchProductId(products[0].id.toString());
+    }
     setBatchError('');
     setIsBatchModalOpen(true);
   };
@@ -112,21 +115,32 @@ export default function PlantStock() {
     setIsSubmittingBatch(true);
     setBatchError('');
 
+    const resolvedProductId = batchProductId || (products.length > 0 ? products[0].id.toString() : '');
+    if (!resolvedProductId) {
+      setBatchError('Please select a finished product SKU.');
+      setIsSubmittingBatch(false);
+      return;
+    }
+
     try {
       const expDate = new Date();
       expDate.setDate(expDate.getDate() + parseInt(batchExpiryDays, 10));
 
       await apiClient.post('/api/inventory/production-batches/', {
         batch_number: batchNumber.trim(),
-        product_id: parseInt(batchProductId, 10),
+        product: parseInt(resolvedProductId, 10),
+        product_id: parseInt(resolvedProductId, 10),
+        quantity_produced_units: parseInt(batchQuantity, 10),
         quantity_manufactured: parseInt(batchQuantity, 10),
+        quantity: parseInt(batchQuantity, 10),
+        shelf_life_days: parseInt(batchExpiryDays, 10) || 180,
         expiry_date: expDate.toISOString().slice(0, 10),
       });
 
       setIsBatchModalOpen(false);
       fetchPlantData();
     } catch (err) {
-      setBatchError(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to record batch');
+      setBatchError(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to record batch');
     } finally {
       setIsSubmittingBatch(false);
     }

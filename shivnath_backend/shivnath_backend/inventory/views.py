@@ -699,7 +699,12 @@ class ProductionBatchListCreateAPIView(views.APIView):
 
     def post(self, request):
         product_id = request.data.get('product') or request.data.get('product_id')
-        qty = request.data.get('quantity_produced_units') or request.data.get('quantity')
+        qty = (
+            request.data.get('quantity_produced_units')
+            or request.data.get('quantity')
+            or request.data.get('quantity_manufactured')
+            or request.data.get('units_manufactured')
+        )
         mfg_date = request.data.get('manufacture_date')
         exp_date = request.data.get('expiry_date')
         batch_number = request.data.get('batch_number')

@@ -241,6 +241,11 @@ urlpatterns = [
     ),
 
     path(
+        'franchises/<int:pk>/',
+        UpdateFranchiseView.as_view(),
+        name='franchise-detail-patch'
+    ),
+    path(
         'franchises/<int:pk>/approve/',
         ApproveFranchiseView.as_view(),
         name='approve-franchise'

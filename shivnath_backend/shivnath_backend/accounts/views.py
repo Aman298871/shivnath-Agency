@@ -890,6 +890,17 @@ class UpdateFranchiseView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAdminRole]
 
+    def patch(self, request, pk):
+        franchise = get_object_or_404(FranchiseProfile, pk=pk)
+        new_status = request.data.get('status')
+        if new_status == 'approved':
+            override = request.data.get('override_reason') or 'Approved via Web Admin Portal'
+            request.data['override_reason'] = override
+            return ApproveFranchiseView().post(request, pk)
+        elif new_status == 'rejected':
+            return RejectFranchiseView().post(request, pk)
+        return self.put(request, pk)
+
     def put(self, request, pk):
         franchise = get_object_or_404(
             FranchiseProfile,

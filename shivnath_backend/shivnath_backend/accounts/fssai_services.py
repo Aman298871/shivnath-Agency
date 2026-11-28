@@ -336,6 +336,11 @@ def validate_franchise_fssai_for_activation(franchise, actor=None, override_reas
     ).order_by('-version', '-uploaded_at').first()
 
     if not fssai_doc or not fssai_doc.document_file:
+        if override_reason and actor:
+            user_prof = getattr(actor, 'profile', None) if actor else None
+            is_admin_or_super = actor.is_superuser or actor.is_staff or (user_prof and user_prof.role in ['admin', 'super_admin'])
+            if is_admin_or_super:
+                return True, "Approved with administrator authorization.", ""
         return False, "Cannot approve Franchise: Missing required FSSAI registration document. Franchise must upload a valid FSSAI license certificate.", "FSSAI_DOCUMENT_MISSING"
 
     fssai_status = (franchise.fssai_verification_status or fssai_doc.verification_status or 'PENDING_VERIFICATION').upper()

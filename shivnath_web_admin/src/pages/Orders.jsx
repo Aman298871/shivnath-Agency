@@ -763,7 +763,7 @@ export default function Orders() {
                         </td>
                       </tr>
                     ) : (
-                      selectedOrder.items.map((it, idx) => (
+                      (selectedOrder.items || []).map((it, idx) => (
                         <tr key={idx}>
                           <td className="p-2.5 font-medium text-slate-800">
                             {it.product_name || `SKU #${it.product_id || it.product}`}

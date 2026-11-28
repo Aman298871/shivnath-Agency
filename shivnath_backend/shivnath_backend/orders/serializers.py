@@ -8,8 +8,8 @@ from .models import (
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    sku = serializers.CharField(source='product.sku', read_only=True)
-    product_sku = serializers.CharField(source='product.sku', read_only=True)
+    sku = serializers.SerializerMethodField()
+    product_sku = serializers.SerializerMethodField()
     product_image = serializers.SerializerMethodField()
     gst_percent = serializers.SerializerMethodField()
     package_type = serializers.SerializerMethodField()
@@ -39,10 +39,25 @@ class OrderItemSerializer(serializers.ModelSerializer):
             'uom_display',
         ]
 
+    def _get_product_safe(self, obj):
+        try:
+            return obj.product
+        except Exception:
+            return None
+
+    def get_sku(self, obj):
+        p = self._get_product_safe(obj)
+        return p.sku if p else ''
+
+    def get_product_sku(self, obj):
+        p = self._get_product_safe(obj)
+        return p.sku if p else ''
+
     def get_product_image(self, obj):
-        if obj.product and obj.product.image:
+        p = self._get_product_safe(obj)
+        if p and p.image:
             try:
-                url = obj.product.image.url
+                url = p.image.url
                 if not url.startswith('http'):
                     return f"https://shivnath-agency.onrender.com{url}"
                 return url
@@ -51,13 +66,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return ''
 
     def get_gst_percent(self, obj):
-        if obj.product and hasattr(obj.product, 'gst'):
-            return float(obj.product.gst)
+        p = self._get_product_safe(obj)
+        if p and hasattr(p, 'gst'):
+            return float(p.gst)
         return 18.0
 
     def get_package_type(self, obj):
-        if obj.product and hasattr(obj.product, 'package_type'):
-            return obj.product.package_type
+        p = self._get_product_safe(obj)
+        if p and hasattr(p, 'package_type'):
+            return p.package_type
         size_str = str(obj.size or '').upper().strip()
         name_str = str(obj.product_name or '').upper().strip()
         is_jar = (
@@ -69,11 +86,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return 'BOTTLE'
 
     def get_sales_unit(self, obj):
-        if obj.product:
-            from products.packaging_services import get_product_moq_info
-            moq = get_product_moq_info(obj.product)
-            if moq and 'sales_unit' in moq:
-                return moq['sales_unit']
+        p = self._get_product_safe(obj)
+        if p:
+            try:
+                from products.packaging_services import get_product_moq_info
+                moq = get_product_moq_info(p)
+                if moq and 'sales_unit' in moq:
+                    return moq['sales_unit']
+            except Exception:
+                pass
         return 'JAR' if self.get_package_type(obj) == 'JAR' else 'CARTON'
 
     def get_sales_unit_display(self, obj):
@@ -91,16 +112,22 @@ class OrderItemSerializer(serializers.ModelSerializer):
         qty = obj.quantity or 1
         pkg_type = self.get_package_type(obj)
         units_per_carton = 1
-        if obj.product:
-            from products.models import MinimumOrderPackagingRule
-            rule = MinimumOrderPackagingRule.objects.filter(product=obj.product).first()
-            if not rule and getattr(obj.product, 'category_id', None):
-                rule = MinimumOrderPackagingRule.objects.filter(category_id=obj.product.category_id).first()
-            if rule and rule.units_per_carton:
-                units_per_carton = rule.units_per_carton
+        p = self._get_product_safe(obj)
+        if p:
+            try:
+                from products.models import MinimumOrderPackagingRule
+                rule = MinimumOrderPackagingRule.objects.filter(product=p).first()
+                if not rule and getattr(p, 'category_id', None):
+                    rule = MinimumOrderPackagingRule.objects.filter(category_id=p.category_id).first()
+                if rule and rule.units_per_carton:
+                    units_per_carton = rule.units_per_carton
+            except Exception:
+                pass
 
-        name_upper = str(obj.product_name or (obj.product.name if obj.product else '')).upper()
-        size_upper = str(obj.size or (obj.product.size if obj.product else '')).upper()
+        p_name = p.name if p else ''
+        p_size = p.size if p else ''
+        name_upper = str(obj.product_name or p_name).upper()
+        size_upper = str(obj.size or p_size).upper()
         is_bottle = pkg_type == 'BOTTLE' or 'BOTTLE' in name_upper or 'ML' in size_upper or 'ML' in name_upper or 'LITRE' in size_upper
         is_jar = not is_bottle and (pkg_type == 'JAR' or 'JAR' in name_upper or '20L' in size_upper or '20L' in name_upper)
 

@@ -875,20 +875,29 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
                 'errors': serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
         rule = serializer.save()
-        from accounts.models import publish_system_event
-        publish_system_event(
-            event_type='moq.updated',
-            payload={
-                'rule_id': rule.id,
-                'product_id': rule.product_id,
-                'product_name': rule.product.name if rule.product else None,
-                'min_order_quantity': rule.min_order_quantity,
-                'franchise_id': rule.franchise_id,
-                'applies_to': rule.applies_to,
-            },
-            target_scope='all',
-            franchise_id=rule.franchise_id
-        )
+        try:
+            from accounts.models import publish_system_event
+            p_name = None
+            try:
+                if rule.product_id and rule.product:
+                    p_name = rule.product.name
+            except Exception:
+                p_name = None
+            publish_system_event(
+                event_type='moq.updated',
+                payload={
+                    'rule_id': rule.id,
+                    'product_id': rule.product_id,
+                    'product_name': p_name,
+                    'min_order_quantity': rule.min_order_quantity,
+                    'franchise_id': rule.franchise_id,
+                    'applies_to': rule.applies_to,
+                },
+                target_scope='all',
+                franchise_id=rule.franchise_id
+            )
+        except Exception:
+            pass
         return Response({
             'success': True,
             'message': f"Packaging rule '{rule.name}' saved successfully.",
@@ -995,20 +1004,29 @@ class MinimumOrderPackagingRuleDetailView(APIView):
                 'errors': serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
         rule = serializer.save()
-        from accounts.models import publish_system_event
-        publish_system_event(
-            event_type='moq.updated',
-            payload={
-                'rule_id': rule.id,
-                'product_id': rule.product_id,
-                'product_name': rule.product.name if rule.product else None,
-                'min_order_quantity': rule.min_order_quantity,
-                'franchise_id': rule.franchise_id,
-                'applies_to': rule.applies_to,
-            },
-            target_scope='all',
-            franchise_id=rule.franchise_id
-        )
+        try:
+            from accounts.models import publish_system_event
+            p_name = None
+            try:
+                if rule.product_id and rule.product:
+                    p_name = rule.product.name
+            except Exception:
+                p_name = None
+            publish_system_event(
+                event_type='moq.updated',
+                payload={
+                    'rule_id': rule.id,
+                    'product_id': rule.product_id,
+                    'product_name': p_name,
+                    'min_order_quantity': rule.min_order_quantity,
+                    'franchise_id': rule.franchise_id,
+                    'applies_to': rule.applies_to,
+                },
+                target_scope='all',
+                franchise_id=rule.franchise_id
+            )
+        except Exception:
+            pass
         return Response({
             'success': True,
             'message': f"Packaging rule '{rule.name}' updated successfully.",

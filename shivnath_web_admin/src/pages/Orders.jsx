@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Search, Filter, Eye, RefreshCw, CheckCircle2, Truck, AlertCircle, 
   XCircle, PauseCircle, PlayCircle, Factory, Calendar, DollarSign, 
-  FileText, Clock, CreditCard, Bell, ChevronRight, X, Package 
+  FileText, Clock, Bell, ChevronRight, X, Package 
 } from 'lucide-react';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
@@ -317,16 +317,17 @@ export default function Orders() {
     window.open(`${API_BASE_URL}/api/billing/orders/${orderId}/invoice/download/?token=${token}`, '_blank');
   };
 
-  const filteredOrders = orders.filter((o) => {
+  const filteredOrders = (Array.isArray(orders) ? orders : []).filter((o) => {
+    if (!o) return false;
     // 1. Text Search
     if (search) {
       const q = search.toLowerCase();
       const matchesSearch = 
-        o.id?.toString().includes(q) ||
-        o.order_code?.toLowerCase().includes(q) ||
-        o.customer_name?.toLowerCase().includes(q) ||
-        o.franchise_name?.toLowerCase().includes(q) ||
-        o.phone?.includes(q);
+        String(o.id || '').includes(q) ||
+        String(o.order_code || '').toLowerCase().includes(q) ||
+        String(o.customer_name || '').toLowerCase().includes(q) ||
+        String(o.franchise_name || '').toLowerCase().includes(q) ||
+        String(o.phone || '').includes(q);
       if (!matchesSearch) return false;
     }
 
@@ -338,16 +339,20 @@ export default function Orders() {
 
     // 3. Date Filter
     if (dateFilter !== 'ALL' && o.created_at) {
-      const ordDate = new Date(o.created_at);
-      const now = new Date();
-      if (dateFilter === 'TODAY') {
-        if (ordDate.toDateString() !== now.toDateString()) return false;
-      } else if (dateFilter === 'WEEK') {
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        if (ordDate < weekAgo) return false;
-      } else if (dateFilter === 'MONTH') {
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        if (ordDate < monthAgo) return false;
+      try {
+        const ordDate = new Date(o.created_at);
+        const now = new Date();
+        if (dateFilter === 'TODAY') {
+          if (ordDate.toDateString() !== now.toDateString()) return false;
+        } else if (dateFilter === 'WEEK') {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (ordDate < weekAgo) return false;
+        } else if (dateFilter === 'MONTH') {
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          if (ordDate < monthAgo) return false;
+        }
+      } catch (e) {
+        return true;
       }
     }
 
@@ -518,7 +523,7 @@ export default function Orders() {
                         <p className="text-[11px] text-slate-500">{ord.phone || ''}</p>
                       </td>
                       <td className="py-3.5 text-slate-600">
-                        {(ord.order_source === 'DIRECT_COMPANY' || ord.order_source === 'WATER_WALLET' || ord.order_source === 'WATER_WALLET_REDEMPTION' || !ord.serving_franchise || (ord.franchise_name && ord.franchise_name.includes('Direct'))) ? (
+                        {(ord.order_source === 'DIRECT_COMPANY' || ord.order_source === 'WATER_WALLET' || ord.order_source === 'WATER_WALLET_REDEMPTION' || !ord.serving_franchise || (typeof ord.franchise_name === 'string' && ord.franchise_name.includes('Direct'))) ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200 shadow-sm">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                             Central Plant (Direct)

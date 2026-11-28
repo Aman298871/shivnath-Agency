@@ -1,8 +1,12 @@
 import axios from 'axios';
 
 const getApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
+  if (import.meta.env.VITE_API_BASE_URL !== undefined && import.meta.env.VITE_API_BASE_URL.trim() !== '') {
+    return import.meta.env.VITE_API_BASE_URL.trim().replace(/\/+$/, '');
+  }
+  // In local development, use relative path ('') to leverage Vite's dev proxy and prevent browser CORS blocks
+  if (import.meta.env.DEV) {
+    return '';
   }
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('ww_custom_api_url');

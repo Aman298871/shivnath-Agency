@@ -315,6 +315,10 @@ if not DEBUG:
             'https://shivnathagencies.com',
             'https://admin.shivnathagencies.com',
             'https://waterwala.shivnathagencies.com',
+            'http://localhost:3000',
+            'http://localhost:5173',
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:5173',
         ]
 else:
     CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True').lower() == 'true'

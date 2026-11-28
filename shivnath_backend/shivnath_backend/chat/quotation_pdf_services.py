@@ -37,8 +37,8 @@ def generate_pure_quotation_pdf(quotation):
     company_name = "SHIVNATH AGENCIES"
     company_address = "Ekta Nagar, Pragati Nagar, LIC Colony, Near Mowa Thana, Raipur, Chhattisgarh"
     company_gstin = "22AQNPK7620D1Z3"
-    company_phone = "9826421818"
-    company_email = "support@waterwala.in"
+    company_phone = "+91 89669 25257"
+    company_email = "support@shivnathagencies.com"
 
     q_number = quotation.quotation_number or f"Q-FRN-2026-{quotation.id:04d}"
     q_date = quotation.created_at.strftime('%d-%b-%Y') if quotation.created_at else datetime.now().strftime('%d-%b-%Y')

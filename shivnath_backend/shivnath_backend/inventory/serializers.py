@@ -206,6 +206,55 @@ class RawMaterialSerializer(serializers.ModelSerializer):
     def get_is_low_stock(self, obj):
         return obj.current_stock <= obj.reorder_level
 
+    def to_internal_value(self, data):
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+        cat_map = {
+            'pet_preforms': 'preform',
+            'pet_preform': 'preform',
+            'preforms': 'preform',
+            'caps': 'cap',
+            'labels': 'label',
+            'corrugated_boxes': 'packaging',
+            'packaging': 'packaging',
+            'chemicals': 'chemical',
+            'chemical': 'chemical',
+            'water': 'raw_water',
+            'raw_water': 'raw_water',
+            'bottles': 'bottle',
+            'bottle': 'bottle',
+            'jars': 'jar',
+            'jar': 'jar',
+        }
+        if 'category' in data and data['category']:
+            raw_cat = str(data['category']).lower().strip()
+            data['category'] = cat_map.get(raw_cat, raw_cat)
+
+        unit_map = {
+            'pieces': 'pcs',
+            'piece': 'pcs',
+            'liter': 'litres',
+            'litre': 'litres',
+            'liters': 'litres',
+            'box': 'boxes',
+            'carton': 'boxes',
+            'cartons': 'boxes',
+            'roll': 'rolls',
+            'kgs': 'kg',
+        }
+        if 'unit_of_measure' in data and data['unit_of_measure']:
+            raw_unit = str(data['unit_of_measure']).lower().strip()
+            data['unit_of_measure'] = unit_map.get(raw_unit, raw_unit)
+
+        if 'minimum_stock_level' in data and 'reorder_level' not in data:
+            data['reorder_level'] = data['minimum_stock_level']
+
+        if not data.get('sku'):
+            import time
+            cat_prefix = str(data.get('category', 'RM'))[:3].upper()
+            data['sku'] = f"RM-{cat_prefix}-{int(time.time())}"
+
+        return super().to_internal_value(data)
+
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         request = self.context.get('request')

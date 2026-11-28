@@ -84,7 +84,7 @@ export default function App() {
               <Route path="products" element={<ProtectedRoute module="products"><Products /></ProtectedRoute>} />
               <Route path="plant-stock" element={<ProtectedRoute module="inventory"><PlantStock /></ProtectedRoute>} />
               <Route path="quotations" element={<ProtectedRoute module="billing"><Quotations /></ProtectedRoute>} />
-              <Route path="moq-delivery" element={<ProtectedRoute module="moq"><MoqDelivery /></ProtectedRoute>} />
+              <Route path="moq-delivery" element={<ProtectedRoute module="moq"><ErrorBoundary><MoqDelivery /></ErrorBoundary></ProtectedRoute>} />
               <Route path="billing" element={<ProtectedRoute module="billing"><Billing /></ProtectedRoute>} />
               <Route path="employees" element={<ProtectedRoute module="employees" action="manage"><Employees /></ProtectedRoute>} />
               <Route path="reports" element={<ProtectedRoute module="reports"><Reports /></ProtectedRoute>} />

@@ -124,11 +124,11 @@ export default function MoqDelivery() {
   // When category changes in rule modal, auto-update available products
   const availableProductsForCategory = useMemo(() => {
     if (!ruleCategoryId) return products;
-    return products.filter((p) => {
-      return (
-        p.category_ref_id?.toString() === ruleCategoryId.toString() ||
-        p.category?.toLowerCase() === ruleCategoryId.toLowerCase()
-      );
+    const catStr = String(ruleCategoryId).toLowerCase().trim();
+    return (products || []).filter((p) => {
+      const pCatId = p.category_ref_id?.toString() || p.category_id?.toString() || (typeof p.category === 'object' ? p.category?.id?.toString() : p.category?.toString());
+      const pCatName = (typeof p.category === 'string' ? p.category : p.category_name || '').toLowerCase().trim();
+      return pCatId === catStr || (pCatName && pCatName === catStr);
     });
   }, [products, ruleCategoryId]);
 
@@ -138,7 +138,8 @@ export default function MoqDelivery() {
     const prod = products.find((p) => p.id.toString() === prodId.toString());
     if (prod) {
       setRuleUnitsPerCarton(prod.units_per_case || prod.carton_pack_size || 24);
-      if (prod.package_type === 'JAR' || prod.name?.toLowerCase().includes('jar')) {
+      const pName = String(prod.name || '').toLowerCase();
+      if (prod.package_type === 'JAR' || pName.includes('jar')) {
         setRuleSalesUnit('JAR');
       } else {
         setRuleSalesUnit('CARTON');

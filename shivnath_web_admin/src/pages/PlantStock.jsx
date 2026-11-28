@@ -55,7 +55,7 @@ export default function PlantStock() {
   // New Raw Material Modal State
   const [isRawModalOpen, setIsRawModalOpen] = useState(false);
   const [rawName, setRawName] = useState('');
-  const [rawCategory, setRawCategory] = useState('PET_PREFORMS');
+  const [rawCategory, setRawCategory] = useState('preform');
   const [rawSku, setRawSku] = useState('');
   const [rawQuantity, setRawQuantity] = useState(1000);
   const [rawUnit, setRawUnit] = useState('pcs');
@@ -202,9 +202,10 @@ export default function PlantStock() {
       await apiClient.post('/api/inventory/raw-materials/', {
         name: rawName.trim(),
         category: rawCategory,
-        sku: rawSku.trim() || `${rawCategory.slice(0, 3)}-${Date.now().toString().slice(-4)}`,
+        sku: rawSku.trim() || `RM-${rawCategory.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`,
         current_stock: parseFloat(rawQuantity || 0),
         unit_of_measure: rawUnit,
+        reorder_level: parseFloat(rawMinLevel || 0),
         minimum_stock_level: parseFloat(rawMinLevel || 0),
         unit_cost: parseFloat(rawCost || 0),
       });
@@ -912,13 +913,14 @@ export default function PlantStock() {
                 onChange={(e) => setRawCategory(e.target.value)}
                 className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-sky-500 focus:outline-none bg-white"
               >
-                <option value="PET_PREFORMS">PET Preforms</option>
-                <option value="CAPS">Bottle Caps / Jar Caps</option>
-                <option value="LABELS">Packaging Labels</option>
-                <option value="CORRUGATED_BOXES">Corrugated Carton Boxes</option>
-                <option value="CHEMICALS">Water Treatment Minerals / Chemicals</option>
-                <option value="PACKAGING">Secondary Packaging / Shrink Wrap</option>
-                <option value="WATER">Source Raw Water</option>
+                <option value="preform">PET Preforms</option>
+                <option value="cap">Bottle Caps / Jar Caps</option>
+                <option value="label">Packaging Labels</option>
+                <option value="packaging">Corrugated Carton Boxes / Packaging</option>
+                <option value="chemical">Water Treatment Minerals / Chemicals</option>
+                <option value="raw_water">Source Raw Water</option>
+                <option value="bottle">Bottles</option>
+                <option value="jar">Jars</option>
               </select>
             </div>
 

@@ -710,10 +710,13 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
         return [AllowAny()]
 
     def get(self, request):
-        from .models import MinimumOrderPackagingRule
+        from .models import MinimumOrderPackagingRule, Product
         from .serializers import MinimumOrderPackagingRuleSerializer
 
-        qs = MinimumOrderPackagingRule.objects.all()
+        existing_products = Product.objects.all()
+        qs = MinimumOrderPackagingRule.objects.filter(
+            Q(product__isnull=True) | Q(product__in=existing_products)
+        )
         product_id = request.query_params.get('product_id')
         category_id = request.query_params.get('category_id')
         franchise_id = request.query_params.get('franchise_id')
@@ -874,7 +877,14 @@ class MinimumOrderPackagingRuleListCreateView(APIView):
                 'error': err_msg,
                 'errors': serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
-        rule = serializer.save()
+        try:
+            rule = serializer.save()
+        except Exception as save_err:
+            return Response({
+                'success': False,
+                'message': f"Failed to save rule: {str(save_err)}",
+                'error': str(save_err)
+            }, status=status.HTTP_400_BAD_REQUEST)
         try:
             from accounts.models import publish_system_event
             p_name = None
@@ -1003,7 +1013,14 @@ class MinimumOrderPackagingRuleDetailView(APIView):
                 'error': err_msg,
                 'errors': serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
-        rule = serializer.save()
+        try:
+            rule = serializer.save()
+        except Exception as save_err:
+            return Response({
+                'success': False,
+                'message': f"Failed to save rule: {str(save_err)}",
+                'error': str(save_err)
+            }, status=status.HTTP_400_BAD_REQUEST)
         try:
             from accounts.models import publish_system_event
             p_name = None

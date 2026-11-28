@@ -19,6 +19,7 @@ import PlantStock from './pages/PlantStock';
 import Quotations from './pages/Quotations';
 import LeadsFollowups from './pages/LeadsFollowups';
 import { ShieldAlert } from 'lucide-react';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 const ProtectedRoute = ({ children, module, action = 'view' }) => {
   const { isAuthenticated, isLoading, hasPermission } = useAuth();
@@ -69,7 +70,9 @@ export default function App() {
               path="/"
               element={
                 <ProtectedRoute>
-                  <AdminLayout />
+                  <ErrorBoundary>
+                    <AdminLayout />
+                  </ErrorBoundary>
                 </ProtectedRoute>
               }
             >

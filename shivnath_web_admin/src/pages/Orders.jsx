@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Search, Filter, Eye, RefreshCw, CheckCircle2, Truck, AlertCircle, 
   XCircle, PauseCircle, PlayCircle, Factory, Calendar, DollarSign, 
-  FileText, Clock, CreditCard, Bell, ChevronRight, X 
+  FileText, Clock, CreditCard, Bell, ChevronRight, X, Package 
 } from 'lucide-react';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
@@ -144,9 +144,9 @@ export default function Orders() {
       
       // Update selected order view in-place if returned
       if (res.data?.order) {
-        setSelectedOrder(res.data.order);
+        setSelectedOrder((prev) => ({ ...(prev || {}), ...res.data.order }));
       } else {
-        setSelectedOrder((prev) => ({ ...prev, status: newStatus.toLowerCase(), ...extraParams }));
+        setSelectedOrder((prev) => ({ ...(prev || {}), status: newStatus.toLowerCase(), ...extraParams }));
       }
       setStatusNote('');
       fetchOrders();

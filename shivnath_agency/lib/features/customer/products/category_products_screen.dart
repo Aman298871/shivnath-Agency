@@ -65,7 +65,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         final isSpecific200 = catLower.contains('200');
         final isSpecific250 = catLower.contains('250');
         final isSpecific500 = catLower.contains('500');
-        final isSpecific1L = catLower.contains('1l') || catLower.contains('1 litre') || catLower.contains('1000');
+        final isSpecific1L =
+            catLower.contains('1l') ||
+            catLower.contains('1 litre') ||
+            catLower.contains('1000');
         final isJar = catLower.contains('jar');
         final isBottle = catLower.contains('bottle');
 
@@ -438,7 +441,10 @@ class _ProductCard extends StatelessWidget {
                             height: 36,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 0,
+                                ),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 backgroundColor: !product.isActive
                                     ? Colors.grey.shade400
@@ -451,7 +457,10 @@ class _ProductCard extends StatelessWidget {
                               onPressed: !product.isActive
                                   ? null
                                   : () {
-                                      MoqConfirmationDialog.handleAddToCart(context, product);
+                                      MoqConfirmationDialog.handleAddToCart(
+                                        context,
+                                        product,
+                                      );
                                     },
                               child: FittedBox(
                                 fit: BoxFit.scaleDown,
@@ -467,7 +476,9 @@ class _ProductCard extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      !product.isActive ? 'Unavailable' : 'Add to Cart',
+                                      !product.isActive
+                                          ? 'Unavailable'
+                                          : 'Add to Cart',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,

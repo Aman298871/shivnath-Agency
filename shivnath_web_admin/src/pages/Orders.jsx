@@ -1,8 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Search, Filter, Eye, RefreshCw, CheckCircle2, Truck, AlertCircle, 
-  XCircle, PauseCircle, PlayCircle, Factory, Calendar, DollarSign, 
-  FileText, Clock, Bell, ChevronRight, X, Package 
+import {
+  Search,
+  Filter,
+  Eye,
+  RefreshCw,
+  CheckCircle2,
+  Truck,
+  AlertCircle,
+  XCircle,
+  PauseCircle,
+  PlayCircle,
+  Factory,
+  Calendar,
+  DollarSign,
+  FileText,
+  Clock,
+  Bell,
+  ChevronRight,
+  X,
+  Package,
 } from 'lucide-react';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
@@ -724,8 +740,8 @@ export default function Orders() {
                   </p>
                 )}
                 <div className="mt-2 text-[11px] space-y-0.5">
-                  <p className="text-slate-600">
-                    <span className="font-semibold text-slate-700">Fulfillment Route:</span>{' '}
+                  <div className="flex flex-wrap items-center gap-1.5 text-slate-600">
+                    <span className="font-semibold text-slate-700">Fulfillment Route:</span>
                     {(selectedOrder.order_source === 'DIRECT_COMPANY' || selectedOrder.order_source === 'WATER_WALLET' || selectedOrder.order_source === 'WATER_WALLET_REDEMPTION' || !selectedOrder.serving_franchise || (typeof selectedOrder.franchise_name === 'string' && selectedOrder.franchise_name.includes('Direct'))) ? (
                       <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
@@ -737,7 +753,7 @@ export default function Orders() {
                         {selectedOrder.serving_franchise_name || selectedOrder.franchise_name || 'Franchise Partner'}
                       </span>
                     )}
-                  </p>
+                  </div>
                   {selectedOrder.registered_franchise_name && (
                     <p className="text-slate-500 text-[10px]">
                       Customer Origin: {selectedOrder.registered_franchise_name}
@@ -763,7 +779,7 @@ export default function Orders() {
                   <tbody className="divide-y divide-slate-100">
                     {(!Array.isArray(selectedOrder.items) || selectedOrder.items.length === 0) ? (
                       <tr>
-                        <td colSpan="4" className="p-4 text-center text-slate-400">
+                        <td colSpan={4} className="p-4 text-center text-slate-400">
                           Total Order Package Amount: ₹{selectedOrder.grand_total ?? selectedOrder.total_amount ?? selectedOrder.amount ?? 0}
                         </td>
                       </tr>

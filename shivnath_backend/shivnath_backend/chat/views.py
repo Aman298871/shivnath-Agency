@@ -543,10 +543,33 @@ class FranchiseQuotationActionView(APIView):
 
 
 class QuotationPDFDownloadView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, pk=None):
-        role = get_user_role(request.user)
+        user = request.user
+        if not user or not user.is_authenticated:
+            raw_token = request.query_params.get('token', '').strip()
+            if not raw_token:
+                auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+                if auth_header.startswith('Bearer '):
+                    raw_token = auth_header.split('Bearer ')[1].strip()
+
+            if raw_token:
+                try:
+                    from rest_framework_simplejwt.tokens import AccessToken
+                    from django.contrib.auth import get_user_model
+                    validated_token = AccessToken(raw_token)
+                    user_id = validated_token['user_id']
+                    user = get_user_model().objects.get(id=user_id)
+                except Exception:
+                    user = None
+
+        if not user or not user.is_authenticated:
+            return Response({
+                "detail": "Authentication credentials were not provided."
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        role = get_user_role(user)
         if role == 'customer':
             return Response({
                 "success": False,
@@ -561,7 +584,7 @@ class QuotationPDFDownloadView(APIView):
             if q_type:
                 queryset = queryset.filter(quotation_type=q_type)
             if role == 'franchise':
-                f_profile = getattr(request.user, 'franchise_profile', None)
+                f_profile = getattr(user, 'franchise_profile', None)
                 queryset = queryset.filter(Q(franchise=f_profile) | Q(franchise__isnull=True))
             quotation = queryset.first()
 
@@ -569,35 +592,40 @@ class QuotationPDFDownloadView(APIView):
             return Response({"success": False, "has_pdf": False, "message": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
 
         if role == 'franchise':
-            f_profile = getattr(request.user, 'franchise_profile', None)
+            f_profile = getattr(user, 'franchise_profile', None)
             if not f_profile or (quotation.franchise is not None and quotation.franchise != f_profile):
                 return Response({
                     "success": False,
                     "message": "Access Denied: You cannot download quotations assigned to another franchise.",
                 }, status=status.HTTP_403_FORBIDDEN)
 
-        # Check if actual PDF file is uploaded in database
-        if not quotation.pdf_file or not hasattr(quotation.pdf_file, 'path') or not os.path.exists(quotation.pdf_file.path):
-            return Response({
-                "success": False,
-                "has_pdf": False,
-                "quotation": QuotationSerializer(quotation, context={'request': request}).data,
-                "message": f"No official PDF document is currently attached to quotation '{quotation.quotation_number or quotation.title}'."
-            }, status=status.HTTP_404_NOT_FOUND)
+        # 1. If custom uploaded PDF file exists on disk, serve it directly
+        if quotation.pdf_file and hasattr(quotation.pdf_file, 'path') and os.path.exists(quotation.pdf_file.path):
+            try:
+                file_handle = open(quotation.pdf_file.path, 'rb')
+                response = FileResponse(file_handle, content_type='application/pdf')
+                filename = os.path.basename(quotation.pdf_file.name)
+                response['Content-Disposition'] = f'inline; filename="{filename}"'
+                response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+                return response
+            except Exception:
+                pass
 
-        # Serve the real uploaded PDF file from database
+        # 2. Otherwise generate authoritative standard pure vector PDF on the fly
         try:
-            file_handle = open(quotation.pdf_file.path, 'rb')
-            response = FileResponse(file_handle, content_type='application/pdf')
-            filename = os.path.basename(quotation.pdf_file.name)
-            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            from chat.quotation_pdf_services import generate_pure_quotation_pdf
+            pdf_bytes = generate_pure_quotation_pdf(quotation)
+            safe_num = (quotation.quotation_number or f"Q-FRN-2026-{quotation.id:04d}").replace('/', '_')
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'inline; filename="{safe_num}.pdf"'
             response['Access-Control-Expose-Headers'] = 'Content-Disposition'
             return response
         except Exception as e:
+            logger.exception("Error generating quotation PDF")
             return Response({
                 "success": False,
                 "has_pdf": False,
-                "message": f"Error opening attached PDF file: {str(e)}"
+                "message": f"Error generating PDF document: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

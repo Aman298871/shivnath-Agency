@@ -77,7 +77,7 @@ export default function App() {
               }
             >
               <Route index element={<Dashboard />} />
-              <Route path="orders" element={<ProtectedRoute module="orders"><Orders /></ProtectedRoute>} />
+              <Route path="orders" element={<ProtectedRoute module="orders"><ErrorBoundary><Orders /></ErrorBoundary></ProtectedRoute>} />
               <Route path="customers" element={<ProtectedRoute module="customers"><Customers /></ProtectedRoute>} />
               <Route path="leads" element={<ProtectedRoute module="customers"><LeadsFollowups /></ProtectedRoute>} />
               <Route path="franchises" element={<ProtectedRoute module="dealers"><Franchises /></ProtectedRoute>} />
